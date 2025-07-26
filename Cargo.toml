@@ -1,0 +1,8 @@
+[workspace]
+members = [ "smartcheck", "smartproof", "smartir", "solidity", "yul"]
+
+[workspace.package]
+version = "0.0.1"
+authors = ["Ta Quang Trung"]
+license = "Apache License 2.0"
+edition = "2024"

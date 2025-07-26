@@ -1,0 +1,36 @@
+// Grammar rule for parsing version in Solidity's `pragma` directive.
+
+// Solidity source unit.
+source_unit =  {
+    SOI? ~
+    (pragma_solidity_version ~ not_pragma_solidity_version?)* ~
+    EOI
+}
+
+pragma_solidity_version = {
+    PRAGMA ~
+    SOLIDITY ~
+    version_info ~
+    SEMICOLON
+}
+
+version_info = {
+    (!SEMICOLON ~ ANY)*
+}
+
+not_pragma_solidity_version = _ {
+    (!(PRAGMA ~ SOLIDITY) ~ ANY)*
+}
+
+PRAGMA = _ { "pragma" }
+SOLIDITY = _ { "solidity" }
+SEMICOLON = _ { ";" }
+
+// Special rules for whitespace (`WHITESPACE` is a reserved name of PEST)
+WHITESPACE = _ { " " | "\t" | newline }
+newline = _ { "\n" | "\r\n" | "\r" }
+
+// Special rules for comments (COMMENT is a reserved name of PEST)
+COMMENT = _ { (block_comment | line_comment) }          // Capture comment
+block_comment = { "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+line_comment = { "//" ~ (!newline ~ ANY)* ~ newline }

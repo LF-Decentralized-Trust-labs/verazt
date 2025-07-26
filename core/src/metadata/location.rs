@@ -1,0 +1,91 @@
+use std::fmt::{self, Display};
+
+use color_eyre::eyre::{bail, Result};
+
+//-------------------------------------------------------------------------
+// Source code location
+//-------------------------------------------------------------------------
+
+/// Source code location.
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub struct Loc {
+    pub start_line: isize,
+    pub start_col: isize,
+    pub end_line: isize,
+    pub end_col: isize,
+}
+
+impl Loc {
+    pub fn new(
+        start_line: isize,
+        start_col: isize,
+        end_line: isize,
+        end_col: isize,
+    ) -> Self {
+        Loc {
+            start_line,
+            start_col,
+            end_line,
+            end_col,
+        }
+    }
+}
+
+impl Display for Loc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}:{}-{}:{}",
+            self.start_line, self.start_col, self.end_line, self.end_col
+        )
+    }
+}
+
+//-------------------------------------------------------------------------
+// Data location
+//-------------------------------------------------------------------------
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
+pub enum DataLoc {
+    Memory,   // In memory.
+    Storage,  // In storage.
+    Calldata, // In function call data
+}
+
+impl DataLoc {
+    pub fn new(data_loc: &str) -> Result<Self> {
+        match data_loc {
+            "memory" => Ok(DataLoc::Memory),
+            "storage" => Ok(DataLoc::Storage),
+            "calldata" => Ok(DataLoc::Calldata),
+            _ => bail!("Unknown data location: {}", data_loc),
+        }
+    }
+
+    /// Check if the data location is `Calldata`.
+    #[must_use]
+    pub fn is_calldata(&self) -> bool {
+        matches!(self, Self::Calldata)
+    }
+
+    #[must_use]
+    pub fn is_storage(&self) -> bool {
+        matches!(self, Self::Storage)
+    }
+
+    #[must_use]
+    pub fn is_memory(&self) -> bool {
+        matches!(self, Self::Memory)
+    }
+}
+
+impl Display for DataLoc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use DataLoc::*;
+        match self {
+            Memory => write!(f, "memory"),
+            Storage => write!(f, "storage"),
+            Calldata => write!(f, "calldata"),
+        }
+    }
+}

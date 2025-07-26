@@ -1,0 +1,18 @@
+[package]
+name = "smartcheck"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "smartcheck"
+path = "src/smartcheck.rs"
+
+[dependencies]
+core = { path = "../core" }
+clap = { version = "4.1.1", features = ["cargo"] }
+clap-verbosity-flag = "2.0.1"
+color-eyre = "0.6"
+log = "0.4"
+solidity = { path = "../solidity" }

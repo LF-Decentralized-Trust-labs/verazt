@@ -1,0 +1,39 @@
+[package]
+name = "solidity"
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+
+[[bin]]
+name = "soljc"
+path = "src/soljc.rs"
+
+[dependencies]
+backtrace = "0.3"
+bat = "0.23"
+clap = { version = "4.1.1", features = ["cargo"] }
+clap-verbosity-flag = "2.0.1"
+color-eyre = "0.6"
+core = { path = "../core" }
+either = "1.8"
+exec_time = "0.1.4"
+indoc = "2.0.5"
+itertools = "0.10.5"
+lazy_static = "1.4.0"
+log = "0.4"
+node-semver = "2.0"
+num-bigint = "0.4"
+num-integer = "0.1"
+num-traits = "0.2"
+pest = "2.5"
+pest_derive = "2.5"
+petgraph = "0.6"
+pretty_env_logger = "0.5.0"
+regex = "1.5"
+remain = "0.2"
+rust_decimal = "1.27"
+serde = { package = "serde_json", version = "1.0" }
+tempfile = "3.3.0"
+time-graph = { version = "0.3.0", features = ["table"] }
+yul = { path = "../yul" }

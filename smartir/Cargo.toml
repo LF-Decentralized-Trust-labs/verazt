@@ -1,0 +1,19 @@
+[package]
+name = "smartir"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+bat = "0.23"
+core = { path = "../core" }
+color-eyre = "0.6"
+either = "1.8"
+log = "0.4"
+num-bigint = "0.4"
+num-integer = "0.1"
+num-traits = "0.2"
+rust_decimal = "1.27"
+solidity = { path = "../solidity" }
+yul = { path = "../yul" }

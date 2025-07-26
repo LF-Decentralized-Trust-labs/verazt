@@ -1,0 +1,8 @@
+edition = "2024"
+max_width = 99
+fn_call_width = 90
+wrap_comments = true
+comment_width = 80
+struct_lit_single_line = true
+struct_lit_width = 90
+# overflow_delimited_expr = false
