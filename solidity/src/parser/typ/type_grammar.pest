@@ -1,0 +1,307 @@
+// Grammar rules for data type of solidity
+
+// Data type stream
+data_type_stream = {
+    SOI ~
+    data_type ~
+    EOI
+}
+
+// Data type
+data_type = { slice_type | array_type | non_array_type }
+
+// Non-array type
+non_array_type = {
+    function_type
+    | mapping_type
+    | struct_type
+    | elementary_type
+    | tuple_type
+    | magic_type
+    | type_name
+}
+
+/// Elementary type
+elementary_type = {
+    int_type
+    | uint_type
+    | rational_const_type
+    | bool_type
+    | enum_type
+    | module_type
+    | address_type
+    | bytes_type
+    | string_type
+    | contract_type
+}
+
+// Struct type
+struct_type = { STRUCT ~ struct_name ~ data_location? ~ pointer_type?}
+struct_name = { struct_scope? ~ identifier }
+struct_scope = { identifier ~ DOT }
+
+// Enum type
+enum_type = { ENUM ~ enum_name}
+enum_name = { enum_scope? ~ identifier }
+enum_scope = { identifier ~ DOT }
+
+// Type alias (user-defined type)
+type_name = { type_name_scope? ~ identifier }
+type_name_scope = { identifier ~ DOT}
+
+// Contract type
+contract_type = { (CONTRACT | LIBRARY) ~ SUPER? ~ contract_name}
+contract_name = { identifier }
+
+// Module type
+module_type = { MODULE ~ module_name}
+module_name = @ { (alpha | digit | "_" | "." | "/" | "\"")* }
+
+// Tuple type
+tuple_type = {
+    TUPLE ~
+    OPEN_PAREN ~
+    tuple_param_types? ~
+    CLOSE_PAREN
+}
+tuple_param_types = {
+    tuple_param_type? ~
+    tuple_other_param_types?
+}
+tuple_param_type = {
+    array_type
+    | mapping_type
+    | tuple_type
+    | function_type
+    | struct_type
+    | magic_type
+    | elementary_type
+    | type_name
+}
+tuple_other_param_types = {
+    COMMA ~
+    tuple_param_type? ~
+    tuple_other_param_types?
+}
+
+
+// Mapping type
+mapping_type = {
+    MAPPING ~
+    OPEN_PAREN ~
+    (array_type | non_array_type) ~
+    MAPSTO ~
+    (array_type | non_array_type) ~
+    CLOSE_PAREN ~
+    data_location?
+}
+
+// Array type
+array_type = { non_array_type ~ array_dimension}
+array_dimension = {
+    OPEN_BRACKET ~
+    decimal_number? ~
+    CLOSE_BRACKET ~
+    data_location? ~
+    pointer_type? ~
+    array_dimension?
+}
+
+// Slice type
+slice_type = { (array_type | non_array_type) ~ SLICE}
+
+// Function type
+function_type = {
+    FUNCTION ~
+    function_name? ~
+    OPEN_PAREN ~
+    function_param_types? ~
+    CLOSE_PAREN ~
+    function_mutability? ~
+    function_visibility? ~
+    function_return_types?
+}
+function_name = {contract_name ~ DOT ~ identifier}
+function_param_types = {
+    function_param_type ~
+    function_other_param_types?
+}
+function_param_type = {
+    array_type
+    | mapping_type
+    | tuple_type
+    | function_type
+    | struct_type
+    | magic_type
+    | elementary_type
+    | type_name
+}
+function_other_param_types = {
+    COMMA ~
+    function_param_type ~
+    function_other_param_types?
+}
+function_return_types = {
+    RETURNS ~
+    OPEN_PAREN ~
+    function_param_types ~
+    CLOSE_PAREN
+}
+function_visibility = { INTERNAL | EXTERNAL | PRIVATE | PUBLIC}
+function_mutability = { PAYABLE | PURE | VIEW | CONSTANT }
+
+// Magic type
+magic_type = {
+    block_type
+    | message_type
+    | transaction_type
+    | abi_type
+    | meta_type
+}
+block_type = { BLOCK }
+message_type = { MSG }
+transaction_type = { TX }
+abi_type = { ABI }
+meta_type = { TYPE ~ OPEN_PAREN ~ (array_type | non_array_type) ~ CLOSE_PAREN }
+
+// Integer type
+int_type = { (int_const_type | int_var_type) }
+int_const_type = { INT_CONST ~ MINUS? ~ decimal_number ~ exponent_suffix?}
+exponent_suffix = {
+    DOTDOTDOT ~
+    OPEN_PAREN ~
+    decimal_number ~
+    DIGITS ~
+    OMITTED ~
+    CLOSE_PAREN ~
+    DOTDOTDOT ~
+    decimal_number
+}
+int_var_type = $ { INT ~ decimal_number? }
+
+// Unsigned integer type
+uint_type = { (uint_const_type | uint_var_type) }
+uint_const_type = { UINT_CONST ~ decimal_number }
+uint_var_type = $ { UINT ~ decimal_number? }
+
+// Rational const type
+rational_const_type = {
+    RATIONAL_CONST ~
+    MINUS? ~
+    decimal_number ~
+    FORWARD_SLASH ~
+    decimal_number
+}
+
+// String type
+string_type = { string_var_type | string_const_type }
+string_var_type = { STRING ~ data_location? ~ pointer_type? }
+string_const_type = { LITERAL_STRING ~ ANY*}
+
+// Boolean type
+bool_type = { BOOL }
+
+// Address type
+address_type = { ADDRESS ~ PAYABLE? }
+
+// Bytes type
+bytes_type = { BYTES ~ decimal_number? ~ data_location? ~ pointer_type?}
+
+// Pointer type
+pointer_type = { POINTER | REF }
+
+// Data location
+data_location = { STORAGE | MEMORY | CALLDATA }
+
+// Identifier
+identifier = @ { (alpha | "_" | "$") ~ (alpha | digit | "_" | "$")* }
+
+// Number
+decimal_number = @ { digit+ }
+
+// Literal
+literal = {(hex_literal | string_literal)}
+
+// Hex literal
+hex_literal = { HEX ~ string_literal}
+
+// String literal
+string_literal = {
+    "\"" ~
+    (!("\"") ~ ANY)* ~
+    "\""
+}
+
+// Character and digit
+alpha = _ { 'a'..'z' | 'A'..'Z' }
+digit = _ { '0'..'9' }
+
+// Whitespace (WHITESPACE is a reserved name of PEST)
+WHITESPACE = _ { " " | "\t" | newline }
+newline = _ { "\n" | "\r\n" | "\r" }
+
+// Keywords for primitive types
+ADDRESS = _ { "address" }
+BOOL    = _ { "bool" }
+BYTES   = _ { "bytes" }
+CONTRACT = { "contract" }
+LIBRARY = { "library" }
+SUPER = _ { "super" }
+ENUM = _ { "enum" }
+MODULE = _ { "module" }
+INT = _ { "int" }
+INT_CONST = { "int_const" }
+LITERAL_STRING = _ { "literal_string" }
+MAPPING = _ { "mapping" }
+STRING = _ { "string" }
+STRUCT = _ { "struct" }
+TUPLE = _ { "tuple" }
+UINT = _ { "uint" }
+UINT_CONST = _ { "uint_const" }
+RATIONAL_CONST = _ { "rational_const" }
+FUNCTION = _ { "function" }
+
+// Keyword for magic types
+BLOCK = _ { "block" }
+MSG = _ { "msg" }
+TX = _ { "tx" }
+ABI = _ { "abi" }
+TYPE = _ { "type" }
+
+// Keyword for address payable
+PAYABLE = { "payable" }
+
+// Keywords for data location
+STORAGE = { "storage" }
+MEMORY = { "memory" }
+CALLDATA = { "calldata" }
+
+// Keywords for pointer and reference
+POINTER = { "pointer" }
+REF = { "ref" }
+
+// Keywords for visibility and mutability
+INTERNAL = { "internal" }
+EXTERNAL = { "external" }
+PRIVATE = { "private" }
+PUBLIC = { "public" }
+PURE = { "pure" }
+VIEW = { "view" }
+CONSTANT = { "constant" }
+
+// Symbols, do not capture
+OPEN_PAREN = _ { "(" }
+CLOSE_PAREN = _ { ")" }
+OPEN_BRACKET = _ { "[" }
+CLOSE_BRACKET = _ { "]" }
+COMMA = _ { "," }
+DOT = _ { "." }
+DOTDOTDOT = _ { DOT ~ DOT ~ DOT }
+FORWARD_SLASH = _ { "/" }
+MAPSTO = _ { "=>" }
+RETURNS = _ { "returns" }
+DIGITS = _ { "digits"}
+OMITTED = _ { "omitted"}
+HEX = _ { "hex" }
+MINUS = _ { "-" }
+SLICE = _ { "slice" }

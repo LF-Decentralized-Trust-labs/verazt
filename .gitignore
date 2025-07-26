@@ -1,0 +1,55 @@
+# Rust files
+Cargo.lock
+/target
+**/target
+**/*.rs.bk
+
+# Veraz temporary files
+log
+logs
+*.log
+
+# Documentation build
+/docs/build
+
+wiki
+
+# Solidity temporary files
+*.abi
+*.wasm
+*.bin
+*.evm
+*.ast
+
+# C/C++ temporary files
+*.o
+
+# Python files
+**/__pycache__/**
+
+# Emacs files
+flycheck_*
+
+# VSCode
+*.code-workspace
+
+# Downloaded libraries
+mermaid.min.js
+mermaid-init.js
+
+# Output file
+*.json
+
+# MacOS temporary files
+.DS_Store
+
+# Other temporary files
+*.tmp
+
+# Archive files
+*.zip
+*.gz
+*.xz
+
+# HTML files
+*.html
