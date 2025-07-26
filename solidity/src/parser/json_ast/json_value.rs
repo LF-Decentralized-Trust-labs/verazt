@@ -366,12 +366,6 @@ pub trait ValueUtil {
     /// Get value of the `kind` property.
     fn get_kind(&self) -> Result<String>;
 
-    /// Get value of the `leftExpression` property.
-    fn get_left_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `leftHandSide` property.
-    fn get_left_hand_side(&self) -> Result<&Value>;
-
     /// Get value of the `literals` property.
     fn get_literals(&self) -> Result<&Value>;
 
@@ -438,12 +432,6 @@ pub trait ValueUtil {
     /// Get value of the `pre` property.
     fn get_pre(&self) -> Result<&Value>;
 
-    /// Get value of the `prefix` property.
-    fn get_prefix(&self) -> Result<&Value>;
-
-    /// Get value of the `overloadedDeclarations` property.
-    fn get_overloaded_declarations(&self) -> Result<Vec<isize>>;
-
     /// Get value of the `referencedDeclaration` property.
     fn get_referenced_declaration(&self) -> Result<isize>;
 
@@ -455,12 +443,6 @@ pub trait ValueUtil {
 
     /// Get value of the `returnVariables` property.
     fn get_return_variables(&self) -> Result<&Value>;
-
-    /// Get value of the `rightExpression` property.
-    fn get_right_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `rightHandSide` property.
-    fn get_right_hand_side(&self) -> Result<&Value>;
 
     /// Get value of the `scope` property.
     fn get_scope(&self) -> Result<isize>;
@@ -490,9 +472,6 @@ pub trait ValueUtil {
 
     /// Get value of the `storageLocation` property.
     fn get_storage_location(&self) -> Result<DataLoc>;
-
-    /// Get value of the `subExpression` property.
-    fn get_sub_expression(&self) -> Result<&Value>;
 
     /// Get value of the `subdenomination` property.
     fn get_sub_denomination(&self) -> Result<String>;
@@ -529,15 +508,6 @@ pub trait ValueUtil {
 
     /// Get value of the `valueType` property.
     fn get_value_type(&self) -> Result<&Value>;
-
-    /// Get value of the `variables` property.
-    fn get_variables(&self) -> Result<&Value>;
-
-    /// Get value of the `variableNames` property.
-    fn get_variable_names(&self) -> Result<&Value>;
-
-    /// Get value of the `visibility` property.
-    fn get_visibility(&self) -> Result<String>;
 }
 
 impl ValueUtil for Value {
@@ -888,18 +858,6 @@ impl ValueUtil for Value {
         }
     }
 
-    fn get_left_expression(&self) -> Result<&Value> {
-        let key = "leftExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_left_hand_side(&self) -> Result<&Value> {
-        let key = "leftHandSide";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
     fn get_loop_expression(&self) -> Result<&Value> {
         let key = "loopExpression";
         self.get(key)
@@ -1069,32 +1027,6 @@ impl ValueUtil for Value {
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
-    fn get_prefix(&self) -> Result<&Value> {
-        let key = "prefix";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get {key} property: {self}"))
-    }
-
-    fn get_overloaded_declarations(&self) -> Result<Vec<isize>> {
-        let key = "overloadedDeclarations";
-        match self.get(key) {
-            Some(Value::Array(vs)) => {
-                let mut ids = vec![];
-                for v in vs.iter() {
-                    match v.as_i64() {
-                        Some(id) => ids.push(id as isize),
-                        None => {
-                            bail!("Invalid declaration id: {}", v)
-                        }
-                    }
-                }
-                Ok(ids)
-            }
-            Some(_) => bail!("Implement `get_overloaded_declarations`: {}", self),
-            None => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
     fn get_referenced_declaration(&self) -> Result<isize> {
         let key = "referencedDeclaration";
         match self.get(key) {
@@ -1122,18 +1054,6 @@ impl ValueUtil for Value {
 
     fn get_return_variables(&self) -> Result<&Value> {
         let key = "returnVariables";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_right_expression(&self) -> Result<&Value> {
-        let key = "rightExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_right_hand_side(&self) -> Result<&Value> {
-        let key = "rightHandSide";
         self.get(key)
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
@@ -1209,12 +1129,6 @@ impl ValueUtil for Value {
             Some(Value::String(data_loc)) => DataLoc::new(data_loc),
             _ => bail!("Failed to get `{key}` property: {self}"),
         }
-    }
-
-    fn get_sub_expression(&self) -> Result<&Value> {
-        let key = "subExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
     fn get_sub_denomination(&self) -> Result<String> {
@@ -1296,23 +1210,4 @@ impl ValueUtil for Value {
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
-    fn get_variables(&self) -> Result<&Value> {
-        let key = "variables";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_variable_names(&self) -> Result<&Value> {
-        let key = "variableNames";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_visibility(&self) -> Result<String> {
-        let key = "visibility";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
 }
