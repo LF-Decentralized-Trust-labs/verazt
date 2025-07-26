@@ -99,11 +99,6 @@ impl AstParser {
         node.get_parameters()
     }
 
-    /// Get value of the `literals` property in an AST node.
-    fn get_literals<'a>(&self, node: &'a Value) -> Result<&'a Value> {
-        node.get_literals()
-    }
-
     /// Get value of the `operator` property in an AST node.
     fn get_operator(&self, node: &Value) -> Result<String> {
         node.get_operator()
@@ -217,16 +212,19 @@ impl AstParser {
     /// Parse pragma directive from a JSON AST node.
     fn parse_pragma(&mut self, node: &Value) -> Result<PragmaDir> {
         let id = node.get_id().ok();
-        let pragma_lits = match self.get_literals(node)? {
-            Value::String(s) => vec![s.clone()],
-            Value::Array(arr) => arr
-                .iter()
-                .map(|v| v.as_str().unwrap_or("").to_string())
-                .collect::<Vec<String>>(),
-            _ => {
-                bail!("Pragma literals not found!")
-            }
-        };
+        let pragma_lits = node
+            .get("literals")
+            .ok_or_else(|| eyre!("Pragma literals not found: {}", node))
+            .and_then(|v| match v {
+                Value::String(s) => Ok(vec![s.clone()]),
+                Value::Array(arr) => Ok(arr
+                    .iter()
+                    .map(|v| v.as_str().unwrap_or("").to_string())
+                    .collect::<Vec<String>>()),
+                _ => bail!("Pragma literals invalid!"),
+            })?;
+
+        // match self.get_literals(node)? ;
         let kind = match pragma_lits.split_first() {
             Some((first, tail)) => match first.as_str() {
                 "solidity" => {
@@ -623,10 +621,11 @@ impl AstParser {
     ///
     /// The input JSON AST node should be a function definition node.
     fn parse_function_visibility(&self, node: &Value) -> Result<FuncVis> {
-        match node.get_visibility() {
-            Ok(visibility) => Ok(FuncVis::new(&visibility)),
-            Err(_) => Ok(FuncVis::None),
-        }
+        node.get("visibility")
+            .ok_or_else(|| eyre!("Function visibility not found: {}", node))?
+            .as_str()
+            .map(FuncVis::new)
+            .ok_or_else(|| eyre!("Function visibility invalid: {}", node))
     }
 
     /// Parser parameters of a function declaration.
@@ -1151,9 +1150,15 @@ impl AstParser {
     /// Parse unary expression.
     fn parse_unary_expr(&mut self, node: &Value) -> Result<UnaryExpr> {
         let id = node.get_id().ok();
-        let operand_node = node.get_sub_expression()?;
-        let operand = self.parse_expr(operand_node)?;
-        let is_prefix_op = node.get_prefix()?.as_bool().unwrap_or(false);
+        let operand = node
+            .get("subExpression")
+            .ok_or_else(|| eyre!("Unary sub expression not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
+        let is_prefix_op = node
+            .get("prefix")
+            .ok_or_else(|| eyre!("Unary  not found: {}", node))?
+            .as_bool()
+            .unwrap_or(false);
         let operator = UnaryOp::new(&self.get_operator(node)?, is_prefix_op)?;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -1167,11 +1172,14 @@ impl AstParser {
     /// Parse binary expression.
     fn parse_binary_expr(&mut self, node: &Value) -> Result<BinaryExpr> {
         let id = node.get_id().ok();
-
-        let lhs_node = node.get_left_expression()?;
-        let mut lhs = self.parse_expr(lhs_node)?;
-        let rhs_node = node.get_right_expression()?;
-        let mut rhs = self.parse_expr(rhs_node)?;
+        let mut lhs = node
+            .get("leftExpression")
+            .ok_or_else(|| eyre!("Binary left expression not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
+        let mut rhs = node
+            .get("rightExpression")
+            .ok_or_else(|| eyre!("Binary right expression not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
         if let Ok(common_type_node) = node.get_common_type() {
             let type_string = common_type_node.get_type_string()?;
             let common_type = type_parser::parse_data_type(type_string)?;
@@ -1191,10 +1199,14 @@ impl AstParser {
     /// Parse assignment expression.
     fn parse_assign_expr(&mut self, node: &Value) -> Result<AssignExpr> {
         let id = node.get_id().ok();
-        let lhs_node = node.get_left_hand_side()?;
-        let lhs = self.parse_expr(lhs_node)?;
-        let rhs_node = node.get_right_hand_side()?;
-        let rhs = self.parse_expr(rhs_node)?;
+        let lhs = node
+            .get("leftHandSide")
+            .ok_or_else(|| eyre!("Assignment left hand side not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
+        let rhs = node
+            .get("rightHandSide")
+            .ok_or_else(|| eyre!("Assignment right hand side not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
         let op = AssignOp::new(&self.get_operator(node)?)?;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -1530,10 +1542,11 @@ impl AstParser {
     ///
     /// The input JSON AST node should be a variable declaration node.
     fn parse_variable_visibility(&self, node: &Value) -> Result<VarVis> {
-        match node.get_visibility() {
-            Ok(vis) => Ok(VarVis::new(&vis)),
-            Err(err) => bail!(err),
-        }
+        node.get("visibility")
+            .ok_or_else(|| eyre!("Variable visibility not found: {}", node))?
+            .as_str()
+            .map(VarVis::new)
+            .ok_or_else(|| eyre!("Variable visibility invalid: {}", node))
     }
 
     //-------------------------------------------------
@@ -1905,17 +1918,14 @@ impl AstParser {
 
     /// Parse a Yul variable declaration statement.
     fn parse_yul_var_decl_stmt(&mut self, node: &Value) -> Result<yast::VarDecl> {
-        let mut vars: Vec<yast::Identifier> = vec![];
-        match node.get_variables()? {
-            Value::Array(vdecl_nodes) => {
-                for node in vdecl_nodes.iter() {
-                    let identifier = self.parse_yul_ident(node)?;
-                    vars.push(identifier);
-                }
-            }
-            v => bail!("Parse variable declarations: {}", v),
-        }
-
+        let vars = node
+            .get("variables")
+            .ok_or_else(|| eyre!("Yul variable declaration names not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Yul variable declaration names invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_yul_ident(v))
+            .collect::<Result<Vec<_>>>()?;
         let value = match node.get_value() {
             Ok(value_node) => match value_node {
                 Value::Null => None,
@@ -1971,19 +1981,18 @@ impl AstParser {
 
     /// Parse a Yul assignment statement
     fn parse_yul_assign_stmt(&mut self, node: &Value) -> Result<yast::AssignStmt> {
-        let value = self.parse_yul_expr(node.get_value()?)?;
-        let mut vars = vec![];
-        match node.get_variable_names() {
-            Ok(Value::Array(nodes)) => {
-                for var_node in nodes {
-                    let var = self.parse_yul_ident(var_node)?;
-                    vars.push(var);
-                }
-            }
-            Ok(_) => bail!("parse_yul_assignment failed: {}", node),
-            Err(_) => {}
-        }
-
+        let vars = node
+            .get("variableNames")
+            .ok_or_else(|| eyre!("Yul assignment variable names note found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Yul assignment variable names invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_yul_ident(v))
+            .collect::<Result<Vec<_>>>()?;
+        let value = node
+            .get("value")
+            .ok_or_else(|| eyre!("Yul assignment value not found: {}", node))
+            .and_then(|v| self.parse_yul_expr(v))?;
         Ok(yast::AssignStmt::new(vars, value))
     }
 
@@ -2058,8 +2067,14 @@ impl AstParser {
 
     /// Parse a Yul switch case
     fn parse_yul_switch_value(&mut self, node: &Value) -> Result<yast::SwitchValue> {
-        let body = self.parse_yul_block(node.get_body()?)?;
-        let value = self.parse_yul_lit(node.get_value()?)?;
+        let body = node
+            .get("body")
+            .ok_or_else(|| eyre!("Yul switch case body not found: {}", node))
+            .and_then(|v| self.parse_yul_block(v))?;
+        let value = node
+            .get("value")
+            .ok_or_else(|| eyre!("Yul switch case value not found: {}", node))
+            .and_then(|v| self.parse_yul_lit(v))?;
         Ok(yast::SwitchValue::new(value, body))
     }
 
@@ -2182,10 +2197,11 @@ impl AstParser {
     }
 
     fn parse_yul_string_lit(&self, node: &Value) -> Result<yast::StringLit> {
-        match node.get_value()? {
-            Value::String(s) => Ok(yast::StringLit::new(s)),
-            _ => bail!("Need to parse Yul literal: {}", node),
-        }
+        node.get("value")
+            .ok_or_else(|| eyre!("Yul string literal value not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Yul string literal value invalid: {}", node))
+            .and_then(|s| Ok(yast::StringLit::new(s)))
     }
 
     fn parse_yul_hex_lit(&self, node: &Value) -> Result<yast::Lit> {
