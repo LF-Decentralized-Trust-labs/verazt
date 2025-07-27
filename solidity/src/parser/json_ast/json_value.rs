@@ -213,20 +213,11 @@ pub fn parse_loc(localizer: &Localizer, location: &str) -> Option<Loc> {
 
 /// Trait to provide more utilities to hand a JSON AST node.
 pub trait ValueUtil {
-    /// Check whether the JSON AST node is an abstract node.
-    fn is_abstract(&self) -> Result<bool>;
-
-    /// Check whether the JSON AST node is declared anonymous.
-    fn is_anonymous(&self) -> Result<bool>;
-
     /// Check whether the JSON AST node is a constant node.
     fn is_constant(&self) -> Result<bool>;
 
     /// Check whether the JSON AST node is a constructor node.
     fn is_constructor(&self) -> Result<bool>;
-
-    /// Check whether the JSON AST node is fully implemented.
-    fn is_fully_implemented(&self) -> Result<bool>;
 
     /// Get value of the `global` property.
     fn is_global(&self) -> Result<bool>;
@@ -243,20 +234,8 @@ pub trait ValueUtil {
     /// Check whether the JSON AST node is a virtual node.
     fn is_virtual(&self) -> Result<bool>;
 
-    /// Get value of the `absolutePath` property.
-    fn get_absolute_path(&self) -> Result<String>;
-
-    /// Get value of the `arguments` property.
-    fn get_arguments(&self) -> Result<&Value>;
-
     /// Get value of the `AST` property.
     fn get_ast(&self) -> Result<&Value>;
-
-    /// Get value of the `ATTRIBUTES` property.
-    fn get_attributes(&self) -> Result<&Value>;
-
-    /// Get value of the `baseContracts` property.
-    fn get_base_contracts(&self) -> Result<&Value>;
 
     /// Get value of the `baseExpression` property.
     fn get_base_expression(&self) -> Result<&Value>;
@@ -273,92 +252,26 @@ pub trait ValueUtil {
     /// Get value of the `body` property.
     fn get_body(&self) -> Result<&Value>;
 
-    /// Get value of the `canonicalName` property.
-    fn get_canonical_name(&self) -> Result<String>;
-
     /// Get value of the `cases` property.
     fn get_cases(&self) -> Result<&Value>;
 
     /// Get value of the `children` property.
     fn get_children(&self) -> Result<&Value>;
 
-    /// Get value of the `clauses` property.
-    fn get_clauses(&self) -> Result<&Value>;
-
-    /// Get value of the `commonType` property.
-    fn get_common_type(&self) -> Result<&Value>;
-
-    /// Get value of the `components` property.
-    fn get_components(&self) -> Result<&Value>;
-
-    /// Get value of the `condition` property.
-    fn get_condition(&self) -> Result<&Value>;
-
-    /// Get value of the `contractKind` property.
-    fn get_contract_kind(&self) -> Result<ContractKind>;
-
-    /// Get value of the `declarations` property.
-    fn get_declarations(&self) -> Result<&Value>;
-
     /// Get value of the `definition` property.
     fn get_definition(&self) -> Result<&Value>;
-
-    /// Get value of the `endExpression` property.
-    fn get_end_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `errorCall` property.
-    fn get_error_call(&self) -> Result<&Value>;
-
-    /// Get value of the `errorName` property.
-    fn get_error_name(&self) -> Result<String>;
-
-    /// Get value of the `externalCall` property.
-    fn get_external_call(&self) -> Result<&Value>;
-
-    /// Get value of the `eventCall` property.
-    fn get_event_call(&self) -> Result<&Value>;
 
     /// Get value of the `expression` property.
     fn get_expression(&self) -> Result<&Value>;
 
-    /// Get value of the `falseBody` property.
-    fn get_false_body(&self) -> Result<&Value>;
-
-    /// Get value of the `falseExpression` property.
-    fn get_false_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `foreign` property.
-    fn get_foreign(&self) -> Result<&Value>;
-
-    /// Get value of the `file` property.
-    fn get_file(&self) -> Result<String>;
-
     /// Get value of the `function` property.
     fn get_function(&self) -> Result<&Value>;
-
-    /// Get value of the `functionList` property.
-    fn get_function_list(&self) -> Result<&Value>;
 
     /// Get value of the `functionName` property.
     fn get_function_name(&self) -> Result<&Value>;
 
-    /// Get value of the `hexValue` property.
-    fn get_hex_value(&self) -> Result<String>;
-
     /// Get value of the `id` property.
     fn get_id(&self) -> Result<isize>;
-
-    /// Get value of the `indexed` property.
-    fn get_indexed(&self) -> Result<bool>;
-
-    /// Get value of the `indexExpression` property.
-    fn get_index_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `initialValue` property.
-    fn get_initial_value(&self) -> Result<&Value>;
-
-    /// Get value of the `initializationExpression` property.
-    fn get_initialization_expression(&self) -> Result<&Value>;
 
     /// Get value of the `keyType` property.
     fn get_key_type(&self) -> Result<&Value>;
@@ -368,15 +281,6 @@ pub trait ValueUtil {
 
     /// Get value of the `literals` property.
     fn get_literals(&self) -> Result<&Value>;
-
-    /// Get value of the `local` property.
-    fn get_local(&self) -> Result<String>;
-
-    /// Get value of the `loopExpression` property.
-    fn get_loop_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `libraryName` property.
-    fn get_library_name(&self) -> Result<&Value>;
 
     /// Get value of the `memberName` property.
     fn get_member_name(&self) -> Result<String>;
@@ -405,128 +309,20 @@ pub trait ValueUtil {
     /// Get value of the `nodeType` property.
     fn get_node_type(&self) -> Result<NodeType>;
 
-    /// Get value of the `operator` property.
-    fn get_operator(&self) -> Result<String>;
-
-    /// Get value of the `operations` property.
-    fn get_operations(&self) -> Result<String>;
-
-    /// Get value of the `options` property.
-    fn get_options(&self) -> Result<&Value>;
-
-    /// Get value of the `overrides` property.
-    fn get_overrides(&self) -> Result<&Value>;
-
     /// Get value of the `parameters` property.
     fn get_parameters(&self) -> Result<&Value>;
 
-    /// Get value of the `parameterTypes` property.
-    fn get_parameter_types(&self) -> Result<&Value>;
-
-    /// Get value of the `pathNode` property.
-    fn get_path_node(&self) -> Result<&Value>;
-
-    /// Get value of the `post` property.
-    fn get_post(&self) -> Result<&Value>;
-
-    /// Get value of the `pre` property.
-    fn get_pre(&self) -> Result<&Value>;
-
-    /// Get value of the `referencedDeclaration` property.
-    fn get_referenced_declaration(&self) -> Result<isize>;
-
-    /// Get value of the `returnParameters` property.
-    fn get_return_parameters(&self) -> Result<&Value>;
-
-    /// Get value of the `returnParameterTypes` property.
-    fn get_return_parameter_types(&self) -> Result<&Value>;
-
-    /// Get value of the `returnVariables` property.
-    fn get_return_variables(&self) -> Result<&Value>;
-
     /// Get value of the `scope` property.
     fn get_scope(&self) -> Result<isize>;
-
-    /// Get value of the `sourceList` property.
-    fn get_source_list(&self) -> Result<Vec<String>>;
 
     /// Get location in source code.
     ///
     /// A source location is of the following form with inclusive range:
     /// (`start_line`:`start_column` -> `end_line`:`end_column`).
     fn get_source_location(&self, localizer: &Option<Localizer>) -> Option<Loc>;
-
-    /// Get value of the `sources`.
-    fn get_sources(&self) -> Result<&Value>;
-
-    /// Get value of the `state_mutability` property.
-    ///
-    /// This property often applies to function definitions.
-    fn get_state_mutability(&self) -> Result<FuncMut>;
-
-    /// Get value of the `statements` property.
-    fn get_statements(&self) -> Result<&Value>;
-
-    /// Get value of the `startExpression` property.
-    fn get_start_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `storageLocation` property.
-    fn get_storage_location(&self) -> Result<DataLoc>;
-
-    /// Get value of the `subdenomination` property.
-    fn get_sub_denomination(&self) -> Result<String>;
-
-    /// Get value of the `symbolAliases` property.
-    fn get_symbol_aliases(&self) -> Result<&Value>;
-
-    /// Get value of the `trueBody` property.
-    fn get_true_body(&self) -> Result<&Value>;
-
-    /// Get value of the `trueExpression` property.
-    fn get_true_expression(&self) -> Result<&Value>;
-
-    /// Get value of the `type` property.
-    fn get_type(&self) -> Result<String>;
-
-    /// Get value of the `typeDescriptions` property.
-    fn get_type_descriptions(&self) -> Result<&Value>;
-
-    /// Get value of the `typeName` property.
-    fn get_type_name(&self) -> Result<&Value>;
-
-    /// Get value of the `typeDescriptions` property.
-    fn get_type_string(&self) -> Result<&str>;
-
-    /// Get value of the `unitAlias` property.
-    fn get_unit_alias(&self) -> Result<String>;
-
-    /// Get value of the `underlyingType` property.
-    fn get_underlying_type(&self) -> Result<&Value>;
-
-    /// Get value of the `value` property.
-    fn get_value(&self) -> Result<&Value>;
-
-    /// Get value of the `valueType` property.
-    fn get_value_type(&self) -> Result<&Value>;
 }
 
 impl ValueUtil for Value {
-    fn is_abstract(&self) -> Result<bool> {
-        let key = "abstract";
-        match self.get(key) {
-            Some(Value::Bool(b)) => Ok(*b),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn is_anonymous(&self) -> Result<bool> {
-        let key = "anonymous";
-        match self.get(key) {
-            Some(Value::Bool(b)) => Ok(*b),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
     fn is_constant(&self) -> Result<bool> {
         let key = "constant";
         match self.get(key) {
@@ -537,14 +333,6 @@ impl ValueUtil for Value {
 
     fn is_constructor(&self) -> Result<bool> {
         let key = "isConstructor";
-        match self.get(key) {
-            Some(Value::Bool(b)) => Ok(*b),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn is_fully_implemented(&self) -> Result<bool> {
-        let key = "fullyImplemented";
         match self.get(key) {
             Some(Value::Bool(b)) => Ok(*b),
             _ => bail!("Failed to get `{key}` property: {self}"),
@@ -591,34 +379,8 @@ impl ValueUtil for Value {
         }
     }
 
-    fn get_absolute_path(&self) -> Result<String> {
-        let key = "absolutePath";
-        match self.get(key) {
-            Some(Value::String(s)) => Ok(s.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_arguments(&self) -> Result<&Value> {
-        let key = "arguments";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
     fn get_ast(&self) -> Result<&Value> {
         let key = "AST";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_attributes(&self) -> Result<&Value> {
-        let key = "attributes";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_base_contracts(&self) -> Result<&Value> {
-        let key = "baseContracts";
         self.get(key)
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
@@ -653,14 +415,6 @@ impl ValueUtil for Value {
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
-    fn get_canonical_name(&self) -> Result<String> {
-        let key = "canonicalName";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
     fn get_cases(&self) -> Result<&Value> {
         let key = "cases";
         self.get(key)
@@ -673,78 +427,8 @@ impl ValueUtil for Value {
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
-    fn get_clauses(&self) -> Result<&Value> {
-        let key = "clauses";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_common_type(&self) -> Result<&Value> {
-        let key = "commonType";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_components(&self) -> Result<&Value> {
-        let key = "components";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_condition(&self) -> Result<&Value> {
-        let key = "condition";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_contract_kind(&self) -> Result<ContractKind> {
-        let key = "contractKind";
-        match self.get(key) {
-            Some(Value::String(s)) => ContractKind::from_string(s),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_declarations(&self) -> Result<&Value> {
-        let key = "declarations";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
     fn get_definition(&self) -> Result<&Value> {
         let key = "definition";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_external_call(&self) -> Result<&Value> {
-        let key = "externalCall";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_error_call(&self) -> Result<&Value> {
-        let key = "errorCall";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_end_expression(&self) -> Result<&Value> {
-        let key = "endExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_error_name(&self) -> Result<String> {
-        let key = "errorName";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_event_call(&self) -> Result<&Value> {
-        let key = "eventCall";
         self.get(key)
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
@@ -755,40 +439,8 @@ impl ValueUtil for Value {
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
-    fn get_false_body(&self) -> Result<&Value> {
-        let key = "falseBody";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_false_expression(&self) -> Result<&Value> {
-        let key = "falseExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_foreign(&self) -> Result<&Value> {
-        let key = "foreign";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_file(&self) -> Result<String> {
-        let key = "file";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
     fn get_function(&self) -> Result<&Value> {
         let key = "function";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_function_list(&self) -> Result<&Value> {
-        let key = "functionList";
         self.get(key)
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
@@ -797,14 +449,6 @@ impl ValueUtil for Value {
         let key = "functionName";
         self.get(key)
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_hex_value(&self) -> Result<String> {
-        let key = "hexValue";
-        match self.get(key) {
-            Some(Value::String(val)) => Ok(val.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
     }
 
     fn get_id(&self) -> Result<isize> {
@@ -816,32 +460,6 @@ impl ValueUtil for Value {
             },
             None => bail!("Failed to get `{key}` property: {self}"),
         }
-    }
-
-    fn get_indexed(&self) -> Result<bool> {
-        let key = "indexed";
-        match self.get(key) {
-            Some(Value::Bool(b)) => Ok(*b),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_index_expression(&self) -> Result<&Value> {
-        let key = "indexExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_initial_value(&self) -> Result<&Value> {
-        let key = "initialValue";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_initialization_expression(&self) -> Result<&Value> {
-        let key = "initializationExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
     fn get_key_type(&self) -> Result<&Value> {
@@ -858,30 +476,10 @@ impl ValueUtil for Value {
         }
     }
 
-    fn get_loop_expression(&self) -> Result<&Value> {
-        let key = "loopExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_library_name(&self) -> Result<&Value> {
-        let key = "libraryName";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
     fn get_literals(&self) -> Result<&Value> {
         let key = "literals";
         self.get(key)
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_local(&self) -> Result<String> {
-        let key = "local";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
     }
 
     fn get_member_name(&self) -> Result<String> {
@@ -969,91 +567,8 @@ impl ValueUtil for Value {
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
 
-    fn get_operator(&self) -> Result<String> {
-        let key = "operator";
-        match self.get(key) {
-            Some(Value::String(s)) => Ok(s.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_operations(&self) -> Result<String> {
-        let key = "operations";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_options(&self) -> Result<&Value> {
-        let key = "options";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_overrides(&self) -> Result<&Value> {
-        let key = "overrides";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
     fn get_parameters(&self) -> Result<&Value> {
         let key = "parameters";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_parameter_types(&self) -> Result<&Value> {
-        let key = "parameterTypes";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_path_node(&self) -> Result<&Value> {
-        let key = "pathNode";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_post(&self) -> Result<&Value> {
-        let key = "post";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_pre(&self) -> Result<&Value> {
-        let key = "pre";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_referenced_declaration(&self) -> Result<isize> {
-        let key = "referencedDeclaration";
-        match self.get(key) {
-            Some(v) => match v.as_i64() {
-                Some(id) => Ok(id as isize),
-                None => {
-                    bail!("Referenced declaration not found: {}", self)
-                }
-            },
-            None => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_return_parameters(&self) -> Result<&Value> {
-        let key = "returnParameters";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_return_parameter_types(&self) -> Result<&Value> {
-        let key = "returnParameterTypes";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_return_variables(&self) -> Result<&Value> {
-        let key = "returnVariables";
         self.get(key)
             .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
     }
@@ -1069,26 +584,6 @@ impl ValueUtil for Value {
         }
     }
 
-    fn get_source_list(&self) -> Result<Vec<String>> {
-        let key = "sourceList";
-        match self.get(key) {
-            Some(Value::Array(nodes)) => {
-                let mut source_names = vec![];
-                for node in nodes {
-                    match node.as_str() {
-                        Some(name) => source_names.push(name.to_string()),
-                        None => {
-                            bail!("Invalid source name: {}", node)
-                        }
-                    }
-                }
-                Ok(source_names)
-            }
-            Some(_) => bail!("Invalid source name list: {}", self),
-            None => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
     fn get_source_location(&self, localizer: &Option<Localizer>) -> Option<Loc> {
         let key = "src";
         match (self.get(key), localizer) {
@@ -1096,118 +591,4 @@ impl ValueUtil for Value {
             _ => None,
         }
     }
-
-    fn get_sources(&self) -> Result<&Value> {
-        let key = "sources";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_state_mutability(&self) -> Result<FuncMut> {
-        let key = "stateMutability";
-        match self.get(key) {
-            Some(Value::String(mutability)) => FuncMut::new(mutability),
-            _ => Ok(FuncMut::None),
-        }
-    }
-
-    fn get_statements(&self) -> Result<&Value> {
-        let key = "statements";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_start_expression(&self) -> Result<&Value> {
-        let key = "startExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_storage_location(&self) -> Result<DataLoc> {
-        let key = "storageLocation";
-        match self.get(key) {
-            Some(Value::String(data_loc)) => DataLoc::new(data_loc),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_sub_denomination(&self) -> Result<String> {
-        let key = "subdenomination";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_symbol_aliases(&self) -> Result<&Value> {
-        let key = "symbolAliases";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_true_body(&self) -> Result<&Value> {
-        let key = "trueBody";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_true_expression(&self) -> Result<&Value> {
-        let key = "trueExpression";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_type(&self) -> Result<String> {
-        let key = "type";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_type_descriptions(&self) -> Result<&Value> {
-        let key = "typeDescriptions";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_type_name(&self) -> Result<&Value> {
-        let key = "typeName";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_type_string(&self) -> Result<&str> {
-        let key = "typeString";
-        self.get(key)
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_unit_alias(&self) -> Result<String> {
-        let key = "unitAlias";
-        match self.get(key) {
-            Some(Value::String(name)) => Ok(name.clone()),
-            _ => bail!("Failed to get `{key}` property: {self}"),
-        }
-    }
-
-    fn get_underlying_type(&self) -> Result<&Value> {
-        let key = "underlyingType";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_value(&self) -> Result<&Value> {
-        let key = "value";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
-    fn get_value_type(&self) -> Result<&Value> {
-        let key = "valueType";
-        self.get(key)
-            .ok_or_else(|| eyre!("Failed to get `{key}` property: {self}"))
-    }
-
 }

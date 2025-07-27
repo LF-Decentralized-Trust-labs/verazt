@@ -195,8 +195,8 @@ impl Display for BoolLit {
 //-------------------------------------------------------------------------
 
 impl HexLit {
-    pub fn new(value: String, typ: Type, loc: Option<Loc>) -> Self {
-        HexLit { value, typ, loc }
+    pub fn new(value: &str, typ: Type, loc: Option<Loc>) -> Self {
+        HexLit { value: value.to_string(), typ, loc }
     }
 
     pub fn update_data_type(&mut self, new_type: Type) {
@@ -348,8 +348,8 @@ impl Display for HexNum {
 //-------------------------------------------------------------------------
 
 impl NumUnit {
-    pub fn new(unit: String) -> Self {
-        match unit.as_ref() {
+    pub fn new(unit: &str) -> Self {
+        match unit {
             "wei" => NumUnit::Wei,
             "gwei" => NumUnit::Gwei,
             "szabo" => NumUnit::Szabo,

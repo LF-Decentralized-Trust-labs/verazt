@@ -985,7 +985,7 @@ pub mod default {
         expr: &'a UnaryExpr,
     ) -> T {
         let res = folder.fold_unary_op(acc, &expr.op);
-        folder.fold_expr(res, &expr.operand)
+        folder.fold_expr(res, &expr.body)
     }
 
     pub fn fold_unary_op<'a, T, F: Fold<'a, T> + ?Sized>(

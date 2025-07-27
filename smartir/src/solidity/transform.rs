@@ -771,7 +771,7 @@ impl Transformer {
         let typ = expr.typ.clone();
 
         // Transform the operand first
-        let (opr, mut stmts) = self.transform_expr(&expr.operand)?;
+        let (opr, mut stmts) = self.transform_expr(&expr.body)?;
         let opr = self.convert_to_atomic(opr, "Transform unary expr")?;
         nstmts.append(&mut stmts);
 
@@ -789,7 +789,7 @@ impl Transformer {
             _ => bail!("Operand of unary pre-increment must be a variable"),
         };
         let op = &expr.op;
-        let oloc = expr.operand.loc();
+        let oloc = expr.body.loc();
         match &expr.op {
             ast::UnaryOp::PreIncr | ast::UnaryOp::PreDecr => {
                 self.normalize_prefix_unary_expr(expr, op, var, oloc)

@@ -648,12 +648,12 @@ impl Display for TryStmt {
 impl CatchClause {
     pub fn new(
         id: Option<isize>,
-        error: Option<String>,
+        error: Option<&str>,
         params: Vec<VariableDecl>,
         body: Block,
         loc: Option<Loc>,
     ) -> Self {
-        CatchClause { id, error, params, body, loc }
+        CatchClause { id, error: error.map(|v| v.to_string()) , params, body, loc }
     }
 }
 

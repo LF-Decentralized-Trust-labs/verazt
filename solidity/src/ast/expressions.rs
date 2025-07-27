@@ -211,7 +211,7 @@ pub struct TypeNameExpr {
 pub struct UnaryExpr {
     pub id: Option<isize>,
     pub op: UnaryOp,
-    pub operand: Box<Expr>,
+    pub body: Box<Expr>,
     pub typ: Type,
     pub loc: Option<Loc>,
 }
@@ -304,7 +304,7 @@ impl Expr {
     pub fn is_literal_based_expr(&self) -> bool {
         match self {
             Expr::Lit(_) => true,
-            Expr::Unary(exp) => exp.operand.is_literal_based_expr(),
+            Expr::Unary(exp) => exp.body.is_literal_based_expr(),
             Expr::Binary(exp) => {
                 exp.left.is_literal_based_expr() && exp.right.is_literal_based_expr()
             }
@@ -571,7 +571,7 @@ impl UnaryExpr {
         typ: Type,
         loc: Option<Loc>,
     ) -> Self {
-        UnaryExpr { id, op, operand: Box::new(operand), typ, loc }
+        UnaryExpr { id, op, body: Box::new(operand), typ, loc }
     }
 
     pub fn update_data_type(&mut self, new_type: Type) {
@@ -581,7 +581,7 @@ impl UnaryExpr {
 
 impl Display for UnaryExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (op, exp) = (&self.op, &*self.operand);
+        let (op, exp) = (&self.op, &*self.body);
         match self.op {
             UnaryOp::Delete => write!(f, "{op} {exp}"),
             UnaryOp::PostDecr => write!(f, "{exp}{op}"),

@@ -1120,8 +1120,8 @@ pub mod default {
         acc: T,
         expr: &'a UnaryExpr,
     ) -> (T, UnaryExpr) {
-        let (nacc, nopr) = normalizer.normalize_expr(acc, &expr.operand);
-        let nexpr = UnaryExpr { operand: Box::new(nopr), ..expr.clone() };
+        let (nacc, nopr) = normalizer.normalize_expr(acc, &expr.body);
+        let nexpr = UnaryExpr { body: Box::new(nopr), ..expr.clone() };
         (nacc, nexpr)
     }
 

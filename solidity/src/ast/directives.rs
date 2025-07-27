@@ -340,14 +340,14 @@ impl Display for UsingLib {
 //-------------------------------------------------------------------------
 
 impl UsingFunc {
-    pub fn new(name_path: &str, op: Option<String>) -> Self {
+    pub fn new(name_path: &str, op: Option<&str>) -> Self {
         let names: Vec<Name> = name_path.split('.').map(Name::from).collect();
         match &names[..] {
             [] => panic!("Construct UsingLibDir: empty name path"),
             [ns @ .., n] => UsingFunc {
                 func_name: n.clone(),
                 func_path: NamePath::new(ns.to_vec()),
-                alias_operator: op,
+                alias_operator: op.map(String::from),
             },
         }
     }
