@@ -1293,7 +1293,7 @@ pub mod default {
         if exp1.op != exp2.op {
             return error("Different unary operators", exp1, exp2, None);
         }
-        comparer.compare_expr(&exp1.operand, &exp2.operand)
+        comparer.compare_expr(&exp1.body, &exp2.body)
     }
 
     pub fn compare_binary_expr<'a, T: Compare<'a> + ?Sized>(

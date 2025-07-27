@@ -797,7 +797,7 @@ pub mod default {
     //-------------------------------------------------
 
     pub fn visit_unary_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a UnaryExpr) {
-        visitor.visit_expr(&expr.operand)
+        visitor.visit_expr(&expr.body)
     }
 
     //-------------------------------------------------

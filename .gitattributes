@@ -1,0 +1,5 @@
+*.rs linguist-detectable=true
+*.py linguist-detectable=true
+*.md linguist-detectable=true
+*.toml linguist-detectable=true
+*.sol linguist-detectable=false

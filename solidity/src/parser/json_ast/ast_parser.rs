@@ -10,7 +10,10 @@ use crate::{
     tool::solc::{self, JsonAst},
 };
 use color_eyre::eyre::{Result, bail, eyre};
-use core::file::{save_to_temporary_file, save_to_temporary_files};
+use core::{
+    file::{save_to_temporary_file, save_to_temporary_files},
+    metadata::DataLoc,
+};
 use itertools::izip;
 use num_bigint::BigInt;
 use regex::Regex;
@@ -52,10 +55,20 @@ impl AstParser {
             Some(content) => serde::from_str(content)?,
             None => bail!("Input JSON AST not found!"),
         };
-
-        let sources_node = node.get_sources()?;
-        let source_names = node.get_source_list()?;
-
+        let sources_node = node
+            .get("sources")
+            .ok_or_else(|| eyre!("Sources node not found in JSON AST: {}", node))?;
+        let source_names = node
+            .get("sourceList")
+            .ok_or_else(|| eyre!("Source list not found in JSON AST: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Source list is not an array: {}", node))?
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| eyre!("Source name invalid: {}", v))
+            })
+            .collect::<Result<Vec<&str>>>()?;
         let mut source_units = vec![];
         for source_name in &source_names {
             let source_node = match sources_node.get(source_name) {
@@ -76,42 +89,6 @@ impl AstParser {
     /// Get node type of an AST Node
     fn get_node_type(&self, node: &Value) -> Result<NodeType> {
         node.get_node_type()
-    }
-
-    /// Get the nth child of an AST Node
-    fn get_child_node<'a>(&self, node: &'a Value, i: usize) -> Result<&'a Value> {
-        match node.get_children() {
-            Ok(Value::Array(nodes)) if i < nodes.len() => Ok(&nodes[i]),
-            _ => bail!("Failed to get child node: {}\n{}", i, node),
-        }
-    }
-
-    /// Get the nth child of an AST Node
-    fn get_children_nodes<'a>(&self, node: &'a Value) -> Result<&'a Vec<Value>> {
-        match node.get_children() {
-            Ok(Value::Array(nodes)) => Ok(nodes),
-            _ => bail!("Failed to get children nodes: {}", node),
-        }
-    }
-
-    /// Get value of the `parameters` property in an AST node.
-    fn get_parameters_node<'a>(&self, node: &'a Value) -> Result<&'a Value> {
-        node.get_parameters()
-    }
-
-    /// Get value of the `operator` property in an AST node.
-    fn get_operator(&self, node: &Value) -> Result<String> {
-        node.get_operator()
-    }
-
-    /// Get value of the `value` property in an AST node.
-    fn get_value<'a>(&self, node: &'a Value) -> Result<&'a Value> {
-        node.get_value()
-    }
-
-    /// Get value of the `hexValue` property in an AST node.
-    fn get_hex_value(&self, node: &Value) -> Result<String> {
-        node.get_hex_value()
     }
 
     //-------------------------------------------------
@@ -152,13 +129,12 @@ impl AstParser {
     /// Input AST node must be a node representing a source unit.
     fn parse_source_unit_path(&mut self, node: &Value) -> Result<String> {
         assert!(matches!(self.get_node_type(node), Ok(NodeType::SourceUnit)));
-        let source_file = match node.get_absolute_path() {
-            Ok(file_path) => file_path,
-            Err(err) => match &self.input_file {
-                Some(file_path) => file_path.clone(),
-                None => bail!(err),
-            },
-        };
+        let source_file = node
+            .get("absolutePath")
+            .ok_or_else(|| eyre!("Parsing source unit: absolute path not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Parsing source unit: absolute path invalid: {}", node))?
+            .to_string();
         let dir_path = match &self.base_path {
             Some(dir) => Some(Path::new(dir)),
             None => match &self.input_file {
@@ -187,9 +163,9 @@ impl AstParser {
     fn parse_source_unit_element(&mut self, node: &Value) -> Result<SourceUnitElem> {
         use NodeType::*;
         match self.get_node_type(node)? {
-            Pragma => self.parse_pragma(node).map(SourceUnitElem::from),
-            Import => self.parse_import(node).map(SourceUnitElem::from),
-            Using => self.parse_using(node).map(SourceUnitElem::from),
+            Pragma => self.parse_pragma_directive(node).map(SourceUnitElem::from),
+            Import => self.parse_import_directive(node).map(SourceUnitElem::from),
+            Using => self.parse_using_directive(node).map(SourceUnitElem::from),
             ErrorDef => self.parse_error_def(node).map(SourceUnitElem::from),
             StructDef => self.parse_struct_def(node).map(SourceUnitElem::from),
             FuncDef => self
@@ -210,7 +186,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse pragma directive from a JSON AST node.
-    fn parse_pragma(&mut self, node: &Value) -> Result<PragmaDir> {
+    fn parse_pragma_directive(&mut self, node: &Value) -> Result<PragmaDir> {
         let id = node.get_id().ok();
         let pragma_lits = node
             .get("literals")
@@ -252,21 +228,35 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse import directive from a JSON AST node.
-    fn parse_import(&self, node: &Value) -> Result<ImportDir> {
+    fn parse_import_directive(&self, node: &Value) -> Result<ImportDir> {
         let id = node.get_id().ok();
         let loc = node.get_source_location(&self.localizer);
-        let file_path = node.get_file()?;
-        let abs_path = node.get_absolute_path()?;
-        let mut symbol_aliases = vec![];
-        match node.get_symbol_aliases()? {
-            Value::Array(symbol_alias_nodes) => {
-                for symbol_alias_node in symbol_alias_nodes {
-                    symbol_aliases.push(self.parse_symbol_alias(symbol_alias_node)?);
-                }
-            }
-            _ => bail!("Parse import directive: invalid symbol aliases: {}", node),
-        }
-        let unit_alias = node.get_unit_alias()?;
+        let file_path = node
+            .get("flie")
+            .ok_or_else(|| eyre!("Import directive: file path not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Import directive: file path invalid: {}", node))?
+            .to_string();
+        let abs_path = node
+            .get("absolutePath")
+            .ok_or_else(|| eyre!("Import directive: absolute path not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Import directive: absolute path invalid: {}", node))?
+            .to_string();
+        let symbol_aliases = node
+            .get("symbolAliases")
+            .ok_or_else(|| eyre!("Import directive: symbol aliases not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Import directive: symbol aliases invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_symbol_alias(v))
+            .collect::<Result<Vec<ImportSymbol>>>()?;
+        let unit_alias = node
+            .get("unitAlias")
+            .ok_or_else(|| eyre!("Import directive: unit alias not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Import directive: unit alias invalid: {}", node))?
+            .to_string();
         let kind = match (&symbol_aliases[..], unit_alias.as_str()) {
             ([], "") => ImportSourceUnit::new(abs_path, file_path, None, loc).into(),
             (_, "") => ImportSymbols::new(abs_path, file_path, symbol_aliases, loc).into(),
@@ -278,13 +268,19 @@ impl AstParser {
 
     /// Parse `SymbolAlias` from a JSON AST node.
     fn parse_symbol_alias(&self, node: &Value) -> Result<ImportSymbol> {
-        let foreign_node = node.get_foreign()?;
-        let symbol = foreign_node.get_name()?;
-        let local_node = node.get_local();
-        let alias = match local_node {
-            Ok(local_name) => Some(local_name),
-            Err(_) => None,
-        };
+        let symbol = node
+            .get("foreign")
+            .ok_or_else(|| eyre!("Import symbol alias: foreign key not found: {}", node))?
+            .get("name")
+            .ok_or_else(|| eyre!("Import symbol alias: name not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Import symbol alias: name invalid: {}", node))?
+            .to_string();
+        let alias = node
+            .get("local")
+            .ok_or_else(|| eyre!("Import symbol alias: local key not found: {}", node))?
+            .as_str()
+            .map(|s| s.to_string());
         let loc = node.get_source_location(&self.localizer);
         Ok(ImportSymbol::new(symbol, alias, loc))
     }
@@ -294,39 +290,37 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse pragma directive from a JSON AST node.
-    fn parse_using(&mut self, node: &Value) -> Result<UsingDir> {
+    fn parse_using_directive(&mut self, node: &Value) -> Result<UsingDir> {
         let id = node.get_id().ok();
         let global = node.is_global().unwrap_or(false);
         let loc = node.get_source_location(&self.localizer);
-        let kind = match node.get_function_list() {
-            Ok(Value::Array(func_nodes)) => {
-                let mut ufuncs = vec![];
-                for func_node in func_nodes {
-                    if let Ok(op) = func_node.get_operator() {
+        let kind: Result<_> = if let Some(funcs_node) = node.get("functionList") {
+            let using_funcs = funcs_node
+                .as_array()
+                .ok_or_else(|| eyre!("Using functions: function list invalid: {}", funcs_node))?
+                .iter()
+                .map(|func_node| {
+                    if let Some(Value::String(op)) = func_node.get("operator") {
                         let func_name = func_node.get_definition()?.get_name()?;
-                        let ufunc = UsingFunc::new(&func_name, Some(op));
-                        ufuncs.push(ufunc);
+                        Ok(UsingFunc::new(&func_name, Some(op)))
                     } else {
                         let func_name = func_node.get_function()?.get_name()?;
-                        let ufunc = UsingFunc::new(&func_name, None);
-                        ufuncs.push(ufunc);
+                        Ok(UsingFunc::new(&func_name, None))
                     }
-                }
-                UsingKind::UsingFunc(ufuncs)
-            }
-            Ok(node) => bail!("Implement parse_using: {}", node),
-            Err(_) => {
-                let lib_name = self.get_child_node(node, 0)?.get_name()?;
-                let ulib = UsingLib::new(&lib_name);
-                UsingKind::UsingLib(ulib)
-            }
+                })
+                .collect::<Result<Vec<UsingFunc>>>()?;
+            Ok(UsingKind::UsingFunc(using_funcs))
+        } else if let Some(lib_node) = node.get("libraryName") {
+            let lib_name = lib_node.get_name()?;
+            let using_lib = UsingLib::new(&lib_name);
+            Ok(UsingKind::UsingLib(using_lib))
+        } else {
+            bail!("Using directive invalid: {}", node)
         };
-        let typ = match node.get_type_name() {
-            Ok(Value::Null) => None,
-            Ok(type_node) => Some(self.parse_data_type(type_node)?),
-            _ => None,
-        };
-        Ok(UsingDir::new(id, kind, typ, global, loc))
+        let typ = node
+            .get("typeName")
+            .and_then(|v| self.parse_data_type(v).ok());
+        Ok(UsingDir::new(id, kind?, typ, global, loc))
     }
 
     //-------------------------------------------------
@@ -338,9 +332,29 @@ impl AstParser {
         let id = node.get_id().ok();
         let scope = node.get_scope().ok();
         let name = Name::new(node.get_name()?, None);
-        let kind = self.parse_contract_kind(node)?;
-        let abstract_ = self.is_contract_abstract(node)?;
-        let bases = self.parse_base_contracts(node)?;
+        let kind = node
+            .get("ContractKind")
+            .ok_or_else(|| eyre!("Contract kind not found: {}", node))?
+            .as_str()
+            .map(ContractKind::from_string)
+            .ok_or_else(|| eyre!("Contract kind invalid: {}", node))??;
+        let is_abstract = match node.get("abstract") {
+            Some(Value::Bool(v)) => v.to_owned(),
+            Some(_) => bail!("Contract abstract flag invalid: {}", node),
+            None => match node.get("isFullyImplemented") {
+                Some(Value::Bool(v)) => !v.to_owned(),
+                Some(_) => bail!("Contract fully implemented flag invalid: {}", node),
+                None => bail!("Contract abstract ifnormatio not found: {}", node),
+            },
+        };
+        let bases = node
+            .get("baseContracts")
+            .ok_or_else(|| eyre!("Base contracts not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Base contracts invalid: {}", node))?
+            .iter()
+            .map(|base_node| self.parse_base_contract(base_node))
+            .collect::<Result<Vec<BaseContract>>>()?;
         let loc = node.get_source_location(&self.localizer);
         let elems: Vec<ContractElem> = node
             .get("nodes")
@@ -350,53 +364,20 @@ impl AstParser {
             .iter()
             .map(|v| self.parse_contract_element(v))
             .collect::<Result<Vec<ContractElem>>>()?;
-        Ok(ContractDef::new(id, scope, name, kind, abstract_, bases, elems, loc))
-    }
-
-    /// Parse kind of a contract
-    fn parse_contract_kind(&self, node: &Value) -> Result<ContractKind> {
-        node.get_contract_kind()
-    }
-
-    /// Check whether the current AST Node represents an abstract contract.
-    fn is_contract_abstract(&self, node: &Value) -> Result<bool> {
-        match node.is_abstract() {
-            Ok(b) => Ok(b),
-            _ => match node.is_fully_implemented() {
-                Ok(b) => Ok(!b),
-                Err(_) => Ok(false),
-            },
-        }
-    }
-
-    /// Parse base contracts from a JSON AST node.
-    fn parse_base_contracts(&mut self, node: &Value) -> Result<Vec<BaseContract>> {
-        let mut base_contracts: Vec<BaseContract> = vec![];
-        if let Ok(Value::Array(nodes)) = node.get_base_contracts() {
-            for base_node in nodes.iter() {
-                base_contracts.push(self.parse_base_contract(base_node)?);
-            }
-        }
-        Ok(base_contracts)
+        Ok(ContractDef::new(id, scope, name, kind, is_abstract, bases, elems, loc))
     }
 
     /// Parse a base contract from a JSON AST node.
     fn parse_base_contract(&mut self, node: &Value) -> Result<BaseContract> {
         let contract_name: Name = node.get_base_name()?.get_name()?.into();
-        let arguments = match node.get_arguments() {
-            Ok(Value::Array(arg_nodes)) => {
-                let mut args = vec![];
-                for arg_node in arg_nodes {
-                    args.push(self.parse_expr(arg_node)?);
-                }
-                args
-            }
-            Ok(arg) => match arg {
-                Value::Null => vec![],
-                _ => bail!("parse_base_contract err: {}", node),
-            },
-            Err(_) => vec![],
-        };
+        let arguments = node
+            .get("arguments")
+            .ok_or_else(|| eyre!("Base contract arguments not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Base contract arguments invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_expr(v))
+            .collect::<Result<Vec<Expr>>>()?;
         let loc = node.get_source_location(&self.localizer);
         Ok(BaseContract::new(contract_name, arguments, loc))
     }
@@ -415,7 +396,7 @@ impl AstParser {
             NodeType::UserDefinedValueTypeDef => self
                 .parse_user_defined_value_type_def(node)
                 .map(|def| def.into()),
-            NodeType::Using => self.parse_using(node).map(|dir| dir.into()),
+            NodeType::Using => self.parse_using_directive(node).map(|dir| dir.into()),
             _ => bail!("Need to parse: {:?}", node_type),
         }
     }
@@ -429,7 +410,10 @@ impl AstParser {
         let id = node.get_id().ok();
         let scope = node.get_scope().ok();
         let name: Name = node.get_name()?.into();
-        let typ = self.parse_data_type(node.get_underlying_type()?)?;
+        let typ = node
+            .get("underlyingType")
+            .ok_or_else(|| eyre!("User defined type: underlying type not found: {}", node))
+            .map(|v| self.parse_data_type(v))??;
         let loc = node.get_source_location(&self.localizer);
         Ok(UserTypeDef::new(id, scope, name, typ, loc))
     }
@@ -502,7 +486,11 @@ impl AstParser {
         let name: Name = node.get_name()?.into();
         let params_node = node.get_parameters()?;
         let params = self.parse_parameters(params_node)?;
-        let anonymous = node.is_anonymous()?;
+        let anonymous = node
+            .get("anonymous")
+            .ok_or_else(|| eyre!("Event definition: anonymous flag not found: {}", node))?
+            .as_bool()
+            .ok_or_else(|| eyre!("Event definition: anonymous flag invalid: {}", node))?;
         let loc = node.get_source_location(&self.localizer);
         Ok(EventDef::new(name, anonymous, params, loc))
     }
@@ -514,7 +502,10 @@ impl AstParser {
     /// Parse an error definition from a JSON AST node.
     fn parse_error_def(&mut self, node: &Value) -> Result<ErrorDef> {
         let name: Name = node.get_name()?.into();
-        let params = self.parse_parameters(self.get_parameters_node(node)?)?;
+        let params = node
+            .get("parameters")
+            .map(|v| self.parse_parameters(v))
+            .ok_or_else(|| eyre!("Error definition: parameters not found: {}", node))??;
         let loc = node.get_source_location(&self.localizer);
         Ok(ErrorDef::new(name, params, loc))
     }
@@ -596,7 +587,7 @@ impl AstParser {
         };
         let is_virtual = node.is_virtual().unwrap_or(false);
         let fvis = self.parse_function_visibility(node)?;
-        let fmut = node.get_state_mutability()?;
+        let fmut = self.parse_function_mutability(node)?;
         let body = self.parse_function_body(node)?;
         let modifiers = self.parse_function_modifier_invocations(node)?;
         let overriding = self.parse_overriding(node)?;
@@ -628,6 +619,17 @@ impl AstParser {
             .ok_or_else(|| eyre!("Function visibility invalid: {}", node))
     }
 
+    /// Parse function mutability information.
+    ///
+    /// The input JSON AST node should be a function definition node.
+    fn parse_function_mutability(&self, node: &Value) -> Result<FuncMut> {
+        node.get("stateMutability")
+            .ok_or_else(|| eyre!("Function mutability not found: {}", node))?
+            .as_str()
+            .map(FuncMut::new)
+            .ok_or_else(|| eyre!("Function mutability invalid: {}", node))?
+    }
+
     /// Parser parameters of a function declaration.
     fn parse_function_parameters(&mut self, node: &Value) -> Result<Vec<VariableDecl>> {
         let params_node = node.get_parameters()?;
@@ -636,8 +638,9 @@ impl AstParser {
 
     /// Parser return parameters of a function declaration.
     fn parse_function_returns(&mut self, node: &Value) -> Result<Vec<VariableDecl>> {
-        let return_params_node = node.get_return_parameters()?;
-        self.parse_parameters(return_params_node)
+        node.get("returnParameters")
+            .ok_or_else(|| eyre!("Function return parameters not found: {}", node))
+            .map(|v| self.parse_parameters(v))?
     }
 
     /// Parse body of a function definition.
@@ -669,22 +672,17 @@ impl AstParser {
         if node.is_null() {
             return Ok(vec![]);
         }
-
         if !matches!(self.get_node_type(node), Ok(NodeType::ParameterList)) {
             bail!("Parameter list not found: {}", node);
         }
-
-        let param_nodes = match self.get_parameters_node(node) {
-            Ok(Value::Array(param_nodes)) => param_nodes,
-            Ok(_) => bail!("Parameters not found: {}", node),
-            Err(err) => bail!(err),
-        };
-
-        let mut params: Vec<VariableDecl> = vec![];
-        for param_node in param_nodes.iter() {
-            params.push(self.parse_var_decl(param_node)?);
-        }
-
+        let params = node
+            .get("parameters")
+            .ok_or_else(|| eyre!("Parameters not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Parameters invalid: {}", node))?
+            .iter()
+            .map(|param_node| self.parse_var_decl(param_node))
+            .collect::<Result<Vec<VariableDecl>>>()?;
         Ok(params)
     }
 
@@ -694,20 +692,25 @@ impl AstParser {
 
     /// Parse an override specifier from a JSON AST node.
     fn parse_overriding(&self, node: &Value) -> Result<Overriding> {
-        match node.get_overrides() {
-            Ok(override_node) => {
-                let override_nodes = match override_node.get_overrides() {
-                    Ok(Value::Array(nodes)) => nodes,
-                    Ok(v) => bail!("Override specifiers not found: {}", v),
-                    Err(err) => bail!(err),
-                };
-                let mut contract_names: Vec<Name> = vec![];
-                for node in override_nodes.iter() {
-                    contract_names.push(node.get_name()?.into());
-                }
+        match node.get("overrides") {
+            Some(overrides_node) => {
+                let contract_names = overrides_node
+                    .get("overrides")
+                    .ok_or_else(|| eyre!("Overrides node not found: {}", overrides_node))?
+                    .as_array()
+                    .ok_or_else(|| eyre!("Overrides node invalid: {}", overrides_node))?
+                    .iter()
+                    .map(|v| {
+                        v.get("name")
+                            .ok_or_else(|| eyre!("Override name not found: {}", v))?
+                            .as_str()
+                            .ok_or_else(|| eyre!("Override name invalid: {}", v))
+                            .map(|s| s.to_string().into())
+                    })
+                    .collect::<Result<Vec<Name>>>()?;
                 Ok(Overriding::Some(contract_names))
             }
-            Err(_) => Ok(Overriding::None),
+            None => Ok(Overriding::None),
         }
     }
 
@@ -734,32 +737,23 @@ impl AstParser {
     fn parse_modifier_invocation(&mut self, node: &Value) -> Result<CallExpr> {
         let id = node.get_id().ok();
         let name: Name = node.get_modifier_name()?.get_name()?.into();
-        // Parse argument values
-        let arg_nodes = match node.get_arguments() {
-            Ok(Value::Null) => vec![],
-            Ok(Value::Array(nodes)) => nodes.clone(),
-            Ok(v) => vec![v.clone()],
-            Err(_) => vec![],
-        };
-        let mut args: Vec<Expr> = vec![];
-        for arg_node in arg_nodes {
-            match self.parse_expr(&arg_node) {
-                Ok(arg) => args.push(arg),
-                Err(err) => bail!(err),
-            }
-        }
-
+        let args = node
+            .get("arguments")
+            .ok_or_else(|| eyre!("Modifier invocation arguments not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Modifier invocation arguments invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_expr(v))
+            .collect::<Result<Vec<Expr>>>()?;
         let kind = match node.get_kind().as_deref() {
             Ok("modifierInvocation") => CallKind::ModifierInvoc,
             Ok("baseConstructorSpecifier") => CallKind::BaseConstructorCall,
             kind => bail!("Unknown modifier invocation Kind: {:?}!", kind),
         };
-
         let arg_typs: Vec<Type> = args.iter().map(|arg| arg.typ()).collect();
         let typ: Type = FunctionType::new(arg_typs, vec![], FuncVis::None, FuncMut::None).into();
         let loc = node.get_source_location(&self.localizer);
         let callee: Expr = Identifier::new(None, name, typ.clone(), loc).into();
-
         Ok(CallExpr::new_call_unnamed_args(id, callee, vec![], args, kind, typ, loc))
     }
 
@@ -770,15 +764,14 @@ impl AstParser {
     /// Parse a block.
     fn parse_block(&mut self, node: &Value, is_unchecked: bool) -> Result<Block> {
         let id = node.get_id().ok();
-        let statement_nodes = match node.get_statements()? {
-            Value::Array(stmt_nodes) => stmt_nodes,
-            _ => bail!("Failed to get statement nodes: {}", node),
-        };
-
-        let mut statements: Vec<Stmt> = vec![];
-        for stmt_node in statement_nodes {
-            statements.push(self.parse_stmt(stmt_node)?);
-        }
+        let statements = node
+            .get("statements")
+            .ok_or_else(|| eyre!("Block statements not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Block statements invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_stmt(v))
+            .collect::<Result<Vec<Stmt>>>()?;
         let loc = node.get_source_location(&self.localizer);
         Ok(Block::new(id, statements, is_unchecked, loc))
     }
@@ -823,8 +816,8 @@ impl AstParser {
             // Solidity 0.6 to 0.8
             Ok(ast_node) => self.parse_yul_block(ast_node)?,
             // Solidity 0.4, 0.5
-            Err(_) => match node.get_operations() {
-                Ok(operations) => YulParser::parse_inline_assembly_block(operations)?,
+            Err(_) => match node.get("operations") {
+                Some(Value::String(asm)) => YulParser::parse_inline_assembly_block(asm)?,
                 _ => YBlock::new(vec![]),
             },
         };
@@ -892,16 +885,18 @@ impl AstParser {
     /// Parse an `if` statement.
     fn parse_if_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
-        let condition_node = node.get_condition()?;
-        let cond = self.parse_expr(condition_node)?;
-        let true_body_node = node.get_true_body()?;
-        let true_br = self.parse_stmt(true_body_node)?;
-        let false_body_node = node.get_false_body().ok();
-        let false_br = match false_body_node {
-            Some(false_body_node) => self.parse_stmt(false_body_node).ok(),
-            _ => None,
-        };
-
+        let cond = node
+            .get("condition")
+            .ok_or_else(|| eyre!("If statement: condition not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
+        let true_br = node
+            .get("trueBody")
+            .ok_or_else(|| eyre!("If statement: true body not found: {}", node))
+            .map(|v| self.parse_stmt(v))??;
+        let false_br = node
+            .get("falseBody")
+            .ok_or_else(|| eyre!("If statement: false body not found: {}", node))
+            .map(|v| self.parse_stmt(v).ok())?;
         let loc = node.get_source_location(&self.localizer);
         Ok(IfStmt::new(id, cond, true_br, false_br, loc).into())
     }
@@ -913,24 +908,21 @@ impl AstParser {
     /// Parse a `for` statement.
     fn parse_for_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
-        let pre_node = node.get_initialization_expression();
-        let pre = match pre_node {
-            Ok(Value::Null) => None,
-            Ok(v) => self.parse_stmt(v).ok(),
-            Err(_) => None,
-        };
-        let condition_node = node.get_condition();
-        let cond = match condition_node {
-            Ok(Value::Null) => None,
-            Ok(v) => self.parse_expr(v).ok(),
-            Err(_) => None,
-        };
-        let post_node = node.get_loop_expression();
-        let post = match post_node {
-            Ok(Value::Null) => None,
-            Ok(v) => self.parse_stmt(v).ok(),
-            Err(_) => None,
-        };
+        let pre = node
+            .get("initializationExpression")
+            .ok_or_else(|| eyre!("For statement: initialization not found: {}", node))
+            .and_then(|v| self.parse_stmt(v))
+            .ok();
+        let cond = node
+            .get("condition")
+            .ok_or_else(|| eyre!("For statement: condition not found: {}", node))
+            .and_then(|v| self.parse_expr(v))
+            .ok();
+        let post = node
+            .get("loopExpression")
+            .ok_or_else(|| eyre!("For statement: loop expression not found: {}", node))
+            .and_then(|v| self.parse_stmt(v))
+            .ok();
         let body_node = node.get_body()?;
         let body = self.parse_stmt(body_node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -944,8 +936,10 @@ impl AstParser {
     /// Parse a `while` statement.
     fn parse_while_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
-        let condition_node = node.get_condition()?;
-        let cond = self.parse_expr(condition_node)?;
+        let cond = node
+            .get("condition")
+            .ok_or_else(|| eyre!("While statement: condition not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
         let body_node = node.get_body()?;
         let body = self.parse_stmt(body_node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -959,8 +953,10 @@ impl AstParser {
     /// Parse a `do_while` statement.
     fn parse_do_while_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
-        let condition_node = node.get_condition()?;
-        let cond = self.parse_expr(condition_node)?;
+        let cond = node
+            .get("condition")
+            .ok_or_else(|| eyre!("Do while statement: condition not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
         let body_node = node.get_body()?;
         let body = self.parse_stmt(body_node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -1004,20 +1000,23 @@ impl AstParser {
     fn parse_try_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
         let loc = node.get_source_location(&self.localizer);
-        let expr = self.parse_expr(node.get_external_call()?)?;
-
-        let clause_nodes = match node.get_clauses() {
-            Ok(Value::Array(clause_nodes)) => clause_nodes,
-            _ => bail!("Implement parse_try_statement: {}", node),
-        };
+        let expr = node
+            .get("externalCall")
+            .ok_or_else(|| eyre!("Try statement: external call not found: {}", node))
+            .map(|v| self.parse_expr(v))??;
+        let clause_nodes = node
+            .get("clauses")
+            .ok_or_else(|| eyre!("Try statement: clauses not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Try statement: clauses invalid: {}", node))?;
         match clause_nodes.split_first() {
             // `try` clause + `catch` clauses
-            Some((try_cls_node, catch_clauses)) => {
-                let try_blk = self.parse_block(try_cls_node.get_block()?, false)?;
-                let params = match self.get_parameters_node(try_cls_node) {
-                    Ok(params_node) => self.parse_parameters(params_node)?,
-                    Err(_) => vec![],
-                };
+            Some((try_node, catch_clauses)) => {
+                let try_blk = self.parse_block(try_node.get_block()?, false)?;
+                let params = try_node
+                    .get("parameters")
+                    .map(|v| self.parse_parameters(v))
+                    .ok_or_else(|| eyre!("Try statement: parameters not found: {}", try_node))??;
                 let mut catch_cls = vec![];
                 for cls in catch_clauses {
                     let clause = self.parse_catch_clause(cls)?;
@@ -1033,17 +1032,14 @@ impl AstParser {
     fn parse_catch_clause(&mut self, node: &Value) -> Result<CatchClause> {
         let id = node.get_id().ok();
         let block = self.parse_block(node.get_block()?, false)?;
-        let error = {
-            let error_name = node.get_error_name()?;
-            match error_name.is_empty() {
-                true => None,
-                false => Some(error_name),
-            }
-        };
-        let params = match self.get_parameters_node(node) {
-            Ok(params_node) => self.parse_parameters(params_node)?,
-            Err(_) => vec![],
-        };
+        let error = node
+            .get("errorName")
+            .ok_or_else(|| eyre!("Catch clause: error name not found: {}", node))?
+            .as_str();
+        let params = node
+            .get("parameters")
+            .map(|v| self.parse_parameters(v))
+            .ok_or_else(|| eyre!("Catch clause: parameters not found: {}", node))??;
         let loc = node.get_source_location(&self.localizer);
         Ok(CatchClause::new(id, error, params, block, loc))
     }
@@ -1056,7 +1052,10 @@ impl AstParser {
     fn parse_revert_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
         let loc = node.get_source_location(&self.localizer);
-        let error_call = self.parse_function_call(node.get_error_call()?)?;
+        let error_call = node
+            .get("errorCall")
+            .ok_or_else(|| eyre!("Revert statement: error call not found: {}", node))
+            .and_then(|v| self.parse_function_call(v))?;
         let error = error_call.callee.deref().clone();
         let args = error_call.args;
         Ok(RevertStmt::new(id, Some(error), args, loc).into())
@@ -1070,7 +1069,10 @@ impl AstParser {
     fn parse_emit_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
         let loc = node.get_source_location(&self.localizer);
-        let event_call = self.parse_function_call(node.get_event_call()?)?;
+        let event_call = node
+            .get("eventCall")
+            .ok_or_else(|| eyre!("Emit statement: event call not found: {}", node))
+            .and_then(|v| self.parse_function_call(v))?;
         let event = event_call.callee.deref().clone();
         let args = event_call.args;
         Ok(EmitStmt::new(id, event, args, loc).into())
@@ -1083,11 +1085,10 @@ impl AstParser {
     /// Parse a variable declaration statement.
     fn parse_var_decl_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = node.get_id().ok();
-        let vdecls_node = node.get_declarations();
-        let vdecl_nodes = match vdecls_node {
-            Ok(Value::Array(nodes)) => nodes.clone(),
-            Ok(v) => vec![v.clone()],
-            Err(err) => bail!(err),
+        let vdecl_nodes = match node.get("declarations") {
+            Some(Value::Array(nodes)) => nodes.clone(),
+            Some(v) => vec![v.clone()],
+            None => bail!("Variable declaration: declarations not found: {}", node),
         };
         let mut vars: Vec<Option<VariableDecl>> = vec![];
         for vdecl_node in vdecl_nodes.iter() {
@@ -1099,17 +1100,12 @@ impl AstParser {
                 },
             }
         }
-        let value_node = node.get_initial_value();
-        let value = match value_node {
-            Ok(Value::Null) => None,
-            Ok(v) => {
-                let expr = self.parse_expr(v)?;
-                Some(expr)
-            }
-            Err(_) => None,
-        };
+        let value = node
+            .get("initialValue")
+            .ok_or_else(|| eyre!("Variable declaration: initial value not found: {}", node))
+            .and_then(|v| self.parse_expr(v))
+            .ok();
         let loc = node.get_source_location(&self.localizer);
-
         Ok(VarDeclStmt::new(id, vars, value, loc).into())
     }
 
@@ -1150,7 +1146,7 @@ impl AstParser {
     /// Parse unary expression.
     fn parse_unary_expr(&mut self, node: &Value) -> Result<UnaryExpr> {
         let id = node.get_id().ok();
-        let operand = node
+        let body = node
             .get("subExpression")
             .ok_or_else(|| eyre!("Unary sub expression not found: {}", node))
             .and_then(|v| self.parse_expr(v))?;
@@ -1159,10 +1155,15 @@ impl AstParser {
             .ok_or_else(|| eyre!("Unary  not found: {}", node))?
             .as_bool()
             .unwrap_or(false);
-        let operator = UnaryOp::new(&self.get_operator(node)?, is_prefix_op)?;
+        let op = node
+            .get("operator")
+            .ok_or_else(|| eyre!("Unary operator not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Unary operator invalid: {}", node))
+            .and_then(|op| UnaryOp::new(op, is_prefix_op))?;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
-        Ok(UnaryExpr::new(id, operator, operand, typ, loc))
+        Ok(UnaryExpr::new(id, op, body, typ, loc))
     }
 
     //-------------------------------------------------
@@ -1180,13 +1181,22 @@ impl AstParser {
             .get("rightExpression")
             .ok_or_else(|| eyre!("Binary right expression not found: {}", node))
             .and_then(|v| self.parse_expr(v))?;
-        if let Ok(common_type_node) = node.get_common_type() {
-            let type_string = common_type_node.get_type_string()?;
-            let common_type = type_parser::parse_data_type(type_string)?;
+        if let Some(common_type_node) = node.get("commonType") {
+            let common_type = common_type_node
+                .get("typeString")
+                .ok_or_else(|| eyre!("Binary common type typeString not found: {}", node))?
+                .as_str()
+                .ok_or_else(|| eyre!("Binary common type typeString invalid: {}", node))
+                .map(type_parser::parse_data_type)??;
             lhs.update_data_type(common_type.clone());
             rhs.update_data_type(common_type);
         }
-        let op = BinOp::new(&self.get_operator(node)?)?;
+        let op = node
+            .get("operator")
+            .ok_or_else(|| eyre!("Binary operator not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Binary operator invalid: {}", node))
+            .and_then(|op| BinOp::new(op))?;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(BinaryExpr::new(id, op, lhs, rhs, typ, loc))
@@ -1207,7 +1217,12 @@ impl AstParser {
             .get("rightHandSide")
             .ok_or_else(|| eyre!("Assignment right hand side not found: {}", node))
             .and_then(|v| self.parse_expr(v))?;
-        let op = AssignOp::new(&self.get_operator(node)?)?;
+        let op = node
+            .get("operator")
+            .ok_or_else(|| eyre!("Assignment operator not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Assignment operator invalid: {}", node))
+            .map(AssignOp::new)??;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
 
@@ -1280,21 +1295,14 @@ impl AstParser {
         &mut self,
         node: &Value,
     ) -> Result<(Vec<Expr>, Vec<String>, Vec<Option<Loc>>)> {
-        // Parse argument values
-        let arg_value_nodes = match node.get_arguments() {
-            Ok(Value::Array(nodes)) => nodes.clone(),
-            Ok(_) => {
-                bail!("Need to parse function call arguments: {}", node)
-            }
-            Err(err) => bail!(err),
-        };
-        let mut arg_values: Vec<Expr> = vec![];
-        for arg_node in arg_value_nodes {
-            match self.parse_expr(&arg_node) {
-                Ok(arg) => arg_values.push(arg),
-                Err(err) => bail!(err),
-            }
-        }
+        let arg_values = node
+            .get("arguments")
+            .ok_or_else(|| eyre!("Function call arguments not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function call arguments invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_expr(v))
+            .collect::<Result<Vec<Expr>>>()?;
         // Parse argument names and name locations
         let arg_names = node.get_names()?;
         let arg_name_locs = node.get_name_locs(&self.localizer);
@@ -1312,23 +1320,18 @@ impl AstParser {
         let loc = node.get_source_location(&self.localizer);
         let callee = self.parse_expr(node.get_expression()?)?;
         let call_opt_names = node.get_names()?;
-        let mut call_opt_values = vec![];
-        match node.get_options() {
-            Ok(Value::Array(opt_nodes)) => {
-                for n in opt_nodes {
-                    let expr = self.parse_expr(n)?;
-                    let l = n.get_source_location(&self.localizer);
-                    call_opt_values.push((expr, l));
-                }
-            }
-            _ => {
-                bail!("parse_function_call_options failed: {}", node)
-            }
-        }
+        let call_opt_values = node
+            .get("options")
+            .ok_or_else(|| eyre!("Function call options not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function call options invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_expr(v))
+            .collect::<Result<Vec<Expr>>>()?;
         let call_opts = call_opt_names
             .iter()
             .zip(call_opt_values.iter())
-            .map(|(name, (value, l))| CallOpt::new(name.to_string(), value.clone(), *l))
+            .map(|(name, value)| CallOpt::new(name.to_string(), value.clone(), value.loc()))
             .collect();
         Ok(CallOptsExpr::new(id, callee, call_opts, typ, loc))
     }
@@ -1357,15 +1360,11 @@ impl AstParser {
         let id = node.get_id().ok();
         let base_node = node.get_base_expression()?;
         let base = self.parse_expr(base_node)?;
-        let index_node = node.get_index_expression();
-        let index = match index_node {
-            Ok(Value::Null) => None,
-            Ok(v) => {
-                let index_expr = self.parse_expr(v)?;
-                Some(index_expr)
-            }
-            Err(_) => None,
-        };
+        let index = node
+            .get("indexExpression")
+            .ok_or_else(|| eyre!("Index expression not found: {}", node))
+            .and_then(|v| self.parse_expr(v))
+            .ok();
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(IndexExpr::new(id, base, index, typ, loc))
@@ -1381,20 +1380,14 @@ impl AstParser {
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         let base = self.parse_expr(node.get_base_expression()?)?;
-        let start_idx = match node.get_start_expression() {
-            Ok(idx_node) => match idx_node {
-                Value::Null => None,
-                _ => self.parse_expr(idx_node).ok(),
-            },
-            Err(_) => None,
-        };
-        let end_idx = match node.get_end_expression() {
-            Ok(idx_node) => match idx_node {
-                Value::Null => None,
-                _ => self.parse_expr(idx_node).ok(),
-            },
-            Err(_) => None,
-        };
+        let start_idx = node
+            .get("startExpression")
+            .ok_or_else(|| eyre!("Slice start expression not found: {}", node))
+            .map(|v| self.parse_expr(v).ok())?;
+        let end_idx = node
+            .get("endExpression")
+            .ok_or_else(|| eyre!("Slice end expression not found: {}", node))
+            .map(|v| self.parse_expr(v).ok())?;
         Ok(SliceExpr::new(id, base, start_idx, end_idx, typ, loc))
     }
 
@@ -1405,19 +1398,14 @@ impl AstParser {
     /// Parse a tuple expression.
     fn parse_tuple_expr(&mut self, node: &Value) -> Result<TupleExpr> {
         let id = node.get_id().ok();
-        let components_node = node.get_components()?;
-        let mut elems = vec![];
-        match components_node {
-            Value::Array(nodes) => {
-                for n in nodes {
-                    match n {
-                        Value::Null => elems.push(None),
-                        _ => elems.push(self.parse_expr(n).ok()),
-                    }
-                }
-            }
-            _ => bail!("Implement parse_tuple_expression: {}", node),
-        }
+        let elems = node
+            .get("components")
+            .ok_or_else(|| eyre!("Tuple expression components not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Tuple expression components invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_expr(v).ok())
+            .collect::<Vec<Option<Expr>>>();
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(TupleExpr::new(id, elems, typ, loc))
@@ -1430,15 +1418,14 @@ impl AstParser {
     /// Parse an inline array expression.
     fn parse_inline_array_expr(&mut self, node: &Value) -> Result<InlineArrayExpr> {
         let id = node.get_id().ok();
-        let mut elems = vec![];
-        match node.get_components()? {
-            Value::Array(component_nodes) => {
-                for component_node in component_nodes {
-                    elems.push(self.parse_expr(component_node)?)
-                }
-            }
-            _ => bail!("parse_inline_array_expression err: {}", node),
-        }
+        let elems = node
+            .get("components")
+            .ok_or_else(|| eyre!("Inline array expression components not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Inline array expression components invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_expr(v))
+            .collect::<Result<Vec<Expr>>>()?;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(InlineArrayExpr::new(id, elems, typ, loc))
@@ -1463,7 +1450,10 @@ impl AstParser {
     /// Parse a `new` expression.
     fn parse_new_expr(&mut self, node: &Value) -> Result<NewExpr> {
         let id = node.get_id().ok();
-        let typ = self.parse_data_type(node.get_type_name()?)?;
+        let typ = node
+            .get("typeName")
+            .ok_or_else(|| eyre!("New expression type name not found: {}", node))
+            .and_then(|v| self.parse_data_type(v))?;
         let loc = node.get_source_location(&self.localizer);
         Ok(NewExpr::new(id, typ, loc))
     }
@@ -1475,9 +1465,18 @@ impl AstParser {
     /// Parse a conditional expression.
     fn parse_conditional_expr(&mut self, node: &Value) -> Result<ConditionalExpr> {
         let id = node.get_id().ok();
-        let cond = self.parse_expr(node.get_condition()?)?;
-        let true_br = self.parse_expr(node.get_true_expression()?)?;
-        let false_br = self.parse_expr(node.get_false_expression()?)?;
+        let cond = node
+            .get("condition")
+            .ok_or_else(|| eyre!("Conditional expression: condition not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
+        let true_br = node
+            .get("trueExpression")
+            .ok_or_else(|| eyre!("Conditional true expression not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
+        let false_br = node
+            .get("falseExpression")
+            .ok_or_else(|| eyre!("Conditional false expression not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(ConditionalExpr::new(id, cond, true_br, false_br, typ, loc))
@@ -1492,13 +1491,7 @@ impl AstParser {
         let id = node.get_id().ok();
         let scope = node.get_scope().ok();
         let name = Name::new(node.get_name()?, None);
-        let value = match self.get_value(node) {
-            Ok(value_node) => match value_node {
-                Value::Null => None,
-                _ => self.parse_expr(value_node).ok(),
-            },
-            Err(_) => None,
-        };
+        let value = node.get("value").and_then(|v| self.parse_expr(v).ok());
         let mutability = match node.get_mutability() {
             Ok(mutability) => mutability,
             Err(_) => match self.parse_variable_constant_attribute(node)? {
@@ -1508,14 +1501,12 @@ impl AstParser {
         };
         let is_state_var = node.is_state_variable().unwrap_or(false);
         let visibility = self.parse_variable_visibility(node)?;
-        let overriding = match node.get_overrides() {
-            Ok(override_node) => match override_node {
-                Value::Null => Overriding::None,
-                _ => self.parse_overriding(node)?,
-            },
-            Err(_) => Overriding::None,
-        };
-        let data_loc = node.get_storage_location().ok();
+        let overriding = self.parse_overriding(node)?;
+        let data_loc = node
+            .get("storageLocation")
+            .ok_or_else(|| eyre!("Variable declaration: storage location not found: {}", node))?
+            .as_str()
+            .and_then(|s| DataLoc::new(s).ok());
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(VariableDecl::new(
@@ -1570,8 +1561,9 @@ impl AstParser {
     fn parse_lit(&mut self, node: &Value) -> Result<Lit> {
         let loc = node.get_source_location(&self.localizer);
         let typ = self.parse_data_type(node)?;
-        let value_node = self.get_value(node);
-        let hex_value_node = self.get_hex_value(node);
+        let value_node = node
+            .get("value")
+            .ok_or_else(|| eyre!("Literal value not found: {}", node));
 
         match typ {
             Type::Bool => {
@@ -1588,7 +1580,10 @@ impl AstParser {
                         HexNum::new(hex, typ).into()
                     }
                 };
-                let unit = node.get_sub_denomination().ok().map(NumUnit::new);
+                let unit = node
+                    .get("subdenomination")
+                    .and_then(|v| v.as_str())
+                    .map(NumUnit::new);
                 Ok(NumLit::new(value, unit, loc).into())
             }
 
@@ -1605,7 +1600,14 @@ impl AstParser {
             }
 
             Type::String(_) => match node.get_kind().as_deref() {
-                Ok("hexString") => Ok(HexLit::new(hex_value_node?, typ, loc).into()),
+                Ok("hexString") => {
+                    let hex_value = node
+                        .get("hexValue")
+                        .ok_or_else(|| eyre!("Literal hex value not found: {}", node))?
+                        .as_str()
+                        .ok_or_else(|| eyre!("Literal hex value invalid: {}", node))?;
+                    Ok(HexLit::new(hex_value, typ, loc).into())
+                }
 
                 Ok("unicodeString") => match value_node? {
                     Value::String(value) => {
@@ -1615,8 +1617,8 @@ impl AstParser {
                 },
 
                 // REVIEW: why not parsing to normal string first?
-                Ok("string") => match (value_node, hex_value_node) {
-                    (Ok(value), _) => {
+                Ok("string") => match value_node {
+                    Ok(value) => {
                         let value = self.parse_string_lit(value)?;
                         if value.is_ascii() {
                             Ok(StringLit::new(value, typ, loc).into())
@@ -1624,7 +1626,6 @@ impl AstParser {
                             Ok(UnicodeLit::new(value, typ, loc).into())
                         }
                     }
-                    (_, Ok(hex)) => Ok(HexLit::new(hex, typ, loc).into()),
                     _ => bail!("Failed to parse string literal: {}", node),
                 },
 
@@ -1727,23 +1728,29 @@ impl AstParser {
 
     /// Get data type of a JSON AST node.
     fn parse_data_type(&mut self, node: &Value) -> Result<Type> {
-        let data_loc = node.get_storage_location().ok();
-
+        let data_loc = node
+            .get("storageLocation")
+            .ok_or_else(|| eyre!("Data type: storage location not found: {}", node))?
+            .as_str()
+            .and_then(|s| DataLoc::new(s).ok());
         // First, parse data type from the `typeName` information.
-        if let Ok(type_name_node) = node.get_type_name() {
-            if let Ok(mut output_typ) = self.parse_type_name(type_name_node) {
-                // Update data location if it is specified and not default
-                if data_loc.is_some() {
-                    output_typ.set_data_loc(data_loc);
-                }
-                return Ok(output_typ);
+        if let Some(type_name_node) = node.get("typeName")
+            && let Ok(mut output_typ) = self.parse_type_name(type_name_node)
+        {
+            // Update data location if it is specified and not default
+            if data_loc.is_some() {
+                output_typ.set_data_loc(data_loc);
             }
+            return Ok(output_typ);
         }
-
-        // If not successful, parse data type from the `typeDescriptions` string.
-        let type_description_node = node.get_type_descriptions()?;
-        let type_string = type_description_node.get_type_string()?;
-        let mut output_typ = type_parser::parse_data_type(type_string)?;
+        let mut output_typ = node
+            .get("typeDescriptions")
+            .ok_or_else(|| eyre!("Type descriptions not found: {}", node))?
+            .get("typeString")
+            .ok_or_else(|| eyre!("Type string not found in type descriptions: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Type string is not a string: {}", node))
+            .map(type_parser::parse_data_type)??;
 
         // Update data location if it is specified and not default
         if data_loc.is_some() {
@@ -1758,19 +1765,21 @@ impl AstParser {
 
     /// Parse type from type descriptions.
     fn parse_type_descriptions(&self, node: &Value) -> Result<Type> {
-        match node.get_type_descriptions() {
-            Ok(type_descriptions) => {
-                let type_string = type_descriptions.get_type_string()?;
-                let mut output_typ = type_parser::parse_data_type(type_string)?;
-                // Update data location if it is specified and not default
-                let data_loc = node.get_storage_location().ok();
-                if data_loc.is_some() {
-                    output_typ.set_data_loc(data_loc);
-                }
-                Ok(output_typ)
-            }
-            Err(err) => bail!(err),
-        }
+        let mut typ = node
+            .get("typeDescriptions")
+            .ok_or_else(|| eyre!("Type descriptions not found: {}", node))?
+            .get("typeString")
+            .ok_or_else(|| eyre!("Type string not found in type descriptions: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Type string is not a string: {}", node))
+            .and_then(type_parser::parse_data_type)?;
+        let data_loc = node
+            .get("storageLocation")
+            .ok_or_else(|| eyre!("Type description: storage location not found: {}", node))?
+            .as_str()
+            .and_then(|s| DataLoc::new(s).ok());
+        typ.set_data_loc(data_loc);
+        Ok(typ)
     }
 
     //-------------------------------------------------
@@ -1788,17 +1797,20 @@ impl AstParser {
         match output_typ {
             Ok(mut typ) => {
                 // Update type name and its scope when possible
-                if let Ok(path_node) = node.get_path_node() {
-                    if let Ok(name_path) = path_node.get_name() {
-                        let names: Vec<Name> = name_path.split('.').map(Name::from).collect();
-                        let (scope, typ_name) = match &names[..] {
-                            [] => bail!("Parse type name: empty name!"),
-                            [contract_name, name] => (Some(contract_name.clone()), name.clone()),
-                            _ => bail!("TODO: parse type name: {}!", name_path),
-                        };
-                        typ.update_name(typ_name);
-                        typ.update_scope(scope);
-                    }
+                if let Some(path_node) = node.get("pathNode") {
+                    let path_name = path_node
+                        .get("name")
+                        .ok_or_else(|| eyre!("Type name path not found: {}", node))?
+                        .as_str()
+                        .ok_or_else(|| eyre!("Type name path is not a string: {}", node))?;
+                    let components: Vec<Name> = path_name.split('.').map(Name::from).collect();
+                    let (scope, typ_name) = match &components[..] {
+                        [] => bail!("Parse type name: empty name!"),
+                        [contract_name, name] => (Some(contract_name.clone()), name.clone()),
+                        _ => bail!("TODO: parse type name: {}!", path_name),
+                    };
+                    typ.update_name(typ_name);
+                    typ.update_scope(scope);
                 }
                 Ok(typ)
             }
@@ -1809,31 +1821,27 @@ impl AstParser {
     /// Parse a function type name
     fn parse_function_type_name(&mut self, node: &Value) -> Result<Type> {
         let fvis = self.parse_function_visibility(node)?;
-        let fmut = node.get_state_mutability()?;
-
-        let param_node = node.get_parameter_types()?;
-        let mut params = vec![];
-        match self.get_parameters_node(param_node) {
-            Ok(Value::Array(param_nodes)) => {
-                for param_node in param_nodes {
-                    params.push(self.parse_type_name(param_node)?);
-                }
-            }
-            _ => bail!("Implement parse_function_type: {}", node),
-        }
-
-        let return_node = node.get_return_parameter_types()?;
-        let mut returns = vec![];
-        match self.get_parameters_node(return_node) {
-            Ok(Value::Array(return_nodes)) => {
-                for node in return_nodes {
-                    let return_type = self.parse_type_name(node)?;
-                    returns.push(return_type);
-                }
-            }
-            _ => bail!("Implement parse_function_type: {}", node),
-        }
-
+        let fmut = self.parse_function_mutability(node)?;
+        let params = node
+            .get("parameterTypes")
+            .ok_or_else(|| eyre!("Function type: parameter types not found: {}", node))?
+            .get("parameters")
+            .ok_or_else(|| eyre!("Function type: parameter types not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function type: parameter types invalid: {}", node))?
+            .iter()
+            .map(|n| self.parse_type_name(n))
+            .collect::<Result<Vec<Type>>>()?;
+        let returns = node
+            .get("returnParameterTypes")
+            .ok_or_else(|| eyre!("Function type: return parameter types not found: {}", node))?
+            .get("parameters")
+            .ok_or_else(|| eyre!("Function type: return parameter types not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function type: return parameter types invalid: {}", node))?
+            .iter()
+            .map(|n| self.parse_type_name(n))
+            .collect::<Result<Vec<Type>>>()?;
         Ok(FunctionType::new(params, returns, fvis, fmut).into())
     }
 
@@ -1866,30 +1874,21 @@ impl AstParser {
     fn parse_yul_func_def(&mut self, node: &Value) -> Result<yast::FuncDef> {
         let name = node.get_name()?;
         let body = self.parse_yul_block(node.get_body()?)?;
-        let params = match self.get_parameters_node(node) {
-            Ok(Value::Array(param_nodes)) => {
-                let mut params = vec![];
-                for param_node in param_nodes {
-                    params.push(self.parse_yul_ident(param_node)?);
-                }
-                params
-            }
-            Ok(_) => bail!("parse_yul_func_def: {}", node),
-            Err(_) => vec![],
-        };
-        let ret_vars = match node.get_return_variables() {
-            Ok(Value::Array(return_nodes)) => {
-                let mut returns_vars = vec![];
-                for return_node in return_nodes {
-                    returns_vars.push(self.parse_yul_ident(return_node)?);
-                }
-                returns_vars
-            }
-            Ok(_) => {
-                bail!("parse_yul_func_def failed: {}", node)
-            }
-            Err(_) => vec![],
-        };
+        let params = node
+            .get("parameters")
+            .ok_or_else(|| eyre!("Yul function definition parameters not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Yul function definition parameters invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_yul_ident(v))
+            .collect::<Result<Vec<_>>>()?;
+        let ret_vars = node
+            .get("returnVariables")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|v| self.parse_yul_ident(v))
+            .collect::<Result<Vec<_>>>()?;
         Ok(yast::FuncDef::new(&name, params, ret_vars, body))
     }
 
@@ -1899,16 +1898,14 @@ impl AstParser {
 
     /// Parse a Yul block.
     fn parse_yul_block(&mut self, node: &Value) -> Result<yast::Block> {
-        let mut stmts: Vec<yast::Stmt> = vec![];
-        match node.get_statements()? {
-            Value::Array(stmt_nodes) => {
-                for stmt_node in stmt_nodes.iter() {
-                    stmts.push(self.parse_yul_stmt(stmt_node)?);
-                }
-            }
-            _ => bail!("To parse statements of Yul block: {}", node),
-        }
-
+        let stmts = node
+            .get("statements")
+            .ok_or_else(|| eyre!("Yul block statements not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Yul block statements invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_yul_stmt(v))
+            .collect::<Result<Vec<_>>>()?;
         Ok(yast::Block::new(stmts))
     }
 
@@ -1926,17 +1923,7 @@ impl AstParser {
             .iter()
             .map(|v| self.parse_yul_ident(v))
             .collect::<Result<Vec<_>>>()?;
-        let value = match node.get_value() {
-            Ok(value_node) => match value_node {
-                Value::Null => None,
-                _ => match self.parse_yul_expr(value_node) {
-                    Ok(value) => Some(value),
-                    Err(err) => bail!(err),
-                },
-            },
-            Err(_) => None,
-        };
-
+        let value = node.get("value").and_then(|v| self.parse_yul_expr(v).ok());
         Ok(yast::VarDecl::new(vars, value))
     }
 
@@ -2012,7 +1999,10 @@ impl AstParser {
     /// Parse a Yul if statement.
     fn parse_yul_if_stmt(&mut self, node: &Value) -> Result<yast::IfStmt> {
         let body = self.parse_yul_block(node.get_body()?)?;
-        let cond = self.parse_yul_expr(node.get_condition()?)?;
+        let cond = node
+            .get("condition")
+            .ok_or_else(|| eyre!("Yul if statement: condition not found: {}", node))
+            .and_then(|v| self.parse_yul_expr(v))?;
         Ok(yast::IfStmt::new(cond, body))
     }
 
@@ -2022,10 +2012,19 @@ impl AstParser {
 
     /// Parse a Yul for loop.
     fn parse_yul_for_loop_stmt(&mut self, node: &Value) -> Result<yast::ForStmt> {
-        let pre = self.parse_yul_block(node.get_pre()?)?;
+        let pre = node
+            .get("pre")
+            .ok_or_else(|| eyre!("Yul loop statement: pre not found: {}", node))
+            .and_then(|v| self.parse_yul_block(v))?;
         let body = self.parse_yul_block(node.get_body()?)?;
-        let post = self.parse_yul_block(node.get_post()?)?;
-        let cond = self.parse_yul_expr(node.get_condition()?)?;
+        let post = node
+            .get("post")
+            .ok_or_else(|| eyre!("Yul loop statement: post not found: {}", node))
+            .and_then(|v| self.parse_yul_block(v))?;
+        let cond = node
+            .get("condition")
+            .ok_or_else(|| eyre!("Yul loop statement: condition not found: {}", node))
+            .and_then(|v| self.parse_yul_expr(v))?;
         Ok(yast::ForStmt::new(pre, cond, post, body))
     }
 
@@ -2080,10 +2079,8 @@ impl AstParser {
 
     /// Check is it a default switch case
     fn is_yul_switch_default(&self, node: &Value) -> bool {
-        match node.get_value() {
-            Ok(Value::String(str_val)) => str_val.eq("default"),
-            _ => false,
-        }
+        node.get("value")
+            .map_or(false, |v| v.is_string() && v.as_str() == Some("default"))
     }
 
     /// Parse a Yul default switch case
@@ -2113,27 +2110,22 @@ impl AstParser {
     /// Parse a Yul function call expression.
     fn parse_yul_function_call(&mut self, node: &Value) -> Result<yast::CallExpr> {
         let callee = node.get_function_name()?.get_name()?;
-        let typ = match node.get_type() {
-            Ok(type_str) => self.parse_yul_type(&type_str)?,
-            Err(_) => YType::Unkn,
-        };
+        let typ = node
+            .get("type")
+            .ok_or_else(|| eyre!("Function call type not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Function call type invalid: {}", node))
+            .and_then(|s| self.parse_yul_type(s))?;
         let loc = node.get_source_location(&self.localizer);
         let fn_name = yast::Identifier::new(Name::new(callee, None), typ, loc);
-
-        let mut arg_values: Vec<yast::Expr> = vec![];
-        match node.get_arguments() {
-            Ok(Value::Array(arg_nodes)) => {
-                for arg_node in arg_nodes.iter() {
-                    match self.parse_yul_expr(arg_node) {
-                        Ok(arg) => arg_values.push(arg),
-                        Err(err) => bail!(err),
-                    }
-                }
-            }
-            Ok(v) => todo!("Parse Yul function call args: {}", v),
-            Err(err) => bail!(err),
-        }
-
+        let arg_values = node
+            .get("arguments")
+            .ok_or_else(|| eyre!("Function call arguments not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function call arguments invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_yul_expr(v))
+            .collect::<Result<Vec<yast::Expr>>>()?;
         Ok(yast::CallExpr::new(fn_name, arg_values))
     }
 
@@ -2144,21 +2136,24 @@ impl AstParser {
     fn parse_yul_ident(&self, node: &Value) -> Result<yast::Identifier> {
         let name = node.get_name()?;
         let loc = node.get_source_location(&self.localizer);
-        let typ = match node.get_type() {
-            Ok(typ_str) => self.parse_yul_type(&typ_str)?,
-            Err(_) => YType::Unkn,
-        };
+        let typ = node
+            .get("type")
+            .ok_or_else(|| eyre!("Yul identifier type not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Yul identifier type invalid: {}", node))
+            .and_then(|s| self.parse_yul_type(s))?;
         Ok(yast::Identifier::new(Name::new(name.to_string(), None), typ, loc))
     }
 
     fn parse_yul_ident_or_member_expr(&self, node: &Value) -> Result<yast::Expr> {
         let name = node.get_name()?;
         let loc = node.get_source_location(&self.localizer);
-        let typ = match node.get_type() {
-            Ok(typ_str) => self.parse_yul_type(&typ_str)?,
-            Err(_) => YType::Unkn,
-        };
-
+        let typ = node
+            .get("type")
+            .ok_or_else(|| eyre!("Yul identifier type not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Yul identifier type invalid: {}", node))
+            .and_then(|s| self.parse_yul_type(s))?;
         let components = name.split('.').collect::<Vec<&str>>();
         match components[..] {
             [name] => {
@@ -2179,11 +2174,11 @@ impl AstParser {
 
     fn parse_yul_lit(&self, node: &Value) -> Result<yast::Lit> {
         match node.get_kind()?.as_str() {
-            "number" => match node.get_value() {
-                Ok(Value::String(s)) if s.starts_with("0x") => {
+            "number" => match node.get("value") {
+                Some(Value::String(s)) if s.starts_with("0x") => {
                     Ok(yast::NumLit::Hex(s.to_string()).into())
                 }
-                Ok(v) => {
+                Some(v) => {
                     let number = self.parse_int_lit(v)?;
                     Ok(yast::NumLit::Dec(number).into())
                 }
@@ -2205,8 +2200,12 @@ impl AstParser {
     }
 
     fn parse_yul_hex_lit(&self, node: &Value) -> Result<yast::Lit> {
-        let hex = node.get_hex_value()?;
-        Ok(yast::HexLit::new(&hex).into())
+        let hex_value = node
+            .get("hexValue")
+            .ok_or_else(|| eyre!("Yul literal hex value not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Yul literal hex value invalid: {}", node))?;
+        Ok(yast::HexLit::new(hex_value).into())
     }
 
     //-------------------------------------------------

@@ -755,8 +755,8 @@ pub fn parse_input_file(filename: &str) -> Result<SourceUnit> {
     }
 }
 
-pub fn parse_inline_assembly_block(yul_block: String) -> Result<Block> {
-    let mut pairs = match YulParser::parse(Rule::block, &yul_block) {
+pub fn parse_inline_assembly_block(yul_block: &str) -> Result<Block> {
+    let mut pairs = match YulParser::parse(Rule::block, yul_block) {
         Ok(pairs) => pairs,
         Err(err) => {
             bail!("Error: failed to parse Yul block: {}{}", yul_block, err)
