@@ -3,7 +3,7 @@
 use crate::{
     ast::*,
     parser::{
-        json_ast::json_value::{NodeType, ValueUtil},
+        json_ast::json_value::{self, NodeType, ValueUtil},
         localizer::Localizer,
         typ::type_parser,
     },
@@ -75,7 +75,9 @@ impl AstParser {
                 Some(source_node) => source_node,
                 None => bail!("Failed to get source node of: {}", source_name),
             };
-            let ast_node = source_node.get_ast()?;
+            let ast_node = source_node
+                .get("AST")
+                .ok_or_else(|| eyre!("AST node not found for source: {}", source_name))?;
             source_units.push(self.parse_ast(ast_node)?)
         }
 
@@ -86,9 +88,24 @@ impl AstParser {
     // Common utilities to handle AST nodes
     //-------------------------------------------------
 
-    /// Get node type of an AST Node
-    fn get_node_type(&self, node: &Value) -> Result<NodeType> {
-        node.get_node_type()
+    /// Parse the node type of an AST Node
+    fn parse_node_type(&self, node: &Value) -> Result<NodeType> {
+        node.get("nodeType")
+            .ok_or_else(|| eyre!("Node type not found: {}", node))?
+            .as_str()
+            .map(NodeType::new)
+            .ok_or_else(|| eyre!("Node type invalid: {}", node))
+    }
+
+    /// Parse id of an AST Node
+    ///
+    /// FIXME: rename this function
+    fn parse_id(&self, node: &Value) -> Result<isize> {
+        node.get("id")
+            .ok_or_else(|| eyre!("Node id not found: {}", node))?
+            .as_i64()
+            .map(|id| id as isize)
+            .ok_or_else(|| eyre!("Node id invalid: {}", node))
     }
 
     //-------------------------------------------------
@@ -97,7 +114,7 @@ impl AstParser {
 
     /// Parse a source unit from a JSON AST node.
     fn parse_ast(&mut self, node: &Value) -> Result<SourceUnit> {
-        let node_type = self.get_node_type(node)?;
+        let node_type = self.parse_node_type(node)?;
         match node_type {
             NodeType::SourceUnit => self.parse_source_unit(node),
             _ => bail!("Source unit not found: {}", node),
@@ -110,7 +127,7 @@ impl AstParser {
 
     /// Parse a source unit from a JSON AST node.
     fn parse_source_unit(&mut self, node: &Value) -> Result<SourceUnit> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let path = self.parse_source_unit_path(node)?;
         self.localizer = Localizer::new(path.to_string());
         let elems = node
@@ -128,7 +145,7 @@ impl AstParser {
     ///
     /// Input AST node must be a node representing a source unit.
     fn parse_source_unit_path(&mut self, node: &Value) -> Result<String> {
-        assert!(matches!(self.get_node_type(node), Ok(NodeType::SourceUnit)));
+        assert!(matches!(self.parse_node_type(node), Ok(NodeType::SourceUnit)));
         let source_file = node
             .get("absolutePath")
             .ok_or_else(|| eyre!("Parsing source unit: absolute path not found: {}", node))?
@@ -162,7 +179,7 @@ impl AstParser {
     /// Parse source unit element from a JSON AST node.
     fn parse_source_unit_element(&mut self, node: &Value) -> Result<SourceUnitElem> {
         use NodeType::*;
-        match self.get_node_type(node)? {
+        match self.parse_node_type(node)? {
             Pragma => self.parse_pragma_directive(node).map(SourceUnitElem::from),
             Import => self.parse_import_directive(node).map(SourceUnitElem::from),
             Using => self.parse_using_directive(node).map(SourceUnitElem::from),
@@ -187,7 +204,7 @@ impl AstParser {
 
     /// Parse pragma directive from a JSON AST node.
     fn parse_pragma_directive(&mut self, node: &Value) -> Result<PragmaDir> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let pragma_lits = node
             .get("literals")
             .ok_or_else(|| eyre!("Pragma literals not found: {}", node))
@@ -229,7 +246,7 @@ impl AstParser {
 
     /// Parse import directive from a JSON AST node.
     fn parse_import_directive(&self, node: &Value) -> Result<ImportDir> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         let file_path = node
             .get("flie")
@@ -291,20 +308,29 @@ impl AstParser {
 
     /// Parse pragma directive from a JSON AST node.
     fn parse_using_directive(&mut self, node: &Value) -> Result<UsingDir> {
-        let id = node.get_id().ok();
-        let global = node.is_global().unwrap_or(false);
+        let id = self.parse_id(node).ok();
+        let global = node
+            .get("global")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let loc = node.get_source_location(&self.localizer);
         let kind: Result<_> = if let Some(funcs_node) = node.get("functionList") {
             let using_funcs = funcs_node
                 .as_array()
-                .ok_or_else(|| eyre!("Using functions: function list invalid: {}", funcs_node))?
+                .ok_or_else(|| eyre!("Using directive: function list invalid: {}", funcs_node))?
                 .iter()
-                .map(|func_node| {
-                    if let Some(Value::String(op)) = func_node.get("operator") {
-                        let func_name = func_node.get_definition()?.get_name()?;
+                .map(|v| {
+                    if let Some(Value::String(op)) = v.get("operator") {
+                        let func_name = v
+                            .get("definition")
+                            .ok_or_else(|| eyre!("Using directive: definition not found: {}", v))?
+                            .get_name()?;
                         Ok(UsingFunc::new(&func_name, Some(op)))
                     } else {
-                        let func_name = func_node.get_function()?.get_name()?;
+                        let func_name = v
+                            .get("function")
+                            .ok_or_else(|| eyre!("Using directive: function not found: {}", v))?
+                            .get_name()?;
                         Ok(UsingFunc::new(&func_name, None))
                     }
                 })
@@ -329,7 +355,7 @@ impl AstParser {
 
     /// Parse contract definition from a JSON AST node.
     fn parse_contract_def(&mut self, node: &Value) -> Result<ContractDef> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let scope = node.get_scope().ok();
         let name = Name::new(node.get_name()?, None);
         let kind = node
@@ -369,7 +395,14 @@ impl AstParser {
 
     /// Parse a base contract from a JSON AST node.
     fn parse_base_contract(&mut self, node: &Value) -> Result<BaseContract> {
-        let contract_name: Name = node.get_base_name()?.get_name()?.into();
+        let contract_name: Name = node
+            .get("baseName")
+            .ok_or_else(|| eyre!("Base contract name not found: {}", node))?
+            .get("name")
+            .ok_or_else(|| eyre!("Base contract name invalid: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Base contract name invalid: {}", node))?
+            .into();
         let arguments = node
             .get("arguments")
             .ok_or_else(|| eyre!("Base contract arguments not found: {}", node))?
@@ -384,7 +417,7 @@ impl AstParser {
 
     /// Parse a contract element from a JSON AST node.
     fn parse_contract_element(&mut self, node: &Value) -> Result<ContractElem> {
-        let node_type = self.get_node_type(node)?;
+        let node_type = self.parse_node_type(node)?;
         match node_type {
             NodeType::StructDef => self.parse_struct_def(node).map(|def| def.into()),
             NodeType::EventDef => self.parse_event_def(node).map(|def| def.into()),
@@ -407,7 +440,7 @@ impl AstParser {
 
     /// Parse a type name definition from a JSON AST node.
     fn parse_user_defined_value_type_def(&mut self, node: &Value) -> Result<UserTypeDef> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let scope = node.get_scope().ok();
         let name: Name = node.get_name()?.into();
         let typ = node
@@ -424,29 +457,24 @@ impl AstParser {
 
     /// Parse a struct definition from a JSON AST node.
     fn parse_struct_def(&mut self, node: &Value) -> Result<StructDef> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let scope = node.get_scope().ok();
         let name: Name = node.get_name()?.into();
-        let mut fields: Vec<StructField> = vec![];
-        for member_node in self.get_struct_field_nodes(node)? {
-            fields.push(self.parse_struct_field(member_node)?)
-        }
+        let fields = node
+            .get("members")
+            .ok_or_else(|| eyre!("Struct members not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Struct members invalid: {}", node))?
+            .iter()
+            .map(|member_node| self.parse_struct_field(member_node))
+            .collect::<Result<Vec<StructField>>>()?;
         let loc = node.get_source_location(&self.localizer);
         Ok(StructDef::new(id, scope, name, fields, loc))
     }
 
-    /// Get AST nodes corresponding to fields of a struct definition.
-    fn get_struct_field_nodes<'a>(&mut self, node: &'a Value) -> Result<&'a Vec<Value>> {
-        match node.get_members() {
-            Ok(Value::Array(nodes)) => Ok(nodes),
-            Ok(_) => bail!("Failed to get struct member nodes: {}", node),
-            Err(err) => bail!(err),
-        }
-    }
-
     /// Parse a struct field from a JSON AST node.
     fn parse_struct_field(&mut self, node: &Value) -> Result<StructField> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let name = node.get_name()?;
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -459,21 +487,18 @@ impl AstParser {
 
     /// Parse an enum definition from a JSON AST node.
     fn parse_enum_def(&self, node: &Value) -> Result<EnumDef> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let scope = node.get_scope().ok();
         let name: Name = node.get_name()?.into();
         let loc = node.get_source_location(&self.localizer);
-        let mut elems = vec![];
-        match node.get_members() {
-            Ok(Value::Array(member_nodes)) => {
-                for member_node in member_nodes.iter() {
-                    let member_name = member_node.get_name()?;
-                    elems.push(member_name);
-                }
-            }
-            Ok(node) => bail!("Implement parse_enum_definition: {}", node),
-            Err(err) => bail!(err),
-        }
+        let elems = node
+            .get("members")
+            .ok_or_else(|| eyre!("Enum members not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Enum members invalid: {}", node))?
+            .iter()
+            .map(|v| v.get_name())
+            .collect::<Result<Vec<String>>>()?;
         Ok(EnumDef::new(id, scope, name, elems, loc))
     }
 
@@ -484,8 +509,10 @@ impl AstParser {
     /// Parse an event definition from a JSON AST node.
     fn parse_event_def(&mut self, node: &Value) -> Result<EventDef> {
         let name: Name = node.get_name()?.into();
-        let params_node = node.get_parameters()?;
-        let params = self.parse_parameters(params_node)?;
+        let params = node
+            .get("parameters")
+            .ok_or_else(|| eyre!("Event definition: parameters not found: {}", node))
+            .and_then(|v| self.parse_parameters(v))?;
         let anonymous = node
             .get("anonymous")
             .ok_or_else(|| eyre!("Event definition: anonymous flag not found: {}", node))?
@@ -516,10 +543,13 @@ impl AstParser {
 
     /// Parse a modifier definition from a JSON AST node.
     fn parse_modifier_def(&mut self, node: &Value) -> Result<FunctionDef> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let scope = node.get_scope().ok();
         let name: Name = node.get_name()?.into();
-        let is_virtual = node.is_virtual().unwrap_or(false);
+        let is_virtual = node
+            .get("virtual")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let loc = node.get_source_location(&self.localizer);
         let overriding = self.parse_overriding(node)?;
         let body = self.parse_modifier_body(node);
@@ -544,7 +574,9 @@ impl AstParser {
 
     /// Parser parameters of a modifier declaration.
     fn parse_modifier_params(&mut self, node: &Value) -> Result<Vec<VariableDecl>> {
-        self.parse_parameters(node.get_parameters()?)
+        node.get("parameters")
+            .ok_or_else(|| eyre!("Modifier parameters not found: {}", node))
+            .and_then(|v| self.parse_parameters(v))
     }
 
     /// Parse body of a modifier
@@ -553,11 +585,7 @@ impl AstParser {
             Ok(body_node) => body_node,
             Err(_) => return None,
         };
-
-        match self.parse_block(body_node, false) {
-            Ok(block) => Some(block),
-            Err(_) => None,
-        }
+        self.parse_block(body_node, false).ok()
     }
 
     //-------------------------------------------------
@@ -566,7 +594,7 @@ impl AstParser {
 
     /// Parse a function definition from a JSON AST node.
     fn parse_function_definition(&mut self, node: &Value) -> Result<FunctionDef> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let scope = node.get_scope().ok();
         let name = Name::new(node.get_name()?, None);
         let params = self.parse_function_parameters(node)?;
@@ -574,7 +602,7 @@ impl AstParser {
         let kind = match self.parse_function_kind(node) {
             Ok(kind) => kind,
             Err(_) => {
-                if let Ok(true) = node.is_constructor() {
+                if let Some(Value::Bool(true)) = node.get("isConstructor") {
                     FuncKind::Constructor
                 } else if name.is_empty() {
                     // Unnamed function is a fallback function in older Solidity
@@ -585,7 +613,10 @@ impl AstParser {
                 }
             }
         };
-        let is_virtual = node.is_virtual().unwrap_or(false);
+        let is_virtual = node
+            .get("virtual")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let fvis = self.parse_function_visibility(node)?;
         let fmut = self.parse_function_mutability(node)?;
         let body = self.parse_function_body(node)?;
@@ -632,8 +663,9 @@ impl AstParser {
 
     /// Parser parameters of a function declaration.
     fn parse_function_parameters(&mut self, node: &Value) -> Result<Vec<VariableDecl>> {
-        let params_node = node.get_parameters()?;
-        self.parse_parameters(params_node)
+        node.get("parameters")
+            .ok_or_else(|| eyre!("Function parameters not found: {}", node))
+            .and_then(|v| self.parse_parameters(v))
     }
 
     /// Parser return parameters of a function declaration.
@@ -672,7 +704,7 @@ impl AstParser {
         if node.is_null() {
             return Ok(vec![]);
         }
-        if !matches!(self.get_node_type(node), Ok(NodeType::ParameterList)) {
+        if !matches!(self.parse_node_type(node), Ok(NodeType::ParameterList)) {
             bail!("Parameter list not found: {}", node);
         }
         let params = node
@@ -720,23 +752,28 @@ impl AstParser {
 
     /// Parse modifier invocations of a function definition.
     fn parse_function_modifier_invocations(&mut self, node: &Value) -> Result<Vec<CallExpr>> {
-        let mut modifiers: Vec<CallExpr> = vec![];
-        match node.get_modifiers() {
-            Ok(Value::Array(m_nodes)) => {
-                for m_node in m_nodes {
-                    modifiers.push(self.parse_modifier_invocation(m_node)?);
-                }
-            }
-            Ok(v) => bail!("Need to parse modifiers: {}", v),
-            Err(err) => bail!(err),
-        }
+        let modifiers = node
+            .get("modifiers")
+            .ok_or_else(|| eyre!("Function modifiers not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function modifiers invalid: {}", node))?
+            .iter()
+            .map(|v| self.parse_modifier_invocation(v))
+            .collect::<Result<Vec<CallExpr>>>()?;
         Ok(modifiers)
     }
 
     /// Parse modifier invocations of a function from a JSON AST node.
     fn parse_modifier_invocation(&mut self, node: &Value) -> Result<CallExpr> {
-        let id = node.get_id().ok();
-        let name: Name = node.get_modifier_name()?.get_name()?.into();
+        let id = self.parse_id(node).ok();
+        let name: Name = node
+            .get("modifierName")
+            .ok_or_else(|| eyre!("Modifier invocation name not found: {}", node))?
+            .get("name")
+            .ok_or_else(|| eyre!("Modifier invocation name invalid: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Modifier invocation name invalid: {}", node))?
+            .into();
         let args = node
             .get("arguments")
             .ok_or_else(|| eyre!("Modifier invocation arguments not found: {}", node))?
@@ -763,7 +800,7 @@ impl AstParser {
 
     /// Parse a block.
     fn parse_block(&mut self, node: &Value, is_unchecked: bool) -> Result<Block> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let statements = node
             .get("statements")
             .ok_or_else(|| eyre!("Block statements not found: {}", node))?
@@ -782,7 +819,7 @@ impl AstParser {
 
     /// Parse a statement.
     fn parse_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        match self.get_node_type(node)? {
+        match self.parse_node_type(node)? {
             NodeType::Block => self.parse_block(node, false).map(|blk| blk.into()),
             NodeType::UncheckedBlock => self.parse_block(node, true).map(|blk| blk.into()),
             NodeType::InlineAssembly => self.parse_inline_asm_stmt(node),
@@ -810,13 +847,13 @@ impl AstParser {
 
     /// Parse an inline assembly statement
     fn parse_inline_asm_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
-        let blk = match node.get_ast() {
+        let blk = match node.get("AST") {
             // Solidity 0.6 to 0.8
-            Ok(ast_node) => self.parse_yul_block(ast_node)?,
+            Some(ast_node) => self.parse_yul_block(ast_node)?,
             // Solidity 0.4, 0.5
-            Err(_) => match node.get("operations") {
+            None => match node.get("operations") {
                 Some(Value::String(asm)) => YulParser::parse_inline_assembly_block(asm)?,
                 _ => YBlock::new(vec![]),
             },
@@ -830,7 +867,7 @@ impl AstParser {
 
     /// Parse a `break` statement.
     fn parse_break_stmt(&self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         Ok(BreakStmt::new(id, loc).into())
     }
@@ -841,7 +878,7 @@ impl AstParser {
 
     /// Parse a `throw` statement.
     fn parse_throw_stmt(&self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         Ok(ThrowStmt::new(id, loc).into())
     }
@@ -852,7 +889,7 @@ impl AstParser {
 
     /// Parse a `continue` statement.
     fn parse_continue_stmt(&self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         Ok(ContinueStmt::new(id, loc).into())
     }
@@ -863,7 +900,7 @@ impl AstParser {
 
     /// Parse an expression statement.
     fn parse_expr_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let expr_node = node.get_expression()?;
         let expr = self.parse_expr(expr_node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -884,7 +921,7 @@ impl AstParser {
 
     /// Parse an `if` statement.
     fn parse_if_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let cond = node
             .get("condition")
             .ok_or_else(|| eyre!("If statement: condition not found: {}", node))
@@ -907,7 +944,7 @@ impl AstParser {
 
     /// Parse a `for` statement.
     fn parse_for_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let pre = node
             .get("initializationExpression")
             .ok_or_else(|| eyre!("For statement: initialization not found: {}", node))
@@ -935,7 +972,7 @@ impl AstParser {
 
     /// Parse a `while` statement.
     fn parse_while_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let cond = node
             .get("condition")
             .ok_or_else(|| eyre!("While statement: condition not found: {}", node))
@@ -952,7 +989,7 @@ impl AstParser {
 
     /// Parse a `do_while` statement.
     fn parse_do_while_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let cond = node
             .get("condition")
             .ok_or_else(|| eyre!("Do while statement: condition not found: {}", node))
@@ -969,7 +1006,7 @@ impl AstParser {
 
     /// Parse a `place-holder` statement.
     fn parse_place_holder_stmt(&self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         Ok(PlaceholderStmt::new(id, loc).into())
     }
@@ -980,7 +1017,7 @@ impl AstParser {
 
     /// Parse a `return` statement.
     fn parse_return_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let expr_node = node.get_expression();
         let expr = match expr_node {
             Ok(Value::Null) => None,
@@ -998,7 +1035,7 @@ impl AstParser {
 
     /// Parse a `try` statement.
     fn parse_try_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         let expr = node
             .get("externalCall")
@@ -1030,7 +1067,7 @@ impl AstParser {
 
     /// Parse a `catch` clause in a `try` statement.
     fn parse_catch_clause(&mut self, node: &Value) -> Result<CatchClause> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let block = self.parse_block(node.get_block()?, false)?;
         let error = node
             .get("errorName")
@@ -1050,7 +1087,7 @@ impl AstParser {
 
     /// Parse a `revert` statement.
     fn parse_revert_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         let error_call = node
             .get("errorCall")
@@ -1067,7 +1104,7 @@ impl AstParser {
 
     /// Parse an `emit` statement.
     fn parse_emit_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let loc = node.get_source_location(&self.localizer);
         let event_call = node
             .get("eventCall")
@@ -1084,7 +1121,7 @@ impl AstParser {
 
     /// Parse a variable declaration statement.
     fn parse_var_decl_stmt(&mut self, node: &Value) -> Result<Stmt> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let vdecl_nodes = match node.get("declarations") {
             Some(Value::Array(nodes)) => nodes.clone(),
             Some(v) => vec![v.clone()],
@@ -1115,9 +1152,9 @@ impl AstParser {
 
     /// Parse an expression.
     fn parse_expr(&mut self, node: &Value) -> Result<Expr> {
-        match self.get_node_type(node)? {
+        match self.parse_node_type(node)? {
             NodeType::Literal => self.parse_lit(node).map(|lit| lit.into()),
-            NodeType::Ident => self.parse_ident(node).map(|id| id.into()),
+            NodeType::Ident => self.parse_identifier(node).map(|id| id.into()),
             NodeType::UnaryOperation => self.parse_unary_expr(node).map(Expr::from),
             NodeType::BinaryOperation => self.parse_binary_expr(node).map(Expr::from),
             NodeType::Assign => self.parse_assign_expr(node).map(Expr::from),
@@ -1125,9 +1162,9 @@ impl AstParser {
             NodeType::FuncCallOpts => self.parse_func_call_opts(node).map(Expr::from),
             NodeType::MemberAccess => self.parse_member_expr(node).map(Expr::from),
             NodeType::IndexAccess => self.parse_index_expr(node).map(Expr::from),
-            NodeType::TupleExpr => match node.is_inline_array()? {
-                true => self.parse_inline_array_expr(node).map(Expr::from),
-                false => self.parse_tuple_expr(node).map(Expr::from),
+            NodeType::TupleExpr => match node.get("isInlineArray") {
+                Some(Value::Bool(true)) => self.parse_inline_array_expr(node).map(Expr::from),
+                _ => self.parse_tuple_expr(node).map(Expr::from),
             },
             NodeType::ElementaryTypeNameExpr => self.parse_type_name_expr(node).map(Expr::from),
             NodeType::NewExpr => self.parse_new_expr(node).map(Expr::from),
@@ -1145,7 +1182,7 @@ impl AstParser {
 
     /// Parse unary expression.
     fn parse_unary_expr(&mut self, node: &Value) -> Result<UnaryExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let body = node
             .get("subExpression")
             .ok_or_else(|| eyre!("Unary sub expression not found: {}", node))
@@ -1172,7 +1209,7 @@ impl AstParser {
 
     /// Parse binary expression.
     fn parse_binary_expr(&mut self, node: &Value) -> Result<BinaryExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let mut lhs = node
             .get("leftExpression")
             .ok_or_else(|| eyre!("Binary left expression not found: {}", node))
@@ -1208,7 +1245,7 @@ impl AstParser {
 
     /// Parse assignment expression.
     fn parse_assign_expr(&mut self, node: &Value) -> Result<AssignExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let lhs = node
             .get("leftHandSide")
             .ok_or_else(|| eyre!("Assignment left hand side not found: {}", node))
@@ -1235,7 +1272,7 @@ impl AstParser {
 
     /// Parse a call expression.
     fn parse_function_call(&mut self, node: &Value) -> Result<CallExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
 
         let (callee, call_opts) = match self.parse_function_call_callee(node)? {
             Expr::CallOpts(exp) => (exp.callee.deref().clone(), exp.call_opts),
@@ -1303,9 +1340,29 @@ impl AstParser {
             .iter()
             .map(|v| self.parse_expr(v))
             .collect::<Result<Vec<Expr>>>()?;
-        // Parse argument names and name locations
-        let arg_names = node.get_names()?;
-        let arg_name_locs = node.get_name_locs(&self.localizer);
+        let arg_names = node
+            .get("names")
+            .ok_or_else(|| eyre!("Function call argument names not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function call argument names invalid: {}", node))?
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| eyre!("Function call argument name invalid: {}", v))
+                    .map(|s| s.to_string())
+            })
+            .collect::<Result<Vec<String>>>()?;
+        let arg_name_locs = node
+            .get("nameLocations")
+            .ok_or_else(|| eyre!("Function call argument name locations not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function call argument name locations invalid: {}", node))?
+            .iter()
+            .map(|v| match (v, &self.localizer) {
+                (Value::String(s), Some(l)) => json_value::parse_loc(l, s),
+                _ => None,
+            })
+            .collect::<Vec<Option<Loc>>>();
         Ok((arg_values, arg_names, arg_name_locs))
     }
 
@@ -1315,11 +1372,22 @@ impl AstParser {
 
     /// Parse a `FunctionCallOptions` expression.
     fn parse_func_call_opts(&mut self, node: &Value) -> Result<CallOptsExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         let callee = self.parse_expr(node.get_expression()?)?;
-        let call_opt_names = node.get_names()?;
+        let call_opt_names = node
+            .get("names")
+            .ok_or_else(|| eyre!("Function call options names not found: {}", node))?
+            .as_array()
+            .ok_or_else(|| eyre!("Function call options names invalid: {}", node))?
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| eyre!("Function call options name invalid: {}", v))
+                    .map(|s| s.to_string())
+            })
+            .collect::<Result<Vec<String>>>()?;
         let call_opt_values = node
             .get("options")
             .ok_or_else(|| eyre!("Function call options not found: {}", node))?
@@ -1342,10 +1410,15 @@ impl AstParser {
 
     /// Parse a member access expression.
     fn parse_member_expr(&mut self, node: &Value) -> Result<MemberExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let base_node = node.get_expression()?;
         let base = self.parse_expr(base_node)?;
-        let member = Name::new(node.get_member_name()?, None);
+        let member = node
+            .get("memberName")
+            .ok_or_else(|| eyre!("Member expression member name not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Member expression member name invalid: {}", node))?
+            .into();
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(MemberExpr::new(id, base, member, typ, loc))
@@ -1357,9 +1430,11 @@ impl AstParser {
 
     /// Parse an index access expression.
     fn parse_index_expr(&mut self, node: &Value) -> Result<IndexExpr> {
-        let id = node.get_id().ok();
-        let base_node = node.get_base_expression()?;
-        let base = self.parse_expr(base_node)?;
+        let id = self.parse_id(node).ok();
+        let base = node
+            .get("baseExpression")
+            .ok_or_else(|| eyre!("Index expression base not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
         let index = node
             .get("indexExpression")
             .ok_or_else(|| eyre!("Index expression not found: {}", node))
@@ -1376,10 +1451,13 @@ impl AstParser {
 
     /// Parse a slice expression
     fn parse_slice_expr(&mut self, node: &Value) -> Result<SliceExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
-        let base = self.parse_expr(node.get_base_expression()?)?;
+        let base = node
+            .get("baseExpression")
+            .ok_or_else(|| eyre!("Slice expression base not found: {}", node))
+            .and_then(|v| self.parse_expr(v))?;
         let start_idx = node
             .get("startExpression")
             .ok_or_else(|| eyre!("Slice start expression not found: {}", node))
@@ -1397,7 +1475,7 @@ impl AstParser {
 
     /// Parse a tuple expression.
     fn parse_tuple_expr(&mut self, node: &Value) -> Result<TupleExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let elems = node
             .get("components")
             .ok_or_else(|| eyre!("Tuple expression components not found: {}", node))?
@@ -1417,7 +1495,7 @@ impl AstParser {
 
     /// Parse an inline array expression.
     fn parse_inline_array_expr(&mut self, node: &Value) -> Result<InlineArrayExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let elems = node
             .get("components")
             .ok_or_else(|| eyre!("Inline array expression components not found: {}", node))?
@@ -1437,7 +1515,7 @@ impl AstParser {
 
     /// Parse an elementary type name expression.
     fn parse_type_name_expr(&mut self, node: &Value) -> Result<TypeNameExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
         Ok(TypeNameExpr::new(id, typ, loc))
@@ -1449,7 +1527,7 @@ impl AstParser {
 
     /// Parse a `new` expression.
     fn parse_new_expr(&mut self, node: &Value) -> Result<NewExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let typ = node
             .get("typeName")
             .ok_or_else(|| eyre!("New expression type name not found: {}", node))
@@ -1464,7 +1542,7 @@ impl AstParser {
 
     /// Parse a conditional expression.
     fn parse_conditional_expr(&mut self, node: &Value) -> Result<ConditionalExpr> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let cond = node
             .get("condition")
             .ok_or_else(|| eyre!("Conditional expression: condition not found: {}", node))
@@ -1488,18 +1566,20 @@ impl AstParser {
 
     /// Parse a variable declaration from a JSON AST node.
     fn parse_var_decl(&mut self, node: &Value) -> Result<VariableDecl> {
-        let id = node.get_id().ok();
+        let id = self.parse_id(node).ok();
         let scope = node.get_scope().ok();
         let name = Name::new(node.get_name()?, None);
         let value = node.get("value").and_then(|v| self.parse_expr(v).ok());
-        let mutability = match node.get_mutability() {
-            Ok(mutability) => mutability,
-            Err(_) => match self.parse_variable_constant_attribute(node)? {
-                true => VarMut::Constant,
-                false => VarMut::Mutable,
-            },
-        };
-        let is_state_var = node.is_state_variable().unwrap_or(false);
+        let mutability = node
+            .get("mutability")
+            .ok_or_else(|| eyre!("Variable declaration: mutability not found: {}", node))?
+            .as_str()
+            .ok_or_else(|| eyre!("Variable declaration: mutability invalid: {}", node))
+            .and_then(VarMut::new)?;
+        let is_state_var = node
+            .get("stateVariable")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let visibility = self.parse_variable_visibility(node)?;
         let overriding = self.parse_overriding(node)?;
         let data_loc = node
@@ -1524,11 +1604,6 @@ impl AstParser {
         ))
     }
 
-    /// Parse the constant attribute of a variable declaration.
-    fn parse_variable_constant_attribute(&self, node: &Value) -> Result<bool> {
-        node.is_constant()
-    }
-
     /// Parse variable visibility information.
     ///
     /// The input JSON AST node should be a variable declaration node.
@@ -1545,8 +1620,8 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse an identifier from a JSON AST node.
-    fn parse_ident(&mut self, node: &Value) -> Result<Identifier> {
-        let id = node.get_id().ok();
+    fn parse_identifier(&mut self, node: &Value) -> Result<Identifier> {
+        let id = self.parse_id(node).ok();
         let name = Name::new(node.get_name()?, None);
         let typ = self.parse_data_type(node)?;
         let loc = node.get_source_location(&self.localizer);
@@ -1788,7 +1863,7 @@ impl AstParser {
 
     /// Get the type of a JSON AST node from the `typeName` field.
     fn parse_type_name(&mut self, node: &Value) -> Result<Type> {
-        let output_typ = match self.get_node_type(node)? {
+        let output_typ = match self.parse_node_type(node)? {
             NodeType::ArrayTypeName => self.parse_array_type_name(node),
             NodeType::FuncTypeName => self.parse_function_type_name(node),
             // NodeType::UserDefinedTypeName => self.parse_user_defined_type_name(node),
@@ -1847,7 +1922,10 @@ impl AstParser {
 
     /// Parse an array type from the `typeName` field.
     fn parse_array_type_name(&mut self, node: &Value) -> Result<Type> {
-        let base = self.parse_type_name(node.get_base_type()?)?;
+        let base = node
+            .get("baseType")
+            .ok_or_else(|| eyre!("Array type: base type not found: {}", node))
+            .and_then(|v| self.parse_data_type(v))?;
         match self.parse_type_descriptions(node)? {
             Type::Array(typ) => {
                 Ok(ArrayType::new(base, typ.length, typ.data_loc, typ.is_ptr).into())
@@ -1855,16 +1933,6 @@ impl AstParser {
             _ => bail!("Fail to parse array type"),
         }
     }
-
-    // /// Parse a user-defined type from the `typeName` field.
-    // fn parse_user_defined_type_name(&mut self, node: &Value) -> Result<Type> {
-    //     // Parse type name from the path node
-    //     let path_node = node.get_path_node()?;
-    //     let path_node_name = path_node.get_name()?.to_string();
-    //     type_parser::parse_data_type(&path_node_name)
-
-    //     // Parse type name through type description.
-    // }
 
     //-------------------------------------------------
     // Yul function definition
@@ -1933,31 +2001,19 @@ impl AstParser {
 
     /// Parse a Yul statement.
     fn parse_yul_stmt(&mut self, node: &Value) -> Result<yast::Stmt> {
-        let node_type = self.get_node_type(node)?;
-
+        let node_type = self.parse_node_type(node)?;
         match node_type {
             NodeType::YulVarDecl => self.parse_yul_var_decl_stmt(node).map(|stmt| stmt.into()),
-
             NodeType::YulExprStmt => self.parse_yul_expr_stmt(node).map(|stmt| stmt.into()),
-
             NodeType::YulFuncDef => self.parse_yul_func_def(node).map(|stmt| stmt.into()),
-
             NodeType::YulAssign => self.parse_yul_assign_stmt(node).map(|stmt| stmt.into()),
-
             NodeType::YulIfStmt => self.parse_yul_if_stmt(node).map(|stmt| stmt.into()),
-
             NodeType::YulForLoop => self.parse_yul_for_loop_stmt(node).map(|stmt| stmt.into()),
-
             NodeType::YulSwitchStmt => self.parse_yul_switch_stmt(node).map(|stmt| stmt.into()),
-
             NodeType::YulBlock => self.parse_yul_block(node).map(|stmt| stmt.into()),
-
             NodeType::YulLeaveStmt => Ok(yast::Stmt::Leave),
-
             NodeType::YulContinueStmt => Ok(yast::Stmt::Continue),
-
             NodeType::YulBreakStmt => Ok(yast::Stmt::Break),
-
             _ => bail!("To implement parse_yul_statement"),
         }
     }
@@ -2095,7 +2151,7 @@ impl AstParser {
 
     /// Parse a Yul expression.
     fn parse_yul_expr(&mut self, node: &Value) -> Result<yast::Expr> {
-        match self.get_node_type(node)? {
+        match self.parse_node_type(node)? {
             NodeType::YulLiteral => self.parse_yul_lit(node).map(|exp| exp.into()),
             NodeType::YulIdent => self.parse_yul_ident_or_member_expr(node),
             NodeType::YulFuncCall => self.parse_yul_function_call(node).map(|exp| exp.into()),
@@ -2109,7 +2165,10 @@ impl AstParser {
 
     /// Parse a Yul function call expression.
     fn parse_yul_function_call(&mut self, node: &Value) -> Result<yast::CallExpr> {
-        let callee = node.get_function_name()?.get_name()?;
+        let callee = node
+            .get("functionName")
+            .ok_or_else(|| eyre!("Function call callee not found: {}", node))?
+            .get_name()?;
         let typ = node
             .get("type")
             .ok_or_else(|| eyre!("Function call type not found: {}", node))?
