@@ -79,9 +79,9 @@ impl ExprFlattener {
     }
 
     fn flatten_unary_expr(&mut self, expr: &UnaryExpr) -> (Vec<VariableDecl>, Expr) {
-        let (mut nvdecls, nopr) = self.flatten_expr(expr.operand.borrow());
+        let (mut nvdecls, nopr) = self.flatten_expr(expr.body.borrow());
         let nopr = self.promote_complex_expr(nopr, &mut nvdecls);
-        let nexpr = UnaryExpr { operand: Box::new(nopr), ..expr.clone() };
+        let nexpr = UnaryExpr { body: Box::new(nopr), ..expr.clone() };
         (nvdecls, nexpr.into())
     }
 

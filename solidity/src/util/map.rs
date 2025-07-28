@@ -969,9 +969,9 @@ pub mod default {
         mapper: &mut T,
         expr: &'a UnaryExpr,
     ) -> UnaryExpr {
-        let noperand = mapper.map_expr(&expr.operand);
+        let noperand = mapper.map_expr(&expr.body);
         let ntyp = mapper.map_type(&expr.typ);
-        UnaryExpr { operand: Box::new(noperand), typ: ntyp, ..expr.clone() }
+        UnaryExpr { body: Box::new(noperand), typ: ntyp, ..expr.clone() }
     }
 
     //-------------------------------------------------
