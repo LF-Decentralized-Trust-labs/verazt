@@ -104,7 +104,7 @@ impl Localizer {
 /// Unit tests
 #[cfg(test)]
 mod tests {
-    use crate::parsing::localizer::Localizer;
+    use crate::parser::localizer::Localizer;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -113,7 +113,7 @@ mod tests {
         let mut file = NamedTempFile::new().unwrap();
 
         let content = "123\n45678\n9abcdef";
-        write!(file, "{}", content).ok();
+        write!(file, "{content}").ok();
 
         let file_path = file.path().as_os_str().to_os_string().into_string();
         assert!(file_path.is_ok());

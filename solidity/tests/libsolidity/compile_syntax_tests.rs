@@ -1,11 +1,5 @@
 //! Integration libsolidity/syntax-tests
 
-//--------------------------------------------------------------------
-// ATTRIBUTES TO RELAX LINTING FOR UNIT TESTS
-// Allow using `unwrap` function in unit tests
-#![cfg_attr(feature = "linting", allow(clippy::unwrap_used))]
-//---------------------------------------------------------------------
-
 use super::test_utils::test_compiling_solidity_dir;
 
 /// Test compiling `tests/libsolidity/syntax-tests/`
