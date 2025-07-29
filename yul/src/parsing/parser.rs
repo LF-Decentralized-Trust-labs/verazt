@@ -734,7 +734,7 @@ impl YulParser {
         let (start_pos, end_pos) = (span.start_pos(), span.end_pos());
         let (l1, c1) = start_pos.line_col();
         let (l2, c2) = end_pos.line_col();
-        Loc::new(l1 as isize, c1 as isize, l2 as isize, c2 as isize)
+        Loc::new(l1, c1, l2, c2)
     }
 }
 

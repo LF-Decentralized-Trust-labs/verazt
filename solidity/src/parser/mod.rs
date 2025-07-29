@@ -1,5 +1,4 @@
 pub mod json_ast;
-pub mod localizer;
 pub mod typ;
 pub mod version;
 

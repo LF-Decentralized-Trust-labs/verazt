@@ -2,9 +2,10 @@
 
 use crate::{
     ast::*,
-    parser::{localizer::Localizer, typ::type_parser},
+    parser::typ::type_parser,
     tool::solc::{self, JsonAst},
 };
+use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::{Result, bail, eyre};
 use core::{
     file::{save_to_temporary_file, save_to_temporary_files},
@@ -16,7 +17,7 @@ use num_bigint::BigInt;
 use regex::Regex;
 use rust_decimal::Decimal;
 use serde::Value;
-use std::{ops::Deref, path::Path, str::FromStr};
+use std::{fs, ops::Deref, path::Path, str::FromStr};
 use yul::{
     ast::{self as yast, Block as YBlock, IntType as YIntType, Type as YType},
     parsing::parser as YulParser,
@@ -40,7 +41,8 @@ struct AstParser {
     pub solidity_json: Option<String>,
     pub input_file: Option<String>,
     pub base_path: Option<String>,
-    pub localizer: Option<Localizer>,
+    file_dictionary: SimpleFiles<String, String>,
+    current_file_id: usize,
 }
 
 //------------------------------------------------------------------
@@ -53,7 +55,8 @@ impl AstParser {
             solidity_json: Some(solidity_json.json_data.clone()),
             input_file: solidity_json.file_name.clone(),
             base_path: solidity_json.base_path.clone(),
-            localizer: None,
+            file_dictionary: SimpleFiles::new(),
+            current_file_id: 0,
         }
     }
 
@@ -129,39 +132,37 @@ impl AstParser {
 
     /// Parse source location
     fn parse_source_location(&self, node: &Value) -> Option<Loc> {
-        match (&self.localizer, node.get("src")) {
-            (Some(localizer), Some(Value::String(s))) => {
-                LOCATION_REGEX.captures(s).and_then(|capture| {
-                    match (capture.get(1), capture.get(2)) {
-                        (Some(pos), Some(len)) => {
-                            let begin_pos: usize = match pos.as_str().parse() {
-                                Ok(n) => n,
-                                Err(err) => panic!("Error while getting source posistion: {err}"),
-                            };
-                            let len: usize = match len.as_str().parse() {
-                                Ok(n) => n,
-                                Err(err) => panic!("Error while getting source length: {err}"),
-                            };
-                            let end_pos = begin_pos + len - 1;
-                            // Get line column information.
-                            let (l1, c1) = match localizer.get_line_column(begin_pos) {
-                                Some((l, c)) => (l as isize, c as isize),
-                                None => return None,
-                            };
-                            let (l2, c2) = match localizer.get_line_column(end_pos) {
-                                Some((l, c)) => (l as isize, c as isize),
-                                None => return None,
-                            };
-                            // Rectify line number from zero-based to one-based.
-                            let (l1, l2) = (l1 + 1, l2 + 1);
-                            Some(Loc::new(l1, c1, l2, c2))
-                        }
-                        _ => None,
-                    }
-                })
+        let src_loc_info = node.get("src")?.as_str()?;
+        LOCATION_REGEX.captures(src_loc_info).and_then(|capture| {
+            match (capture.get(1), capture.get(2)) {
+                (Some(pos), Some(len)) => {
+                    let begin_pos: usize = match pos.as_str().parse() {
+                        Ok(n) => n,
+                        Err(err) => panic!("Error while getting source posistion: {err}"),
+                    };
+                    let len: usize = match len.as_str().parse() {
+                        Ok(n) => n,
+                        Err(err) => panic!("Error while getting source length: {err}"),
+                    };
+                    let end_pos = begin_pos + len - 1;
+                    // Get line column information.
+                    let (l1, c1) = match self
+                        .file_dictionary
+                        .location(self.current_file_id, begin_pos)
+                    {
+                        Ok(loc) => (loc.line_number, loc.column_number),
+                        _ => return None,
+                    };
+                    let (l2, c2) =
+                        match self.file_dictionary.location(self.current_file_id, end_pos) {
+                            Ok(loc) => (loc.line_number, loc.column_number),
+                            _ => return None,
+                        };
+                    Some(Loc::new(l1, c1, l2, c2))
+                }
+                _ => None,
             }
-            _ => None,
-        }
+        })
     }
 
     //-------------------------------------------------
@@ -183,8 +184,9 @@ impl AstParser {
     /// Parse a source unit from a JSON AST node.
     fn parse_source_unit(&mut self, node: &Value) -> Result<SourceUnit> {
         let id = self.parse_id(node).ok();
-        let path = self.parse_source_unit_path(node)?;
-        self.localizer = Localizer::new(path.to_string());
+        let file_path = self.parse_source_unit_path(node)?;
+        let file_source = fs::read_to_string(&file_path)?;
+        self.current_file_id = self.file_dictionary.add(file_path.clone(), file_source);
         let elems = node
             .get("nodes")
             .ok_or_else(|| eyre!("Source unit elements not found: {node}"))?
@@ -193,7 +195,7 @@ impl AstParser {
             .iter()
             .map(|elem_node| self.parse_source_unit_element(elem_node))
             .collect::<Result<Vec<SourceUnitElem>>>()?;
-        Ok(SourceUnit::new(id, path, elems))
+        Ok(SourceUnit::new(id, file_path, elems))
     }
 
     /// Parse source unit file path.

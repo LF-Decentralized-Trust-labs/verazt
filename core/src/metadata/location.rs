@@ -9,18 +9,18 @@ use color_eyre::eyre::{bail, Result};
 /// Source code location.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct Loc {
-    pub start_line: isize,
-    pub start_col: isize,
-    pub end_line: isize,
-    pub end_col: isize,
+    pub start_line: usize,
+    pub start_col: usize,
+    pub end_line: usize,
+    pub end_col: usize,
 }
 
 impl Loc {
     pub fn new(
-        start_line: isize,
-        start_col: isize,
-        end_line: isize,
-        end_col: isize,
+        start_line: usize,
+        start_col: usize,
+        end_line: usize,
+        end_col: usize,
     ) -> Self {
         Loc {
             start_line,
