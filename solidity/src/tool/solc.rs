@@ -111,8 +111,6 @@ pub fn compile_solidity_file(
         bail!("Only support Solidity versions >=0.4.12, but found: {}", &contract_solc_versions);
     }
 
-    let supported_solc_versions = format!("{contract_solc_versions}, >=0.4.12");
-
     let compatible_solc_vers = find_compatible_solc_versions(input_file)
         .unwrap_or_else(|_| panic!("Failed to find Solc version in source code!"));
 

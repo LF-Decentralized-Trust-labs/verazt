@@ -595,15 +595,15 @@ impl Display for FunctionDef {
 //-------------------------------------------------------------------------
 
 impl FuncKind {
-    pub fn new(kind: &str) -> Self {
+    pub fn new(kind: &str) -> Result<Self> {
         match kind {
-            "constructor" => FuncKind::Constructor,
-            "receive" => FuncKind::Receive,
-            "fallback" => FuncKind::Fallback,
-            "function" => FuncKind::ContractFunc,
-            "freeFunction" => FuncKind::FreeFunc,
-            "modifier" => FuncKind::Modifier,
-            _ => panic!("Unknown function kind: {kind}"),
+            "constructor" => Ok(FuncKind::Constructor),
+            "receive" => Ok(FuncKind::Receive),
+            "fallback" => Ok(FuncKind::Fallback),
+            "function" => Ok(FuncKind::ContractFunc),
+            "freeFunction" => Ok(FuncKind::FreeFunc),
+            "modifier" => Ok(FuncKind::Modifier),
+            _ => bail!("Unknown function kind: {kind}"),
         }
     }
 }
