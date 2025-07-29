@@ -737,6 +737,23 @@ impl Display for CallExpr {
 }
 
 //-------------------------------------------------------------------------
+// Implementation for Call Kind
+//-------------------------------------------------------------------------
+
+impl CallKind {
+    pub fn new(kind: &str) -> Result<Self> {
+        match kind {
+            "functionCall" => Ok(CallKind::FuncCall),
+            "structConstructorCall" => Ok(CallKind::StructConstructorCall),
+            "typeConversion" => Ok(CallKind::TypeConversionCall),
+            "modifierInvocation" => Ok(CallKind::ModifierInvoc),
+            "baseConstructorSpecifier" => Ok(CallKind::BaseConstructorCall),
+            _ => bail!("Invalid call kind: {}", kind),
+        }
+    }
+}
+
+//-------------------------------------------------------------------------
 // Implementation for Call Arguments
 //-------------------------------------------------------------------------
 
