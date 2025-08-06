@@ -209,12 +209,11 @@ impl ContractDef {
 
     pub fn find_function_def(&self, func_name: &str) -> Option<&FunctionDef> {
         for elem in self.body.iter() {
-            if let ContractElem::FuncDef(func) = elem {
-                if func.name.original_name() == func_name
-                    || (func_name == "fallback" && func.is_fallback_function())
-                {
-                    return Some(func);
-                }
+            if let ContractElem::FuncDef(func) = elem
+                && (func.name.original_name() == func_name
+                    || (func_name == "fallback" && func.is_fallback_function()))
+            {
+                return Some(func);
             }
         }
         None
@@ -226,9 +225,7 @@ impl Display for ContractDef {
         if self.is_abstract {
             write!(f, "abstract ").ok();
         }
-
         write!(f, "{} {} ", self.kind, self.name).ok();
-
         if !self.base_contracts.is_empty() {
             let base_contracts = self
                 .base_contracts
@@ -238,7 +235,6 @@ impl Display for ContractDef {
                 .join(", ");
             write!(f, "is {base_contracts} ").ok();
         }
-
         let body = self
             .body
             .iter()

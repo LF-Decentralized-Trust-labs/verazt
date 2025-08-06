@@ -653,7 +653,7 @@ impl CatchClause {
         body: Block,
         loc: Option<Loc>,
     ) -> Self {
-        CatchClause { id, error: error.map(|v| v.to_string()) , params, body, loc }
+        CatchClause { id, error: error.map(|v| v.to_string()), params, body, loc }
     }
 }
 
