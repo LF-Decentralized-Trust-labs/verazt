@@ -3,10 +3,10 @@ use color_eyre::eyre::{Result, bail};
 use log::debug;
 use solidity::{
     ast::{self, SourceUnit},
+    compile::compile_input_file,
     normalize,
     parser::ast_parser,
-    util,
-    util::export::export_debugging_source_unit,
+    util::{self, export::export_debugging_source_unit},
     version::find_compatible_solc_versions,
 };
 
@@ -38,10 +38,46 @@ pub struct Arguments {
     #[arg(long, default_value = None)]
     pub solc_version: Option<String>,
 
+    /// Print input program.
+    #[arg(long, visible_alias = "pip", default_value_t = false)]
+    pub print_input_program: bool,
+
     /// Verbosity
     #[command(flatten)]
     pub verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::ErrorLevel>,
 }
 
 /// Main function
-fn main() {}
+fn main() {
+    // Parse command line arguments
+    let args = Arguments::parse();
+
+    // Parse input files
+    let solc_ver = args.solc_version.as_deref();
+    let base_path = args.base_path.as_deref();
+    let include_paths: &[String] = &args.include_path;
+
+    let input_source_units: Vec<SourceUnit> = args
+        .input_files
+        .iter()
+        .flat_map(|file| {
+            let source_units = match compile_input_file(file, base_path, include_paths, solc_ver) {
+                Ok(source_units) => source_units,
+                Err(err) => panic!("{}", err),
+            };
+            if args.print_input_program {
+                println!("Source units after parsing:");
+            }
+            for source_unit in &source_units {
+                if args.print_input_program {
+                    source_unit.print_highlighted_code();
+                    println!();
+                }
+                if let Err(err) = export_debugging_source_unit(source_unit, "parsed") {
+                    panic!("{}", err);
+                }
+            }
+            source_units
+        })
+        .collect();
+}
