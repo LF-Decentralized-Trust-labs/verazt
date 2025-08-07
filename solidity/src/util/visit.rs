@@ -359,10 +359,6 @@ pub trait Visit<'a> {
     // Data location.
     //-------------------------------------------------
 
-    fn visit_data_loc_opt(&mut self, dloc: &'a Option<DataLoc>) {
-        default::visit_data_loc_opt(self, dloc)
-    }
-
     fn visit_data_loc(&mut self, dloc: &'a DataLoc) {
         default::visit_data_loc(self, dloc)
     }
@@ -423,17 +419,11 @@ pub mod default {
     // Directives
     //-------------------------------------------------
 
-    pub fn visit_pragma<'a, T: Visit<'a> + ?Sized>(
-        _visitor: &mut T,
-        _pragma: &'a PragmaDir,
-    ) {
+    pub fn visit_pragma<'a, T: Visit<'a> + ?Sized>(_visitor: &mut T, _pragma: &'a PragmaDir) {
         // Do nothing by default
     }
 
-    pub fn visit_import<'a, T: Visit<'a> + ?Sized>(
-        _visitor: &mut T,
-        _import: &'a ImportDir,
-    ) {
+    pub fn visit_import<'a, T: Visit<'a> + ?Sized>(_visitor: &mut T, _import: &'a ImportDir) {
         // Do nothing by default
     }
 
@@ -471,17 +461,11 @@ pub mod default {
     // Error and event definitions.
     //-------------------------------------------------
 
-    pub fn visit_error_def<'a, T: Visit<'a> + ?Sized>(
-        _visitor: &mut T,
-        _error: &'a ErrorDef,
-    ) {
+    pub fn visit_error_def<'a, T: Visit<'a> + ?Sized>(_visitor: &mut T, _error: &'a ErrorDef) {
         // Do nothing by default
     }
 
-    pub fn visit_event_def<'a, T: Visit<'a> + ?Sized>(
-        _visitor: &mut T,
-        _event: &'a EventDef,
-    ) {
+    pub fn visit_event_def<'a, T: Visit<'a> + ?Sized>(_visitor: &mut T, _event: &'a EventDef) {
         // Do nothing by default
     }
 
@@ -489,18 +473,12 @@ pub mod default {
     // Type definitions.
     //-------------------------------------------------
 
-    pub fn visit_udv_type_def<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        typ: &'a UserTypeDef,
-    ) {
+    pub fn visit_udv_type_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a UserTypeDef) {
         visitor.visit_name(&typ.name);
         visitor.visit_type(&typ.base_type)
     }
 
-    pub fn visit_struct_def<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        struct_: &'a StructDef,
-    ) {
+    pub fn visit_struct_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, struct_: &'a StructDef) {
         struct_
             .fields
             .iter()
@@ -556,10 +534,7 @@ pub mod default {
     // Function
     //-------------------------------------------------
 
-    pub fn visit_func_def<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        func: &'a FunctionDef,
-    ) {
+    pub fn visit_func_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, func: &'a FunctionDef) {
         func.params.iter().for_each(|p| visitor.visit_var_decl(p));
         func.modifier_invocs
             .iter()
@@ -761,10 +736,7 @@ pub mod default {
     // Variable declaration.
     //-------------------------------------------------
 
-    pub fn visit_var_decl<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        vdecl: &'a VariableDecl,
-    ) {
+    pub fn visit_var_decl<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, vdecl: &'a VariableDecl) {
         vdecl.value.iter().for_each(|e| visitor.visit_expr(e))
     }
 
@@ -997,15 +969,15 @@ pub mod default {
     }
 
     pub fn visit_bytes_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a BytesType) {
-        visitor.visit_data_loc_opt(&typ.data_loc)
+        visitor.visit_data_loc(&typ.data_loc)
     }
 
     pub fn visit_string_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a StringType) {
-        visitor.visit_data_loc_opt(&typ.data_loc)
+        visitor.visit_data_loc(&typ.data_loc)
     }
 
     pub fn visit_array_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a ArrayType) {
-        visitor.visit_data_loc_opt(&typ.data_loc);
+        visitor.visit_data_loc(&typ.data_loc);
         visitor.visit_type(&typ.base)
     }
 
@@ -1016,7 +988,7 @@ pub mod default {
     pub fn visit_struct_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a StructType) {
         visitor.visit_name(&typ.name);
         visitor.visit_name_opt(&typ.scope);
-        visitor.visit_data_loc_opt(&typ.data_loc)
+        visitor.visit_data_loc(&typ.data_loc)
     }
 
     pub fn visit_enum_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a EnumType) {
@@ -1038,7 +1010,7 @@ pub mod default {
     }
 
     pub fn visit_mapping_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a MappingType) {
-        visitor.visit_data_loc_opt(&typ.data_loc);
+        visitor.visit_data_loc(&typ.data_loc);
         visitor.visit_type(&typ.key);
         visitor.visit_type(&typ.value)
     }
@@ -1064,13 +1036,6 @@ pub mod default {
     //-------------------------------------------------
     // Data location
     //-------------------------------------------------
-
-    pub fn visit_data_loc_opt<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        dloc: &'a Option<DataLoc>,
-    ) {
-        dloc.iter().for_each(|loc| visitor.visit_data_loc(loc))
-    }
 
     pub fn visit_data_loc<'a, T: Visit<'a> + ?Sized>(_visitor: &mut T, _dloc: &'a DataLoc) {
         // Do nothing by default

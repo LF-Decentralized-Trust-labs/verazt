@@ -393,10 +393,6 @@ pub trait Fold<'a, T> {
     // Data location.
     //-------------------------------------------------
 
-    fn fold_data_loc_opt(&mut self, acc: T, dloc: &'a Option<DataLoc>) -> T {
-        default::fold_data_loc_opt(self, acc, dloc)
-    }
-
     fn fold_data_loc(&mut self, acc: T, dloc: &'a DataLoc) -> T {
         default::fold_data_loc(self, acc, dloc)
     }
@@ -1302,7 +1298,7 @@ pub mod default {
         acc: T,
         typ: &'a BytesType,
     ) -> T {
-        folder.fold_data_loc_opt(acc, &typ.data_loc)
+        folder.fold_data_loc(acc, &typ.data_loc)
     }
 
     pub fn fold_string_type<'a, T, F: Fold<'a, T> + ?Sized>(
@@ -1310,7 +1306,7 @@ pub mod default {
         acc: T,
         typ: &'a StringType,
     ) -> T {
-        folder.fold_data_loc_opt(acc, &typ.data_loc)
+        folder.fold_data_loc(acc, &typ.data_loc)
     }
 
     pub fn fold_array_type<'a, T, F: Fold<'a, T> + ?Sized>(
@@ -1319,7 +1315,7 @@ pub mod default {
         typ: &'a ArrayType,
     ) -> T {
         let res = folder.fold_type(acc, &typ.base);
-        folder.fold_data_loc_opt(res, &typ.data_loc)
+        folder.fold_data_loc(res, &typ.data_loc)
     }
 
     pub fn fold_slice_type<'a, T, F: Fold<'a, T> + ?Sized>(
@@ -1337,7 +1333,7 @@ pub mod default {
     ) -> T {
         let res = folder.fold_name(acc, &typ.name);
         let res = folder.fold_name_opt(res, &typ.scope);
-        folder.fold_data_loc_opt(res, &typ.data_loc)
+        folder.fold_data_loc(res, &typ.data_loc)
     }
 
     pub fn fold_enum_type<'a, T, F: Fold<'a, T> + ?Sized>(
@@ -1367,7 +1363,7 @@ pub mod default {
     ) -> T {
         let res = folder.fold_type(acc, &typ.key);
         let res = folder.fold_type(res, &typ.value);
-        folder.fold_data_loc_opt(res, &typ.data_loc)
+        folder.fold_data_loc(res, &typ.data_loc)
     }
 
     pub fn fold_func_type<'a, T, F: Fold<'a, T> + ?Sized>(
@@ -1417,17 +1413,6 @@ pub mod default {
     //-------------------------------------------------
     // Data location
     //-------------------------------------------------
-
-    pub fn fold_data_loc_opt<'a, T, F: Fold<'a, T> + ?Sized>(
-        folder: &mut F,
-        acc: T,
-        dloc: &'a Option<DataLoc>,
-    ) -> T {
-        match dloc {
-            Some(loc) => folder.fold_data_loc(acc, loc),
-            None => acc,
-        }
-    }
 
     pub fn fold_data_loc<'a, T, F: Fold<'a, T> + ?Sized>(
         _folder: &mut F,

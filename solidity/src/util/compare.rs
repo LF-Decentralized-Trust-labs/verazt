@@ -29,27 +29,15 @@ pub trait Compare<'a> {
     // Directives
     //-------------------------------------------------
 
-    fn compare_pragma_directive(
-        &mut self,
-        p1: &'a PragmaDir,
-        p2: &'a PragmaDir,
-    ) -> Result<()> {
+    fn compare_pragma_directive(&mut self, p1: &'a PragmaDir, p2: &'a PragmaDir) -> Result<()> {
         default::compare_pragma_directive(self, p1, p2)
     }
 
-    fn compare_import_directive(
-        &mut self,
-        i1: &'a ImportDir,
-        i2: &'a ImportDir,
-    ) -> Result<()> {
+    fn compare_import_directive(&mut self, i1: &'a ImportDir, i2: &'a ImportDir) -> Result<()> {
         default::compare_import_directive(self, i1, i2)
     }
 
-    fn compare_using_directive(
-        &mut self,
-        u1: &'a UsingDir,
-        u2: &'a UsingDir,
-    ) -> Result<()> {
+    fn compare_using_directive(&mut self, u1: &'a UsingDir, u2: &'a UsingDir) -> Result<()> {
         default::compare_using_directive(self, u1, u2)
     }
 
@@ -57,19 +45,11 @@ pub trait Compare<'a> {
     // Error & event definitions.
     //-------------------------------------------------
 
-    fn compare_error_defitinion(
-        &mut self,
-        e1: &'a ErrorDef,
-        e2: &'a ErrorDef,
-    ) -> Result<()> {
+    fn compare_error_defitinion(&mut self, e1: &'a ErrorDef, e2: &'a ErrorDef) -> Result<()> {
         default::compare_error_defitinion(self, e1, e2)
     }
 
-    fn compare_event_definition(
-        &mut self,
-        e1: &'a EventDef,
-        e2: &'a EventDef,
-    ) -> Result<()> {
+    fn compare_event_definition(&mut self, e1: &'a EventDef, e2: &'a EventDef) -> Result<()> {
         default::compare_event_definition(self, e1, e2)
     }
 
@@ -101,11 +81,7 @@ pub trait Compare<'a> {
         default::compare_struct_field(self, field1, field2)
     }
 
-    fn compare_enum_def(
-        &mut self,
-        enum1: &'a EnumDef,
-        enum2: &'a EnumDef,
-    ) -> Result<()> {
+    fn compare_enum_def(&mut self, enum1: &'a EnumDef, enum2: &'a EnumDef) -> Result<()> {
         default::compare_enum_def(self, enum1, enum2)
     }
 
@@ -145,11 +121,7 @@ pub trait Compare<'a> {
     // Function
     //-------------------------------------------------
 
-    fn compare_func_def(
-        &mut self,
-        func1: &'a FunctionDef,
-        func2: &'a FunctionDef,
-    ) -> Result<()> {
+    fn compare_func_def(&mut self, func1: &'a FunctionDef, func2: &'a FunctionDef) -> Result<()> {
         default::compare_func_def(self, func1, func2)
     }
 
@@ -317,11 +289,7 @@ pub trait Compare<'a> {
         default::compare_call_expr(self, exp1, exp2)
     }
 
-    fn compare_call_args(
-        &mut self,
-        args1: &'a CallArgs,
-        args2: &'a CallArgs,
-    ) -> Result<()> {
+    fn compare_call_args(&mut self, args1: &'a CallArgs, args2: &'a CallArgs) -> Result<()> {
         default::compare_call_args(self, args1, args2)
     }
 
@@ -497,11 +465,7 @@ pub trait Compare<'a> {
         default::compare_mapping_type(self, t1, t2)
     }
 
-    fn compare_type_name(
-        &mut self,
-        t1: &'a UserType,
-        t2: &'a UserType,
-    ) -> Result<()> {
+    fn compare_type_name(&mut self, t1: &'a UserType, t2: &'a UserType) -> Result<()> {
         default::compare_type_name(self, t1, t2)
     }
 
@@ -516,14 +480,6 @@ pub trait Compare<'a> {
     //-------------------------------------------------
     // Data location.
     //-------------------------------------------------
-
-    fn compare_data_loc_opt(
-        &mut self,
-        dloc1: &'a Option<DataLoc>,
-        dloc2: &'a Option<DataLoc>,
-    ) -> Result<()> {
-        default::compare_data_loc_opt(self, dloc1, dloc2)
-    }
 
     fn compare_data_loc(&mut self, dloc1: &'a DataLoc, dloc2: &'a DataLoc) -> Result<()> {
         default::compare_data_loc(self, dloc1, dloc2)
@@ -588,9 +544,7 @@ pub mod default {
             (Error(e1), Error(e2)) => comparer.compare_error_defitinion(e1, e2),
             (Func(f1), Func(f2)) => comparer.compare_func_def(f1, f2),
             (Var(v1), Var(v2)) => comparer.compare_var_decl(v1, v2),
-            (UserType(t1), UserType(t2)) => {
-                comparer.compare_user_defined_type_definition(t1, t2)
-            }
+            (UserType(t1), UserType(t2)) => comparer.compare_user_defined_type_definition(t1, t2),
             (Struct(s1), Struct(s2)) => comparer.compare_struct_def(s1, s2),
             (Enum(e1), Enum(e2)) => comparer.compare_enum_def(e1, e2),
             (Contract(c1), Contract(c2)) => comparer.compare_contract_def(c1, c2),
@@ -1638,7 +1592,7 @@ pub mod default {
         t2: &'a StringType,
     ) -> Result<()> {
         if comparer
-            .compare_data_loc_opt(&t1.data_loc, &t2.data_loc)
+            .compare_data_loc(&t1.data_loc, &t2.data_loc)
             .is_err()
             || t1.is_ptr != t2.is_ptr
         {
@@ -1664,7 +1618,7 @@ pub mod default {
         t2: &'a BytesType,
     ) -> Result<()> {
         if comparer
-            .compare_data_loc_opt(&t1.data_loc, &t2.data_loc)
+            .compare_data_loc(&t1.data_loc, &t2.data_loc)
             .is_err()
             || t1.is_ptr != t2.is_ptr
             || t1.length != t2.length
@@ -1680,7 +1634,7 @@ pub mod default {
         t2: &'a ArrayType,
     ) -> Result<()> {
         if comparer
-            .compare_data_loc_opt(&t1.data_loc, &t2.data_loc)
+            .compare_data_loc(&t1.data_loc, &t2.data_loc)
             .is_err()
             || comparer.compare_type(&t1.base, &t2.base).is_err()
             || t1.is_ptr != t2.is_ptr
@@ -1707,7 +1661,7 @@ pub mod default {
         t1: &'a StructType,
         t2: &'a StructType,
     ) -> Result<()> {
-        if let Err(err) = comparer.compare_data_loc_opt(&t1.data_loc, &t2.data_loc) {
+        if let Err(err) = comparer.compare_data_loc(&t1.data_loc, &t2.data_loc) {
             return error("Different struct type", &t1, &t2, Some(err));
         }
         if let Err(err) = comparer.compare_name(&t1.name, &t2.name) {
@@ -1842,18 +1796,6 @@ pub mod default {
     //-------------------------------------------------
     // Data location
     //-------------------------------------------------
-
-    pub fn compare_data_loc_opt<'a, T: Compare<'a> + ?Sized>(
-        comparer: &mut T,
-        dloc1: &'a Option<DataLoc>,
-        dloc2: &'a Option<DataLoc>,
-    ) -> Result<()> {
-        match (dloc1, dloc2) {
-            (Some(l1), Some(l2)) => comparer.compare_data_loc(l1, l2),
-            (None, None) => Ok(()),
-            _ => bail!("Different data loc: {:?} -- {:?}", dloc1, dloc2),
-        }
-    }
 
     pub fn compare_data_loc<'a, T: Compare<'a> + ?Sized>(
         _comparer: &mut T,

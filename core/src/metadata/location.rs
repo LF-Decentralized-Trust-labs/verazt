@@ -50,6 +50,7 @@ pub enum DataLoc {
     Memory,   // In memory.
     Storage,  // In storage.
     Calldata, // In function call data
+    None,     // No data location specified.
 }
 
 impl DataLoc {
@@ -86,6 +87,7 @@ impl Display for DataLoc {
             Memory => write!(f, "memory"),
             Storage => write!(f, "storage"),
             Calldata => write!(f, "calldata"),
+            None => Ok(()),
         }
     }
 }

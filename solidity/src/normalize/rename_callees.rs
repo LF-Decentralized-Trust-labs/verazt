@@ -59,23 +59,6 @@ impl Compare<'_> for TypeChecker {
         }
         Ok(())
     }
-
-    /// Override `compare_data_location` to consider `Calldata`, `Memory`, or
-    /// unspecified data location as compatible.
-    fn compare_data_loc_opt(
-        &mut self,
-        dloc1: &Option<DataLoc>,
-        dloc2: &Option<DataLoc>,
-    ) -> Result<()> {
-        if (matches!(dloc1, None | Some(DataLoc::Calldata) | Some(DataLoc::Memory))
-            && matches!(dloc2, None | Some(DataLoc::Calldata) | Some(DataLoc::Memory)))
-            || dloc1 == dloc2
-        {
-            Ok(())
-        } else {
-            bail!("Different data locations: {:?} vs. {:?}", dloc1, dloc2);
-        }
-    }
 }
 
 /// Check compatibility of function call types.
@@ -501,7 +484,7 @@ mod tests {
     use super::rename_callees;
     use crate::{
         normalize::{rename_definitions, util::configure_unit_test_env},
-        parser::ast_parser::parse_solidity_code,
+        parsing::ast_parser::parse_solidity_code,
         util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;

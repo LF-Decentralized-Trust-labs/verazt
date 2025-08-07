@@ -12,12 +12,12 @@ use pest_derive::Parser;
 
 struct ArrayDim {
     pub length: Option<BigInt>,
-    pub data_loc: Option<DataLoc>,
+    pub data_loc: DataLoc,
     pub is_ptr: bool,
 }
 
 impl ArrayDim {
-    pub fn new(length: Option<BigInt>, dloc: Option<DataLoc>, is_ptr: bool) -> Self {
+    pub fn new(length: Option<BigInt>, dloc: DataLoc, is_ptr: bool) -> Self {
         ArrayDim { length, data_loc: dloc, is_ptr }
     }
 }
@@ -762,7 +762,7 @@ impl TypeParser {
                 };
                 Ok(StringType::new(dloc, is_ptr).into())
             }
-            Rule::string_const_type => Ok(StringType::new(None, false).into()),
+            Rule::string_const_type => Ok(StringType::new(DataLoc::None, false).into()),
             _ => error("Failed to parse string type", p),
         }
     }
@@ -814,21 +814,21 @@ impl TypeParser {
 
     /// Peek a data location at the beginning of a list of pairs. This action
     /// will not move the token pair iterator.
-    fn peek_data_loc(pairs: &mut Pairs<Rule>) -> Result<Option<DataLoc>> {
+    fn peek_data_loc(pairs: &mut Pairs<Rule>) -> Result<DataLoc> {
         let dloc = match pairs.peek() {
-            None => None,
+            None => DataLoc::None,
             Some(p) => match p.as_rule() {
                 Rule::data_location => match p.as_str() {
-                    "storage" => Some(DataLoc::Storage),
-                    "memory" => Some(DataLoc::Memory),
-                    "calldata" => Some(DataLoc::Calldata),
-                    "default" => None,
+                    "storage" => DataLoc::Storage,
+                    "memory" => DataLoc::Memory,
+                    "calldata" => DataLoc::Calldata,
+                    "default" => DataLoc::None,
                     _ => return error("Unknown data location", p),
                 },
-                _ => None,
+                _ => DataLoc::None,
             },
         };
-        if dloc.is_some() {
+        if dloc != DataLoc::None {
             pairs.next(); // Advance the token pair if peeking successfully
         }
         Ok(dloc)

@@ -381,10 +381,6 @@ pub trait Map<'a> {
     // Data location.
     //-------------------------------------------------
 
-    fn map_data_loc_opt(&mut self, dloc: &'a Option<DataLoc>) -> Option<DataLoc> {
-        default::map_data_loc_opt(self, dloc)
-    }
-
     fn map_data_loc(&mut self, dloc: &'a DataLoc) -> DataLoc {
         default::map_data_loc(self, dloc)
     }
@@ -465,10 +461,7 @@ pub mod default {
     // Using directives
     //-------------------------------------------------
 
-    pub fn map_using<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        using: &'a UsingDir,
-    ) -> UsingDir {
+    pub fn map_using<'a, T: Map<'a> + ?Sized>(mapper: &mut T, using: &'a UsingDir) -> UsingDir {
         let nkind = mapper.map_using_kind(&using.kind);
         let ntyp = using.target_type.as_ref().map(|t| mapper.map_type(t));
         UsingDir { kind: nkind, target_type: ntyp, ..using.clone() }
@@ -493,10 +486,7 @@ pub mod default {
         }
     }
 
-    pub fn map_using_lib<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        ulib: &'a UsingLib,
-    ) -> UsingLib {
+    pub fn map_using_lib<'a, T: Map<'a> + ?Sized>(mapper: &mut T, ulib: &'a UsingLib) -> UsingLib {
         let nname = mapper.map_name(&ulib.lib_name);
         let nscope = mapper.map_name_path(&ulib.lib_path);
         UsingLib { lib_name: nname, lib_path: nscope, ..ulib.clone() }
@@ -567,10 +557,7 @@ pub mod default {
         StructField { typ: ntyp, ..field.clone() }
     }
 
-    pub fn map_enum_def<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        enum_: &'a EnumDef,
-    ) -> EnumDef {
+    pub fn map_enum_def<'a, T: Map<'a> + ?Sized>(mapper: &mut T, enum_: &'a EnumDef) -> EnumDef {
         let nelems = enum_
             .elems
             .iter()
@@ -602,12 +589,7 @@ pub mod default {
             .iter()
             .map(|elem| mapper.map_contract_elem(elem))
             .collect();
-        ContractDef {
-            name: nname,
-            base_contracts: nbases,
-            body: nbody,
-            ..contract.clone()
-        }
+        ContractDef { name: nname, base_contracts: nbases, body: nbody, ..contract.clone() }
     }
 
     pub fn map_base_contract<'a, T: Map<'a> + ?Sized>(
@@ -653,15 +635,7 @@ pub mod default {
         let returns = mapper.map_var_decls(&func.returns);
         let overriding = mapper.map_overriding(&func.overriding);
         let body = func.body.as_ref().map(|blk| mapper.map_block(blk));
-        FunctionDef {
-            name,
-            body,
-            params,
-            modifier_invocs,
-            returns,
-            overriding,
-            ..func.clone()
-        }
+        FunctionDef { name, body, params, modifier_invocs, returns, overriding, ..func.clone() }
     }
 
     //-------------------------------------------------
@@ -985,12 +959,7 @@ pub mod default {
         let nlhs = mapper.map_expr(&expr.left);
         let nrhs = mapper.map_expr(&expr.right);
         let ntyp = mapper.map_type(&expr.typ);
-        BinaryExpr {
-            left: Box::new(nlhs),
-            right: Box::new(nrhs),
-            typ: ntyp,
-            ..expr.clone()
-        }
+        BinaryExpr { left: Box::new(nlhs), right: Box::new(nrhs), typ: ntyp, ..expr.clone() }
     }
 
     //-------------------------------------------------
@@ -1004,12 +973,7 @@ pub mod default {
         let nlhs = mapper.map_expr(&expr.left);
         let nrhs = mapper.map_expr(&expr.right);
         let ntyp = mapper.map_type(&expr.typ);
-        AssignExpr {
-            left: Box::new(nlhs),
-            right: Box::new(nrhs),
-            typ: ntyp,
-            ..expr.clone()
-        }
+        AssignExpr { left: Box::new(nlhs), right: Box::new(nrhs), typ: ntyp, ..expr.clone() }
     }
 
     //-------------------------------------------------
@@ -1023,10 +987,7 @@ pub mod default {
         CallExpr { callee: Box::new(ncallee), args: nargs, typ: ntyp, ..expr.clone() }
     }
 
-    pub fn map_call_args<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        expr: &'a CallArgs,
-    ) -> CallArgs {
+    pub fn map_call_args<'a, T: Map<'a> + ?Sized>(mapper: &mut T, expr: &'a CallArgs) -> CallArgs {
         match expr {
             CallArgs::Unnamed(args) => {
                 let nargs: Vec<Expr> = args.iter().map(|arg| mapper.map_expr(arg)).collect();
@@ -1039,10 +1000,7 @@ pub mod default {
         }
     }
 
-    pub fn map_named_arg<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        expr: &'a NamedArg,
-    ) -> NamedArg {
+    pub fn map_named_arg<'a, T: Map<'a> + ?Sized>(mapper: &mut T, expr: &'a NamedArg) -> NamedArg {
         let nvalue = mapper.map_expr(&expr.value);
         NamedArg { value: nvalue, ..expr.clone() }
     }
@@ -1263,7 +1221,7 @@ pub mod default {
         mapper: &mut T,
         typ: &'a BytesType,
     ) -> BytesType {
-        let ndata_loc = mapper.map_data_loc_opt(&typ.data_loc);
+        let ndata_loc = mapper.map_data_loc(&typ.data_loc);
         BytesType { data_loc: ndata_loc, ..typ.clone() }
     }
 
@@ -1271,7 +1229,7 @@ pub mod default {
         mapper: &mut T,
         typ: &'a StringType,
     ) -> StringType {
-        let ndata_loc = mapper.map_data_loc_opt(&typ.data_loc);
+        let ndata_loc = mapper.map_data_loc(&typ.data_loc);
         StringType { data_loc: ndata_loc, ..typ.clone() }
     }
 
@@ -1280,7 +1238,7 @@ pub mod default {
         typ: &'a ArrayType,
     ) -> ArrayType {
         let nbase = mapper.map_type(&typ.base);
-        let ndata_loc = mapper.map_data_loc_opt(&typ.data_loc);
+        let ndata_loc = mapper.map_data_loc(&typ.data_loc);
         ArrayType { base: Box::new(nbase), data_loc: ndata_loc, ..typ.clone() }
     }
 
@@ -1298,7 +1256,7 @@ pub mod default {
     ) -> StructType {
         let nname = mapper.map_name(&typ.name);
         let nscope = mapper.map_name_opt(&typ.scope);
-        let ndloc = mapper.map_data_loc_opt(&typ.data_loc);
+        let ndloc = mapper.map_data_loc(&typ.data_loc);
         StructType { name: nname, scope: nscope, data_loc: ndloc, ..typ.clone() }
     }
 
@@ -1343,7 +1301,7 @@ pub mod default {
     ) -> MappingType {
         let nkey = Box::new(mapper.map_type(&typ.key));
         let nvalue = Box::new(mapper.map_type(&typ.value));
-        let ndloc = mapper.map_data_loc_opt(&typ.data_loc);
+        let ndloc = mapper.map_data_loc(&typ.data_loc);
         MappingType { key: nkey, value: nvalue, data_loc: ndloc }
     }
 
@@ -1391,13 +1349,6 @@ pub mod default {
     //-------------------------------------------------
     // Data location
     //-------------------------------------------------
-
-    pub fn map_data_loc_opt<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        data_loc: &'a Option<DataLoc>,
-    ) -> Option<DataLoc> {
-        data_loc.as_ref().map(|d| mapper.map_data_loc(d))
-    }
 
     pub fn map_data_loc<'a, T: Map<'a> + ?Sized>(_mapper: &mut T, dloc: &'a DataLoc) -> DataLoc {
         *dloc

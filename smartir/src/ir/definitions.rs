@@ -365,15 +365,13 @@ impl VarDecl {
 impl Display for VarDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.typ).ok();
-        // Check if data location of data type is already printed.
-        let is_data_loc_printed = self.typ.data_loc().is_some();
         // Data location must be printed for some types
         let need_to_print_data_loc = match &self.typ {
             Type::Array(_) | Type::Struct(_) | Type::Mapping(_) | Type::String(_) => true,
             Type::Bytes(typ) => typ.length.is_none(),
             _ => false,
         };
-        if !is_data_loc_printed && need_to_print_data_loc {
+        if self.typ.data_loc() != DataLoc::None && need_to_print_data_loc {
             if let Some(data_loc) = &self.data_loc {
                 write!(f, " {data_loc}").ok();
             }
