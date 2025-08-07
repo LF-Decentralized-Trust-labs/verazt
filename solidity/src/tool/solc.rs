@@ -6,6 +6,7 @@ use crate::version::{
     self, check_range_constraint, find_compatible_solc_versions, find_solidity_versions,
 };
 use color_eyre::eyre::{Result, bail};
+use core::error;
 use node_semver::Version;
 use regex::Regex;
 use std::{fs::File, io::Write, path::Path, process::Command};
@@ -96,10 +97,13 @@ pub fn compile_solidity_file(
     }
 
     // Checking Solc version indicated in smart contract source code
-    let contract_solc_versions = find_solidity_versions(input_file).map(|v| v.join(", "))?;
-    let contract_solc_range = node_semver::Range::parse(&contract_solc_versions)?;
-    if !check_range_constraint(&contract_solc_range, ">=0.4.12") {
-        bail!("Only support Solidity versions >=0.4.12, but found: {}", &contract_solc_versions);
+    let solc_versions = find_solidity_versions(input_file)
+        .map(|v| v.join(", "))
+        .or_else(|_| error!("Failed to find Solidity version in: {}", input_file))?;
+    let solc_range = node_semver::Range::parse(&solc_versions)
+        .or_else(|_| error!("Failed to parse Solidity version: '{}'", solc_versions))?;
+    if !check_range_constraint(&solc_range, ">=0.4.12") {
+        bail!("Only support Solidity versions >=0.4.12, but found: {}", &solc_versions);
     }
 
     let compatible_solc_vers = find_compatible_solc_versions(input_file)
@@ -134,11 +138,11 @@ pub fn compile_solidity_file(
 
         // Configure base path and include paths
         if let Some(path) = base_path
-            && check_range_constraint(&contract_solc_range, ">=0.7.0")
+            && check_range_constraint(&solc_range, ">=0.7.0")
         {
             args += &format!(" --base-path {path}");
         }
-        if !include_paths.is_empty() && check_range_constraint(&contract_solc_range, ">=0.8.8") {
+        if !include_paths.is_empty() && check_range_constraint(&solc_range, ">=0.8.8") {
             for include_path in include_paths {
                 args += &format!(" --include-path {include_path}");
             }
