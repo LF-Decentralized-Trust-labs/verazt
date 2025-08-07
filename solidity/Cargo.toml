@@ -15,7 +15,7 @@ bat = "0.23"
 clap = { version = "4.1.1", features = ["cargo"] }
 clap-verbosity-flag = "2.0.1"
 codespan-reporting = "0.12.0"
-color-eyre = "0.6"
+color-eyre = { version = "0.6.5", default-features = false, features = ["capture-spantrace", "issue-url", "track-caller"] }
 core = { path = "../core" }
 either = "1.8"
 exec_time = "0.1.4"
