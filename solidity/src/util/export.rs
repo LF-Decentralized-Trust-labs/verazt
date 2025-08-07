@@ -42,14 +42,19 @@ pub fn export_source_units(source_units: &[SourceUnit], output_file: &str) -> Re
 
 /// Prepare log directory for a source file.
 pub fn prepare_logging_directory(input_file: &str) -> Result<(PathBuf, String)> {
-    let file_name = Path::new(input_file).file_name().context(format!(
+    let file_path = Path::new(input_file);
+    let file_name = file_path.file_name().context(format!(
         "Failed to prepare logging directory: file name not found: {input_file}"
     ))?;
+    let file_dir = file_path.parent().context(format!(
+        "Failed to prepare logging directory: parent directory not found for {input_file}"
+    ))?;
 
-    let output_dir = Path::new(LOGS_DIR).join(file_name);
+    let output_dir = file_dir.join(LOGS_DIR).join(file_name);
     if !output_dir.exists() && std::fs::create_dir_all(&output_dir).is_err() {
         bail!("Failed to create output directory: {}", output_dir.display());
     }
+    // println!("Output directory: {}", output_dir.display());
 
     let file_stem = Path::new(&file_name)
         .file_stem()

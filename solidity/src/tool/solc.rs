@@ -95,15 +95,6 @@ pub fn compile_solidity_file(
         bail!("Input file does not exist: {}", input_file);
     }
 
-    let base_path = match base_path {
-        Some(path) => path,
-        None => input_file_path
-            .parent()
-            .expect("Parent directory of input file should exists")
-            .to_str()
-            .expect("Parent directory of input file should exists"),
-    };
-
     // Checking Solc version indicated in smart contract source code
     let contract_solc_versions = find_solidity_versions(input_file).map(|v| v.join(", "))?;
     let contract_solc_range = node_semver::Range::parse(&contract_solc_versions)?;
@@ -142,11 +133,15 @@ pub fn compile_solidity_file(
         let mut args = input_file.to_string();
 
         // Configure base path and include paths
-        if !base_path.is_empty() {
-            args += &format!(" --base-path {base_path}");
+        if let Some(path) = base_path
+            && check_range_constraint(&contract_solc_range, ">=0.7.0")
+        {
+            args += &format!(" --base-path {path}");
         }
-        for include_path in include_paths {
-            args += &format!(" --include-path {include_path}");
+        if !include_paths.is_empty() && check_range_constraint(&contract_solc_range, ">=0.8.8") {
+            for include_path in include_paths {
+                args += &format!(" --include-path {include_path}");
+            }
         }
 
         // Solc 0.8.10 and newer don't need the flag `compact-format`
@@ -184,8 +179,7 @@ pub fn compile_solidity_file(
                 println!("Export JSON output to: {}", output_file_path.display());
                 let mut file = File::create(output_file_path)?;
                 file.write_all(json_data.as_bytes())?;
-
-                return Ok(JsonAst::new(json_data, Some(input_file), Some(base_path)));
+                return Ok(JsonAst::new(json_data, Some(input_file), base_path));
             }
             Err(_) => bail!("Failed to parse JSON of: {}", input_file),
         }

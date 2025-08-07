@@ -202,30 +202,23 @@ impl AstParser {
     ///
     /// Input AST node must be a node representing a source unit.
     fn parse_source_unit_path(&mut self, node: &Value) -> Result<String> {
-        let source_file = node
+        let source_file_abs = node
             .get("absolutePath")
             .ok_or_else(|| eyre!("Parsing source unit: absolute path not found: {node}"))?
             .as_str()
             .ok_or_else(|| eyre!("Parsing source unit: absolute path invalid: {node}"))?
             .to_string();
-        let dir_path = match &self.base_path {
-            Some(dir) => Some(Path::new(dir)),
-            None => match &self.input_file {
-                Some(file) => Path::new(file).parent(),
-                _ => None,
-            },
-        };
-        let path = match dir_path {
-            None => source_file,
-            Some(dir) => {
-                let path = dir
-                    .join(&source_file)
+        let path = match &self.base_path {
+            None => source_file_abs,
+            Some(base) => {
+                let path = Path::new(base)
+                    .join(&source_file_abs)
                     .as_os_str()
                     .to_os_string()
                     .into_string();
                 match path {
                     Ok(source_path) => source_path,
-                    Err(_) => source_file,
+                    Err(_) => source_file_abs,
                 }
             }
         };
@@ -1351,14 +1344,15 @@ impl AstParser {
                     .map(|s| s.to_string())
             })
             .collect::<Result<Vec<String>>>()?;
-        let arg_name_locs = node
-            .get("nameLocations")
-            .ok_or_else(|| eyre!("Function call argument name locations not found: {node}"))?
-            .as_array()
-            .ok_or_else(|| eyre!("Function call argument name locations invalid: {node}"))?
-            .iter()
-            .map(|v| self.parse_source_location(v))
-            .collect::<Vec<Option<Loc>>>();
+        let arg_name_locs = match node.get("nameLocations") {
+            Some(v) => v
+                .as_array()
+                .ok_or_else(|| eyre!("Function call argument name locations invalid: {node}"))?
+                .iter()
+                .map(|v| self.parse_source_location(v))
+                .collect::<Vec<Option<Loc>>>(),
+            None => vec![], // Older Solidity doesn't generate JSON key `nameLocations`
+        };
         Ok((arg_values, arg_names, arg_name_locs))
     }
 
@@ -1858,7 +1852,7 @@ impl AstParser {
             .ok_or_else(|| eyre!("Type description: storage location not found: {node}"))?
             .as_str()
             .ok_or_else(|| eyre!("Type description storage location invalid: {node}"))
-            .and_then(|s| DataLoc::new(s))?;
+            .and_then(DataLoc::new)?;
         typ.set_data_loc(data_loc);
         Ok(typ)
     }

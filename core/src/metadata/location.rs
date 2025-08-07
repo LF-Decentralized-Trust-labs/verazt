@@ -59,6 +59,7 @@ impl DataLoc {
             "memory" => Ok(DataLoc::Memory),
             "storage" => Ok(DataLoc::Storage),
             "calldata" => Ok(DataLoc::Calldata),
+            "default" => Ok(DataLoc::None),
             _ => bail!("Unknown data location: {}", data_loc),
         }
     }
