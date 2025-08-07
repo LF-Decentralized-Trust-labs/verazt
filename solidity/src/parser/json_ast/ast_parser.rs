@@ -8,7 +8,7 @@ use crate::{
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::{Result, bail, eyre};
 use core::{
-    eyre_loc,
+    bail_loc, eyre_loc,
     file::{save_to_temporary_file, save_to_temporary_files},
     metadata::DataLoc,
 };
@@ -64,7 +64,7 @@ impl AstParser {
     pub fn parse_solidity_json(&mut self) -> Result<Vec<SourceUnit>> {
         let node: Value = match &self.solidity_json {
             Some(content) => serde::from_str(content)?,
-            None => bail!("Input JSON AST not found!"),
+            None => bail_loc!("Input JSON AST not found!"),
         };
         let sources_node = node
             .get("sources")
@@ -84,7 +84,7 @@ impl AstParser {
         for source_name in &source_names {
             let source_node = match sources_node.get(source_name) {
                 Some(source_node) => source_node,
-                None => bail!("Failed to get source node of: {}", source_name),
+                None => bail_loc!("Failed to get source node of: {}", source_name),
             };
             let ast_node = source_node
                 .get("AST")
@@ -177,7 +177,7 @@ impl AstParser {
     fn parse_ast(&mut self, node: &Value) -> Result<SourceUnit> {
         match self.get_node_type(node)?.as_str() {
             "SourceUnit" => self.parse_source_unit(node),
-            _ => bail!("Source unit not found: {node}"),
+            _ => bail_loc!("Source unit not found: {node}"),
         }
     }
 
@@ -248,7 +248,7 @@ impl AstParser {
             "VariableDeclaration" => self
                 .parse_variable_declaration(node)
                 .map(SourceUnitElem::from),
-            _ => bail!("Failed to parse source element: {node}"),
+            _ => bail_loc!("Failed to parse source element: {node}"),
         }
     }
 
@@ -268,7 +268,7 @@ impl AstParser {
                     .iter()
                     .map(|v| v.as_str().unwrap_or("").to_string())
                     .collect::<Vec<String>>()),
-                _ => bail!("Pragma literals invalid!"),
+                _ => bail_loc!("Pragma literals invalid!"),
             })?;
 
         // match self.get_literals(node)? ;
@@ -280,15 +280,15 @@ impl AstParser {
                 }
                 "abicoder" => match tail.first() {
                     Some(s) => PragmaKind::new_abi_coder(s.to_string()),
-                    None => bail!("Pragma abicoder not found!"),
+                    None => bail_loc!("Pragma abicoder not found!"),
                 },
                 "experimental" => match tail.first() {
                     Some(s) => PragmaKind::new_experimental(s.to_string()),
-                    None => bail!("Pragma experimental not found!"),
+                    None => bail_loc!("Pragma experimental not found!"),
                 },
-                _ => bail!("Pragma not supported: {}", first),
+                _ => bail_loc!("Pragma not supported: {}", first),
             },
-            None => bail!("Pragma not found!"),
+            None => bail_loc!("Pragma not found!"),
         };
         let loc = self.parse_source_location(node);
         Ok(PragmaDir::new(id, kind, loc))
@@ -332,7 +332,7 @@ impl AstParser {
             ([], "") => ImportSourceUnit::new(abs_path, file_path, None, loc).into(),
             (_, "") => ImportSymbols::new(abs_path, file_path, symbol_aliases, loc).into(),
             ([], _) => ImportSourceUnit::new(abs_path, file_path, Some(unit_alias), loc).into(),
-            _ => bail!("TODO: parse both symbol and unit aliases: {node}"),
+            _ => bail_loc!("TODO: parse both symbol and unit aliases: {node}"),
         };
         Ok(ImportDir::new(id, kind))
     }
@@ -393,7 +393,7 @@ impl AstParser {
             let using_lib = UsingLib::new(&lib_name);
             Ok(UsingKind::UsingLib(using_lib))
         } else {
-            bail!("Using directive invalid: {node}");
+            bail_loc!("Using directive invalid: {node}");
         };
         let typ = node
             .get("typeName")
@@ -418,11 +418,11 @@ impl AstParser {
             .ok_or_else(|| eyre_loc!("Contract kind invalid: {node}"))??;
         let is_abstract = match node.get("abstract") {
             Some(Value::Bool(v)) => v.to_owned(),
-            Some(_) => bail!("Contract abstract flag invalid: {node}"),
+            Some(_) => bail_loc!("Contract abstract flag invalid: {node}"),
             None => match node.get("fullyImplemented") {
                 Some(Value::Bool(v)) => !v.to_owned(),
-                Some(_) => bail!("Contract fully implemented flag invalid: {node}"),
-                None => bail!("Contract abstract information not found: {node}"),
+                Some(_) => bail_loc!("Contract fully implemented flag invalid: {node}"),
+                None => bail_loc!("Contract abstract information not found: {node}"),
             },
         };
         let bases = node
@@ -1063,7 +1063,7 @@ impl AstParser {
                     .collect::<Result<Vec<CatchClause>>>()?;
                 Ok(TryStmt::new(id, expr, params, try_block, catch_clauses, loc).into())
             }
-            None => bail!("Implement parse_try_statement: {node}"),
+            None => bail_loc!("Implement parse_try_statement: {node}"),
         }
     }
 
@@ -1130,7 +1130,7 @@ impl AstParser {
         let vdecl_nodes = match node.get("declarations") {
             Some(Value::Array(nodes)) => nodes.clone(),
             Some(v) => vec![v.clone()],
-            None => bail!("Variable declaration: declarations not found: {node}"),
+            None => bail_loc!("Variable declaration: declarations not found: {node}"),
         };
         let mut vars: Vec<Option<VariableDecl>> = vec![];
         for vdecl_node in vdecl_nodes.iter() {
@@ -1138,7 +1138,7 @@ impl AstParser {
                 Value::Null => vars.push(None),
                 _ => match self.parse_variable_declaration(vdecl_node) {
                     Ok(vdecl) => vars.push(Some(vdecl)),
-                    Err(err) => bail!(err),
+                    Err(err) => bail_loc!(err),
                 },
             }
         }
@@ -1697,7 +1697,7 @@ impl AstParser {
                         Value::String(value) => {
                             Ok(UnicodeLit::new(value.to_string(), typ, loc).into())
                         }
-                        _ => bail!("Failed to parse unicode string: {node}"),
+                        _ => bail_loc!("Failed to parse unicode string: {node}"),
                     },
 
                     // REVIEW: why not parsing to normal string first?
@@ -1710,12 +1710,12 @@ impl AstParser {
                                 Ok(UnicodeLit::new(value, typ, loc).into())
                             }
                         }
-                        _ => bail!("Failed to parse string literal: {node}"),
+                        _ => bail_loc!("Failed to parse string literal: {node}"),
                     },
 
-                    _ => bail!("Literal kind not found: {:?}", node),
+                    _ => bail_loc!("Literal kind not found: {:?}", node),
                 })?,
-            _ => bail!("Need to parse literal type: {}", typ),
+            _ => bail_loc!("Need to parse literal type: {}", typ),
         }
     }
 
@@ -1723,7 +1723,7 @@ impl AstParser {
     fn parse_bool_lit(&self, node: &Value) -> Result<bool> {
         match node.as_str() {
             Some(s) => s.parse::<bool>().map_err(|err| eyre_loc!("{}", err)),
-            None => bail!("Failed to parse bool literal: {node}"),
+            None => bail_loc!("Failed to parse bool literal: {node}"),
         }
     }
 
@@ -1731,7 +1731,7 @@ impl AstParser {
     fn parse_int_lit(&self, node: &Value) -> Result<BigInt> {
         match node.as_str() {
             Some(s) => s.parse::<BigInt>().map_err(|err| eyre_loc!("{}", err)),
-            None => bail!("Failed to parse integer literal: {node}"),
+            None => bail_loc!("Failed to parse integer literal: {node}"),
         }
     }
 
@@ -1740,9 +1740,9 @@ impl AstParser {
         match node.as_str() {
             Some(s) => match Decimal::from_str(s) {
                 Ok(n) => Ok(n),
-                Err(_) => bail!("Failed to parse decimal: {}", s),
+                Err(_) => bail_loc!("Failed to parse decimal: {}", s),
             },
-            None => bail!("Failed to parse rational literal: {node}"),
+            None => bail_loc!("Failed to parse rational literal: {node}"),
         }
     }
 
@@ -1797,7 +1797,7 @@ impl AstParser {
                 // Return
                 Ok(nstr)
             }
-            None => bail!("Failed to parse string literal: {node}"),
+            None => bail_loc!("Failed to parse string literal: {node}"),
         }
     }
 
@@ -1882,14 +1882,14 @@ impl AstParser {
                         self.parse_name(v)?.split('.').map(Name::from).collect();
                     let (scope, type_name) = match &type_path_components[..] {
                         [scope, type_name] => (Some(scope.clone()), type_name.clone()),
-                        _ => bail!("Type path invalid: {}!", v),
+                        _ => bail_loc!("Type path invalid: {}!", v),
                     };
                     typ.update_name(type_name);
                     typ.update_scope(scope);
                 }
                 Ok(typ)
             }
-            Err(err) => bail!(err),
+            Err(err) => bail_loc!(err),
         }
     }
 
@@ -1930,7 +1930,7 @@ impl AstParser {
             Type::Array(typ) => {
                 Ok(ArrayType::new(base, typ.length, typ.data_loc, typ.is_ptr).into())
             }
-            _ => bail!("Fail to parse array type"),
+            _ => bail_loc!("Fail to parse array type"),
         }
     }
 
@@ -2130,14 +2130,14 @@ impl AstParser {
                     }
                 }
             }
-            Some(_) => bail!("Yul switch statement cases invalid: {node}"),
+            Some(_) => bail_loc!("Yul switch statement cases invalid: {node}"),
             None => {}
         }
         let default = defaults.first();
         if defaults.len() < 2 {
             Ok(yast::SwitchStmt::new(expr, cases, default.cloned()))
         } else {
-            bail!("Yul switch statement has multiple default case: {node}");
+            bail_loc!("Yul switch statement has multiple default case: {node}");
         }
     }
 
@@ -2151,7 +2151,7 @@ impl AstParser {
             "YulLiteral" => self.parse_yul_lit(node).map(|exp| exp.into()),
             "YulIdentifier" => self.parse_yul_ident_or_member_expr(node),
             "YulFunctionCall" => self.parse_yul_function_call(node).map(|exp| exp.into()),
-            _ => bail!("Parse Yul expression: {node}"),
+            _ => bail_loc!("Parse Yul expression: {node}"),
         }
     }
 
@@ -2219,7 +2219,7 @@ impl AstParser {
                 let member = Name::new(name2.to_string(), None);
                 Ok(yast::MemberExpr::new(base, member, loc).into())
             }
-            _ => bail!("Failed to parse Yul identifier: {node}"),
+            _ => bail_loc!("Failed to parse Yul identifier: {node}"),
         }
     }
 
@@ -2241,7 +2241,7 @@ impl AstParser {
                         let number = self.parse_int_lit(v)?;
                         Ok(yast::NumLit::Dec(number).into())
                     }
-                    _ => bail!("Failed to parse number literal"),
+                    _ => bail_loc!("Failed to parse number literal"),
                 },
                 _ => match self.parse_yul_hex_lit(node) {
                     Ok(lit) => Ok(lit),
@@ -2278,7 +2278,7 @@ impl AstParser {
             "uint" | "int" => {
                 let regex = match Regex::new(r"(\d+)") {
                     Ok(re) => re,
-                    Err(_) => bail!("Invalid regexp!"),
+                    Err(_) => bail_loc!("Invalid regexp!"),
                 };
                 let bitwidth = match regex.captures(data_type) {
                     Some(capture) => match capture.get(1) {
@@ -2286,7 +2286,7 @@ impl AstParser {
                             let value = m.as_str();
                             match value.parse::<usize>() {
                                 Ok(bw) => bw,
-                                Err(_) => bail!("Invalid bitwidth: {value}"),
+                                Err(_) => bail_loc!("Invalid bitwidth: {value}"),
                             }
                         }
                         None => 256,
@@ -2321,7 +2321,7 @@ pub fn parse_solidity_file(
     let mut parser = AstParser::new(&json);
     match parser.parse_solidity_json() {
         Ok(source_units) => Ok(source_units),
-        Err(err) => bail!(err),
+        Err(err) => bail_loc!(err),
     }
 }
 
@@ -2332,7 +2332,7 @@ pub fn parse_solidity_code(source_code: &str, solc_ver: &str) -> Result<Vec<Sour
     // Save the source code to a temporarily Solidity file
     let solidity_file = match save_to_temporary_file(source_code, "contract.sol") {
         Ok(filename) => filename,
-        Err(_) => bail!("Failed to save input contract to file"),
+        Err(_) => bail_loc!("Failed to save input contract to file"),
     };
 
     // Parse the Solidity file to internal AST.
@@ -2347,7 +2347,7 @@ pub fn parse_contract_info(
     // Save the source code to a temporarily Solidity file
     let solidity_files = match save_to_temporary_files(file_name_and_contents) {
         Ok(files) => files,
-        Err(_) => bail!("Failed to save input contract to files"),
+        Err(_) => bail_loc!("Failed to save input contract to files"),
     };
     // Parse Solidity files to internal AST.
     let mut output_sunits: Vec<SourceUnit> = vec![];
