@@ -40,14 +40,14 @@ pub struct AddressType {
 pub struct ArrayType {
     pub base: Box<Type>,
     pub length: Option<BigInt>,
-    pub data_loc: Option<DataLoc>,
+    pub data_loc: DataLoc,
     pub is_ptr: bool,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub struct BytesType {
     pub length: Option<u8>, // The length in `fixed-bytes` type. `None` when it is just `bytes`.
-    pub data_loc: Option<DataLoc>,
+    pub data_loc: DataLoc,
     pub is_ptr: bool, // Whether the struct is a pointer type.``
 }
 
@@ -96,7 +96,7 @@ pub enum MagicType {
 pub struct MappingType {
     pub key: Box<Type>,
     pub value: Box<Type>,
-    pub data_loc: Option<DataLoc>,
+    pub data_loc: DataLoc,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
@@ -106,7 +106,7 @@ pub struct SliceType {
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub struct StringType {
-    pub data_loc: Option<DataLoc>,
+    pub data_loc: DataLoc,
     pub is_ptr: bool, // Whether it is a pointer type.
 }
 
@@ -114,7 +114,7 @@ pub struct StringType {
 pub struct StructType {
     pub name: Name,
     pub scope: Option<Name>, // Where the struct type is defined
-    pub data_loc: Option<DataLoc>,
+    pub data_loc: DataLoc,
     pub is_ptr: bool, // Whether it is a pointer type.
 }
 
@@ -222,18 +222,18 @@ impl Type {
         }
     }
 
-    pub fn data_loc(&self) -> Option<DataLoc> {
+    pub fn data_loc(&self) -> DataLoc {
         match self {
             Type::Array(t) => t.data_loc,
             Type::String(t) => t.data_loc,
             Type::Bytes(t) => t.data_loc,
             Type::Struct(t) => t.data_loc,
             Type::Mapping(t) => t.data_loc,
-            _ => None,
+            _ => DataLoc::None,
         }
     }
 
-    pub fn set_data_loc(&mut self, dloc: Option<DataLoc>) {
+    pub fn set_data_loc(&mut self, dloc: DataLoc) {
         match self {
             Type::Array(t) => t.data_loc = dloc,
             Type::String(t) => t.data_loc = dloc,
@@ -390,7 +390,7 @@ impl Display for AddressType {
 //-------------------------------------------------------------------------
 
 impl ArrayType {
-    pub fn new(base: Type, length: Option<BigInt>, dloc: Option<DataLoc>, is_ptr: bool) -> Self {
+    pub fn new(base: Type, length: Option<BigInt>, dloc: DataLoc, is_ptr: bool) -> Self {
         ArrayType { base: Box::new(base), length, data_loc: dloc, is_ptr }
     }
 
@@ -414,8 +414,8 @@ impl Display for ArrayType {
 
             // Restore `PRINT_DATA_LOC` flag
             PRINT_DATA_LOC = saved_display_data_loc;
-            if PRINT_DATA_LOC && let Some(dloc) = &self.data_loc {
-                write!(f, " {dloc}").ok();
+            if PRINT_DATA_LOC && self.data_loc != DataLoc::None {
+                write!(f, " {}", self.data_loc).ok();
             }
 
             Ok(())
@@ -428,7 +428,7 @@ impl Display for ArrayType {
 //-------------------------------------------------------------------------
 
 impl BytesType {
-    pub fn new(length: Option<u8>, dloc: Option<DataLoc>, is_ptr: bool) -> Self {
+    pub fn new(length: Option<u8>, dloc: DataLoc, is_ptr: bool) -> Self {
         BytesType { length, data_loc: dloc, is_ptr }
     }
 
@@ -438,8 +438,8 @@ impl BytesType {
             None => "bytes".to_string(),
         };
         match self.data_loc {
-            Some(ref dloc) => format!("{res}_{dloc}"),
-            None => res,
+            DataLoc::None => res,
+            _ => format!("{res}_{}", self.data_loc),
         }
     }
 }
@@ -452,11 +452,8 @@ impl Display for BytesType {
         };
 
         unsafe {
-            if PRINT_DATA_LOC
-                && self.length.is_none()
-                && let Some(dloc) = &self.data_loc
-            {
-                write!(f, " {dloc}").ok();
+            if PRINT_DATA_LOC && self.length.is_none() && self.data_loc != DataLoc::None {
+                write!(f, " {}", self.data_loc).ok();
             }
         }
 
@@ -711,7 +708,7 @@ impl Display for MagicType {
 //-------------------------------------------------------------------------
 
 impl MappingType {
-    pub fn new(key: Type, value: Type, dloc: Option<DataLoc>) -> Self {
+    pub fn new(key: Type, value: Type, dloc: DataLoc) -> Self {
         MappingType { key: Box::new(key), value: Box::new(value), data_loc: dloc }
     }
 
@@ -725,8 +722,8 @@ impl Display for MappingType {
         write!(f, "mapping({} => {})", self.key, self.value).ok();
 
         unsafe {
-            if PRINT_DATA_LOC && let Some(dloc) = &self.data_loc {
-                write!(f, " {dloc}").ok();
+            if PRINT_DATA_LOC && self.data_loc != DataLoc::None {
+                write!(f, " {}", self.data_loc).ok();
             }
         }
 
@@ -763,7 +760,7 @@ impl Display for SliceType {
 //-------------------------------------------------------------------------
 
 impl StringType {
-    pub fn new(dloc: Option<DataLoc>, is_ptr: bool) -> Self {
+    pub fn new(dloc: DataLoc, is_ptr: bool) -> Self {
         StringType { data_loc: dloc, is_ptr }
     }
 }
@@ -773,8 +770,8 @@ impl Display for StringType {
         write!(f, "string").ok();
 
         unsafe {
-            if PRINT_DATA_LOC && let Some(dloc) = &self.data_loc {
-                write!(f, " {dloc}").ok();
+            if PRINT_DATA_LOC && self.data_loc != DataLoc::None {
+                write!(f, " {}", self.data_loc).ok();
             }
         }
 
@@ -787,7 +784,7 @@ impl Display for StringType {
 //-------------------------------------------------------------------------
 
 impl StructType {
-    pub fn new(name: Name, scope: Option<Name>, dloc: Option<DataLoc>, is_ptr: bool) -> Self {
+    pub fn new(name: Name, scope: Option<Name>, dloc: DataLoc, is_ptr: bool) -> Self {
         StructType { name, scope, data_loc: dloc, is_ptr }
     }
 }
@@ -800,8 +797,8 @@ impl Display for StructType {
         write!(f, "{}", self.name).ok();
 
         unsafe {
-            if PRINT_DATA_LOC && let Some(dloc) = &self.data_loc {
-                write!(f, " {dloc}").ok();
+            if PRINT_DATA_LOC && self.data_loc != DataLoc::None {
+                write!(f, " {}", self.data_loc).ok();
             }
         }
 

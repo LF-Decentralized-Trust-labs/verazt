@@ -239,7 +239,7 @@ impl AstParser {
             "ImportDirective" => self.parse_import_directive(node).map(SourceUnitElem::from),
             "UsingForDirective" => self.parse_using_directive(node).map(SourceUnitElem::from),
             "ErrorDefinition" => self.parse_error_def(node).map(SourceUnitElem::from),
-            "StructDefinition" => self.parse_struct_def(node).map(SourceUnitElem::from),
+            "StructDefinition" => self.parse_struct_definition(node).map(SourceUnitElem::from),
             "FunctionDefinition" => self
                 .parse_function_definition(node)
                 .map(SourceUnitElem::from),
@@ -248,7 +248,9 @@ impl AstParser {
                 .map(SourceUnitElem::from),
             "EnumDefinition" => self.parse_enum_def(node).map(SourceUnitElem::from),
             "ContractDefinition" => self.parse_contract_def(node).map(SourceUnitElem::from),
-            "VariableDeclaration" => self.parse_var_decl(node).map(SourceUnitElem::from),
+            "VariableDeclaration" => self
+                .parse_variable_declaration(node)
+                .map(SourceUnitElem::from),
             _ => bail!("Failed to parse source element: {node}"),
         }
     }
@@ -410,7 +412,7 @@ impl AstParser {
         let scope = self.parse_scope(node).ok();
         let name = Name::new(self.parse_name(node)?, None);
         let kind = node
-            .get("ContractKind")
+            .get("contractKind")
             .ok_or_else(|| eyre!("Contract kind not found: {node}"))?
             .as_str()
             .map(ContractKind::from_string)
@@ -418,10 +420,10 @@ impl AstParser {
         let is_abstract = match node.get("abstract") {
             Some(Value::Bool(v)) => v.to_owned(),
             Some(_) => bail!("Contract abstract flag invalid: {node}"),
-            None => match node.get("isFullyImplemented") {
+            None => match node.get("fullyImplemented") {
                 Some(Value::Bool(v)) => !v.to_owned(),
                 Some(_) => bail!("Contract fully implemented flag invalid: {node}"),
-                None => bail!("Contract abstract ifnormatio not found: {node}"),
+                None => bail!("Contract abstract information not found: {node}"),
             },
         };
         let bases = node
@@ -466,11 +468,13 @@ impl AstParser {
     /// Parse a contract element from a JSON AST node.
     fn parse_contract_element(&mut self, node: &Value) -> Result<ContractElem> {
         match self.get_node_type(node)?.as_str() {
-            "StructDefinition" => self.parse_struct_def(node).map(|def| def.into()),
+            "StructDefinition" => self.parse_struct_definition(node).map(|def| def.into()),
             "EventDefinition" => self.parse_event_def(node).map(|def| def.into()),
             "ErrorDefinition" => self.parse_error_def(node).map(|def| def.into()),
             "EnumDefinition" => self.parse_enum_def(node).map(|def| def.into()),
-            "VariableDeclaration" => self.parse_var_decl(node).map(|decl| decl.into()),
+            "VariableDeclaration" => self
+                .parse_variable_declaration(node)
+                .map(|decl| decl.into()),
             "FunctionDefinition" => self.parse_function_definition(node).map(|def| def.into()),
             "ModifierDefinition" => self.parse_modifier_definition(node).map(|def| def.into()),
             "UserDefinedValueTypeDefinition" => self
@@ -503,7 +507,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a struct definition from a JSON AST node.
-    fn parse_struct_def(&mut self, node: &Value) -> Result<StructDef> {
+    fn parse_struct_definition(&mut self, node: &Value) -> Result<StructDef> {
         let id = self.parse_id(node).ok();
         let scope = self.parse_scope(node).ok();
         let name: Name = self.parse_name(node)?.into();
@@ -711,7 +715,7 @@ impl AstParser {
             .as_array()
             .ok_or_else(|| eyre!("Parameters invalid: {node}"))?
             .iter()
-            .map(|param_node| self.parse_var_decl(param_node))
+            .map(|param_node| self.parse_variable_declaration(param_node))
             .collect::<Result<Vec<VariableDecl>>>()?;
         Ok(params)
     }
@@ -1131,7 +1135,7 @@ impl AstParser {
         for vdecl_node in vdecl_nodes.iter() {
             match vdecl_node {
                 Value::Null => vars.push(None),
-                _ => match self.parse_var_decl(vdecl_node) {
+                _ => match self.parse_variable_declaration(vdecl_node) {
                     Ok(vdecl) => vars.push(Some(vdecl)),
                     Err(err) => bail!(err),
                 },
@@ -1153,7 +1157,7 @@ impl AstParser {
     /// Parse an expression.
     fn parse_expr(&mut self, node: &Value) -> Result<Expr> {
         match self.get_node_type(node)?.as_str() {
-            "Literal" => self.parse_lit(node).map(|lit| lit.into()),
+            "Literal" => self.parse_literal(node).map(|lit| lit.into()),
             "Identifier" => self.parse_identifier(node).map(|id| id.into()),
             "UnaryOperation" => self.parse_unary_expr(node).map(Expr::from),
             "BinaryOperation" => self.parse_binary_expr(node).map(Expr::from),
@@ -1562,17 +1566,18 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a variable declaration from a JSON AST node.
-    fn parse_var_decl(&mut self, node: &Value) -> Result<VariableDecl> {
+    fn parse_variable_declaration(&mut self, node: &Value) -> Result<VariableDecl> {
         let id = self.parse_id(node).ok();
         let scope = self.parse_scope(node).ok();
         let name = Name::new(self.parse_name(node)?, None);
         let value = node.get("value").and_then(|v| self.parse_expr(v).ok());
-        let mutability = node
-            .get("mutability")
-            .ok_or_else(|| eyre!("Variable declaration: mutability not found: {node}"))?
-            .as_str()
-            .ok_or_else(|| eyre!("Variable declaration: mutability invalid: {node}"))
-            .and_then(VarMut::new)?;
+        let mutability = match node.get("mutability") {
+            Some(v) => v
+                .as_str()
+                .ok_or_else(|| eyre!("Variable mutability invalid: {node}"))
+                .and_then(VarMut::new)?,
+            None => VarMut::None,
+        };
         let is_state_var = node
             .get("stateVariable")
             .and_then(|v| v.as_bool())
@@ -1630,7 +1635,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse literal expression.
-    fn parse_lit(&mut self, node: &Value) -> Result<Lit> {
+    fn parse_literal(&mut self, node: &Value) -> Result<Lit> {
         let loc = self.parse_source_location(node);
         let typ = self.parse_data_type(node)?;
         let value_node = node
@@ -1802,17 +1807,19 @@ impl AstParser {
 
     /// Get data type of a JSON AST node.
     fn parse_data_type(&mut self, node: &Value) -> Result<Type> {
-        let data_loc = node
-            .get("storageLocation")
-            .ok_or_else(|| eyre!("Data type: storage location not found: {node}"))?
-            .as_str()
-            .and_then(|s| DataLoc::new(s).ok());
+        let data_loc = match node.get("storageLocation") {
+            Some(v) => v
+                .as_str()
+                .ok_or_else(|| eyre!("Data location invalid: {node}"))
+                .and_then(|s| DataLoc::new(s))?,
+            None => DataLoc::None,
+        };
         // First, parse data type from the `typeName` information.
         if let Some(type_name_node) = node.get("typeName")
             && let Ok(mut output_typ) = self.parse_type_name(type_name_node)
         {
             // Update data location if it is specified and not default
-            if data_loc.is_some() {
+            if data_loc != DataLoc::None {
                 output_typ.set_data_loc(data_loc);
             }
             return Ok(output_typ);
@@ -1826,7 +1833,7 @@ impl AstParser {
             .ok_or_else(|| eyre!("Type string is not a string: {node}"))
             .map(type_parser::parse_data_type)??;
         // Update data location if it is specified and not default
-        if data_loc.is_some() {
+        if data_loc != DataLoc::None {
             output_typ.set_data_loc(data_loc);
         }
         Ok(output_typ)
@@ -1850,7 +1857,8 @@ impl AstParser {
             .get("storageLocation")
             .ok_or_else(|| eyre!("Type description: storage location not found: {node}"))?
             .as_str()
-            .and_then(|s| DataLoc::new(s).ok());
+            .ok_or_else(|| eyre!("Type description storage location invalid: {node}"))
+            .and_then(|s| DataLoc::new(s))?;
         typ.set_data_loc(data_loc);
         Ok(typ)
     }

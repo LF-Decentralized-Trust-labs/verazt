@@ -175,7 +175,7 @@ impl HexLit {
         // REVIEW: temporarily set data location to Memory.
         //
         // what is the correct data location of string literal?
-        StringType::new(Some(DataLoc::Memory), false).into()
+        StringType::new(DataLoc::Memory, false).into()
     }
 }
 
@@ -317,7 +317,7 @@ impl StringLit {
         // REVIEW: temporarily set data location to Memory.
         //
         // what is the correct data location of string literal?
-        StringType::new(Some(DataLoc::Memory), false).into()
+        StringType::new(DataLoc::Memory, false).into()
     }
 }
 
@@ -340,7 +340,7 @@ impl UnicodeLit {
         // REVIEW: temporarily set data location to Memory.
         //
         // what is the correct data location of string literal?
-        StringType::new(Some(DataLoc::Memory), false).into()
+        StringType::new(DataLoc::Memory, false).into()
     }
 }
 
