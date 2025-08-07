@@ -11,7 +11,7 @@ pub fn compile_input_file(
     include_paths: &[String],
     solc_ver: Option<&str>,
 ) -> Result<Vec<ast::SourceUnit>> {
-    println!("Compiling input file: {}", input_file);
+    println!("Compiling input file: {input_file}");
     let solc_ver = match solc_ver {
         Some(ver) => ver.to_string(),
         None => {

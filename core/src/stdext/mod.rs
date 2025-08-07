@@ -1,3 +1,3 @@
 // Extending standard libraries
 
-pub mod stringext;
+pub mod string_ext;

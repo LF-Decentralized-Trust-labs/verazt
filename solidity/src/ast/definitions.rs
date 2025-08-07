@@ -1,6 +1,6 @@
 use crate::{ast::*, version};
 use color_eyre::eyre::{Result, bail};
-use core::{metadata::DataLoc, stdext::stringext::StringExt};
+use core::{metadata::DataLoc, stdext::string_ext::StringExt};
 use node_semver::Range;
 use std::fmt::{self, Display};
 
