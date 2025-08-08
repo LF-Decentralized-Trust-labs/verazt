@@ -235,7 +235,7 @@ mod tests {
         normalize::{
             rename_callees, rename_definitions, rename_variables, util::configure_unit_test_env,
         },
-        parser::ast_parser::parse_contract_info,
+        parser::ast_parser::compile_solidity_source_code_list,
     };
     use indoc::indoc;
 
@@ -293,12 +293,12 @@ mod tests {
             }"###},
         );
 
-        let input_sunits = match parse_contract_info(&[input_1, input_2], "0.8.15") {
+        let input_sunits = match compile_solidity_source_code_list(&[input_1, input_2], "0.8.15") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
 
-        let expected_sunits = match parse_contract_info(&[expected_1, expected_2], "0.8.15") {
+        let expected_sunits = match compile_solidity_source_code_list(&[expected_1, expected_2], "0.8.15") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse expected source unit: {}", err),
         };
@@ -443,13 +443,13 @@ mod tests {
             }"###},
         );
 
-        let input_sunits = match parse_contract_info(&[input_1, input_2, input_3], "0.8.15") {
+        let input_sunits = match compile_solidity_source_code_list(&[input_1, input_2, input_3], "0.8.15") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
 
         let expected_sunits =
-            match parse_contract_info(&[expected_1, expected_2, expected_3], "0.8.15") {
+            match compile_solidity_source_code_list(&[expected_1, expected_2, expected_3], "0.8.15") {
                 Ok(sunits) => sunits,
                 Err(err) => panic!("Failed to parse expected source unit: {}", err),
             };

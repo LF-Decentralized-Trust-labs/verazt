@@ -8,7 +8,6 @@
 
 use crate::{ast::*, util::*};
 use color_eyre::eyre::{Result, bail};
-use core::metadata::DataLoc;
 
 //-------------------------------------------------
 // Checking function call type compatibility

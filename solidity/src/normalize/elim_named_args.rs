@@ -200,7 +200,7 @@ mod tests {
     use super::eliminate_named_args;
     use crate::{
         util::syntactic_comparer::compare_source_units,
-        normalize::util::configure_unit_test_env, parser::ast_parser::parse_solidity_code,
+        normalize::util::configure_unit_test_env, parser::ast_parser::compile_solidity_source_code,
     };
     use indoc::indoc;
 
@@ -259,13 +259,13 @@ mod tests {
                 }
             }"###};
 
-        let input_sunits = match parse_solidity_code(input_contract, "0.8.19") {
+        let input_sunits = match compile_solidity_source_code(input_contract, "0.8.19") {
             Ok(source_units) => source_units,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
         let output_sunits = eliminate_named_args(&input_sunits);
 
-        let expected_sunits = match parse_solidity_code(expected_contract, "0.8.19") {
+        let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.19") {
             Ok(source_units) => source_units,
             Err(err) => panic!("Failed to parse expected source unit: {}", err),
         };

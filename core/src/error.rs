@@ -1,5 +1,4 @@
-use color_eyre::eyre::{self, bail, eyre, Error, Result};
-use color_eyre::Report;
+use color_eyre::eyre::{self, eyre};
 use std::panic::Location;
 
 /// Create an error and capture the source code location raising it.

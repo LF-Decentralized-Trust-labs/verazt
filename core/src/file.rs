@@ -1,6 +1,6 @@
 //! Module containing utility functions to handle files.
 
-use color_eyre::eyre::{Result, bail};
+use color_eyre::eyre::{bail, Result};
 use std::{fs::File, io::Write};
 
 /// Save a string to a temporary file of a given name.
@@ -29,7 +29,7 @@ pub fn save_to_temporary_file(
 ///
 /// Return the output file path.
 pub fn save_to_temporary_files(
-    file_names_and_contents: &[(&str, &str)],
+    source_code_list: &[(&str, &str)],
 ) -> Result<Vec<String>> {
     let output_dir_path = match tempfile::tempdir() {
         Ok(dir) => dir.keep(),
@@ -38,7 +38,7 @@ pub fn save_to_temporary_files(
 
     let mut output_files: Vec<String> = vec![];
 
-    for file_name_content in file_names_and_contents.iter() {
+    for file_name_content in source_code_list.iter() {
         let (file_name, file_content) = file_name_content;
 
         let output_file_path = output_dir_path.join(file_name);

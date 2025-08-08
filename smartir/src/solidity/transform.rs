@@ -169,10 +169,7 @@ impl Transformer {
     // Contract definition.
     //-------------------------------------------------
 
-    fn transform_contract_def(
-        &mut self,
-        contract: &ast::ContractDef,
-    ) -> Result<ContractDef> {
+    fn transform_contract_def(&mut self, contract: &ast::ContractDef) -> Result<ContractDef> {
         trace!("Transform contract: {}", contract.name);
 
         if !contract.base_contracts.is_empty() {
@@ -662,10 +659,7 @@ impl Transformer {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn transform_var_decl(
-        &mut self,
-        vdecl: &ast::VariableDecl,
-    ) -> Result<(VarDecl, Vec<Stmt>)> {
+    fn transform_var_decl(&mut self, vdecl: &ast::VariableDecl) -> Result<(VarDecl, Vec<Stmt>)> {
         if vdecl.overriding.is_some() {
             bail!("Transform var decl: need to elminate override specification: {}", vdecl);
         }
@@ -1097,9 +1091,7 @@ impl Transformer {
             ast::Expr::Call(call_expr) if call_expr.callee.to_string().eq("type") => {
                 // Transform type information query to predefined function calls
                 let fname = match &call_expr.args {
-                    ast::CallArgs::Unnamed(args) => {
-                        member + "__type__" + &args[0].to_string()
-                    }
+                    ast::CallArgs::Unnamed(args) => member + "__type__" + &args[0].to_string(),
                     ast::CallArgs::Named(_) => {
                         bail!("Transform member access expr: {}", expr)
                     }
