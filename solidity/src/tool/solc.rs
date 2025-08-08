@@ -6,7 +6,7 @@ use crate::version::{
     self, check_range_constraint, find_compatible_solc_versions, find_solidity_versions,
 };
 use color_eyre::eyre::{Result, bail};
-use core::error;
+use core::fail;
 use node_semver::Version;
 use regex::Regex;
 use std::{fs::File, io::Write, path::Path, process::Command};
@@ -99,9 +99,9 @@ pub fn compile_solidity_file(
     // Checking Solc version indicated in smart contract source code
     let solc_versions = find_solidity_versions(input_file)
         .map(|v| v.join(", "))
-        .or_else(|_| error!("Failed to find Solidity version in: {}", input_file))?;
+        .or_else(|_| fail!("Failed to find Solidity version in: {}", input_file))?;
     let solc_range = node_semver::Range::parse(&solc_versions)
-        .or_else(|_| error!("Failed to parse Solidity version: '{}'", solc_versions))?;
+        .or_else(|_| fail!("Failed to parse Solidity version: '{}'", solc_versions))?;
     if !check_range_constraint(&solc_range, ">=0.4.12") {
         bail!("Only support Solidity versions >=0.4.12, but found: {}", &solc_versions);
     }

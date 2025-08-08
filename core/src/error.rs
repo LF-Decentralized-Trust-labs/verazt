@@ -7,7 +7,12 @@ use std::panic::Location;
 pub fn eyre_with_location(msg: impl std::fmt::Display) -> eyre::Report {
     let loc = Location::caller();
     // FIXME: in release build mode, disable printing location.
-    eyre!(format!("{}, at {}:{}", msg, loc.file(), loc.line()))
+    eyre!(format!(
+        "{}, raised at file: {}:{}.",
+        msg,
+        loc.file(),
+        loc.line()
+    ))
 }
 
 /// New macro to create an error message which also capture source code location
@@ -16,7 +21,7 @@ pub fn eyre_with_location(msg: impl std::fmt::Display) -> eyre::Report {
 /// NOTE: the caller location cannot be tracked directly from the macro, but
 /// need to be tracked by the wrapper function `eyre_with_location`
 #[macro_export]
-macro_rules! msg {
+macro_rules! error {
     ($msg:literal $(,)?) => {
         return core::error::eyre_with_location(format!($msg));
     };
@@ -34,7 +39,7 @@ macro_rules! msg {
 /// NOTE: the caller location cannot be tracked directly from the macro, but
 /// need to be tracked by the wrapper function `eyre_with_location`
 #[macro_export]
-macro_rules! error {
+macro_rules! fail {
     ($msg:literal $(,)?) => {
         return Err(core::error::eyre_with_location(format!($msg)));
     };
