@@ -3,3 +3,5 @@
 *.md linguist-detectable=true
 *.toml linguist-detectable=true
 *.sol linguist-detectable=false
+*.yul linguist-detectable=false
+*.json linguist-detectable=false

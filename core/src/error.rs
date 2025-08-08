@@ -2,46 +2,53 @@ use color_eyre::eyre::{self, bail, eyre, Error, Result};
 use color_eyre::Report;
 use std::panic::Location;
 
-/// Wrapper of `eyre!` to capture caller location.
+/// Create an error and capture the source code location raising it.
+///
+/// NOTE: `Location::caller()` needs to be called from a function, not directly
+/// from a macro, to be able to capture the source code location of the caller.
 #[track_caller]
-pub fn eyre_with_location(msg: impl std::fmt::Display) -> eyre::Report {
+pub fn create_error(error_msg: impl std::fmt::Display) -> eyre::Report {
     let loc = Location::caller();
-    // FIXME: in release build mode, disable printing location.
-    eyre!(format!("{}, at {}:{}", msg, loc.file(), loc.line()))
+    let msg = if cfg!(debug_assertions) {
+        // If build in Debug mode, track source code location raising this error.
+        format!(
+            "{}, raised at file: {}:{}.",
+            error_msg,
+            loc.file(),
+            loc.line()
+        )
+    } else {
+        format!("{error_msg}")
+    };
+    eyre!(msg)
 }
 
-/// New macro to create an error message which also capture source code location
-/// of the caller.
-///
-/// NOTE: the caller location cannot be tracked directly from the macro, but
-/// need to be tracked by the wrapper function `eyre_with_location`
-#[macro_export]
-macro_rules! msg {
-    ($msg:literal $(,)?) => {
-        return core::error::eyre_with_location(format!($msg));
-    };
-    ($err:expr $(,)?) => {
-        return core::error::eyre_with_location($err);
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        return core::error::eyre_with_location(color_eyre::eyre::eyre!($fmt, $($arg)*));
-    };
-}
-
-/// New macro to report an error which also captures source code location of the
-/// caller and exit the current function immediately, similar to the `return` statement.
-///
-/// NOTE: the caller location cannot be tracked directly from the macro, but
-/// need to be tracked by the wrapper function `eyre_with_location`
+/// Create an error message which also capture source code location of the
+/// caller.
 #[macro_export]
 macro_rules! error {
     ($msg:literal $(,)?) => {
-        return Err(core::error::eyre_with_location(format!($msg)));
+        return core::error::create_error(format!($msg));
     };
     ($err:expr $(,)?) => {
-        return Err(core::error::eyre_with_location($err));
+        return core::error::create_error($err);
     };
     ($fmt:expr, $($arg:tt)*) => {
-        return Err(core::error::eyre_with_location(color_eyre::eyre::eyre!($fmt, $($arg)*)));
+        return core::error::create_error(color_eyre::eyre::eyre!($fmt, $($arg)*));
+    };
+}
+
+/// Report an error and exit the current function immediately, similar to the
+/// `return` statement.
+#[macro_export]
+macro_rules! fail {
+    ($msg:literal $(,)?) => {
+        return Err(core::error::create_error(format!($msg)));
+    };
+    ($err:expr $(,)?) => {
+        return Err(core::error::create_error($err));
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        return Err(core::error::create_error(color_eyre::eyre::eyre!($fmt, $($arg)*)));
     };
 }
