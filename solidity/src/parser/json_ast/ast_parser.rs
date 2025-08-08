@@ -1,18 +1,9 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
-use crate::{
-    ast::*,
-    parser::typ::type_parser,
-    tool::solc::{self, JsonAst},
-};
+use crate::{ast::*, parser::typ::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
-use color_eyre::eyre::{Result, bail, eyre};
-use core::{
-    fail,
-    file::{save_to_temporary_file, save_to_temporary_files},
-    metadata::DataLoc,
-    error,
-};
+use color_eyre::eyre::Result;
+use core::{error, fail, metadata::DataLoc};
 use itertools::izip;
 use lazy_static::lazy_static;
 use num_bigint::BigInt;
@@ -39,12 +30,32 @@ lazy_static! {
 // Data structure representing JSON AST Parser
 //------------------------------------------------------------------
 
-struct AstParser {
+pub struct AstParser {
     pub solidity_json: Option<String>,
     pub input_file: Option<String>,
     pub base_path: Option<String>,
     file_dictionary: SimpleFiles<String, String>,
     current_file_id: usize,
+}
+
+pub struct JsonAst {
+    pub json_data: String, // JSON content
+    pub file_name: Option<String>,
+    pub base_path: Option<String>, // Base path that is used to look for source tree.
+}
+
+//------------------------------------------------------------------
+// Implementations for JSON AST
+//------------------------------------------------------------------
+
+impl JsonAst {
+    pub fn new(json_data: &str, input_file: Option<&str>, base_path: Option<&str>) -> Self {
+        JsonAst {
+            json_data: json_data.to_string(),
+            file_name: input_file.map(|s| s.to_string()),
+            base_path: base_path.map(|s| s.to_string()),
+        }
+    }
 }
 
 //------------------------------------------------------------------
@@ -1050,7 +1061,9 @@ impl AstParser {
                 let params = try_node
                     .get("parameters")
                     .map(|v| self.parse_parameters(v))
-                    .ok_or_else(|| error!("Try statement: parameters not found: {}", try_node))??;
+                    .ok_or_else(|| {
+                        error!("Try statement: parameters not found: {}", try_node)
+                    })??;
                 let catch_clauses = catch_node
                     .iter()
                     .map(|cls| self.parse_catch_clause(cls))
@@ -1274,9 +1287,9 @@ impl AstParser {
             .get("expression")
             .ok_or_else(|| error!("Function call callee not found: {node}"))
             .and_then(|v| self.parse_expr(v))
-            .and_then(|e| match e {
-                Expr::CallOpts(exp) => Ok((exp.callee.deref().clone(), exp.call_opts)),
-                exp => Ok((exp, vec![])),
+            .map(|e| match e {
+                Expr::CallOpts(exp) => (exp.callee.deref().clone(), exp.call_opts),
+                exp => (exp, vec![]),
             })?;
         let (arg_values, arg_names, arg_locs) = self.parse_function_call_arguments(node)?;
         let kind = node
@@ -1311,13 +1324,6 @@ impl AstParser {
         }
 
         Ok(CallExpr::new_call_named_args(id, callee, call_opts, args, kind, typ, loc))
-    }
-
-    /// Parse callee of a function call
-    fn parse_function_call_callee(&mut self, node: &Value) -> Result<Expr> {
-        node.get("expression")
-            .ok_or_else(|| error!("Function call callee not found: {node}"))
-            .and_then(|v| self.parse_expr(v))
     }
 
     /// Parse arguments of a function call, which include argument values,
@@ -1805,7 +1811,7 @@ impl AstParser {
             Some(v) => v
                 .as_str()
                 .ok_or_else(|| error!("Data location invalid: {node}"))
-                .and_then(|s| DataLoc::new(s))?,
+                .and_then(DataLoc::new)?,
             None => DataLoc::None,
         };
         // First, parse data type from the `typeName` information.
@@ -2293,66 +2299,4 @@ impl AstParser {
             _ => Ok(YType::Unkn),
         }
     }
-}
-
-//------------------------------------------------------------------
-// Public functions for parsing Solidity and AST files
-//------------------------------------------------------------------
-
-/// Function to parse a Solidity source code file to internal AST
-///
-/// The two inputs `base_path` and `include_path` are similar to the inputs of
-/// Solc.
-pub fn parse_solidity_file(
-    input_file: &str,
-    base_path: Option<&str>,
-    include_paths: &[String],
-    solc_ver: &str,
-) -> Result<Vec<SourceUnit>> {
-    // Compile it to JSON AST using Solc
-    let json = solc::compile_solidity_file(input_file, base_path, include_paths, solc_ver)?;
-    // Parse the JSON AST to internal AST.
-    let mut parser = AstParser::new(&json);
-    match parser.parse_solidity_json() {
-        Ok(source_units) => Ok(source_units),
-        Err(err) => fail!(err),
-    }
-}
-
-/// Function to parse a Solidity source code string to internal AST.
-///
-/// `solc_ver` is the Solidity version, empty string means unknown version.
-pub fn parse_solidity_code(source_code: &str, solc_ver: &str) -> Result<Vec<SourceUnit>> {
-    // Save the source code to a temporarily Solidity file
-    let solidity_file = match save_to_temporary_file(source_code, "contract.sol") {
-        Ok(filename) => filename,
-        Err(_) => fail!("Failed to save input contract to file"),
-    };
-
-    // Parse the Solidity file to internal AST.
-    parse_solidity_file(&solidity_file, None, &[], solc_ver)
-}
-
-/// Function to parse multiple Solidity source code strings to internal AST.
-pub fn parse_contract_info(
-    file_name_and_contents: &[(&str, &str)],
-    solc_ver: &str,
-) -> Result<Vec<SourceUnit>> {
-    // Save the source code to a temporarily Solidity file
-    let solidity_files = match save_to_temporary_files(file_name_and_contents) {
-        Ok(files) => files,
-        Err(_) => fail!("Failed to save input contract to files"),
-    };
-    // Parse Solidity files to internal AST.
-    let mut output_sunits: Vec<SourceUnit> = vec![];
-    for input_file in solidity_files {
-        let sunits = parse_solidity_file(&input_file, None, &[], solc_ver)?;
-        sunits.iter().for_each(|sunit| {
-            if !output_sunits.iter().any(|sunit2| sunit.path == sunit2.path) {
-                output_sunits.push(sunit.clone())
-            }
-        })
-    }
-    // Return result.
-    Ok(output_sunits)
 }
