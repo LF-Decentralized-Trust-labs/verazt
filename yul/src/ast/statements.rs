@@ -1,5 +1,5 @@
 use crate::ast::*;
-use core::stdext::string_ext::StringExt;
+use core::stdext::string::StringExt;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------
