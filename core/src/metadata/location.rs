@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 
-use color_eyre::eyre::{bail, Result};
+use color_eyre::eyre::{Result, bail};
 
 //-------------------------------------------------------------------------
 // Source code location

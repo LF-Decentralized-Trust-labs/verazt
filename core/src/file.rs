@@ -1,6 +1,6 @@
 //! Module containing utility functions to handle files.
 
-use color_eyre::eyre::{bail, Result};
+use color_eyre::eyre::{Result, bail};
 use std::{fs::File, io::Write};
 
 /// Save a string to a temporary file of a given name.

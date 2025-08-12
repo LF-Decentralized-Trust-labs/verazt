@@ -295,11 +295,7 @@ pub mod default {
             .fold(res, |acc2, arg| folder.fold_expr(acc2, arg))
     }
 
-    pub fn fold_member_expr<T, F: Fold<T> + ?Sized>(
-        folder: &F,
-        acc: T,
-        expr: &MemberExpr,
-    ) -> T {
+    pub fn fold_member_expr<T, F: Fold<T> + ?Sized>(folder: &F, acc: T, expr: &MemberExpr) -> T {
         let res = folder.fold_name(acc, &expr.base);
         folder.fold_name(res, &expr.member)
     }

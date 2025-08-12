@@ -482,8 +482,8 @@ pub fn rename_callees(
 mod tests {
     use super::rename_callees;
     use crate::{
+        compile::compile_solidity_source_code,
         normalize::{rename_definitions, util::configure_unit_test_env},
-        parsing::ast_parser::parse_solidity_code,
         util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
@@ -551,7 +551,7 @@ mod tests {
                 return 1;
             }"###};
 
-        let input_sunits = match parse_solidity_code(input_contract, "0.8.15") {
+        let input_sunits = match compile_solidity_source_code(input_contract, "0.8.15") {
             Ok(input_sunits) => input_sunits,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
@@ -559,7 +559,7 @@ mod tests {
         let (output_sunits, env) = rename_definitions(&input_sunits, None);
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
 
-        let expected_sunits = match parse_solidity_code(expected_contract, "0.8.15") {
+        let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.15") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse expected source unit: {}", err),
         };

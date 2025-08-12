@@ -1,5 +1,5 @@
 use crate::ast::*;
-use core::stdext::string::StringExt;
+use core::string::StringExt;
 use std::fmt::{self, Display};
 
 #[derive(PartialEq, Eq, Debug, Clone)]

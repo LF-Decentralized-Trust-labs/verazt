@@ -223,11 +223,8 @@ impl Map<'_> for UsingEliminator {
                             [] => panic!("Lib function has no parameter: {}", func.name),
                             _ => func.params[0].name.clone(),
                         };
-                        let first_arg = NamedArg::new(
-                            first_arg_name.to_string(),
-                            base.as_ref().clone(),
-                            None,
-                        );
+                        let first_arg =
+                            NamedArg::new(first_arg_name.to_string(), base.as_ref().clone(), None);
                         let mut nnamed_args = named_args.clone();
                         nnamed_args.insert(0, first_arg);
                         CallArgs::Named(nnamed_args)
@@ -298,9 +295,9 @@ pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit
 #[cfg(test)]
 mod tests {
     use crate::{
-        util::syntactic_comparer::compare_source_units,
+        compile::compile_solidity_source_code,
         normalize::{eliminate_using_directives, util::configure_unit_test_env},
-        parser::ast_parser::compile_solidity_source_code,
+        util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 

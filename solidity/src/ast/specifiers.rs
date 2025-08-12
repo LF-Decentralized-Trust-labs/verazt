@@ -1,5 +1,5 @@
 use crate::ast::*;
-use color_eyre::eyre::{bail, Result};
+use color_eyre::eyre::{Result, bail};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

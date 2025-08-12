@@ -199,8 +199,8 @@ pub fn eliminate_named_args(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
 mod tests {
     use super::eliminate_named_args;
     use crate::{
+        compile::compile_solidity_source_code, normalize::util::configure_unit_test_env,
         util::syntactic_comparer::compare_source_units,
-        normalize::util::configure_unit_test_env, parser::ast_parser::compile_solidity_source_code,
     };
     use indoc::indoc;
 

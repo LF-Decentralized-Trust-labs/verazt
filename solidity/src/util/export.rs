@@ -30,11 +30,7 @@ pub fn export_source_units(source_units: &[SourceUnit], output_file: &str) -> Re
 
     let source_unit_strs: Vec<String> = source_units
         .iter()
-        .map(|source_unit| {
-            let sol_vers: Vec<String> = source_unit.get_solidity_pragma_versions();
-            let source_unit_str = format!("{}", source_unit);
-            source_unit_str
-        })
+        .map(|source_unit| format!("{source_unit}"))
         .collect();
 
     Ok(file.write_all(source_unit_strs.join("\n\n").as_bytes())?)

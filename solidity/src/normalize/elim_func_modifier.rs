@@ -195,9 +195,10 @@ pub fn eliminate_modifier_invocs(source_units: &[SourceUnit]) -> Vec<SourceUnit>
 mod tests {
     use super::eliminate_modifier_invocs;
     use crate::{
-        util::syntactic_comparer::compare_source_units,
+        compile::compile_solidity_source_code,
         normalize::util::configure_unit_test_env,
-        parser::ast_parser::{self, compile_solidity_source_code},
+        parser::ast_parser::{self},
+        util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 
@@ -281,7 +282,7 @@ mod tests {
         };
         let output_sunits = eliminate_modifier_invocs(&input_sunits);
 
-        let expected_sunits = match ast_parser::compile_solidity_source_code(expected_contract, "0.8.19") {
+        let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.19") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse expected source unit: {}", err),
         };
