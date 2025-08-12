@@ -22,6 +22,6 @@ pub use variable::*;
 
 /* Metadata */
 
-pub type Loc = core::metadata::Loc;
-pub type DataLoc = core::metadata::DataLoc;
-pub type Name = core::metadata::Name;
+pub type Loc = base::metadata::Loc;
+pub type DataLoc = base::metadata::DataLoc;
+pub type Name = base::metadata::Name;

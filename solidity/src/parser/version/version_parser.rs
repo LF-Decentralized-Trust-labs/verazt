@@ -1,6 +1,6 @@
 //! Module for parsing Solidity version from pragma directives.
 
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 
@@ -41,13 +41,13 @@ pub fn parse_pragma_solidity_version(source_code: &str) -> Result<Vec<String>> {
     let mut pairs = match PragmaParser::parse(Rule::source_unit, source_code) {
         Ok(pairs) => pairs,
         Err(e) => {
-            bail!("Error while parsing source code: {}", e);
+            fail!("Error while parsing source code: {}", e);
         }
     };
 
     // Skip `SOI` token of Pest
     match pairs.next() {
         Some(next_pairs) => PragmaParser::parse_source_unit(next_pairs),
-        None => bail!("Error while parsing source code: {}", pairs),
+        None => fail!("Error while parsing source code: {}", pairs),
     }
 }

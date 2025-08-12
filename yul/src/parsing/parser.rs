@@ -5,7 +5,7 @@ use crate::{
     parsing::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
 };
 use Either::{Left, Right};
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use either::Either;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
@@ -36,14 +36,14 @@ impl YulParser {
                     let _comment = Self::parse_comment(p);
                 }
                 Rule::EOI => {}
-                r => bail!("Parsing rule: {:?}.\n\nLocation: {}", r, l),
+                r => fail!("Parsing rule: {:?}.\n\nLocation: {}", r, l),
             }
         }
 
         if objects.is_empty() {
-            bail!("Empty source unit!")
+            fail!("Empty source unit!")
         } else if objects.len() > 1 {
-            bail!("Source unit cannot accept more than 1 outermost object!")
+            fail!("Source unit cannot accept more than 1 outermost object!")
         } else {
             Ok(SourceUnit::new(objects[0].clone()))
         }
@@ -63,7 +63,7 @@ impl YulParser {
         let name = match pair_iter.next() {
             Some(p) => p.as_str().to_string(),
             None => {
-                bail!("Object name not found!\n\nLocation: {}", loc)
+                fail!("Object name not found!\n\nLocation: {}", loc)
             }
         };
 
@@ -71,7 +71,7 @@ impl YulParser {
         let code = match pair_iter.next() {
             Some(p) => Self::parse_code(p)?,
             None => {
-                bail!("Object code not found!\n\nLocation: {}", loc)
+                fail!("Object code not found!\n\nLocation: {}", loc)
             }
         };
         let mut children: Vec<Either<Object, Data>> = vec![];
@@ -81,7 +81,7 @@ impl YulParser {
                 Rule::object => children.push(Left(Self::parse_object(p)?)),
                 Rule::data => children.push(Right(Self::parse_data(p)?)),
                 Rule::COMMENT => {}
-                r => bail!("Parsing rule: {:?}.\n\nLocation: {}", r, l),
+                r => fail!("Parsing rule: {:?}.\n\nLocation: {}", r, l),
             }
         }
 
@@ -101,15 +101,15 @@ impl YulParser {
                 Rule::block => blocks.push(Self::parse_block(p)?),
                 Rule::COMMENT => {}
                 r => {
-                    bail!("Parsing rule: {:?}\n\nLocation{}", r, l)
+                    fail!("Parsing rule: {:?}\n\nLocation{}", r, l)
                 }
             }
         }
 
         if blocks.is_empty() {
-            bail!("Code block not found!\n\nLocation: {}", loc);
+            fail!("Code block not found!\n\nLocation: {}", loc);
         } else if blocks.len() > 1 {
-            bail!("Code section must contain only 1 block!\n\nLocation:{}", loc);
+            fail!("Code section must contain only 1 block!\n\nLocation:{}", loc);
         } else {
             Ok(Code::new(blocks[0].clone()))
         }
@@ -123,7 +123,7 @@ impl YulParser {
 
         let name = match pair_iter.next() {
             Some(p) => StringLit::new(p.as_str()),
-            None => bail!("Data not found!\n\nLocation: {}", loc),
+            None => fail!("Data not found!\n\nLocation: {}", loc),
         };
 
         match pair_iter.next() {
@@ -132,11 +132,11 @@ impl YulParser {
                 let content = match p.as_rule() {
                     Rule::hex_literal => Left(HexLit::new(p.as_str())),
                     Rule::string_literal => Right(StringLit::new(p.as_str())),
-                    _ => bail!("Parsing data: {}\n\nLocation: {}", p, l),
+                    _ => fail!("Parsing data: {}\n\nLocation: {}", p, l),
                 };
                 Ok(Data::new(name, content))
             }
-            None => bail!("Data not found!\n\nLocation: {}", loc),
+            None => fail!("Data not found!\n\nLocation: {}", loc),
         }
     }
 
@@ -153,7 +153,7 @@ impl YulParser {
             match p.as_rule() {
                 Rule::statement => stmts.push(Self::parse_stmt(p)?),
                 Rule::COMMENT => {}
-                r => bail!("Parsing rule: {:?}\n\nLocation: {}", r, l),
+                r => fail!("Parsing rule: {:?}\n\nLocation: {}", r, l),
             }
         }
 
@@ -173,7 +173,7 @@ impl YulParser {
         // Parse the LHS
         let vars = match pair_iter.next() {
             Some(p) => Self::parse_typed_ident_list(p)?,
-            None => bail!("Declared variables not found!\n\nLocation: {}", loc),
+            None => fail!("Declared variables not found!\n\nLocation: {}", loc),
         };
 
         // Parser the RHS
@@ -195,12 +195,12 @@ impl YulParser {
         let name = match pair_iter.next() {
             Some(p) => p.as_str(),
             None => {
-                bail!("Function name not found!\n\nLocation: {}", loc)
+                fail!("Function name not found!\n\nLocation: {}", loc)
             }
         };
 
         if YUL_KEYWORDS.contains(&name) {
-            bail!("Function name is a keyword: {}!\n\nLocation: {}", name, loc);
+            fail!("Function name is a keyword: {}!\n\nLocation: {}", name, loc);
         }
 
         // Parse function parameters, returned values, and body
@@ -210,7 +210,7 @@ impl YulParser {
         let p1 = match pair_iter.next() {
             Some(p) => p,
             None => {
-                bail!("Function parameters or body not found!\n\nLocation: {}", loc)
+                fail!("Function parameters or body not found!\n\nLocation: {}", loc)
             }
         };
         let body = match p1.as_rule() {
@@ -219,7 +219,7 @@ impl YulParser {
                 let p2 = match pair_iter.next() {
                     Some(p) => p,
                     None => {
-                        bail!("Function returns/body not found!\n\nLocation: {}", loc)
+                        fail!("Function returns/body not found!\n\nLocation: {}", loc)
                     }
                 };
                 match p2.as_rule() {
@@ -227,14 +227,14 @@ impl YulParser {
                         returns = match pair_iter.next() {
                             Some(p) => Self::parse_typed_ident_list(p)?,
                             None => {
-                                bail!("Function returns not found!\n\nLocation: {}", loc)
+                                fail!("Function returns not found!\n\nLocation: {}", loc)
                             }
                         };
 
                         match pair_iter.next() {
                             Some(p) => Self::parse_block(p)?,
                             None => {
-                                bail!("Function body not found!\n\nLocation: {}", loc)
+                                fail!("Function body not found!\n\nLocation: {}", loc)
                             }
                         }
                     }
@@ -245,13 +245,13 @@ impl YulParser {
             Rule::RETURN_SEPARATOR => {
                 returns = match pair_iter.next() {
                     Some(p) => Self::parse_typed_ident_list(p)?,
-                    None => bail!("Function returns not found!\n\nLocation: {}", loc),
+                    None => fail!("Function returns not found!\n\nLocation: {}", loc),
                 };
 
                 match pair_iter.next() {
                     Some(p) => Self::parse_block(p)?,
                     None => {
-                        bail!("Function body not found!\n\nLocation: {}", loc)
+                        fail!("Function body not found!\n\nLocation: {}", loc)
                     }
                 }
             }
@@ -274,7 +274,7 @@ impl YulParser {
 
         let p = match pair_iter.next() {
             Some(p) => p,
-            None => bail!("Statement not found!\n\nLocation: {}", loc),
+            None => fail!("Statement not found!\n\nLocation: {}", loc),
         };
 
         let l = Self::parse_location(&p);
@@ -291,7 +291,7 @@ impl YulParser {
             Rule::continue_statement => Ok(Stmt::Continue),
             Rule::leave_statement => Ok(Stmt::Leave),
             _ => {
-                bail!("Parsing statement: {}\n\nLocation: {}", p, l)
+                fail!("Parsing statement: {}\n\nLocation: {}", p, l)
             }
         }
     }
@@ -305,14 +305,14 @@ impl YulParser {
         // Parse LHS
         let vars = match pair_iter.next() {
             Some(p) => Self::parse_ident_list(p)?,
-            None => bail!("Assigned variables not found!\n\nLocation: {}", loc),
+            None => fail!("Assigned variables not found!\n\nLocation: {}", loc),
         };
 
         // parse RSH
         let value = match pair_iter.next() {
             Some(p) => Self::parse_expr(p)?,
             None => {
-                bail!("Assigned value not found!\n\nLocation: {}", loc)
+                fail!("Assigned value not found!\n\nLocation: {}", loc)
             }
         };
 
@@ -329,7 +329,7 @@ impl YulParser {
         let cond = match pair_iter.next() {
             Some(p) => Self::parse_expr(p)?,
             None => {
-                bail!("Condition of `if` statement not found!\n\nLocation: {}", loc)
+                fail!("Condition of `if` statement not found!\n\nLocation: {}", loc)
             }
         };
 
@@ -337,7 +337,7 @@ impl YulParser {
         let body = match pair_iter.next() {
             Some(p) => Self::parse_block(p)?,
             None => {
-                bail!("Body of `if` statement not found!\n\nLocation: {}", loc)
+                fail!("Body of `if` statement not found!\n\nLocation: {}", loc)
             }
         };
 
@@ -353,28 +353,28 @@ impl YulParser {
         let pre_blk = match pair_iter.next() {
             Some(p) => Self::parse_block(p)?,
             None => {
-                bail!("Pre-block of `for` statement not found!\n\nLocation: {}", loc)
+                fail!("Pre-block of `for` statement not found!\n\nLocation: {}", loc)
             }
         };
 
         let cond = match pair_iter.next() {
             Some(p) => Self::parse_expr(p)?,
             None => {
-                bail!("Condition of `for` statement not found!\n\nLocation: {}", loc)
+                fail!("Condition of `for` statement not found!\n\nLocation: {}", loc)
             }
         };
 
         let post_blk = match pair_iter.next() {
             Some(p) => Self::parse_block(p)?,
             None => {
-                bail!("Post-block of `for` statement not found!\n\nLocation: {}", loc)
+                fail!("Post-block of `for` statement not found!\n\nLocation: {}", loc)
             }
         };
 
         let body = match pair_iter.next() {
             Some(p) => Self::parse_block(p)?,
             None => {
-                bail!("Body of `for` statement not found!\n\nLocation: {}", loc)
+                fail!("Body of `for` statement not found!\n\nLocation: {}", loc)
             }
         };
 
@@ -390,7 +390,7 @@ impl YulParser {
         // Parse the switch expression
         let expression = match pair_iter.next() {
             Some(p) => Self::parse_expr(p)?,
-            None => bail!("Switch expression not found!\n\nLocation: {}", loc),
+            None => fail!("Switch expression not found!\n\nLocation: {}", loc),
         };
 
         // Parse all switch cases
@@ -401,7 +401,7 @@ impl YulParser {
             match p.as_rule() {
                 Rule::switch_value => switch_values.push(Self::parse_switch_value(p)?),
                 Rule::switch_default => switch_defaults.push(Self::parse_switch_default(p)?),
-                r => bail!("Parsing rule: {:?}\n\nLocation: {}", r, l),
+                r => fail!("Parsing rule: {:?}\n\nLocation: {}", r, l),
             }
         }
 
@@ -409,7 +409,7 @@ impl YulParser {
             0 => None,
             1 => Some(switch_defaults[0].clone()),
             _ => {
-                bail!("Switch statement allows only at most 1 default case.\n\nLocation: {}", loc)
+                fail!("Switch statement allows only at most 1 default case.\n\nLocation: {}", loc)
             }
         };
 
@@ -424,12 +424,12 @@ impl YulParser {
 
         let literal = match pair_iter.next() {
             Some(p) => Self::parse_literal(p)?,
-            None => bail!("Value of a switch value not found!\n\nLocation: {}", loc),
+            None => fail!("Value of a switch value not found!\n\nLocation: {}", loc),
         };
 
         let body = match pair_iter.next() {
             Some(p) => Self::parse_block(p)?,
-            None => bail!("Body of a switch value not found!\n\nLocation: {}", loc),
+            None => fail!("Body of a switch value not found!\n\nLocation: {}", loc),
         };
 
         Ok(SwitchValue::new(literal, body))
@@ -443,7 +443,7 @@ impl YulParser {
 
         let body = match pair_iter.next() {
             Some(p) => Self::parse_block(p)?,
-            None => bail!("Switch default not found!\n\nLocation: {}", loc),
+            None => fail!("Switch default not found!\n\nLocation: {}", loc),
         };
 
         Ok(SwitchDefault::new(body))
@@ -462,7 +462,7 @@ impl YulParser {
         let p = match pair_iter.next() {
             Some(p) => p,
             None => {
-                bail!("Expression not found!\n\nLocation: {}", loc)
+                fail!("Expression not found!\n\nLocation: {}", loc)
             }
         };
         let l = Self::parse_location(&p);
@@ -472,7 +472,7 @@ impl YulParser {
             Rule::member_expr => Ok(Self::parse_member_expr(p)?.into()),
             Rule::identifier => Ok(Self::parse_ident(p)?.into()),
             Rule::literal => Ok(Self::parse_literal(p)?.into()),
-            r => bail!("Parsing expression rule: {:?}\n\nLocation: {}", r, l),
+            r => fail!("Parsing expression rule: {:?}\n\nLocation: {}", r, l),
         }
     }
 
@@ -482,14 +482,14 @@ impl YulParser {
         let mut pair_iter = pair.into_inner();
         let func = match pair_iter.next() {
             Some(p) => Self::parse_ident(p)?,
-            None => bail!("Function callee not fouund!\n\nLocation: {}", loc),
+            None => fail!("Function callee not fouund!\n\nLocation: {}", loc),
         };
         let mut args = vec![];
         for p in pair_iter {
             let l = Self::parse_location(&p);
             match p.as_rule() {
                 Rule::expression => args.push(Self::parse_expr(p)?),
-                r => bail!("Parsing argument rule: {:?}\n\nLocation: {}", r, l),
+                r => fail!("Parsing argument rule: {:?}\n\nLocation: {}", r, l),
             }
         }
         Ok(CallExpr::new(func, args))
@@ -501,11 +501,11 @@ impl YulParser {
         let mut pair_iter = pair.into_inner();
         let base: Name = match pair_iter.next() {
             Some(p) => Self::parse_ident(p)?.name,
-            None => bail!("Base of member access not found!\n\nLocation: {}", loc),
+            None => fail!("Base of member access not found!\n\nLocation: {}", loc),
         };
         let member: Name = match pair_iter.next() {
             Some(p) => Self::parse_ident(p)?.name,
-            None => bail!("Member of member access not found!\n\nLocation: {}", loc),
+            None => fail!("Member of member access not found!\n\nLocation: {}", loc),
         };
         Ok(MemberExpr::new(base, member, Some(loc)))
     }
@@ -524,7 +524,7 @@ impl YulParser {
                 Rule::typed_identifier => {
                     idents.push(Self::parse_typed_ident(p)?);
                 }
-                r => bail!("Parsing identifier rule: {:?}\n\nLocation: {}", r, l),
+                r => fail!("Parsing identifier rule: {:?}\n\nLocation: {}", r, l),
             }
         }
         Ok(idents)
@@ -536,7 +536,7 @@ impl YulParser {
         let mut pair_iter = pair.into_inner();
         let name = match pair_iter.next() {
             Some(p) => Self::parse_ident(p)?.name,
-            None => bail!("Indentifer name not found!\n\nLocation: {}", loc),
+            None => fail!("Indentifer name not found!\n\nLocation: {}", loc),
         };
         let typ = match pair_iter.next() {
             None => Type::Unkn,
@@ -555,7 +555,7 @@ impl YulParser {
                     idents.push(Self::parse_ident(p)?);
                 }
                 _ => {
-                    bail!("Parsing identifier: {}\n\nLcoation: {}", p, l)
+                    fail!("Parsing identifier: {}\n\nLcoation: {}", p, l)
                 }
             }
         }
@@ -567,7 +567,7 @@ impl YulParser {
         let loc = Self::parse_location(&pair);
         let ident = pair.as_str();
         if YUL_RESERVED_NAMES.contains(&ident) {
-            bail!("Identifier is a reserved name: {}!\n\nLocation: {}", ident, loc);
+            fail!("Identifier is a reserved name: {}!\n\nLocation: {}", ident, loc);
         }
         Ok(Identifier::new(Name::from(ident), Type::Unkn, Some(loc)))
     }
@@ -583,7 +583,7 @@ impl YulParser {
         let p = match pair_iter.next() {
             Some(p) => p,
             None => {
-                bail!("Data type not found!\n\nLocation: {}", loc)
+                fail!("Data type not found!\n\nLocation: {}", loc)
             }
         };
         let l = Self::parse_location(&p);
@@ -595,24 +595,24 @@ impl YulParser {
                 let type_name = p.as_str();
                 let regex = match Regex::new(r"(\d+)") {
                     Ok(regex) => regex,
-                    Err(_) => bail!("Invalid regex!"),
+                    Err(_) => fail!("Invalid regex!"),
                 };
                 let bw = match regex.captures(type_name) {
                     Some(capture) => match capture.get(1) {
                         Some(m) => match m.as_str().parse::<usize>() {
                             Ok(bw) => bw,
-                            Err(_) => bail!("Invalid bitwidth: {}\n\nLocation: {}", p, l),
+                            Err(_) => fail!("Invalid bitwidth: {}\n\nLocation: {}", p, l),
                         },
                         None => 256,
                     },
                     None => {
-                        bail!("Invalid type: {}\n\nLocation: {}", p, l)
+                        fail!("Invalid type: {}\n\nLocation: {}", p, l)
                     }
                 };
                 let signed = type_name.starts_with("int");
                 Ok(Type::Int(IntType::new(bw, signed)))
             }
-            _ => bail!("Parsing type: {}\n\nLocation: {}", p, l),
+            _ => fail!("Parsing type: {}\n\nLocation: {}", p, l),
         }
     }
 
@@ -628,7 +628,7 @@ impl YulParser {
 
         let p = match pair_iter.next() {
             Some(p) => p,
-            None => bail!("Literal not found!\n\nLocation: {}", loc),
+            None => fail!("Literal not found!\n\nLocation: {}", loc),
         };
 
         let l = Self::parse_location(&p);
@@ -637,7 +637,7 @@ impl YulParser {
             Rule::hex_literal => Ok(Lit::from(Self::parse_hex_lit(p)?)),
             Rule::string_literal => Ok(Lit::from(Self::parse_string_lit(p)?)),
             Rule::bool_literal => Ok(Lit::from(Self::parse_bool_lit(p)?)),
-            _ => bail!("Invalid literal: {}\n\nLocation: {}", p, l),
+            _ => fail!("Invalid literal: {}\n\nLocation: {}", p, l),
         }
     }
 
@@ -649,17 +649,17 @@ impl YulParser {
 
         let p = match pair_iter.next() {
             Some(p) => p,
-            None => bail!("Number literal not found!\n\nLocation: {}", loc),
+            None => fail!("Number literal not found!\n\nLocation: {}", loc),
         };
         let l = Self::parse_location(&p);
 
         match p.as_rule() {
             Rule::decimal_number => match p.as_str().parse() {
                 Ok(num) => Ok(NumLit::new_decimal(num)),
-                Err(e) => bail!("Invalid decimal number: {}\n\nLocation: {}", e, l),
+                Err(e) => fail!("Invalid decimal number: {}\n\nLocation: {}", e, l),
             },
             Rule::hex_number => Ok(NumLit::new_hex(p.as_str().to_string())),
-            _ => bail!("Need to parse number literal: {}\n\nLocation: {}", p, l),
+            _ => fail!("Need to parse number literal: {}\n\nLocation: {}", p, l),
         }
     }
 
@@ -672,7 +672,7 @@ impl YulParser {
         let p = match pair_iter.next() {
             Some(p) => p,
             None => {
-                bail!("Hex literal not found!\n\nLocation: {}", loc)
+                fail!("Hex literal not found!\n\nLocation: {}", loc)
             }
         };
 
@@ -687,7 +687,7 @@ impl YulParser {
 
         let p = match pair_iter.next() {
             Some(p) => p,
-            None => bail!("String literal not found!\n\nLocation: {}", loc),
+            None => fail!("String literal not found!\n\nLocation: {}", loc),
         };
 
         Ok(StringLit::new(p.as_str()))
@@ -702,7 +702,7 @@ impl YulParser {
         let p = match pair_iter.next() {
             Some(p) => p,
             None => {
-                bail!("Bool literal not found!\n\nLocation: {}", loc)
+                fail!("Bool literal not found!\n\nLocation: {}", loc)
             }
         };
         let l = Self::parse_location(&p);
@@ -710,7 +710,7 @@ impl YulParser {
         match p.as_rule() {
             Rule::TRUE => Ok(BoolLit::new(true)),
             Rule::FALSE => Ok(BoolLit::new(false)),
-            _ => bail!("Not a bool literal: {}\n\nLocation: {}", p, l),
+            _ => fail!("Not a bool literal: {}\n\nLocation: {}", p, l),
         }
     }
 
@@ -741,17 +741,17 @@ impl YulParser {
 pub fn parse_input_file(filename: &str) -> Result<SourceUnit> {
     let content = match fs::read_to_string(filename) {
         Ok(content) => content,
-        Err(err) => bail!("Unable to read file: {}\n\n{}", filename, err),
+        Err(err) => fail!("Unable to read file: {}\n\n{}", filename, err),
     };
 
     let mut pairs = match YulParser::parse(Rule::source_unit, &content) {
         Ok(pairs) => pairs,
-        Err(err) => bail!("Error: failed to parse Yul file: {}{}", filename, err),
+        Err(err) => fail!("Error: failed to parse Yul file: {}{}", filename, err),
     };
 
     match pairs.next() {
         Some(p) => YulParser::parse_source_unit(p),
-        None => bail!("Source unit not found!"),
+        None => fail!("Source unit not found!"),
     }
 }
 
@@ -759,12 +759,12 @@ pub fn parse_inline_assembly_block(yul_block: &str) -> Result<Block> {
     let mut pairs = match YulParser::parse(Rule::block, yul_block) {
         Ok(pairs) => pairs,
         Err(err) => {
-            bail!("Error: failed to parse Yul block: {}{}", yul_block, err)
+            fail!("Error: failed to parse Yul block: {}{}", yul_block, err)
         }
     };
 
     match pairs.next() {
         Some(p) => YulParser::parse_block(p),
-        None => bail!("Yul block not found!"),
+        None => fail!("Yul block not found!"),
     }
 }

@@ -1,5 +1,5 @@
 use crate::{ast::*, util::*};
-use core::metadata::DataLoc;
+use base::metadata::DataLoc;
 use std::borrow::Borrow;
 
 struct ExprFlattener {

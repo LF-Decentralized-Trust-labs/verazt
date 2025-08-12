@@ -10,7 +10,7 @@ name = "smartcheck"
 path = "src/smartcheck.rs"
 
 [dependencies]
-core = { path = "../core" }
+base = { path = "../base" }
 clap = { version = "4.1.1", features = ["cargo"] }
 clap-verbosity-flag = "2.0.1"
 color-eyre = "0.6"

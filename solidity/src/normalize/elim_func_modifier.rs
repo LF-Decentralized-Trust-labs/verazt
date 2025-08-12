@@ -197,7 +197,6 @@ mod tests {
     use crate::{
         compile::compile_solidity_source_code,
         normalize::util::configure_unit_test_env,
-        parser::ast_parser::{self},
         util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;

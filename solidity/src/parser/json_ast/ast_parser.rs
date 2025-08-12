@@ -3,7 +3,7 @@
 use crate::{ast::*, parser::typ::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
-use core::{error, fail, metadata::DataLoc};
+use base::{error, fail, metadata::DataLoc};
 use itertools::izip;
 use lazy_static::lazy_static;
 use num_bigint::BigInt;

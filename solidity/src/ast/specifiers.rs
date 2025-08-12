@@ -1,5 +1,5 @@
 use crate::ast::*;
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------
@@ -152,7 +152,7 @@ impl FuncMut {
             "nonpayable" => Ok(FuncMut::NonPayable),
             "pure" => Ok(FuncMut::Pure),
             "view" => Ok(FuncMut::View),
-            _ => bail!("Unknown state mutability: {}", mutability),
+            _ => fail!("Unknown state mutability: {}", mutability),
         }
     }
 
@@ -196,7 +196,7 @@ impl VarMut {
             "mutable" => Ok(VarMut::Mutable),
             "immutable" => Ok(VarMut::Immutable),
             "constant" => Ok(VarMut::Constant),
-            _ => bail!("Unknown mutability: {}", mutability),
+            _ => fail!("Unknown mutability: {}", mutability),
         }
     }
 

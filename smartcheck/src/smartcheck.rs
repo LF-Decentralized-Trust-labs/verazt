@@ -1,5 +1,4 @@
 use clap::{Parser, arg, crate_version};
-use color_eyre::eyre::{Result, bail};
 use log::debug;
 use solidity::{
     ast::{self, SourceUnit},

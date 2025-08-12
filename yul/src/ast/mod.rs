@@ -21,6 +21,6 @@ pub use statements::*;
 pub use types::*;
 
 // Metadata
-pub type Loc = core::metadata::Loc;
-pub type Name = core::metadata::Name;
-pub type NamingEnv = core::metadata::NamingEnv;
+pub type Loc = base::metadata::Loc;
+pub type Name = base::metadata::Name;
+pub type NamingEnv = base::metadata::NamingEnv;

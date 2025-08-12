@@ -2,7 +2,7 @@
 
 use super::Compare;
 use crate::ast::*;
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use itertools::izip;
 
 /// Compare 2 source units using a syntactic comparer.
@@ -21,7 +21,7 @@ pub fn compare_source_units(
 ) -> Result<()> {
     let mut comparer = SyntacticComparer::new();
     if source_units1.len() != source_units2.len() {
-        bail!("Different number of source units!");
+        fail!("Different number of source units!");
     }
 
     let mut sorted_sunits1 = source_units1.to_vec();

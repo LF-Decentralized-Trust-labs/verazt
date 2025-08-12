@@ -1,7 +1,7 @@
 //! Module handling Soldity versions.
 
 use crate::parser::version::version_parser;
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use node_semver::{Range, Version};
 use std::fs;
 
@@ -78,7 +78,7 @@ pub fn check_range_constraint(range: &Range, constraint: &str) -> bool {
 pub fn find_solidity_versions(input_file: &str) -> Result<Vec<String>> {
     let content = match fs::read_to_string(input_file) {
         Ok(content) => content,
-        Err(err) => bail!(err),
+        Err(err) => fail!(err),
     };
 
     match version_parser::parse_pragma_solidity_version(&content) {
@@ -113,7 +113,7 @@ pub fn find_compatible_solc_versions(input_file: &str) -> Result<Vec<Version>> {
     // Find the required versions by an input Solidity smart contract.
     let contract_solc_versions = match find_solidity_versions(input_file) {
         Ok(versions) => versions,
-        Err(err) => bail!("Failed to find Solidity versions!\n{}", err),
+        Err(err) => fail!("Failed to find Solidity versions!\n{}", err),
     };
     if contract_solc_versions.is_empty() {
         debug!("No Solidity pragma is specified in file: {input_file}");
@@ -125,7 +125,7 @@ pub fn find_compatible_solc_versions(input_file: &str) -> Result<Vec<Version>> {
     let constraint = &contract_solc_versions.join(", ");
     let range = match Range::parse(constraint) {
         Ok(range) => range,
-        Err(_) => bail!("Invalid Solidity version constraint: {}!", constraint),
+        Err(_) => fail!("Invalid Solidity version constraint: {}!", constraint),
     };
 
     let solc_versions: Vec<Version> = all_solc_versions
@@ -139,6 +139,6 @@ pub fn find_compatible_solc_versions(input_file: &str) -> Result<Vec<Version>> {
     if !solc_versions.is_empty() {
         Ok(solc_versions)
     } else {
-        bail!("No Solidity version satisfying constraint: {}!", constraint)
+        fail!("No Solidity version satisfying constraint: {}!", constraint)
     }
 }

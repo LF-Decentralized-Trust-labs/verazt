@@ -6,8 +6,8 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+base = { path = "../base" }
 bat = "0.23"
-core = { path = "../core" }
 color-eyre = "0.6"
 either = "1.8"
 log = "0.4"

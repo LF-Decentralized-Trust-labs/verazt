@@ -1,6 +1,5 @@
 use crate::{ast::*, version};
-use color_eyre::eyre::{Result, bail};
-use core::{metadata::DataLoc, string::StringExt};
+use base::{error::Result, fail, metadata::DataLoc, string::StringExt};
 use node_semver::Range;
 use std::fmt::{self, Display};
 
@@ -255,7 +254,7 @@ impl ContractKind {
             "contract" => Ok(ContractKind::Contract),
             "interface" => Ok(ContractKind::Interface),
             "library" => Ok(ContractKind::Library),
-            _ => bail!("Unknown contract kind: {}", kind),
+            _ => fail!("Unknown contract kind: {}", kind),
         }
     }
 }
@@ -599,7 +598,7 @@ impl FuncKind {
             "function" => Ok(FuncKind::ContractFunc),
             "freeFunction" => Ok(FuncKind::FreeFunc),
             "modifier" => Ok(FuncKind::Modifier),
-            _ => bail!("Unknown function kind: {kind}"),
+            _ => fail!("Unknown function kind: {kind}"),
         }
     }
 }

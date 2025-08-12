@@ -1,5 +1,5 @@
 //! Module containing utility functions for unit test.
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use regex::Regex;
 use solidity::{
     ast::SourceUnit, compile::compile_input_file, normalize, util::export::export_source_unit,
@@ -110,17 +110,17 @@ fn check_test_file_validity(file_path: &PathBuf) -> Result<()> {
         }
 
         if line.contains("SyntaxError") {
-            bail!("Syntax Error");
+            fail!("Syntax Error");
         } else if line.contains("ParserError") {
-            bail!("Parser Error");
+            fail!("Parser Error");
         } else if line.contains("DeclarationError") {
-            bail!("Declaration Error");
+            fail!("Declaration Error");
         } else if line.contains("DocstringParsingError") {
-            bail!("Docstring Parsing Error");
+            fail!("Docstring Parsing Error");
         } else if line.contains("failAfter: Parsed") {
-            bail!("Failed After Parsing");
+            fail!("Failed After Parsing");
         } else if line.contains("TypeError") {
-            bail!("Type Error");
+            fail!("Type Error");
         }
     }
     Ok(())
