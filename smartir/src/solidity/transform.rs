@@ -1,7 +1,7 @@
 //! Module to transform the original Solidity AST to Smart Contract IR.
 
 use crate::ir::*;
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use either::Either::{self, Left, Right};
 use log::trace;
 use solidity::ast;
@@ -33,7 +33,7 @@ impl Transformer {
     fn convert_to_atomic(&mut self, expr: Expr, msg: &str) -> Result<AtomicExpr> {
         match AtomicExpr::try_from(expr) {
             Ok(expr) => Ok(expr),
-            Err(err) => bail!(
+            Err(err) => fail!(
                 "{}: {}.\n{}",
                 msg,
                 err,
@@ -68,10 +68,10 @@ impl Transformer {
         match elem {
             ast::SourceUnitElem::Pragma(pragma) => self.transform_pragma(pragma),
             ast::SourceUnitElem::Import(_) => {
-                bail!("IR transformation: `import` must be eliminated: {}", elem)
+                fail!("IR transformation: `import` must be eliminated: {}", elem)
             }
             ast::SourceUnitElem::Using(_) => {
-                bail!("IR transformation: `using` must be eliminated: {}", elem)
+                fail!("IR transformation: `using` must be eliminated: {}", elem)
             }
             ast::SourceUnitElem::Error(error) => match self.transform_error_def(error) {
                 Ok(error) => Ok(vec![error.into()]),
@@ -83,12 +83,12 @@ impl Transformer {
                     Err(err) => return Err(err),
                 };
                 if !stmts.is_empty() {
-                    bail!("Handle statement declaring new vars");
+                    fail!("Handle statement declaring new vars");
                 };
                 Ok(vec![vdecl.into()])
             }
             ast::SourceUnitElem::UserType(_) => {
-                bail!("User-defined type must be eliminated!")
+                fail!("User-defined type must be eliminated!")
             }
             ast::SourceUnitElem::Struct(struct_) => {
                 Ok(vec![self.transform_struct_def(struct_)?.into()])
@@ -173,13 +173,13 @@ impl Transformer {
         trace!("Transform contract: {}", contract.name);
 
         if !contract.base_contracts.is_empty() {
-            bail!("Base contracts must be eliminated before transforming to IR!")
+            fail!("Base contracts must be eliminated before transforming to IR!")
         }
 
         let kind = match &contract.kind {
             ast::ContractKind::Contract => ContractKind::Contract,
             ast::ContractKind::Interface => ContractKind::Interface,
-            ast::ContractKind::Library => bail!("Library must be eliminated!"),
+            ast::ContractKind::Library => fail!("Library must be eliminated!"),
         };
 
         // Transform its elements with back links to the parent contract
@@ -198,7 +198,7 @@ impl Transformer {
     ) -> Result<Vec<ContractElem>> {
         match elem {
             ast::ContractElem::Using(_) => {
-                bail!("Transform contract element: using directive should be eliminated: {}", elem)
+                fail!("Transform contract element: using directive should be eliminated: {}", elem)
             }
             ast::ContractElem::EventDef(event) => {
                 let nevent = self.transform_event_def(event)?;
@@ -217,12 +217,12 @@ impl Transformer {
                 Ok(vec![nenum.into()])
             }
             ast::ContractElem::UserTypeDef(_) => {
-                bail!("Transform contract element: user-defined type must be eliminated!")
+                fail!("Transform contract element: user-defined type must be eliminated!")
             }
             ast::ContractElem::VarDecl(vdecl) => {
                 let (nvdecl, stmts) = self.transform_var_decl(vdecl)?;
                 if !stmts.is_empty() {
-                    bail!("Handle statement declaring new vars");
+                    fail!("Handle statement declaring new vars");
                 };
                 Ok(vec![nvdecl.into()])
             }
@@ -253,7 +253,7 @@ impl Transformer {
             }
             Ok((output_exprs, nstmts))
         } else {
-            bail!("Arguments must be normalized to un-named!")
+            fail!("Arguments must be normalized to un-named!")
         }
     }
 
@@ -319,7 +319,7 @@ impl Transformer {
             }
             ast::Stmt::Break(s) => Ok(Left(self.transform_break_stmt(s))),
             ast::Stmt::Placeholder(_) => {
-                bail!("PlaceholderStmt must be normalized at AST level first!");
+                fail!("PlaceholderStmt must be normalized at AST level first!");
             }
             ast::Stmt::Continue(s) => Ok(Left(self.transform_continue_stmt(s))),
             ast::Stmt::DoWhile(s) => {
@@ -578,7 +578,7 @@ impl Transformer {
         // Find the error definition
         let error = match &stmt.error {
             Some(ast::Expr::Ident(ident)) => Some(ident.name.to_owned()),
-            Some(e) => bail!("TODO: transform error: {} in revert stmt: {}", e, stmt),
+            Some(e) => fail!("TODO: transform error: {} in revert stmt: {}", e, stmt),
             None => None,
         };
         let (args, mut stmts) = self.transform_call_args(&stmt.args)?;
@@ -597,7 +597,7 @@ impl Transformer {
         // Find the event definition
         let event = match &stmt.event {
             ast::Expr::Ident(ident) => ident.name.to_owned(),
-            e => bail!("TODO: transform event: {} in emit stmt: {}", e, stmt),
+            e => fail!("TODO: transform event: {} in emit stmt: {}", e, stmt),
         };
         let (args, mut stmts) = self.transform_call_args(&stmt.args)?;
         nstmts.append(&mut stmts);
@@ -661,7 +661,7 @@ impl Transformer {
 
     fn transform_var_decl(&mut self, vdecl: &ast::VariableDecl) -> Result<(VarDecl, Vec<Stmt>)> {
         if vdecl.overriding.is_some() {
-            bail!("Transform var decl: need to elminate override specification: {}", vdecl);
+            fail!("Transform var decl: need to elminate override specification: {}", vdecl);
         }
         let mut nstmts = vec![];
         let name = vdecl.name.clone();
@@ -716,7 +716,7 @@ impl Transformer {
             ast::Expr::Binary(e) => self.transform_binary_expr(e)?,
             ast::Expr::Assign(e) => self.transform_assign_expr(e)?,
             ast::Expr::Call(e) => self.transform_call_expr(e)?,
-            ast::Expr::CallOpts(_) => bail!("Normalize function call opts before transforming"),
+            ast::Expr::CallOpts(_) => fail!("Normalize function call opts before transforming"),
             ast::Expr::Tuple(e) => self.transform_tuple_expr(e)?,
             ast::Expr::Index(e) => self.transform_index_expr(e)?,
             ast::Expr::Slice(e) => self.transform_slice_expr(e)?,
@@ -780,7 +780,7 @@ impl Transformer {
         // Handle as pre/post increment/decrement expression.
         let var = match &opr {
             AtomicExpr::Var(v) => v.clone(),
-            _ => bail!("Operand of unary pre-increment must be a variable"),
+            _ => fail!("Operand of unary pre-increment must be a variable"),
         };
         let op = &expr.op;
         let oloc = expr.body.loc();
@@ -791,7 +791,7 @@ impl Transformer {
             ast::UnaryOp::PostIncr | ast::UnaryOp::PostDecr => {
                 self.normalize_postfix_unary_expr(expr, op, var, oloc)
             }
-            _ => bail!("Expecting pre/post increment/decrement operator"),
+            _ => fail!("Expecting pre/post increment/decrement operator"),
         }
     }
 
@@ -807,7 +807,7 @@ impl Transformer {
             // let bin_op = match operator {
             //     ast::UnaryOp::PreIncrement => BinOp::Add,
             //     ast::UnaryOp::PreDecrement => BinOp::Sub,
-            //     _ => bail!("Not a prefix unary expression: {}", expr),
+            //     _ => fail!("Not a prefix unary expression: {}", expr),
             // };
             // let rhs = Expr::from(BinaryExpr::new(
             //     bin_op,
@@ -845,7 +845,7 @@ impl Transformer {
             // let bin_op = match operator {
             //     ast::UnaryOp::PostIncrement => BinOp::Add,
             //     ast::UnaryOp::PostDecrement => BinOp::Sub,
-            //     _ => bail!("Not a postfix unary expression: {}", expr),
+            //     _ => fail!("Not a postfix unary expression: {}", expr),
             // };
             // let rhs = Expr::from(BinaryExpr::new(
             //     bin_op,
@@ -903,7 +903,7 @@ impl Transformer {
         // Transform self-assignment into a normal assignment
         let nrhs = match expr.operator {
             ast::AssignOp::Assign => nrhs,
-            _ => bail!("Transform to IR: operator must be normalized: {}", expr.operator),
+            _ => fail!("Transform to IR: operator must be normalized: {}", expr.operator),
         };
         todo!("Transform assign expr!")
     }
@@ -937,7 +937,7 @@ impl Transformer {
                 nstmts.append(&mut stmts);
                 match CalleeExpr::try_from(nexpr) {
                     Ok(exp) => exp,
-                    Err(err) => bail!("{}", err),
+                    Err(err) => fail!("{}", err),
                 }
             }
             ast::Expr::CallOpts(e) => {
@@ -952,7 +952,7 @@ impl Transformer {
                     Expr::Member(e) => CalleeExpr::from(e),
                     Expr::New(e) => CalleeExpr::from(e),
                     Expr::TypeName(e) => CalleeExpr::from(e),
-                    _ => bail!("Transform function call option: {}", &callee),
+                    _ => fail!("Transform function call option: {}", &callee),
                 }
             }
             _ => {
@@ -1030,10 +1030,10 @@ impl Transformer {
                     let ntyp = ArrayType::new(e.typ, None, data_loc, false);
                     TypeNameExpr::new(ntyp.into(), expr.loc).into()
                 } else {
-                    bail!("Transform to IR: do not expect index in TypeNameExpr: {}", expr)
+                    fail!("Transform to IR: do not expect index in TypeNameExpr: {}", expr)
                 }
             }
-            _ => bail!("Transform to IR: handle IndexExpr: {}", expr),
+            _ => fail!("Transform to IR: handle IndexExpr: {}", expr),
         };
         Ok((nexpr, nstmts))
     }
@@ -1050,7 +1050,7 @@ impl Transformer {
             nstmts.append(&mut stmts);
             match base {
                 Expr::Var(v) => v,
-                _ => bail!("Base of range access expr of must be a variable!"),
+                _ => fail!("Base of range access expr of must be a variable!"),
             }
         };
         let nstart = match &expr.start_index {
@@ -1093,7 +1093,7 @@ impl Transformer {
                 let fname = match &call_expr.args {
                     ast::CallArgs::Unnamed(args) => member + "__type__" + &args[0].to_string(),
                     ast::CallArgs::Named(_) => {
-                        bail!("Transform member access expr: {}", expr)
+                        fail!("Transform member access expr: {}", expr)
                     }
                 };
                 CallExpr::new(CalleeExpr::from(fname.as_str()), vec![], vec![], typ, expr.loc)
@@ -1211,7 +1211,7 @@ impl Transformer {
             ast::Type::Tuple(t) => Ok(self.transform_tuple_type(t)?.into()),
             ast::Type::Func(t) => Ok(self.transform_function_type(t)?.into()),
             ast::Type::Mapping(t) => Ok(self.transform_mapping_type(t)?.into()),
-            ast::Type::UserDefined(_) => bail!("User-defined type must be eliminated!"),
+            ast::Type::UserDefined(_) => fail!("User-defined type must be eliminated!"),
             ast::Type::Contract(t) => Ok(self.transform_contract_type(t)?.into()),
             ast::Type::Magic(t) => Ok(self.transform_magic_type(t)?.into()),
         }
@@ -1249,14 +1249,14 @@ impl Transformer {
 
     fn transform_struct_type(&mut self, t: &ast::StructType) -> Result<StructType> {
         if t.scope.is_some() {
-            bail!("Struct scope must be eliminated!")
+            fail!("Struct scope must be eliminated!")
         }
         Ok(StructType::new(t.name.clone(), t.data_loc, t.is_ptr))
     }
 
     fn transform_enum_type(&mut self, t: &ast::EnumType) -> Result<EnumType> {
         if t.scope.is_some() {
-            bail!("Enum scope must be eliminated!")
+            fail!("Enum scope must be eliminated!")
         }
         Ok(EnumType::new(t.name.clone()))
     }
@@ -1297,7 +1297,7 @@ impl Transformer {
 
     fn transform_contract_type(&mut self, t: &ast::ContractType) -> Result<ContractType> {
         if t.scope.is_some() {
-            bail!("Contract scope must be eliminated!")
+            fail!("Contract scope must be eliminated!")
         }
         Ok(ContractType::new(t.name.clone(), t.is_lib))
     }
@@ -1335,7 +1335,7 @@ impl Transformer {
 
     fn transform_num_lit(&mut self, lit: &ast::NumLit) -> Result<NumLit> {
         if lit.unit.is_some() {
-            bail!("Transform number literal: unit must be eliminated!")
+            fail!("Transform number literal: unit must be eliminated!")
         }
         let value = self.transform_number(&lit.value)?;
         Ok(NumLit::new(value, lit.loc))

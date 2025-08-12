@@ -1,8 +1,7 @@
 //! Module for parsing data type.
 
 use crate::ast::*;
-use color_eyre::eyre::{Result, bail, eyre};
-use core::metadata::DataLoc;
+use base::{error::Result, fail, metadata::DataLoc};
 use num_bigint::BigInt;
 use pest::{
     Parser,
@@ -836,19 +835,19 @@ impl TypeParser {
 }
 
 fn error<T>(msg: &str, token: Pair<Rule>) -> Result<T> {
-    Err(eyre!("Type parser: {}: {}\nToken: {}", msg, token.as_str(), token))
+    fail!("Type parser: {}: {}\nToken: {}", msg, token.as_str(), token)
 }
 
 pub fn parse_data_type(type_str: &str) -> Result<Type> {
     // debug!("== PARSE DATA TYPE: {}", type_string);
     let mut pairs = match TypeParser::parse(Rule::data_type_stream, type_str) {
         Ok(pairs) => pairs,
-        Err(err) => bail!("Error while parsing: {}\n\nError log: {}", type_str, err),
+        Err(err) => fail!("Error while parsing: {}\n\nError log: {}", type_str, err),
     };
 
     // Skip `SOI` token of Pest
     match pairs.next() {
         Some(next_pairs) => TypeParser::parse_data_type_stream(next_pairs),
-        None => bail!("Error while parsing: {}\n\nPairs: {}", type_str, pairs),
+        None => fail!("Error while parsing: {}\n\nPairs: {}", type_str, pairs),
     }
 }

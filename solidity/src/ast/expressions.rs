@@ -1,5 +1,5 @@
 use crate::ast::*;
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 use std::{
     fmt::{self, Display},
     ops::Deref,
@@ -500,7 +500,7 @@ impl AssignOp {
             "<<=" => Ok(AssignOp::AssignShl),
             ">>=" => Ok(AssignOp::AssignShr),
             "-=" => Ok(AssignOp::AssignSub),
-            _ => bail!("Failed to parse assignment operator: {}", operator),
+            _ => fail!("Failed to parse assignment operator: {}", operator),
         }
     }
 }
@@ -539,7 +539,7 @@ impl UnaryOp {
             ("!", _) => Ok(UnaryOp::Not),
             ("~", _) => Ok(UnaryOp::BitNot),
             ("delete", _) => Ok(UnaryOp::Delete),
-            _ => bail!("Invalid unary operator: {}", operator),
+            _ => fail!("Invalid unary operator: {}", operator),
         }
     }
 }
@@ -645,7 +645,7 @@ impl BinOp {
             "<<" => Ok(BinOp::Shl),
             ">>" => Ok(BinOp::Shr),
             ">>>" => Ok(BinOp::Sar),
-            _ => bail!("Invalid binary operator: {}", operator),
+            _ => fail!("Invalid binary operator: {}", operator),
         }
     }
 }
@@ -748,7 +748,7 @@ impl CallKind {
             "typeConversion" => Ok(CallKind::TypeConversionCall),
             "modifierInvocation" => Ok(CallKind::ModifierInvoc),
             "baseConstructorSpecifier" => Ok(CallKind::BaseConstructorCall),
-            _ => bail!("Invalid call kind: {}", kind),
+            _ => fail!("Invalid call kind: {}", kind),
         }
     }
 }

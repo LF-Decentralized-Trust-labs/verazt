@@ -1,8 +1,7 @@
 //! Module to check similarity of 2 AST.
 
 use crate::ast::*;
-use color_eyre::eyre::Result;
-use core::metadata::DataLoc;
+use base::{error::Result, fail, metadata::DataLoc};
 
 //-------------------------------------------------
 // Trait for comparison
@@ -494,11 +493,11 @@ pub trait Compare<'a> {
 pub mod default {
     use super::Compare;
     use crate::ast::*;
-    use color_eyre::{
-        Report,
-        eyre::{Result, bail},
+    use base::{
+        error::{Report, Result},
+        fail,
+        metadata::DataLoc,
     };
-    use core::metadata::DataLoc;
     use std::fmt::Display;
 
     //-------------------------------------------------
@@ -508,8 +507,8 @@ pub mod default {
     fn error<T: Display>(msg: &str, t1: T, t2: T, err: Option<Report>) -> Result<()> {
         let msg = format!("{msg}:\n\n{t1}\n\n-- vs --\n\n{t2}\n");
         match err {
-            Some(err) => bail!("{}\n\nError: {}", msg, err),
-            None => bail!("{}", msg),
+            Some(err) => fail!("{}\n\nError: {}", msg, err),
+            None => fail!("{}", msg),
         }
     }
 
@@ -849,7 +848,7 @@ pub mod default {
         match (blk1, blk2) {
             (Some(b1), Some(b2)) => comparer.compare_block(b1, b2),
             (None, None) => Ok(()),
-            _ => bail!("Different block: {:?} -- {:?}", blk1, blk2),
+            _ => fail!("Different block: {:?} -- {:?}", blk1, blk2),
         }
     }
 
@@ -1128,7 +1127,7 @@ pub mod default {
                 (Some(v1), Some(v2)) => comparer.compare_var_decl(v1, v2)?,
                 (None, None) => {}
                 _ => {
-                    bail!("Different var decl: {:?} -- {:?}", v1, v2);
+                    fail!("Different var decl: {:?} -- {:?}", v1, v2);
                 }
             }
         }
@@ -1147,7 +1146,7 @@ pub mod default {
         match (args1, args2) {
             (CallArgs::Unnamed(args1), CallArgs::Unnamed(args2)) => {
                 if args1.len() != args2.len() {
-                    bail!("Different number of arguments");
+                    fail!("Different number of arguments");
                 }
                 for (e1, e2) in args1.iter().zip(args2.iter()) {
                     comparer.compare_expr(e1, e2)?
@@ -1155,16 +1154,16 @@ pub mod default {
             }
             (CallArgs::Named(args1), CallArgs::Named(args2)) => {
                 if args1.len() != args2.len() {
-                    bail!("Different number of arguments");
+                    fail!("Different number of arguments");
                 }
                 for (a1, a2) in args1.iter().zip(args2.iter()) {
                     if a1.name != a2.name {
-                        bail!("Different argument names");
+                        fail!("Different argument names");
                     }
                     comparer.compare_expr(&a1.value, &a2.value)?
                 }
             }
-            _ => bail!("Different argument types"),
+            _ => fail!("Different argument types"),
         }
         Ok(())
     }
@@ -1223,7 +1222,7 @@ pub mod default {
         match (exp1, exp2) {
             (Some(e1), Some(e2)) => comparer.compare_expr(e1, e2),
             (None, None) => Ok(()),
-            _ => bail!("Different expressions: {:?} -- {:?}", exp1, exp2,),
+            _ => fail!("Different expressions: {:?} -- {:?}", exp1, exp2,),
         }
     }
 
@@ -1235,7 +1234,7 @@ pub mod default {
         match (exp1, exp2) {
             (Some(e1), Some(e2)) => comparer.compare_expr(e1, e2),
             (None, None) => Ok(()),
-            _ => bail!("Different expressions: {:?} -- {:?}", exp1, exp2),
+            _ => fail!("Different expressions: {:?} -- {:?}", exp1, exp2),
         }
     }
 
@@ -1421,7 +1420,7 @@ pub mod default {
         match (name1, name2) {
             (Some(name1), Some(name2)) => comparer.compare_name(name1, name2),
             (None, None) => Ok(()),
-            _ => bail!("Different name: {:?} -- {:?}", name1, name2),
+            _ => fail!("Different name: {:?} -- {:?}", name1, name2),
         }
     }
 
@@ -1431,7 +1430,7 @@ pub mod default {
         names2: &'a [Name],
     ) -> Result<()> {
         if names1.len() != names2.len() {
-            bail!("Different names: {:?} -- {:?}", names1, names2);
+            fail!("Different names: {:?} -- {:?}", names1, names2);
         }
         for (n1, n2) in names1.iter().zip(names2.iter()) {
             comparer.compare_name(n1, n2)?

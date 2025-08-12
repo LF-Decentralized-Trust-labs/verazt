@@ -7,7 +7,7 @@
 //! - Secondly, rename function names in all callees.
 
 use crate::{ast::*, util::*};
-use color_eyre::eyre::{Result, bail};
+use base::{error::Result, fail};
 
 //-------------------------------------------------
 // Checking function call type compatibility
@@ -36,16 +36,16 @@ impl Compare<'_> for TypeChecker {
     /// Override `compare_func_type` to compare only parameter and return types.
     fn compare_func_type(&mut self, t1: &FunctionType, t2: &FunctionType) -> Result<()> {
         if t1.params.len() != t2.params.len() || t1.returns.len() != t2.returns.len() {
-            bail!("Different function types: {} vs. {}", t1, t2);
+            fail!("Different function types: {} vs. {}", t1, t2);
         }
         for (p1, p2) in t1.params.iter().zip(t2.params.iter()) {
             if let Err(err) = self.compare_type(p1, p2) {
-                bail!("Different function param: {} vs. {}\nError: {}", p1, p2, err);
+                fail!("Different function param: {} vs. {}\nError: {}", p1, p2, err);
             }
         }
         for (r1, r2) in t1.returns.iter().zip(t2.returns.iter()) {
             if let Err(err) = self.compare_type(r1, r2) {
-                bail!("Different function return: {} vs. {}\nError: {}", r1, r2, err);
+                fail!("Different function return: {} vs. {}\nError: {}", r1, r2, err);
             }
         }
         Ok(())
@@ -54,7 +54,7 @@ impl Compare<'_> for TypeChecker {
     /// Override `compare_name` to compare only base name.
     fn compare_name(&mut self, name1: &Name, name2: &Name) -> Result<()> {
         if name1.base != name2.base {
-            bail!("Different names: {} vs. {}", name1, name2);
+            fail!("Different names: {} vs. {}", name1, name2);
         }
         Ok(())
     }
@@ -482,8 +482,8 @@ pub fn rename_callees(
 mod tests {
     use super::rename_callees;
     use crate::{
+        compile::compile_solidity_source_code,
         normalize::{rename_definitions, util::configure_unit_test_env},
-        parsing::ast_parser::parse_solidity_code,
         util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
@@ -551,7 +551,7 @@ mod tests {
                 return 1;
             }"###};
 
-        let input_sunits = match parse_solidity_code(input_contract, "0.8.15") {
+        let input_sunits = match compile_solidity_source_code(input_contract, "0.8.15") {
             Ok(input_sunits) => input_sunits,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
@@ -559,7 +559,7 @@ mod tests {
         let (output_sunits, env) = rename_definitions(&input_sunits, None);
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
 
-        let expected_sunits = match parse_solidity_code(expected_contract, "0.8.15") {
+        let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.15") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse expected source unit: {}", err),
         };

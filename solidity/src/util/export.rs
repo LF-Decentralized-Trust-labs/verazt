@@ -1,7 +1,8 @@
 //! Module for exporting Solidity AST.
 
 use crate::ast::*;
-use color_eyre::eyre::{ContextCompat, Result, bail};
+use base::fail;
+use color_eyre::eyre::{ContextCompat, Result};
 use std::{
     ffi::OsStr,
     fs::File,
@@ -30,11 +31,7 @@ pub fn export_source_units(source_units: &[SourceUnit], output_file: &str) -> Re
 
     let source_unit_strs: Vec<String> = source_units
         .iter()
-        .map(|source_unit| {
-            let sol_vers: Vec<String> = source_unit.get_solidity_pragma_versions();
-            let source_unit_str = format!("{}", source_unit);
-            source_unit_str
-        })
+        .map(|source_unit| format!("{source_unit}"))
         .collect();
 
     Ok(file.write_all(source_unit_strs.join("\n\n").as_bytes())?)
@@ -52,7 +49,7 @@ pub fn prepare_logging_directory(input_file: &str) -> Result<(PathBuf, String)> 
 
     let output_dir = file_dir.join(LOGS_DIR).join(file_name);
     if !output_dir.exists() && std::fs::create_dir_all(&output_dir).is_err() {
-        bail!("Failed to create output directory: {}", output_dir.display());
+        fail!("Failed to create output directory: {}", output_dir.display());
     }
     // println!("Output directory: {}", output_dir.display());
 

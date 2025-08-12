@@ -6,8 +6,8 @@ use crate::{
         self, check_range_constraint, find_compatible_solc_versions, find_solidity_versions,
     },
 };
-use color_eyre::eyre::{Result, bail};
-use core::{
+use base::{
+    error::Result,
     fail,
     file::{save_to_temporary_file, save_to_temporary_files},
 };
@@ -74,14 +74,14 @@ pub fn compile_input_file(
                 debug!("Choosing the first compatible version: {ver}");
                 ver
             } else {
-                bail!("No compatible Solc versions found!")
+                fail!("No compatible Solc versions found!")
             }
         }
     };
 
     let input_file_path = Path::new(input_file);
     if !input_file_path.exists() {
-        bail!("Input file does not exist: {}", input_file);
+        fail!("Input file does not exist: {}", input_file);
     }
 
     // Checking Solc version indicated in smart contract source code
@@ -91,7 +91,7 @@ pub fn compile_input_file(
     let solc_range = node_semver::Range::parse(&solc_versions)
         .or_else(|_| fail!("Failed to parse Solidity version: '{}'", solc_versions))?;
     if !check_range_constraint(&solc_range, ">=0.4.12") {
-        bail!("Only support Solidity versions >=0.4.12, but found: {}", &solc_versions);
+        fail!("Only support Solidity versions >=0.4.12, but found: {}", &solc_versions);
     }
 
     let compatible_solc_vers = find_compatible_solc_versions(input_file)
@@ -100,7 +100,7 @@ pub fn compile_input_file(
     // Configure suitable Solc version
     let input_solc_ver = match Version::parse(solc_ver) {
         Ok(ver) => vec![ver],
-        Err(err) => bail!(err),
+        Err(err) => fail!(err),
     };
     let common_solc_ver = compatible_solc_vers
         .clone()
@@ -177,11 +177,11 @@ pub fn compile_input_file(
                     Err(err) => fail!(err),
                 }
             }
-            Err(_) => bail!("Failed to parse JSON of: {}", input_file),
+            Err(_) => fail!("Failed to parse JSON of: {}", input_file),
         }
     }
 
-    bail!(
+    fail!(
         "All Solc compilers failed to compile: {}\n\n{}",
         input_file,
         compilation_errors.join("\n")

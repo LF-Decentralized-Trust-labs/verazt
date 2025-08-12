@@ -1,5 +1,5 @@
 use crate::{ast::*, util::*};
-use core::metadata::DataLoc;
+use base::metadata::DataLoc;
 use std::borrow::Borrow;
 
 struct ExprFlattener {
@@ -445,8 +445,8 @@ pub fn flatten_expr(source_units: &[SourceUnit], env: Option<&NamingEnv>) -> Vec
 #[cfg(test)]
 mod tests {
     use crate::{
+        compile::compile_solidity_source_code,
         normalize::{flatten_expr, util::configure_unit_test_env},
-        parser::ast_parser::compile_solidity_source_code,
         util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;

@@ -1,6 +1,6 @@
+use crate::error::create_error;
+use color_eyre::eyre::Result;
 use std::fmt::{self, Display};
-
-use color_eyre::eyre::{bail, Result};
 
 //-------------------------------------------------------------------------
 // Source code location
@@ -60,7 +60,9 @@ impl DataLoc {
             "storage" => Ok(DataLoc::Storage),
             "calldata" => Ok(DataLoc::Calldata),
             "default" => Ok(DataLoc::None),
-            _ => bail!("Unknown data location: {}", data_loc),
+            _ => {
+                Err(create_error(format!("Unknown data location: {data_loc}")))
+            }
         }
     }
 

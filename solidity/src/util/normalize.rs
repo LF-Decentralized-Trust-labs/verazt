@@ -68,19 +68,11 @@ pub trait Normalize<'a, T> {
     // Type definitions.
     //-------------------------------------------------
 
-    fn normalize_udv_type_def(
-        &mut self,
-        acc: T,
-        typ: &'a UserTypeDef,
-    ) -> (T, UserTypeDef) {
+    fn normalize_udv_type_def(&mut self, acc: T, typ: &'a UserTypeDef) -> (T, UserTypeDef) {
         default::normalize_udv_type_def(self, acc, typ)
     }
 
-    fn normalize_struct_def(
-        &mut self,
-        acc: T,
-        struct_: &'a StructDef,
-    ) -> (T, StructDef) {
+    fn normalize_struct_def(&mut self, acc: T, struct_: &'a StructDef) -> (T, StructDef) {
         default::normalize_struct_def(self, acc, struct_)
     }
 
@@ -100,11 +92,7 @@ pub trait Normalize<'a, T> {
     // Contract definition.
     //-------------------------------------------------
 
-    fn normalize_contract_def(
-        &mut self,
-        acc: T,
-        contract: &'a ContractDef,
-    ) -> (T, ContractDef) {
+    fn normalize_contract_def(&mut self, acc: T, contract: &'a ContractDef) -> (T, ContractDef) {
         default::normalize_contract_def(self, acc, contract)
     }
 
@@ -116,11 +104,7 @@ pub trait Normalize<'a, T> {
     // Function & block.
     //-------------------------------------------------
 
-    fn normalize_func_def(
-        &mut self,
-        acc: T,
-        func: &'a FunctionDef,
-    ) -> (T, FunctionDef) {
+    fn normalize_func_def(&mut self, acc: T, func: &'a FunctionDef) -> (T, FunctionDef) {
         default::normalize_func_def(self, acc, func)
     }
 
@@ -208,11 +192,7 @@ pub trait Normalize<'a, T> {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn normalize_var_decl(
-        &mut self,
-        acc: T,
-        vdecl: &'a VariableDecl,
-    ) -> (T, VariableDecl) {
+    fn normalize_var_decl(&mut self, acc: T, vdecl: &'a VariableDecl) -> (T, VariableDecl) {
         default::normalize_var_decl(self, acc, vdecl)
     }
 
@@ -1136,11 +1116,7 @@ pub mod default {
     ) -> (T, BinaryExpr) {
         let (nacc, nlhs) = normalizer.normalize_expr(acc, &expr.left);
         let (nacc, nrhs) = normalizer.normalize_expr(nacc, &expr.right);
-        let nexpr = BinaryExpr {
-            left: Box::new(nlhs),
-            right: Box::new(nrhs),
-            ..expr.clone()
-        };
+        let nexpr = BinaryExpr { left: Box::new(nlhs), right: Box::new(nrhs), ..expr.clone() };
         (nacc, nexpr)
     }
 
@@ -1155,11 +1131,7 @@ pub mod default {
     ) -> (T, AssignExpr) {
         let (nacc, nlhs) = normalizer.normalize_expr(acc, &expr.left);
         let (nacc, nrhs) = normalizer.normalize_expr(nacc, &expr.right);
-        let nexpr = AssignExpr {
-            left: Box::new(nlhs),
-            right: Box::new(nrhs),
-            ..expr.clone()
-        };
+        let nexpr = AssignExpr { left: Box::new(nlhs), right: Box::new(nrhs), ..expr.clone() };
         (nacc, nexpr)
     }
 

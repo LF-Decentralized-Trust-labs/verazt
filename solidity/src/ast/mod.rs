@@ -25,10 +25,10 @@ pub use statements::*;
 pub use types::*;
 
 /* Metadata */
-pub type Loc = core::metadata::Loc;
-pub type Name = core::metadata::Name;
-pub type NamePath = core::metadata::NamePath;
-pub type NamingEnv = core::metadata::NamingEnv;
+pub type Loc = base::metadata::Loc;
+pub type Name = base::metadata::Name;
+pub type NamePath = base::metadata::NamePath;
+pub type NamingEnv = base::metadata::NamingEnv;
 
 /// Trait to export AST elements to compilable Solidity code.
 pub trait Export {

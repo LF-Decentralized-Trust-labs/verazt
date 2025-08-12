@@ -293,10 +293,7 @@ pub mod default {
         CallExpr::new(ncallee, nargs)
     }
 
-    pub fn map_member_expr<T: Map + ?Sized>(
-        mapper: &mut T,
-        expr: &MemberExpr,
-    ) -> MemberExpr {
+    pub fn map_member_expr<T: Map + ?Sized>(mapper: &mut T, expr: &MemberExpr) -> MemberExpr {
         let nbase = mapper.map_name(&expr.base);
         let nmember = mapper.map_name(&expr.member);
         MemberExpr { base: nbase, member: nmember, ..expr.clone() }

@@ -1,5 +1,5 @@
 use super::{Block, HexLit, StringLit};
-use core::stdext::string::StringExt;
+use base::string::StringExt;
 use either::Either::{self, Left, Right};
 use std::fmt::{self, Display};
 
