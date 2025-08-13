@@ -1,3 +1,4 @@
+use base::error::{self, configure_error_reporting};
 use clap::{Parser, arg, crate_version};
 use log::debug;
 use solidity::{
@@ -48,6 +49,8 @@ pub struct Arguments {
 
 /// Main function
 fn main() {
+    configure_error_reporting();
+
     // Parse command line arguments
     let args = Arguments::parse();
 

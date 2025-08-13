@@ -1,9 +1,9 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
 use crate::{ast::*, parser::typ::type_parser};
+use base::{error, fail, metadata::DataLoc};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
-use base::{error, fail, metadata::DataLoc};
 use itertools::izip;
 use lazy_static::lazy_static;
 use num_bigint::BigInt;
@@ -934,8 +934,8 @@ impl AstParser {
             .map(|v| self.parse_stmt(v))??;
         let false_br = node
             .get("falseBody")
-            .ok_or_else(|| error!("If statement: false body not found: {node}"))
-            .map(|v| self.parse_stmt(v).ok())?;
+            .map(|v| self.parse_stmt(v))
+            .transpose()?;
         let loc = self.parse_source_location(node);
         Ok(IfStmt::new(id, cond, true_br, false_br, loc).into())
     }

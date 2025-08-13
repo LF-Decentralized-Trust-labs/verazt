@@ -14,6 +14,31 @@ pub type Result<T, E = eyre::Report> = color_eyre::eyre::Result<T, E>;
 pub type Report = color_eyre::eyre::Report;
 
 //-------------------------------------------------------------------------
+// Wrapper functions
+//-------------------------------------------------------------------------
+
+/// Helper function to create an error and capture the source code location raising it.
+///
+/// NOTE: `Location::caller()` needs to be called from a function, not directly
+/// from a macro, to be able to capture the source code location of the caller.
+#[track_caller]
+pub fn create_error(error_msg: impl std::fmt::Display) -> eyre::Report {
+    let loc = Location::caller();
+    let msg = if cfg!(debug_assertions) {
+        // If build in Debug mode, track source code location raising this error.
+        format!(
+            "{}\nRaised at file: {}:{}.",
+            error_msg,
+            loc.file(),
+            loc.line()
+        )
+    } else {
+        format!("{error_msg}")
+    };
+    eyre!(msg)
+}
+
+//-------------------------------------------------------------------------
 // New macros
 //-------------------------------------------------------------------------
 
@@ -44,27 +69,6 @@ macro_rules! fail {
     ($fmt:expr, $($arg:tt)*) => {
         return Err(base::error::create_error(color_eyre::eyre::eyre!($fmt, $($arg)*)));
     };
-}
-
-/// Helper function to create an error and capture the source code location raising it.
-///
-/// NOTE: `Location::caller()` needs to be called from a function, not directly
-/// from a macro, to be able to capture the source code location of the caller.
-#[track_caller]
-pub fn create_error(error_msg: impl std::fmt::Display) -> eyre::Report {
-    let loc = Location::caller();
-    let msg = if cfg!(debug_assertions) {
-        // If build in Debug mode, track source code location raising this error.
-        format!(
-            "{}, raised at file: {}:{}.",
-            error_msg,
-            loc.file(),
-            loc.line()
-        )
-    } else {
-        format!("{error_msg}")
-    };
-    eyre!(msg)
 }
 
 pub fn report_error<T>(error_msg: impl std::fmt::Display) -> eyre::Result<T, eyre::Report> {
