@@ -1,4 +1,4 @@
-use base::error::{self, configure_error_reporting};
+use base::error::{self};
 use clap::{Parser, arg, crate_version};
 use log::debug;
 use solidity::{
@@ -7,7 +7,6 @@ use solidity::{
     normalize,
     parser::ast_parser,
     util::{self, export::export_debugging_source_unit},
-    version::find_compatible_solc_versions,
 };
 
 #[derive(Parser, Debug)]
@@ -49,7 +48,8 @@ pub struct Arguments {
 
 /// Main function
 fn main() {
-    configure_error_reporting();
+    env_logger::init();
+    error::init();
 
     // Parse command line arguments
     let args = Arguments::parse();
