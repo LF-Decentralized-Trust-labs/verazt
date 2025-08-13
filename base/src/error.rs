@@ -105,6 +105,6 @@ impl<T> OptionExt<T> for Option<T> {
 //-------------------------------------------------------------------------
 
 /// Configure new error reporting mechanism
-pub fn init() {
+pub fn config() {
     let _ = color_eyre::install();
 }

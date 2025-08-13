@@ -3,9 +3,8 @@
 //! This map pattern will transform an input data structure into a new data
 //! structure of the same type.
 
-use base::metadata::DataLoc;
-
 use crate::ast::*;
+use meta::DataLoc;
 
 //------------------------------------------------------------------
 // Trait for implementing the mapping utilities
@@ -393,7 +392,7 @@ pub trait Map<'a> {
 pub mod default {
     use super::Map;
     use crate::ast::*;
-    use base::metadata::DataLoc;
+    use meta::DataLoc;
 
     //-------------------------------------------------
     // Source unit

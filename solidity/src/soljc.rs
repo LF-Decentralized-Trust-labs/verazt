@@ -66,7 +66,7 @@ pub struct Arguments {
 
 /// Main function
 fn main() {
-    error::init();
+    error::config();
     env_logger::init();
 
     // // Pre-configuration

@@ -1,6 +1,5 @@
 use base::error::{self};
 use clap::{Parser, arg, crate_version};
-use log::debug;
 use solidity::{
     ast::{self, SourceUnit},
     compile::compile_input_file,
@@ -49,7 +48,7 @@ pub struct Arguments {
 /// Main function
 fn main() {
     env_logger::init();
-    error::init();
+    error::config();
 
     // Parse command line arguments
     let args = Arguments::parse();
