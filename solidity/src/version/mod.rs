@@ -75,23 +75,21 @@ pub fn check_range_constraint(range: &Range, constraint: &str) -> bool {
 }
 
 /// Find all Solidity versions specified in an input Solidity smart contract.
-pub fn find_solidity_versions(input_file: &str) -> Result<Vec<String>> {
+pub fn find_pragma_solidity_versions(input_file: &str) -> Result<Vec<String>> {
     let content = match fs::read_to_string(input_file) {
         Ok(content) => content,
         Err(err) => fail!(err),
     };
-
-    match version_parser::parse_pragma_solidity_version(&content) {
-        Ok(versions) => Ok(versions),
-        Err(_err) => Ok(vec![]),
-    }
+    let pragma_versions = version_parser::parse_pragma_solidity_version(&content);
+    // debug!("PRAGMA VERSIONS: {pragma_versions:?}");
+    Ok(pragma_versions)
 }
 
 /// Find the best Solc version for an input Solidity smart contract.
 ///
 /// If no Solidity pragma versions are specified in the smart contract, return
 /// the latest Solc.
-pub fn find_compatible_solc_versions(input_file: &str) -> Result<Vec<Version>> {
+pub fn find_compatible_solc_versions(solc_ver: &Option<String>) -> Result<Vec<Version>> {
     // Enumerate all available Solc version groups
     let mut solc_groups = init_solc_version_groups();
 
@@ -110,35 +108,32 @@ pub fn find_compatible_solc_versions(input_file: &str) -> Result<Vec<Version>> {
         i += 1;
     }
 
-    // Find the required versions by an input Solidity smart contract.
-    let contract_solc_versions = match find_solidity_versions(input_file) {
-        Ok(versions) => versions,
-        Err(err) => fail!("Failed to find Solidity versions!\n{}", err),
-    };
-    if contract_solc_versions.is_empty() {
-        debug!("No Solidity pragma is specified in file: {input_file}");
-        solc_groups.reverse();
-        let latest_solc_vers = solc_groups.into_iter().flatten().collect();
-        return Ok(latest_solc_vers);
-    }
+    match solc_ver {
+        None => {
+            debug!("Pragma Solidity version is empty!");
+            solc_groups.reverse();
+            let latest_solc_vers = solc_groups.into_iter().flatten().collect();
+            return Ok(latest_solc_vers);
+        }
+        Some(constraint) => {
+            let range = match Range::parse(&constraint) {
+                Ok(range) => range,
+                Err(_) => fail!("Invalid Solidity version constraint: {}!", constraint),
+            };
 
-    let constraint = &contract_solc_versions.join(", ");
-    let range = match Range::parse(constraint) {
-        Ok(range) => range,
-        Err(_) => fail!("Invalid Solidity version constraint: {}!", constraint),
-    };
+            let solc_versions: Vec<Version> = all_solc_versions
+                .into_iter()
+                .filter_map(|v| match v.satisfies(&range) {
+                    true => Some(v.clone()),
+                    false => None,
+                })
+                .collect();
 
-    let solc_versions: Vec<Version> = all_solc_versions
-        .into_iter()
-        .filter_map(|v| match v.satisfies(&range) {
-            true => Some(v.clone()),
-            false => None,
-        })
-        .collect();
-
-    if !solc_versions.is_empty() {
-        Ok(solc_versions)
-    } else {
-        fail!("No Solidity version satisfying constraint: {}!", constraint)
+            if !solc_versions.is_empty() {
+                Ok(solc_versions)
+            } else {
+                fail!("No Solidity version satisfying constraint: {}!", constraint)
+            }
+        }
     }
 }

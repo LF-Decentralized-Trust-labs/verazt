@@ -1,5 +1,6 @@
 //! Compiler for compiling Solidity AST in JSON format.
 
+use base::error;
 use clap::{Parser, crate_version};
 use solidity::{
     ast::SourceUnit, compile::compile_input_file, normalize,
@@ -65,8 +66,8 @@ pub struct Arguments {
 
 /// Main function
 fn main() {
-    // Use `color_eyre`'s error handling.
-    let _ = color_eyre::install();
+    error::init();
+    env_logger::init();
 
     // // Pre-configuration
     // panic::override_panic_message("Run with `RUST_BACKTRACE=1` and `-D` to
@@ -79,12 +80,6 @@ fn main() {
     if args.profile_time {
         time_graph::enable_data_collection(true);
     }
-
-    pretty_env_logger::env_logger::Builder::new()
-        .format_timestamp(None)
-        .format_target(false) // use .format_target(true) to print path/module
-        .filter_level(args.verbose.log_level_filter())
-        .init();
 
     // Parse input files
     let solc_ver = args.solc_version.as_deref();

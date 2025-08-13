@@ -3,11 +3,12 @@ use crate::{
     parser::ast_parser::{AstParser, JsonAst},
     util::export,
     version::{
-        self, check_range_constraint, find_compatible_solc_versions, find_solidity_versions,
+        self, check_range_constraint, check_version_constraint, find_compatible_solc_versions,
+        find_pragma_solidity_versions,
     },
 };
 use base::{
-    error::Result,
+    error::{OptionExt, Result},
     fail,
     file::{save_to_temporary_file, save_to_temporary_files},
 };
@@ -65,53 +66,53 @@ pub fn compile_input_file(
     solc_ver: Option<&str>,
 ) -> Result<Vec<ast::SourceUnit>> {
     println!("Compiling input file: {input_file}");
-    let solc_ver = match solc_ver {
-        Some(ver) => ver.to_string(),
-        None => {
-            let vers = find_compatible_solc_versions(input_file)?;
-            if !vers.is_empty() {
-                let ver = vers[0].to_string();
-                debug!("Choosing the first compatible version: {ver}");
-                ver
-            } else {
-                fail!("No compatible Solc versions found!")
-            }
-        }
-    };
-
     let input_file_path = Path::new(input_file);
     if !input_file_path.exists() {
         fail!("Input file does not exist: {}", input_file);
     }
 
     // Checking Solc version indicated in smart contract source code
-    let solc_versions = find_solidity_versions(input_file)
-        .map(|v| v.join(", "))
-        .or_else(|_| fail!("Failed to find Solidity version in: {}", input_file))?;
-    let solc_range = node_semver::Range::parse(&solc_versions)
-        .or_else(|_| fail!("Failed to parse Solidity version: '{}'", solc_versions))?;
-    if !check_range_constraint(&solc_range, ">=0.4.12") {
-        fail!("Only support Solidity versions >=0.4.12, but found: {}", &solc_versions);
+    let pragma_solc_ver = match find_pragma_solidity_versions(input_file) {
+        Ok(vers) if !vers.is_empty() => Some(vers.join(", ")),
+        _ => None,
+    };
+    if let Some(ver) = &pragma_solc_ver {
+        let pragma_solc_range = node_semver::Range::parse(ver)
+            .or_else(|_| fail!("Failed to parse pragma version: '{}'", ver))?;
+        if !check_range_constraint(&pragma_solc_range, ">=0.4.12") {
+            fail!("Only support Solidity versions >=0.4.12, but found: {}", ver);
+        }
     }
 
-    let compatible_solc_vers = find_compatible_solc_versions(input_file)
+    let compatible_solc_vers = find_compatible_solc_versions(&pragma_solc_ver)
         .unwrap_or_else(|_| panic!("Failed to find Solc version in source code!"));
 
     // Configure suitable Solc version
-    let input_solc_ver = match Version::parse(solc_ver) {
-        Ok(ver) => vec![ver],
-        Err(err) => fail!(err),
+    let input_solc_range = match solc_ver {
+        None => None,
+        Some(v) => Some(
+            node_semver::Range::parse(v)
+                .or_else(|_| fail!("Failed to parse Solc version constraint: '{}'", v))?,
+        ),
     };
+
+    // solc_ver
+    // .map(|v| )
+    // .ok_or_error(format!("Failed to parse Solc version: {solc_ver:?}"))?;
+    // .ok_or(|_| fail!("Semver failed to parse version: {solc_ver:?}"));
     let common_solc_ver = compatible_solc_vers
         .clone()
         .into_iter()
-        .filter(|ver| input_solc_ver.contains(ver))
+        .filter(|ver| match &input_solc_range {
+            None => false,
+            Some(range) => range.satisfies(ver),
+        })
         .collect::<Vec<Version>>();
     let best_solc_vers = match common_solc_ver.is_empty() {
         false => common_solc_ver,
         true => match compatible_solc_vers.is_empty() {
             false => compatible_solc_vers,
-            true => input_solc_ver,
+            true => fail!("Unable to find a Solc version to compile: {input_file}"),
         },
     };
 
@@ -125,11 +126,11 @@ pub fn compile_input_file(
 
         // Configure base path and include paths
         if let Some(path) = base_path
-            && check_range_constraint(&solc_range, ">=0.7.0")
+            && check_version_constraint(&solc_ver, ">=0.7.0")
         {
             args += &format!(" --base-path {path}");
         }
-        if !include_paths.is_empty() && check_range_constraint(&solc_range, ">=0.8.8") {
+        if !include_paths.is_empty() && check_version_constraint(&solc_ver, ">=0.8.8") {
             for include_path in include_paths {
                 args += &format!(" --include-path {include_path}");
             }
