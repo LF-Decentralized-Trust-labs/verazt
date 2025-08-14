@@ -1,7 +1,8 @@
 //! Module to check similarity of 2 AST.
 
 use crate::ast::*;
-use base::{error::Result, fail, metadata::DataLoc};
+use base::error::Result;
+use meta::DataLoc;
 
 //-------------------------------------------------
 // Trait for comparison
@@ -496,8 +497,8 @@ pub mod default {
     use base::{
         error::{Report, Result},
         fail,
-        metadata::DataLoc,
     };
+    use meta::DataLoc;
     use std::fmt::Display;
 
     //-------------------------------------------------

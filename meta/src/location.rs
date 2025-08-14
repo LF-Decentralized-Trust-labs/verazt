@@ -1,5 +1,4 @@
-use crate::error::create_error;
-use color_eyre::eyre::Result;
+use extlib::error::{Result, create_error};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------
@@ -16,28 +15,14 @@ pub struct Loc {
 }
 
 impl Loc {
-    pub fn new(
-        start_line: usize,
-        start_col: usize,
-        end_line: usize,
-        end_col: usize,
-    ) -> Self {
-        Loc {
-            start_line,
-            start_col,
-            end_line,
-            end_col,
-        }
+    pub fn new(start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> Self {
+        Loc { start_line, start_col, end_line, end_col }
     }
 }
 
 impl Display for Loc {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}:{}-{}:{}",
-            self.start_line, self.start_col, self.end_line, self.end_col
-        )
+        write!(f, "{}:{}-{}:{}", self.start_line, self.start_col, self.end_line, self.end_col)
     }
 }
 
@@ -60,9 +45,7 @@ impl DataLoc {
             "storage" => Ok(DataLoc::Storage),
             "calldata" => Ok(DataLoc::Calldata),
             "default" => Ok(DataLoc::None),
-            _ => {
-                Err(create_error(format!("Unknown data location: {data_loc}")))
-            }
+            _ => Err(create_error(format!("Unknown data location: {data_loc}"))),
         }
     }
 

@@ -1,6 +1,5 @@
 //! Module for parsing Solidity version from pragma directives.
 
-use base::{error::Result, fail};
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 

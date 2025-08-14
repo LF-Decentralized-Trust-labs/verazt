@@ -1,0 +1,9 @@
+[package]
+name = "meta"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }

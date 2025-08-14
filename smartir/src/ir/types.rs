@@ -1,4 +1,4 @@
-use base::metadata::{DataLoc, Name};
+use meta::{DataLoc, Name};
 use num_bigint::BigInt;
 use std::fmt::{self, Display};
 

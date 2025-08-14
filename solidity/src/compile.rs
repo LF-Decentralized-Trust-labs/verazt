@@ -8,7 +8,7 @@ use crate::{
     },
 };
 use base::{
-    error::{OptionExt, Result},
+    error::Result,
     fail,
     file::{save_to_temporary_file, save_to_temporary_files},
 };
@@ -96,10 +96,6 @@ pub fn compile_input_file(
         ),
     };
 
-    // solc_ver
-    // .map(|v| )
-    // .ok_or_error(format!("Failed to parse Solc version: {solc_ver:?}"))?;
-    // .ok_or(|_| fail!("Semver failed to parse version: {solc_ver:?}"));
     let common_solc_ver = compatible_solc_vers
         .clone()
         .into_iter()
@@ -126,11 +122,11 @@ pub fn compile_input_file(
 
         // Configure base path and include paths
         if let Some(path) = base_path
-            && check_version_constraint(&solc_ver, ">=0.7.0")
+            && check_version_constraint(solc_ver, ">=0.7.0")
         {
             args += &format!(" --base-path {path}");
         }
-        if !include_paths.is_empty() && check_version_constraint(&solc_ver, ">=0.8.8") {
+        if !include_paths.is_empty() && check_version_constraint(solc_ver, ">=0.8.8") {
             for include_path in include_paths {
                 args += &format!(" --include-path {include_path}");
             }

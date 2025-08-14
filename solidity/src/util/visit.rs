@@ -2,7 +2,7 @@
 //!
 //! This visiting pattern will not transform any input data structure.
 
-use base::metadata::DataLoc;
+use meta::DataLoc;
 
 use crate::ast::*;
 
@@ -369,10 +369,9 @@ pub trait Visit<'a> {
 //------------------------------------------------------------------
 
 pub mod default {
-    use base::metadata::DataLoc;
-
     use super::Visit;
     use crate::ast::*;
+    use meta::DataLoc;
 
     //-------------------------------------------------
     // Source unit

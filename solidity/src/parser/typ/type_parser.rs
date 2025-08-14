@@ -1,7 +1,8 @@
 //! Module for parsing data type.
 
 use crate::ast::*;
-use base::{error::Result, fail, metadata::DataLoc};
+use base::{error::Result, fail};
+use meta::DataLoc;
 use num_bigint::BigInt;
 use pest::{
     Parser,
