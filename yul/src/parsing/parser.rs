@@ -5,8 +5,8 @@ use crate::{
     parsing::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
 };
 use Either::{Left, Right};
-use base::{error::Result, fail};
 use either::Either;
+use extlib::{error::Result, fail};
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 use regex::Regex;

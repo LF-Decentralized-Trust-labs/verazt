@@ -1,5 +1,5 @@
 use crate::{ast::*, version};
-use base::{error::Result, fail, string::StringExt};
+use extlib::{error::Result, fail, string::StringExt};
 use meta::DataLoc;
 use node_semver::Range;
 use std::fmt::{self, Display};

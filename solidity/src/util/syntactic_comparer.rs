@@ -2,7 +2,7 @@
 
 use super::Compare;
 use crate::ast::*;
-use base::{error::Result, fail};
+use extlib::{error::Result, fail};
 use itertools::izip;
 
 /// Compare 2 source units using a syntactic comparer.

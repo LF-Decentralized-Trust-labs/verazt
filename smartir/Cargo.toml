@@ -6,10 +6,10 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-base = { path = "../base" }
 bat = "0.23"
 color-eyre = "0.6"
 either = "1.8"
+extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
 log = "0.4"
 meta = { path = "../meta" }
 num-bigint = "0.4"

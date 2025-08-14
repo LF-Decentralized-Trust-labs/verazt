@@ -1,5 +1,5 @@
 use crate::ir::*;
-use base::string::StringExt;
+use extlib::string::StringExt;
 use std::fmt::{self, Display};
 
 #[derive(PartialEq, Eq, Debug, Clone)]

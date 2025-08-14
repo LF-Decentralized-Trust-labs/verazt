@@ -1,5 +1,5 @@
-use base::error::{self};
 use clap::{Parser, arg, crate_version};
+use extlib::error;
 use solidity::{
     ast::{self, SourceUnit},
     compile::compile_input_file,

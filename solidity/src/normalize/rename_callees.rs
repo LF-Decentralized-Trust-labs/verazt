@@ -7,7 +7,7 @@
 //! - Secondly, rename function names in all callees.
 
 use crate::{ast::*, util::*};
-use base::{error::Result, fail};
+use extlib::{error::Result, fail};
 
 //-------------------------------------------------
 // Checking function call type compatibility

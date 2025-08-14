@@ -1,5 +1,5 @@
 use crate::ast::*;
-use base::{error::Result, fail};
+use extlib::{error::Result, fail};
 use std::{
     fmt::{self, Display},
     ops::Deref,

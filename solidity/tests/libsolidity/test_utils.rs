@@ -1,5 +1,5 @@
 //! Module containing utility functions for unit test.
-use base::{error::Result, fail};
+use extlib::{error::Result, fail};
 use regex::Regex;
 use solidity::{
     ast::SourceUnit, compile::compile_input_file, normalize, util::export::export_source_unit,

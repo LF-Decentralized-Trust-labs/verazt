@@ -195,8 +195,7 @@ pub fn eliminate_modifier_invocs(source_units: &[SourceUnit]) -> Vec<SourceUnit>
 mod tests {
     use super::eliminate_modifier_invocs;
     use crate::{
-        compile::compile_solidity_source_code,
-        normalize::util::configure_unit_test_env,
+        compile::compile_solidity_source_code, normalize::util::configure_unit_test_env,
         util::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;

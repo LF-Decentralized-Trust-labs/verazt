@@ -1,7 +1,7 @@
 //! Module for exporting Solidity AST.
 
 use crate::ast::*;
-use base::fail;
+use extlib::fail;
 use color_eyre::eyre::{ContextCompat, Result};
 use std::{
     ffi::OsStr,

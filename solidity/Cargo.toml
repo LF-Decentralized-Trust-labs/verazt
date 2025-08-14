@@ -11,19 +11,15 @@ path = "src/soljc.rs"
 
 [dependencies]
 backtrace = "0.3"
-base = { path = "../base" }
 bat = "0.23"
 clap = { version = "4.1.1", features = ["cargo"] }
 clap-verbosity-flag = "2.0.1"
 codespan-reporting = "0.12.0"
-color-eyre = { version = "0.6.5", default-features = false, features = [
-  "capture-spantrace",
-  "issue-url",
-  "track-caller",
-] }
+color-eyre = "0.6"
 either = "1.8"
 env_logger = "0.11.8"
 exec_time = "0.1.4"
+extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
 indoc = "2.0.5"
 itertools = "0.10.5"
 lazy_static = "1.4.0"

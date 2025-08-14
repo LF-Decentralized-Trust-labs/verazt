@@ -1,6 +1,6 @@
 use super::{Block, HexLit, StringLit};
-use base::string::StringExt;
 use either::Either::{self, Left, Right};
+use extlib::string::StringExt;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------
