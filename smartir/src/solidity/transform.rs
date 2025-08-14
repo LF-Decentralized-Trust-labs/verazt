@@ -1,7 +1,7 @@
 //! Module to transform the original Solidity AST to Smart Contract IR.
 
 use crate::ir::*;
-use base::{error::Result, fail};
+use extlib::{error::Result, fail};
 use either::Either::{self, Left, Right};
 use log::trace;
 use solidity::ast;

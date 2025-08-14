@@ -1,7 +1,7 @@
 //! Module handling Yul block.
 
 use super::Stmt;
-use base::string::StringExt;
+use extlib::string::StringExt;
 use std::fmt::{self, Display};
 
 #[derive(Clone, PartialEq, Eq, Debug)]

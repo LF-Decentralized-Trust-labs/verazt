@@ -1,7 +1,7 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
 use crate::{ast::*, parser::typ::type_parser};
-use base::{error, fail};
+use extlib::{error, fail};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
 use itertools::izip;

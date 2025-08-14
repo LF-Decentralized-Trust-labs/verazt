@@ -1,7 +1,7 @@
 //! Module to check similarity of 2 AST.
 
 use crate::ast::*;
-use base::error::Result;
+use extlib::error::Result;
 use meta::DataLoc;
 
 //-------------------------------------------------
@@ -494,7 +494,7 @@ pub trait Compare<'a> {
 pub mod default {
     use super::Compare;
     use crate::ast::*;
-    use base::{
+    use extlib::{
         error::{Report, Result},
         fail,
     };

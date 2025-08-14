@@ -7,11 +7,7 @@ use crate::{
         find_pragma_solidity_versions,
     },
 };
-use base::{
-    error::Result,
-    fail,
-    file::{save_to_temporary_file, save_to_temporary_files},
-};
+use extlib::{error::Result, fail};
 use node_semver::Version;
 use regex::Regex;
 use std::{fs::File, io::Write, path::Path, process::Command};
@@ -19,6 +15,53 @@ use std::{fs::File, io::Write, path::Path, process::Command};
 // Tool names
 const SOLC: &str = "solc";
 const SOLC_SELECT: &str = "solc-select";
+
+/// Save a string to a temporary file of a given name.
+///
+/// Return the output file path.
+fn save_to_temporary_file(file_content: &str, file_name: &str) -> Result<String> {
+    let output_dir_path = match tempfile::tempdir() {
+        Ok(dir) => dir.keep(),
+        Err(err) => fail!(err),
+    };
+    let output_file_path = output_dir_path.join(file_name);
+    let mut output_file = File::create(&output_file_path)?;
+    match output_file.write_all(file_content.as_bytes()) {
+        Ok(_) => match output_file_path.to_str() {
+            Some(path) => Ok(path.to_string()),
+            None => fail!("Output file path not found!"),
+        },
+        Err(err) => fail!(err),
+    }
+}
+
+/// Save multiple strings to multiple temporary files.
+///
+/// Return the output file path.
+fn save_to_temporary_files(source_code_list: &[(&str, &str)]) -> Result<Vec<String>> {
+    let output_dir_path = match tempfile::tempdir() {
+        Ok(dir) => dir.keep(),
+        Err(err) => fail!(err),
+    };
+
+    let mut output_files: Vec<String> = vec![];
+
+    for file_name_content in source_code_list.iter() {
+        let (file_name, file_content) = file_name_content;
+
+        let output_file_path = output_dir_path.join(file_name);
+        let mut output_file = File::create(&output_file_path)?;
+        match output_file.write_all(file_content.as_bytes()) {
+            Ok(_) => match output_file_path.to_str() {
+                Some(path) => output_files.push(path.to_string()),
+                None => fail!("Output file path not found!"),
+            },
+            Err(err) => fail!(err),
+        }
+    }
+
+    Ok(output_files)
+}
 
 fn get_installed_solc_vers() -> String {
     let cmd_args = " versions".to_string();

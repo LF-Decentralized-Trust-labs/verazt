@@ -1,5 +1,5 @@
 use crate::ir::*;
-use base::string::StringExt;
+use extlib::string::StringExt;
 use std::fmt::{self, Display};
 use yul::ast as yast;
 
