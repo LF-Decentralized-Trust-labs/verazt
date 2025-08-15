@@ -1,5 +1,13 @@
 [workspace]
-members = [ "smartcheck", "smartproof", "smartir", "solidity", "yul", "meta"]
+members = [
+  "issue",
+  "meta",
+  "smartcheck",
+  "smartir",
+  "smartproof",
+  "solidity",
+  "yul",
+]
 
 [workspace.package]
 version = "0.0.1"
