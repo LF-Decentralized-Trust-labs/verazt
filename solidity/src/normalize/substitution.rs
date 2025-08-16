@@ -103,7 +103,7 @@ impl Map<'_> for NameSubstitutor {
     /// Override `map_var_decl` to avoid renaming local variables
     /// that are declared with the same names of the names to be
     /// substituted.
-    fn map_var_decl(&mut self, vdecl: &VariableDecl) -> VariableDecl {
+    fn map_var_decl(&mut self, vdecl: &VarDecl) -> VarDecl {
         if self.substitution_map.contains_key(&vdecl.name) {
             self.substitution_map.remove(&vdecl.name);
         }
@@ -112,7 +112,7 @@ impl Map<'_> for NameSubstitutor {
 
     /// Override `map_func_def` to avoid renaming functions that are
     /// defined with the same names of the names to be substituted.
-    fn map_func_def(&mut self, func: &FunctionDef) -> FunctionDef {
+    fn map_func_def(&mut self, func: &FuncDef) -> FuncDef {
         // if self.substitution_map.contains_key(&func.name) {
         //     self.substitution_map.remove(&func.name);
         // }

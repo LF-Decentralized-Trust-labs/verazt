@@ -216,7 +216,7 @@ impl Transformer {
                 let nenum = self.transform_enum_def(enum_);
                 Ok(vec![nenum.into()])
             }
-            ast::ContractElem::UserTypeDef(_) => {
+            ast::ContractElem::TypeDef(_) => {
                 fail!("Transform contract element: user-defined type must be eliminated!")
             }
             ast::ContractElem::VarDecl(vdecl) => {
@@ -261,7 +261,7 @@ impl Transformer {
     // Function
     //-------------------------------------------------
 
-    fn transform_func_def(&mut self, func: &ast::FunctionDef) -> Result<FuncDef> {
+    fn transform_func_def(&mut self, func: &ast::FuncDef) -> Result<FuncDef> {
         trace!("Transform function: {}", func.name);
         let (nparams, _) = self.transform_var_decls(&func.params)?;
         let (nreturns, _) = self.transform_var_decls(&func.returns)?;
@@ -659,7 +659,7 @@ impl Transformer {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn transform_var_decl(&mut self, vdecl: &ast::VariableDecl) -> Result<(VarDecl, Vec<Stmt>)> {
+    fn transform_var_decl(&mut self, vdecl: &ast::VarDecl) -> Result<(VarDecl, Vec<Stmt>)> {
         if vdecl.overriding.is_some() {
             fail!("Transform var decl: need to elminate override specification: {}", vdecl);
         }
@@ -687,7 +687,7 @@ impl Transformer {
 
     fn transform_var_decls(
         &mut self,
-        vdecl: &[ast::VariableDecl],
+        vdecl: &[ast::VarDecl],
     ) -> Result<(Vec<VarDecl>, Vec<Stmt>)> {
         let mut nstmts = vec![];
         let mut nvdecls = vec![];
@@ -1275,7 +1275,7 @@ impl Transformer {
         Ok(TupleType::new(elems))
     }
 
-    fn transform_function_type(&mut self, t: &ast::FunctionType) -> Result<FunctionType> {
+    fn transform_function_type(&mut self, t: &ast::FuncType) -> Result<FunctionType> {
         let mut params = vec![];
         for param in t.params.iter() {
             let nparam = self.transform_type(param)?;

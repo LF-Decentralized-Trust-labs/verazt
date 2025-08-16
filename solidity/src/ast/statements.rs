@@ -123,7 +123,7 @@ pub struct ThrowStmt {
 pub struct TryStmt {
     pub id: Option<isize>,
     pub guarded_expr: Expr,
-    pub returns: Vec<VariableDecl>,
+    pub returns: Vec<VarDecl>,
     pub body: Block,
     pub catch_clauses: Vec<CatchClause>,
     pub loc: Option<Loc>,
@@ -133,7 +133,7 @@ pub struct TryStmt {
 pub struct CatchClause {
     pub id: Option<isize>,
     pub error: Option<String>,
-    pub params: Vec<VariableDecl>,
+    pub params: Vec<VarDecl>,
     pub body: Block,
     pub loc: Option<Loc>,
 }
@@ -141,7 +141,7 @@ pub struct CatchClause {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct VarDeclStmt {
     pub id: Option<isize>,
-    pub var_decls: Vec<Option<VariableDecl>>,
+    pub var_decls: Vec<Option<VarDecl>>,
     pub value: Option<Expr>,
     pub loc: Option<Loc>,
 }
@@ -609,7 +609,7 @@ impl TryStmt {
     pub fn new(
         id: Option<isize>,
         exp: Expr,
-        returns: Vec<VariableDecl>,
+        returns: Vec<VarDecl>,
         body: Block,
         catches: Vec<CatchClause>,
         loc: Option<Loc>,
@@ -649,7 +649,7 @@ impl CatchClause {
     pub fn new(
         id: Option<isize>,
         error: Option<&str>,
-        params: Vec<VariableDecl>,
+        params: Vec<VarDecl>,
         body: Block,
         loc: Option<Loc>,
     ) -> Self {
@@ -684,7 +684,7 @@ impl Display for CatchClause {
 impl VarDeclStmt {
     pub fn new(
         id: Option<isize>,
-        vars: Vec<Option<VariableDecl>>,
+        vars: Vec<Option<VarDecl>>,
         value: Option<Expr>,
         loc: Option<Loc>,
     ) -> Self {
@@ -692,8 +692,8 @@ impl VarDeclStmt {
     }
 }
 
-impl From<VariableDecl> for VarDeclStmt {
-    fn from(vdecl: VariableDecl) -> Self {
+impl From<VarDecl> for VarDeclStmt {
+    fn from(vdecl: VarDecl) -> Self {
         let loc = vdecl.loc;
         Self::new(None, vec![Some(vdecl)], None, loc)
     }

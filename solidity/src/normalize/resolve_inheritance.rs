@@ -176,7 +176,7 @@ struct InheritanceResolver<'a> {
     _inheritance_map: &'a HashMap<Name, Vec<Name>>,
     linearization_map: &'a HashMap<Name, Vec<Name>>,
     current_contract: Option<ContractDef>,
-    current_function: Option<FunctionDef>,
+    current_function: Option<FuncDef>,
 }
 
 impl<'a> InheritanceResolver<'a> {
@@ -215,7 +215,7 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
                 } else {
                     // Reset the `virtual` and `override` properties of the function, since all
                     // functions now have unique names
-                    let nfunc = FunctionDef {
+                    let nfunc = FuncDef {
                         id: None,
                         is_virtual: false,
                         overriding: Overriding::None,
@@ -235,7 +235,7 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
 
     /// Override `map_func_def` to capture the current function
     /// definition being processed.
-    fn map_func_def(&mut self, func: &FunctionDef) -> FunctionDef {
+    fn map_func_def(&mut self, func: &FuncDef) -> FuncDef {
         // Keep track of the current function definition being processed.
         self.current_function = Some(func.clone());
         let nfunc = map::default::map_func_def(self, func);

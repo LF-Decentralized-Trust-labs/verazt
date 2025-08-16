@@ -34,7 +34,7 @@ impl TypeChecker {
 
 impl Compare<'_> for TypeChecker {
     /// Override `compare_func_type` to compare only parameter and return types.
-    fn compare_func_type(&mut self, t1: &FunctionType, t2: &FunctionType) -> Result<()> {
+    fn compare_func_type(&mut self, t1: &FuncType, t2: &FuncType) -> Result<()> {
         if t1.params.len() != t2.params.len() || t1.returns.len() != t2.returns.len() {
             fail!("Different function types: {} vs. {}", t1, t2);
         }
@@ -195,7 +195,7 @@ impl<'a> Map<'_> for Renamer<'a> {
     }
 
     /// Override `map_func_def`
-    fn map_func_def(&mut self, func: &FunctionDef) -> FunctionDef {
+    fn map_func_def(&mut self, func: &FuncDef) -> FuncDef {
         let nfunc = map::default::map_func_def(self, func);
 
         // Rename overrides
@@ -213,11 +213,11 @@ impl<'a> Map<'_> for Renamer<'a> {
             _ => func.overriding.clone(),
         };
 
-        FunctionDef { overriding, ..nfunc }
+        FuncDef { overriding, ..nfunc }
     }
 
     /// Override `map_var_decl`.
-    fn map_var_decl(&mut self, vdecl: &VariableDecl) -> VariableDecl {
+    fn map_var_decl(&mut self, vdecl: &VarDecl) -> VarDecl {
         let nvdecl = map::default::map_var_decl(self, vdecl);
 
         // Rename overrides
@@ -235,7 +235,7 @@ impl<'a> Map<'_> for Renamer<'a> {
             _ => vdecl.overriding.clone(),
         };
 
-        VariableDecl { overriding: noverrides, ..nvdecl }
+        VarDecl { overriding: noverrides, ..nvdecl }
     }
 
     /// Override `map_member_expr`.
@@ -318,7 +318,7 @@ impl<'a> Map<'_> for Renamer<'a> {
         ntyp
     }
 
-    fn map_type_name(&mut self, typ: &UserType) -> UserType {
+    fn map_type_name(&mut self, typ: &UserDefinedType) -> UserDefinedType {
         let contracts = match &typ.scope {
             Some(contract_name) => find_contract_scopes(contract_name, self.current_source_unit),
             _ => vec![],
@@ -329,7 +329,7 @@ impl<'a> Map<'_> for Renamer<'a> {
             &contracts,
             self.current_source_unit,
         );
-        UserType { name: nname, scope: nscope }
+        UserDefinedType { name: nname, scope: nscope }
     }
 }
 
@@ -401,7 +401,7 @@ fn find_call_definition_name(
                 ContractElem::EnumDef(e) if e.name.base == callee_name.base => {
                     return (e.name.clone(), scope);
                 }
-                ContractElem::UserTypeDef(t) if t.name.base == callee_name.base => {
+                ContractElem::TypeDef(t) if t.name.base == callee_name.base => {
                     return (t.name.clone(), scope);
                 }
                 _ => {}

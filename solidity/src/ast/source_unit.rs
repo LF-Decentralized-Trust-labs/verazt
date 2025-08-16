@@ -22,11 +22,11 @@ pub enum SourceUnitElem {
     Import(ImportDir),
     Using(UsingDir),
     Error(ErrorDef),
-    Func(FunctionDef),
-    Var(VariableDecl),
+    Func(FuncDef),
+    Var(VarDecl),
     Struct(StructDef),
     Enum(EnumDef),
-    UserType(UserTypeDef),
+    UserType(TypeDef),
     Contract(ContractDef),
 }
 
@@ -181,20 +181,20 @@ impl From<ErrorDef> for SourceUnitElem {
     }
 }
 
-impl From<FunctionDef> for SourceUnitElem {
-    fn from(fd: FunctionDef) -> Self {
+impl From<FuncDef> for SourceUnitElem {
+    fn from(fd: FuncDef) -> Self {
         SourceUnitElem::Func(fd)
     }
 }
 
-impl From<VariableDecl> for SourceUnitElem {
-    fn from(v: VariableDecl) -> Self {
+impl From<VarDecl> for SourceUnitElem {
+    fn from(v: VarDecl) -> Self {
         SourceUnitElem::Var(v)
     }
 }
 
-impl From<UserTypeDef> for SourceUnitElem {
-    fn from(t: UserTypeDef) -> Self {
+impl From<TypeDef> for SourceUnitElem {
+    fn from(t: TypeDef) -> Self {
         SourceUnitElem::UserType(t)
     }
 }

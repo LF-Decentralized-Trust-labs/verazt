@@ -362,7 +362,7 @@ impl TypeParser {
             },
             None => vec![],
         };
-        Ok(FunctionType::new(params, returns, fvis, fmut).into())
+        Ok(FuncType::new(params, returns, fvis, fmut).into())
     }
 
     fn parse_function_other_params_types(pair: Pair<Rule>) -> Result<Vec<Type>> {
@@ -573,7 +573,7 @@ impl TypeParser {
             Some(p_name) => p_name.as_str().into(),
             None => return error("Enum name not found", pair),
         };
-        Ok(UserType::new(type_name, scope).into())
+        Ok(UserDefinedType::new(type_name, scope).into())
     }
 
     //-------------------------------------------

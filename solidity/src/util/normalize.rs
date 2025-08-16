@@ -68,7 +68,7 @@ pub trait Normalize<'a, T> {
     // Type definitions.
     //-------------------------------------------------
 
-    fn normalize_udv_type_def(&mut self, acc: T, typ: &'a UserTypeDef) -> (T, UserTypeDef) {
+    fn normalize_udv_type_def(&mut self, acc: T, typ: &'a TypeDef) -> (T, TypeDef) {
         default::normalize_udv_type_def(self, acc, typ)
     }
 
@@ -104,7 +104,7 @@ pub trait Normalize<'a, T> {
     // Function & block.
     //-------------------------------------------------
 
-    fn normalize_func_def(&mut self, acc: T, func: &'a FunctionDef) -> (T, FunctionDef) {
+    fn normalize_func_def(&mut self, acc: T, func: &'a FuncDef) -> (T, FuncDef) {
         default::normalize_func_def(self, acc, func)
     }
 
@@ -192,7 +192,7 @@ pub trait Normalize<'a, T> {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn normalize_var_decl(&mut self, acc: T, vdecl: &'a VariableDecl) -> (T, VariableDecl) {
+    fn normalize_var_decl(&mut self, acc: T, vdecl: &'a VarDecl) -> (T, VarDecl) {
         default::normalize_var_decl(self, acc, vdecl)
     }
 
@@ -440,8 +440,8 @@ pub mod default {
     pub fn normalize_udv_type_def<'a, T, F: Normalize<'a, T> + ?Sized>(
         _normalizer: &mut F,
         acc: T,
-        typ: &'a UserTypeDef,
-    ) -> (T, UserTypeDef) {
+        typ: &'a TypeDef,
+    ) -> (T, TypeDef) {
         (acc, typ.clone())
     }
 
@@ -538,7 +538,7 @@ pub mod default {
                 let (nacc, ne) = normalizer.normalize_enum_def(acc, e);
                 (nacc, ne.into())
             }
-            ContractElem::UserTypeDef(t) => {
+            ContractElem::TypeDef(t) => {
                 let (nacc, nt) = normalizer.normalize_udv_type_def(acc, t);
                 (nacc, nt.into())
             }
@@ -560,8 +560,8 @@ pub mod default {
     pub fn normalize_func_def<'a, T, F: Normalize<'a, T> + ?Sized>(
         normalizer: &mut F,
         acc: T,
-        func: &'a FunctionDef,
-    ) -> (T, FunctionDef) {
+        func: &'a FuncDef,
+    ) -> (T, FuncDef) {
         let mut nparams = vec![];
         let nacc = func.params.iter().fold(acc, |acc2, p| {
             let (acc3, np) = normalizer.normalize_var_decl(acc2, p);
@@ -587,7 +587,7 @@ pub mod default {
             }
             None => (nacc, None),
         };
-        let nfunc = FunctionDef {
+        let nfunc = FuncDef {
             body: nbody,
             params: nparams,
             modifier_invocs: nmodifiers,
@@ -1007,8 +1007,8 @@ pub mod default {
     pub fn normalize_var_decl<'a, T, F: Normalize<'a, T> + ?Sized>(
         normalizer: &mut F,
         acc: T,
-        vdecl: &'a VariableDecl,
-    ) -> (T, VariableDecl) {
+        vdecl: &'a VarDecl,
+    ) -> (T, VarDecl) {
         let (nacc, nvalue) = match &vdecl.value {
             Some(v) => {
                 let (nacc, nv) = normalizer.normalize_expr(acc, v);
@@ -1016,7 +1016,7 @@ pub mod default {
             }
             None => (acc, None),
         };
-        let nvdecl = VariableDecl { value: nvalue, ..vdecl.clone() };
+        let nvdecl = VarDecl { value: nvalue, ..vdecl.clone() };
         (nacc, nvdecl)
     }
 

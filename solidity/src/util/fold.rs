@@ -77,7 +77,7 @@ pub trait Fold<'a, T> {
     // Type definitions.
     //-------------------------------------------------
 
-    fn fold_udv_type_def(&mut self, acc: T, typ: &'a UserTypeDef) -> T {
+    fn fold_udv_type_def(&mut self, acc: T, typ: &'a TypeDef) -> T {
         default::fold_udv_type_def(self, acc, typ)
     }
 
@@ -113,7 +113,7 @@ pub trait Fold<'a, T> {
     // Function
     //-------------------------------------------------
 
-    fn fold_func_def(&mut self, acc: T, func: &'a FunctionDef) -> T {
+    fn fold_func_def(&mut self, acc: T, func: &'a FuncDef) -> T {
         default::fold_func_def(self, acc, func)
     }
 
@@ -201,7 +201,7 @@ pub trait Fold<'a, T> {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn fold_var_decl(&mut self, acc: T, var: &'a VariableDecl) -> T {
+    fn fold_var_decl(&mut self, acc: T, var: &'a VarDecl) -> T {
         default::fold_var_decl(self, acc, var)
     }
 
@@ -373,11 +373,11 @@ pub trait Fold<'a, T> {
         default::fold_mapping_type(self, acc, typ)
     }
 
-    fn fold_func_type(&mut self, acc: T, typ: &'a FunctionType) -> T {
+    fn fold_func_type(&mut self, acc: T, typ: &'a FuncType) -> T {
         default::fold_func_type(self, acc, typ)
     }
 
-    fn fold_type_name(&mut self, acc: T, typ: &'a UserType) -> T {
+    fn fold_type_name(&mut self, acc: T, typ: &'a UserDefinedType) -> T {
         default::fold_type_name(self, acc, typ)
     }
 
@@ -549,10 +549,10 @@ pub mod default {
     pub fn fold_udv_type_def<'a, T, F: Fold<'a, T> + ?Sized>(
         folder: &mut F,
         acc: T,
-        typ: &'a UserTypeDef,
+        typ: &'a TypeDef,
     ) -> T {
         let res = folder.fold_name(acc, &typ.name);
-        folder.fold_type(res, &typ.base_type)
+        folder.fold_type(res, &typ.base_typ)
     }
 
     pub fn fold_struct_def<'a, T, F: Fold<'a, T> + ?Sized>(
@@ -620,7 +620,7 @@ pub mod default {
             ContractElem::ErrorDef(e) => folder.fold_error_def(acc, e),
             ContractElem::StructDef(s) => folder.fold_struct_def(acc, s),
             ContractElem::EnumDef(e) => folder.fold_enum_def(acc, e),
-            ContractElem::UserTypeDef(t) => folder.fold_udv_type_def(acc, t),
+            ContractElem::TypeDef(t) => folder.fold_udv_type_def(acc, t),
             ContractElem::VarDecl(v) => folder.fold_var_decl(acc, v),
             ContractElem::FuncDef(f) => folder.fold_func_def(acc, f),
         }
@@ -633,7 +633,7 @@ pub mod default {
     pub fn fold_func_def<'a, T, F: Fold<'a, T> + ?Sized>(
         folder: &mut F,
         acc: T,
-        func: &'a FunctionDef,
+        func: &'a FuncDef,
     ) -> T {
         let res = func
             .params
@@ -939,7 +939,7 @@ pub mod default {
     pub fn fold_var_decl<'a, T, F: Fold<'a, T> + ?Sized>(
         folder: &mut F,
         acc: T,
-        vdecl: &'a VariableDecl,
+        vdecl: &'a VarDecl,
     ) -> T {
         match &vdecl.value {
             Some(exp) => folder.fold_expr(acc, exp),
@@ -1369,7 +1369,7 @@ pub mod default {
     pub fn fold_func_type<'a, T, F: Fold<'a, T> + ?Sized>(
         folder: &mut F,
         acc: T,
-        typ: &'a FunctionType,
+        typ: &'a FuncType,
     ) -> T {
         let res = typ
             .params
@@ -1383,7 +1383,7 @@ pub mod default {
     pub fn fold_type_name<'a, T, F: Fold<'a, T> + ?Sized>(
         folder: &mut F,
         acc: T,
-        typ: &'a UserType,
+        typ: &'a UserDefinedType,
     ) -> T {
         folder.fold_name(acc, &typ.name)
     }

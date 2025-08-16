@@ -497,7 +497,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a type name definition from a JSON AST node.
-    fn parse_user_defined_value_type_def(&mut self, node: &Value) -> Result<UserTypeDef> {
+    fn parse_user_defined_value_type_def(&mut self, node: &Value) -> Result<TypeDef> {
         let id = self.parse_id(node).ok();
         let scope = self.parse_scope(node).ok();
         let name: Name = self.parse_name(node)?.into();
@@ -506,7 +506,7 @@ impl AstParser {
             .ok_or_else(|| error!("User defined type: underlying type not found: {node}"))
             .map(|v| self.parse_data_type(v))??;
         let loc = self.parse_source_location(node);
-        Ok(UserTypeDef::new(id, scope, name, typ, loc))
+        Ok(TypeDef::new(id, scope, name, typ, loc))
     }
 
     //-------------------------------------------------
@@ -600,7 +600,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a modifier definition from a JSON AST node.
-    fn parse_modifier_definition(&mut self, node: &Value) -> Result<FunctionDef> {
+    fn parse_modifier_definition(&mut self, node: &Value) -> Result<FuncDef> {
         let id = self.parse_id(node).ok();
         let scope = self.parse_scope(node).ok();
         let name: Name = self.parse_name(node)?.into();
@@ -617,7 +617,7 @@ impl AstParser {
             .get("parameters")
             .ok_or_else(|| error!("Modifier parameters not found: {node}"))
             .and_then(|v| self.parse_parameters(v))?;
-        Ok(FunctionDef::new(
+        Ok(FuncDef::new(
             id,
             scope,
             name,
@@ -640,7 +640,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a function definition from a JSON AST node.
-    fn parse_function_definition(&mut self, node: &Value) -> Result<FunctionDef> {
+    fn parse_function_definition(&mut self, node: &Value) -> Result<FuncDef> {
         let id = self.parse_id(node).ok();
         let scope = self.parse_scope(node).ok();
         let name = Name::new(self.parse_name(node)?, None);
@@ -682,7 +682,7 @@ impl AstParser {
         let modifiers = self.parse_function_modifier_invocations(node)?;
         let overriding = self.parse_overriding(node)?;
         let loc = self.parse_source_location(node);
-        Ok(FunctionDef::new(
+        Ok(FuncDef::new(
             id, scope, name, kind, body, is_virtual, fvis, fmut, params, modifiers, overriding,
             returns, loc, None,
         ))
@@ -715,7 +715,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse parameters of a function, event, or error definition.
-    fn parse_parameters(&mut self, node: &Value) -> Result<Vec<VariableDecl>> {
+    fn parse_parameters(&mut self, node: &Value) -> Result<Vec<VarDecl>> {
         let params = node
             .get("parameters")
             .ok_or_else(|| error!("Parameters not found: {node}"))?
@@ -723,7 +723,7 @@ impl AstParser {
             .ok_or_else(|| error!("Parameters invalid: {node}"))?
             .iter()
             .map(|param_node| self.parse_variable_declaration(param_node))
-            .collect::<Result<Vec<VariableDecl>>>()?;
+            .collect::<Result<Vec<VarDecl>>>()?;
         Ok(params)
     }
 
@@ -789,7 +789,7 @@ impl AstParser {
             .ok_or_else(|| error!("Modifier invocation kind invalid: {node}"))
             .and_then(CallKind::new)?;
         let arg_typs: Vec<Type> = args.iter().map(|arg| arg.typ()).collect();
-        let typ: Type = FunctionType::new(arg_typs, vec![], FuncVis::None, FuncMut::None).into();
+        let typ: Type = FuncType::new(arg_typs, vec![], FuncVis::None, FuncMut::None).into();
         let loc = self.parse_source_location(node);
         let callee: Expr = Identifier::new(None, name, typ.clone(), loc).into();
         Ok(CallExpr::new_call_unnamed_args(id, callee, vec![], args, kind, typ, loc))
@@ -1140,7 +1140,7 @@ impl AstParser {
             Some(v) => vec![v.clone()],
             None => fail!("Variable declaration: declarations not found: {node}"),
         };
-        let mut vars: Vec<Option<VariableDecl>> = vec![];
+        let mut vars: Vec<Option<VarDecl>> = vec![];
         for vdecl_node in vdecl_nodes.iter() {
             match vdecl_node {
                 Value::Null => vars.push(None),
@@ -1569,7 +1569,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a variable declaration from a JSON AST node.
-    fn parse_variable_declaration(&mut self, node: &Value) -> Result<VariableDecl> {
+    fn parse_variable_declaration(&mut self, node: &Value) -> Result<VarDecl> {
         let id = self.parse_id(node).ok();
         let scope = self.parse_scope(node).ok();
         let name = Name::new(self.parse_name(node)?, None);
@@ -1594,7 +1594,7 @@ impl AstParser {
             .and_then(|s| DataLoc::new(s).ok());
         let typ = self.parse_data_type(node)?;
         let loc = self.parse_source_location(node);
-        Ok(VariableDecl::new(
+        Ok(VarDecl::new(
             id,
             scope,
             name,
@@ -1918,7 +1918,7 @@ impl AstParser {
             .iter()
             .map(|n| self.parse_type_name(n))
             .collect::<Result<Vec<Type>>>()?;
-        Ok(FunctionType::new(params, returns, fvis, fmut).into())
+        Ok(FuncType::new(params, returns, fvis, fmut).into())
     }
 
     /// Parse an array type from the `typeName` field.

@@ -61,7 +61,7 @@ impl Map<'_> for Renamer {
     }
 
     /// Override `map_var_decl`.
-    fn map_var_decl(&mut self, vdecl: &VariableDecl) -> VariableDecl {
+    fn map_var_decl(&mut self, vdecl: &VarDecl) -> VarDecl {
         // First, transform the variable declaration normally.
         let nvdecl = map::default::map_var_decl(self, vdecl);
 
@@ -73,7 +73,7 @@ impl Map<'_> for Renamer {
         let (nname, nenv) = self.env.create_new_name(base_name);
         self.env = nenv;
 
-        VariableDecl { name: nname, ..nvdecl.clone() }
+        VarDecl { name: nname, ..nvdecl.clone() }
     }
 
     /// Override `map_identifier`.
