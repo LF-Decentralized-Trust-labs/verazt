@@ -76,7 +76,7 @@ pub trait Map<'a> {
     // Type definitions.
     //-------------------------------------------------
 
-    fn map_udv_type_def(&mut self, typ: &'a UserTypeDef) -> UserTypeDef {
+    fn map_udv_type_def(&mut self, typ: &'a TypeDef) -> TypeDef {
         default::map_udv_type_def(self, typ)
     }
 
@@ -116,7 +116,7 @@ pub trait Map<'a> {
     // Function
     //-------------------------------------------------
 
-    fn map_func_def(&mut self, func: &'a FunctionDef) -> FunctionDef {
+    fn map_func_def(&mut self, func: &'a FuncDef) -> FuncDef {
         default::map_func_def(self, func)
     }
 
@@ -204,11 +204,11 @@ pub trait Map<'a> {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn map_var_decl(&mut self, vdecl: &'a VariableDecl) -> VariableDecl {
+    fn map_var_decl(&mut self, vdecl: &'a VarDecl) -> VarDecl {
         default::map_var_decl(self, vdecl)
     }
 
-    fn map_var_decls(&mut self, vdecls: &'a [VariableDecl]) -> Vec<VariableDecl> {
+    fn map_var_decls(&mut self, vdecls: &'a [VarDecl]) -> Vec<VarDecl> {
         default::map_var_decls(self, vdecls)
     }
 
@@ -348,7 +348,7 @@ pub trait Map<'a> {
         default::map_tuple_type(self, typ)
     }
 
-    fn map_func_type(&mut self, typ: &'a FunctionType) -> FunctionType {
+    fn map_func_type(&mut self, typ: &'a FuncType) -> FuncType {
         default::map_function_type(self, typ)
     }
 
@@ -360,7 +360,7 @@ pub trait Map<'a> {
         default::map_contract_type(self, typ)
     }
 
-    fn map_type_name(&mut self, typ: &'a UserType) -> UserType {
+    fn map_type_name(&mut self, typ: &'a UserDefinedType) -> UserDefinedType {
         default::map_type_name(self, typ)
     }
 
@@ -528,11 +528,11 @@ pub mod default {
 
     pub fn map_udv_type_def<'a, T: Map<'a> + ?Sized>(
         mapper: &mut T,
-        typ: &'a UserTypeDef,
-    ) -> UserTypeDef {
+        typ: &'a TypeDef,
+    ) -> TypeDef {
         let nname = mapper.map_name(&typ.name);
-        let nbase = mapper.map_type(&typ.base_type);
-        UserTypeDef { name: nname, base_type: nbase, ..typ.clone() }
+        let nbase = mapper.map_type(&typ.base_typ);
+        TypeDef { name: nname, base_typ: nbase, ..typ.clone() }
     }
 
     pub fn map_struct_def<'a, T: Map<'a> + ?Sized>(
@@ -610,7 +610,7 @@ pub mod default {
             ContractElem::ErrorDef(e) => mapper.map_error_def(e).into(),
             ContractElem::StructDef(s) => mapper.map_struct_def(s).into(),
             ContractElem::EnumDef(e) => mapper.map_enum_def(e).into(),
-            ContractElem::UserTypeDef(t) => mapper.map_udv_type_def(t).into(),
+            ContractElem::TypeDef(t) => mapper.map_udv_type_def(t).into(),
             ContractElem::VarDecl(v) => mapper.map_var_decl(v).into(),
             ContractElem::FuncDef(f) => mapper.map_func_def(f).into(),
         }
@@ -622,8 +622,8 @@ pub mod default {
 
     pub fn map_func_def<'a, T: Map<'a> + ?Sized>(
         mapper: &mut T,
-        func: &'a FunctionDef,
-    ) -> FunctionDef {
+        func: &'a FuncDef,
+    ) -> FuncDef {
         let name = mapper.map_name(&func.name);
         let params = mapper.map_var_decls(&func.params);
         let modifier_invocs = func
@@ -634,7 +634,7 @@ pub mod default {
         let returns = mapper.map_var_decls(&func.returns);
         let overriding = mapper.map_overriding(&func.overriding);
         let body = func.body.as_ref().map(|blk| mapper.map_block(blk));
-        FunctionDef { name, body, params, modifier_invocs, returns, overriding, ..func.clone() }
+        FuncDef { name, body, params, modifier_invocs, returns, overriding, ..func.clone() }
     }
 
     //-------------------------------------------------
@@ -885,8 +885,8 @@ pub mod default {
 
     pub fn map_var_decl<'a, T: Map<'a> + ?Sized>(
         mapper: &mut T,
-        vdecl: &'a VariableDecl,
-    ) -> VariableDecl {
+        vdecl: &'a VarDecl,
+    ) -> VarDecl {
         let name = mapper.map_name(&vdecl.name);
         let typ = mapper.map_type(&vdecl.typ);
         let value = vdecl.value.as_ref().map(|e| mapper.map_expr(e));
@@ -897,17 +897,17 @@ pub mod default {
                 Overriding::Some(mapped_names)
             }
         };
-        VariableDecl { name, typ, value, overriding, ..vdecl.clone() }
+        VarDecl { name, typ, value, overriding, ..vdecl.clone() }
     }
 
     pub fn map_var_decls<'a, T: Map<'a> + ?Sized>(
         mapper: &mut T,
-        vdecls: &'a [VariableDecl],
-    ) -> Vec<VariableDecl> {
+        vdecls: &'a [VarDecl],
+    ) -> Vec<VarDecl> {
         vdecls
             .iter()
             .map(|p| mapper.map_var_decl(p))
-            .collect::<Vec<VariableDecl>>()
+            .collect::<Vec<VarDecl>>()
     }
 
     //-------------------------------------------------
@@ -1279,8 +1279,8 @@ pub mod default {
 
     pub fn map_function_type<'a, T: Map<'a> + ?Sized>(
         mapper: &mut T,
-        typ: &'a FunctionType,
-    ) -> FunctionType {
+        typ: &'a FuncType,
+    ) -> FuncType {
         let nparams = typ
             .params
             .iter()
@@ -1291,7 +1291,7 @@ pub mod default {
             .iter()
             .map(|t| Box::new(mapper.map_type(t)))
             .collect();
-        FunctionType { params: nparams, returns: nreturns, ..typ.clone() }
+        FuncType { params: nparams, returns: nreturns, ..typ.clone() }
     }
 
     pub fn map_mapping_type<'a, T: Map<'a> + ?Sized>(
@@ -1304,10 +1304,10 @@ pub mod default {
         MappingType { key: nkey, value: nvalue, data_loc: ndloc }
     }
 
-    pub fn map_type_name<'a, T: Map<'a> + ?Sized>(mapper: &mut T, typ: &'a UserType) -> UserType {
+    pub fn map_type_name<'a, T: Map<'a> + ?Sized>(mapper: &mut T, typ: &'a UserDefinedType) -> UserDefinedType {
         let nname = mapper.map_name(&typ.name);
         let nscope = mapper.map_name_opt(&typ.scope);
-        UserType { name: nname, scope: nscope }
+        UserDefinedType { name: nname, scope: nscope }
     }
 
     pub fn map_contract_type<'a, T: Map<'a> + ?Sized>(

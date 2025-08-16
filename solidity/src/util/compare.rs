@@ -59,8 +59,8 @@ pub trait Compare<'a> {
 
     fn compare_user_defined_type_definition(
         &mut self,
-        t1: &'a UserTypeDef,
-        t2: &'a UserTypeDef,
+        t1: &'a TypeDef,
+        t2: &'a TypeDef,
     ) -> Result<()> {
         default::compare_user_defined_type_definition(self, t1, t2)
     }
@@ -121,7 +121,7 @@ pub trait Compare<'a> {
     // Function
     //-------------------------------------------------
 
-    fn compare_func_def(&mut self, func1: &'a FunctionDef, func2: &'a FunctionDef) -> Result<()> {
+    fn compare_func_def(&mut self, func1: &'a FuncDef, func2: &'a FuncDef) -> Result<()> {
         default::compare_func_def(self, func1, func2)
     }
 
@@ -247,8 +247,8 @@ pub trait Compare<'a> {
 
     fn compare_var_decl(
         &mut self,
-        vdecl1: &'a VariableDecl,
-        vdecl2: &'a VariableDecl,
+        vdecl1: &'a VarDecl,
+        vdecl2: &'a VarDecl,
     ) -> Result<()> {
         default::compare_var_decl(self, vdecl1, vdecl2)
     }
@@ -457,7 +457,7 @@ pub trait Compare<'a> {
         default::compare_tuple_type(self, t1, t2)
     }
 
-    fn compare_func_type(&mut self, t1: &'a FunctionType, t2: &'a FunctionType) -> Result<()> {
+    fn compare_func_type(&mut self, t1: &'a FuncType, t2: &'a FuncType) -> Result<()> {
         default::compare_func_type(self, t1, t2)
     }
 
@@ -465,7 +465,7 @@ pub trait Compare<'a> {
         default::compare_mapping_type(self, t1, t2)
     }
 
-    fn compare_type_name(&mut self, t1: &'a UserType, t2: &'a UserType) -> Result<()> {
+    fn compare_type_name(&mut self, t1: &'a UserDefinedType, t2: &'a UserDefinedType) -> Result<()> {
         default::compare_type_name(self, t1, t2)
     }
 
@@ -633,13 +633,13 @@ pub mod default {
 
     pub fn compare_user_defined_type_definition<'a, T: Compare<'a> + ?Sized>(
         comparer: &mut T,
-        typ1: &'a UserTypeDef,
-        typ2: &'a UserTypeDef,
+        typ1: &'a TypeDef,
+        typ2: &'a TypeDef,
     ) -> Result<()> {
         if let Err(err) = comparer.compare_name(&typ1.name, &typ2.name) {
             return error("Different user-defined value type definition", typ1, typ2, Some(err));
         }
-        comparer.compare_type(&typ1.base_type, &typ2.base_type)
+        comparer.compare_type(&typ1.base_typ, &typ2.base_typ)
     }
 
     pub fn compare_struct_def<'a, T: Compare<'a> + ?Sized>(
@@ -761,7 +761,7 @@ pub mod default {
             (ErrorDef(e1), ErrorDef(e2)) => comparer.compare_error_defitinion(e1, e2),
             (StructDef(s1), StructDef(s2)) => comparer.compare_struct_def(s1, s2),
             (EnumDef(e1), EnumDef(e2)) => comparer.compare_enum_def(e1, e2),
-            (UserTypeDef(type1), UserTypeDef(type2)) => {
+            (TypeDef(type1), TypeDef(type2)) => {
                 comparer.compare_user_defined_type_definition(type1, type2)
             }
             (VarDecl(var1), VarDecl(var2)) => comparer.compare_var_decl(var1, var2),
@@ -776,8 +776,8 @@ pub mod default {
 
     pub fn compare_func_def<'a, T: Compare<'a> + ?Sized>(
         comparer: &mut T,
-        f1: &'a FunctionDef,
-        f2: &'a FunctionDef,
+        f1: &'a FuncDef,
+        f2: &'a FuncDef,
     ) -> Result<()> {
         if let Err(err) = comparer.compare_name(&f1.name, &f2.name) {
             return error("Different function ", &f1, &f2, Some(err));
@@ -1175,8 +1175,8 @@ pub mod default {
 
     pub fn compare_var_decl<'a, T: Compare<'a> + ?Sized>(
         comparer: &mut T,
-        vdecl1: &'a VariableDecl,
-        vdecl2: &'a VariableDecl,
+        vdecl1: &'a VarDecl,
+        vdecl2: &'a VarDecl,
     ) -> Result<()> {
         if let Err(err) = comparer.compare_name(&vdecl1.name, &vdecl2.name) {
             return error("Different var decl", &vdecl1.name, &vdecl2.name, Some(err));
@@ -1714,8 +1714,8 @@ pub mod default {
 
     pub fn compare_func_type<'a, T: Compare<'a> + ?Sized>(
         comparer: &mut T,
-        t1: &'a FunctionType,
-        t2: &'a FunctionType,
+        t1: &'a FuncType,
+        t2: &'a FuncType,
     ) -> Result<()> {
         if t1.params.len() != t2.params.len()
             || t1.returns.len() != t2.returns.len()
@@ -1753,8 +1753,8 @@ pub mod default {
 
     pub fn compare_type_name<'a, T: Compare<'a> + ?Sized>(
         _comparer: &mut T,
-        t1: &'a UserType,
-        t2: &'a UserType,
+        t1: &'a UserDefinedType,
+        t2: &'a UserDefinedType,
     ) -> Result<()> {
         if t1.name != t2.name || t1.scope != t2.scope {
             return error("Different type name", t1, t2, None);

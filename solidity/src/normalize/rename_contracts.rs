@@ -86,7 +86,7 @@ impl<'a> Map<'_> for Renamer<'a> {
     }
 
     /// Override `map_func_def` to rename base contracts that will be overriden.
-    fn map_func_def(&mut self, func: &FunctionDef) -> FunctionDef {
+    fn map_func_def(&mut self, func: &FuncDef) -> FuncDef {
         let nfunc = map::default::map_func_def(self, func);
 
         // Skip renaming function if this is not the second phase.
@@ -109,11 +109,11 @@ impl<'a> Map<'_> for Renamer<'a> {
             _ => func.overriding.clone(),
         };
 
-        FunctionDef { overriding, ..nfunc }
+        FuncDef { overriding, ..nfunc }
     }
 
     /// Override `map_var_decl` to rename base contracts that will be overriden.
-    fn map_var_decl(&mut self, vdecl: &VariableDecl) -> VariableDecl {
+    fn map_var_decl(&mut self, vdecl: &VarDecl) -> VarDecl {
         let nvdecl = map::default::map_var_decl(self, vdecl);
 
         // Skip renaming variable declaration if this is not the second phase.
@@ -136,7 +136,7 @@ impl<'a> Map<'_> for Renamer<'a> {
             _ => vdecl.overriding.clone(),
         };
 
-        VariableDecl { overriding, ..nvdecl }
+        VarDecl { overriding, ..nvdecl }
     }
 }
 

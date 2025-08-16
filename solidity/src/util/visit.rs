@@ -75,7 +75,7 @@ pub trait Visit<'a> {
     // Type definitions.
     //-------------------------------------------------
 
-    fn visit_udv_type_def(&mut self, typ: &'a UserTypeDef) {
+    fn visit_udv_type_def(&mut self, typ: &'a TypeDef) {
         default::visit_udv_type_def(self, typ)
     }
 
@@ -111,7 +111,7 @@ pub trait Visit<'a> {
     // Function
     //-------------------------------------------------
 
-    fn visit_func_def(&mut self, func: &'a FunctionDef) {
+    fn visit_func_def(&mut self, func: &'a FuncDef) {
         default::visit_func_def(self, func)
     }
 
@@ -199,7 +199,7 @@ pub trait Visit<'a> {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn visit_var_decl(&mut self, var: &'a VariableDecl) {
+    fn visit_var_decl(&mut self, var: &'a VarDecl) {
         default::visit_var_decl(self, var)
     }
 
@@ -335,7 +335,7 @@ pub trait Visit<'a> {
         default::visit_tuple_type(self, typ)
     }
 
-    fn visit_func_type(&mut self, typ: &'a FunctionType) {
+    fn visit_func_type(&mut self, typ: &'a FuncType) {
         default::visit_func_type(self, typ)
     }
 
@@ -347,7 +347,7 @@ pub trait Visit<'a> {
         default::visit_contract_type(self, typ)
     }
 
-    fn visit_type_name(&mut self, typ: &'a UserType) {
+    fn visit_type_name(&mut self, typ: &'a UserDefinedType) {
         default::visit_type_name(self, typ)
     }
 
@@ -472,9 +472,9 @@ pub mod default {
     // Type definitions.
     //-------------------------------------------------
 
-    pub fn visit_udv_type_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a UserTypeDef) {
+    pub fn visit_udv_type_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a TypeDef) {
         visitor.visit_name(&typ.name);
-        visitor.visit_type(&typ.base_type)
+        visitor.visit_type(&typ.base_typ)
     }
 
     pub fn visit_struct_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, struct_: &'a StructDef) {
@@ -523,7 +523,7 @@ pub mod default {
             ContractElem::ErrorDef(error) => visitor.visit_error_def(error),
             ContractElem::StructDef(struct_) => visitor.visit_struct_def(struct_),
             ContractElem::EnumDef(enum_) => visitor.visit_enum_def(enum_),
-            ContractElem::UserTypeDef(typ) => visitor.visit_udv_type_def(typ),
+            ContractElem::TypeDef(typ) => visitor.visit_udv_type_def(typ),
             ContractElem::VarDecl(var) => visitor.visit_var_decl(var),
             ContractElem::FuncDef(func) => visitor.visit_func_def(func),
         }
@@ -533,7 +533,7 @@ pub mod default {
     // Function
     //-------------------------------------------------
 
-    pub fn visit_func_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, func: &'a FunctionDef) {
+    pub fn visit_func_def<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, func: &'a FuncDef) {
         func.params.iter().for_each(|p| visitor.visit_var_decl(p));
         func.modifier_invocs
             .iter()
@@ -735,7 +735,7 @@ pub mod default {
     // Variable declaration.
     //-------------------------------------------------
 
-    pub fn visit_var_decl<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, vdecl: &'a VariableDecl) {
+    pub fn visit_var_decl<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, vdecl: &'a VarDecl) {
         vdecl.value.iter().for_each(|e| visitor.visit_expr(e))
     }
 
@@ -1003,7 +1003,7 @@ pub mod default {
         })
     }
 
-    pub fn visit_func_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a FunctionType) {
+    pub fn visit_func_type<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a FuncType) {
         typ.params.iter().for_each(|t| visitor.visit_type(t));
         typ.returns.iter().for_each(|t| visitor.visit_type(t))
     }
@@ -1014,7 +1014,7 @@ pub mod default {
         visitor.visit_type(&typ.value)
     }
 
-    pub fn visit_type_name<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a UserType) {
+    pub fn visit_type_name<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, typ: &'a UserDefinedType) {
         visitor.visit_name(&typ.name)
     }
 

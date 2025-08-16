@@ -45,9 +45,9 @@ pub enum ContractElem {
     EventDef(EventDef),
     StructDef(StructDef),
     EnumDef(EnumDef),
-    UserTypeDef(UserTypeDef),
-    VarDecl(VariableDecl),
-    FuncDef(FunctionDef),
+    TypeDef(TypeDef),
+    VarDecl(VarDecl),
+    FuncDef(FuncDef),
 }
 
 /// Enum definition.
@@ -64,7 +64,7 @@ pub struct EnumDef {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ErrorDef {
     pub name: Name,
-    pub params: Vec<VariableDecl>,
+    pub params: Vec<VarDecl>,
     pub loc: Option<Loc>,
 }
 
@@ -73,13 +73,13 @@ pub struct ErrorDef {
 pub struct EventDef {
     pub name: Name,
     pub is_anonymous: bool,
-    pub params: Vec<VariableDecl>,
+    pub params: Vec<VarDecl>,
     pub loc: Option<Loc>,
 }
 
 /// Function definition.
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct FunctionDef {
+pub struct FuncDef {
     pub id: Option<isize>,
     pub scope_id: Option<isize>, // ID of the scope where the function is define.
     pub name: Name,
@@ -89,8 +89,8 @@ pub struct FunctionDef {
     pub mutability: FuncMut,
     pub modifier_invocs: Vec<CallExpr>,
     pub overriding: Overriding,
-    pub params: Vec<VariableDecl>,
-    pub returns: Vec<VariableDecl>,
+    pub params: Vec<VarDecl>,
+    pub returns: Vec<VarDecl>,
     pub body: Option<Block>,
     pub loc: Option<Loc>,
     pub sol_ver: Option<node_semver::Range>,
@@ -128,17 +128,17 @@ pub struct StructField {
 
 /// User-defined type definition.
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct UserTypeDef {
+pub struct TypeDef {
     pub id: Option<isize>,
     pub scope_id: Option<isize>,
     pub name: Name,
-    pub base_type: Type,
+    pub base_typ: Type,
     pub loc: Option<Loc>,
 }
 
 /// Variable declaration.
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct VariableDecl {
+pub struct VarDecl {
     pub id: Option<isize>,
     pub scope_id: Option<isize>,
     pub name: Name,
@@ -170,7 +170,7 @@ impl ContractDef {
         ContractDef { id, scope_id, name, kind, is_abstract, base_contracts, body, loc }
     }
 
-    pub fn functions(&self) -> Vec<FunctionDef> {
+    pub fn functions(&self) -> Vec<FuncDef> {
         self.body
             .iter()
             .filter_map(|elem| match elem {
@@ -195,8 +195,8 @@ impl ContractDef {
                         let t = EnumType::new(e.name.clone(), contract);
                         Some(Type::from(t))
                     }
-                    UserTypeDef(t) => {
-                        let t = UserType::new(t.name.clone(), contract);
+                    TypeDef(t) => {
+                        let t = UserDefinedType::new(t.name.clone(), contract);
                         Some(Type::from(t))
                     }
                     VarDecl(_) => todo!(),
@@ -207,7 +207,7 @@ impl ContractDef {
             .collect()
     }
 
-    pub fn find_function_def(&self, func_name: &str) -> Option<&FunctionDef> {
+    pub fn find_function_def(&self, func_name: &str) -> Option<&FuncDef> {
         for elem in self.body.iter() {
             if let ContractElem::FuncDef(func) = elem
                 && (func.name.original_name() == func_name
@@ -332,20 +332,20 @@ impl From<EnumDef> for ContractElem {
     }
 }
 
-impl From<UserTypeDef> for ContractElem {
-    fn from(typ: UserTypeDef) -> Self {
-        ContractElem::UserTypeDef(typ)
+impl From<TypeDef> for ContractElem {
+    fn from(typ: TypeDef) -> Self {
+        ContractElem::TypeDef(typ)
     }
 }
 
-impl From<VariableDecl> for ContractElem {
-    fn from(var: VariableDecl) -> Self {
+impl From<VarDecl> for ContractElem {
+    fn from(var: VarDecl) -> Self {
         ContractElem::VarDecl(var)
     }
 }
 
-impl From<FunctionDef> for ContractElem {
-    fn from(func: FunctionDef) -> Self {
+impl From<FuncDef> for ContractElem {
+    fn from(func: FuncDef) -> Self {
         ContractElem::FuncDef(func)
     }
 }
@@ -358,7 +358,7 @@ impl Display for ContractElem {
             ContractElem::EventDef(e) => write!(f, "{e}"),
             ContractElem::FuncDef(x) => write!(f, "{x}"),
             ContractElem::StructDef(s) => write!(f, "{s}"),
-            ContractElem::UserTypeDef(t) => write!(f, "{t}"),
+            ContractElem::TypeDef(t) => write!(f, "{t}"),
             ContractElem::Using(u) => write!(f, "{u}"),
             ContractElem::VarDecl(v) => write!(f, "{v};"),
         }
@@ -399,13 +399,13 @@ impl Display for EnumDef {
 //-------------------------------------------------------------------------
 
 impl ErrorDef {
-    pub fn new(name: Name, params: Vec<VariableDecl>, loc: Option<Loc>) -> Self {
+    pub fn new(name: Name, params: Vec<VarDecl>, loc: Option<Loc>) -> Self {
         ErrorDef { name, params, loc }
     }
 
     pub fn get_type(&self) -> Type {
         let param_typs = self.params.iter().map(|p| p.typ.clone()).collect();
-        FunctionType::new(param_typs, vec![], FuncVis::None, FuncMut::None).into()
+        FuncType::new(param_typs, vec![], FuncVis::None, FuncMut::None).into()
     }
 }
 
@@ -426,7 +426,7 @@ impl Display for ErrorDef {
 //-------------------------------------------------------------------------
 
 impl EventDef {
-    pub fn new(name: Name, anon: bool, params: Vec<VariableDecl>, loc: Option<Loc>) -> Self {
+    pub fn new(name: Name, anon: bool, params: Vec<VarDecl>, loc: Option<Loc>) -> Self {
         EventDef { name, is_anonymous: anon, params, loc }
     }
 }
@@ -453,7 +453,7 @@ impl Display for EventDef {
 // Implementation for Function definition
 //-------------------------------------------------------------------------
 
-impl FunctionDef {
+impl FuncDef {
     pub fn new(
         id: Option<isize>,
         scope: Option<isize>,
@@ -463,14 +463,14 @@ impl FunctionDef {
         is_virtual: bool,
         visibility: FuncVis,
         mutability: FuncMut,
-        params: Vec<VariableDecl>,
+        params: Vec<VarDecl>,
         modifiers: Vec<CallExpr>,
         overriding: Overriding,
-        returns: Vec<VariableDecl>,
+        returns: Vec<VarDecl>,
         loc: Option<Loc>,
         sol_ver: Option<Range>,
     ) -> Self {
-        FunctionDef {
+        FuncDef {
             id,
             scope_id: scope,
             name,
@@ -503,7 +503,7 @@ impl FunctionDef {
     pub fn typ(&self) -> Type {
         let params = self.params.iter().map(|p| p.typ.clone()).collect();
         let returns = self.returns.iter().map(|p| p.typ.clone()).collect();
-        FunctionType::new(params, returns, self.visibility.clone(), self.mutability.clone()).into()
+        FuncType::new(params, returns, self.visibility.clone(), self.mutability.clone()).into()
     }
 
     pub fn set_naming_index(&mut self, index: Option<usize>) {
@@ -511,7 +511,7 @@ impl FunctionDef {
     }
 }
 
-impl Display for FunctionDef {
+impl Display for FuncDef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(range) = &self.sol_ver {
             if version::check_range_constraint(range, ">=0.6.0") {
@@ -666,7 +666,7 @@ impl Display for StructField {
 // Implementation for User-defined type definition
 //-------------------------------------------------------------------------
 
-impl UserTypeDef {
+impl TypeDef {
     pub fn new(
         id: Option<isize>,
         scope: Option<isize>,
@@ -674,13 +674,13 @@ impl UserTypeDef {
         base: Type,
         loc: Option<Loc>,
     ) -> Self {
-        UserTypeDef { id, scope_id: scope, name, base_type: base, loc }
+        TypeDef { id, scope_id: scope, name, base_typ: base, loc }
     }
 }
 
-impl Display for UserTypeDef {
+impl Display for TypeDef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "type {} is {};", self.name, self.base_type)
+        write!(f, "type {} is {};", self.name, self.base_typ)
     }
 }
 
@@ -688,7 +688,7 @@ impl Display for UserTypeDef {
 // Implementation for Variable declaration
 //-------------------------------------------------------------------------
 
-impl VariableDecl {
+impl VarDecl {
     pub fn new(
         id: Option<isize>,
         scope: Option<isize>,
@@ -702,7 +702,7 @@ impl VariableDecl {
         overriding: Overriding,
         loc: Option<Loc>,
     ) -> Self {
-        VariableDecl {
+        VarDecl {
             id,
             scope_id: scope,
             name,
@@ -722,7 +722,7 @@ impl VariableDecl {
     }
 }
 
-impl Display for VariableDecl {
+impl Display for VarDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.typ).ok();
 
