@@ -24,9 +24,9 @@ pub enum Type {
     Enum(EnumType),
     Module(String),
     Tuple(TupleType),
-    Func(FunctionType),
+    Func(FuncType),
     Mapping(MappingType),
-    UserDefined(UserType),
+    UserDefined(UserDefinedType),
     Contract(ContractType),
     Magic(MagicType),
 }
@@ -70,7 +70,7 @@ pub struct FixedType {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
-pub struct FunctionType {
+pub struct FuncType {
     pub params: Vec<Box<Type>>,
     pub returns: Vec<Box<Type>>,
     pub visibility: FuncVis,
@@ -124,7 +124,7 @@ pub struct TupleType {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
-pub struct UserType {
+pub struct UserDefinedType {
     pub name: Name,
     pub scope: Option<Name>,
 }
@@ -317,14 +317,14 @@ impl From<SliceType> for Type {
     }
 }
 
-impl From<FunctionType> for Type {
-    fn from(t: FunctionType) -> Self {
+impl From<FuncType> for Type {
+    fn from(t: FuncType) -> Self {
         Type::Func(t)
     }
 }
 
-impl From<UserType> for Type {
-    fn from(t: UserType) -> Self {
+impl From<UserDefinedType> for Type {
+    fn from(t: UserDefinedType) -> Self {
         Type::UserDefined(t)
     }
 }
@@ -533,7 +533,7 @@ impl Display for FixedType {
 // Implementations for Function type
 //-------------------------------------------------------------------------
 
-impl FunctionType {
+impl FuncType {
     pub fn new(
         params: Vec<Type>,
         returns: Vec<Type>,
@@ -545,7 +545,7 @@ impl FunctionType {
         Self { params, returns, visibility, mutability }
     }
 
-    pub fn is_sub_type(&self, other: &FunctionType) -> bool {
+    pub fn is_sub_type(&self, other: &FuncType) -> bool {
         match self.params.len() == other.params.len() {
             true => {
                 for (param1, param2) in self.params.iter().zip(other.params.iter()) {
@@ -576,7 +576,7 @@ impl FunctionType {
     }
 }
 
-impl Display for FunctionType {
+impl Display for FuncType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         unsafe {
             // Save `PRINT_DATA_LOC` flag
@@ -856,13 +856,13 @@ impl Display for TupleType {
 // Implementations for User-defined type
 //-------------------------------------------------------------------------
 
-impl UserType {
+impl UserDefinedType {
     pub fn new(name: Name, scope: Option<Name>) -> Self {
-        UserType { name, scope }
+        UserDefinedType { name, scope }
     }
 }
 
-impl Display for UserType {
+impl Display for UserDefinedType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(n) = &self.scope {
             write!(f, "{n}.").ok();

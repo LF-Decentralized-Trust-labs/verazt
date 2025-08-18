@@ -61,7 +61,7 @@ impl Fold<'_, &mut HashMap<String, Vec<String>>> for ParamNamesFinder {
     fn fold_func_def<'a>(
         &mut self,
         acc: &'a mut HashMap<String, Vec<String>>,
-        func: &FunctionDef,
+        func: &FuncDef,
     ) -> &'a mut HashMap<String, Vec<String>> {
         let param_names: Vec<String> = func
             .params

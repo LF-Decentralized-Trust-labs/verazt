@@ -22,7 +22,7 @@ impl ExprFlattener {
         state_var: bool,
         loc: Option<Loc>,
         value: Expr,
-    ) -> VariableDecl {
+    ) -> VarDecl {
         // Unwrap type if the intermediate variable is defined from a slice type
         let typ = match typ {
             Type::Slice(styp) => (*(styp.base)).clone(),
@@ -31,7 +31,7 @@ impl ExprFlattener {
         let (var_name, nenv) = self.env.create_new_name("tmp");
         self.env = nenv;
         let mutability = self.current_mutability.clone().unwrap_or(VarMut::Mutable);
-        VariableDecl {
+        VarDecl {
             name: var_name,
             typ: typ.clone(),
             value: Some(value),
@@ -46,7 +46,7 @@ impl ExprFlattener {
         }
     }
 
-    fn promote_complex_expr(&mut self, expr: Expr, nvdecls: &mut Vec<VariableDecl>) -> Expr {
+    fn promote_complex_expr(&mut self, expr: Expr, nvdecls: &mut Vec<VarDecl>) -> Expr {
         if expr.is_atomic_expr() || expr.is_literal_based_expr() {
             expr
         } else {
@@ -58,7 +58,7 @@ impl ExprFlattener {
         }
     }
 
-    fn flatten_expr(&mut self, expr: &Expr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_expr(&mut self, expr: &Expr) -> (Vec<VarDecl>, Expr) {
         match expr {
             Expr::Lit(_) => (vec![], expr.clone()),
             Expr::Ident(_) => (vec![], expr.clone()),
@@ -78,14 +78,14 @@ impl ExprFlattener {
         }
     }
 
-    fn flatten_unary_expr(&mut self, expr: &UnaryExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_unary_expr(&mut self, expr: &UnaryExpr) -> (Vec<VarDecl>, Expr) {
         let (mut nvdecls, nopr) = self.flatten_expr(expr.body.borrow());
         let nopr = self.promote_complex_expr(nopr, &mut nvdecls);
         let nexpr = UnaryExpr { body: Box::new(nopr), ..expr.clone() };
         (nvdecls, nexpr.into())
     }
 
-    fn flatten_binary_expr(&mut self, expr: &BinaryExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_binary_expr(&mut self, expr: &BinaryExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = vec![];
 
         let (vdecls, nlhs) = self.flatten_expr(expr.left.borrow());
@@ -100,7 +100,7 @@ impl ExprFlattener {
         (nvdecls, nexpr.into())
     }
 
-    fn flatten_assign_expr(&mut self, expr: &AssignExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_assign_expr(&mut self, expr: &AssignExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = vec![];
 
         let (mut vdecls, nlhs) = self.flatten_expr(&expr.left);
@@ -138,7 +138,7 @@ impl ExprFlattener {
         (nvdecls, nexpr.into())
     }
 
-    fn flatten_call_expr(&mut self, expr: &CallExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_call_expr(&mut self, expr: &CallExpr) -> (Vec<VarDecl>, Expr) {
         // Do not flatten ABI encoding/decoding function calls
         if expr.is_abi_call() {
             return (vec![], expr.clone().into());
@@ -168,7 +168,7 @@ impl ExprFlattener {
         (nvdecls, nexpr.into())
     }
 
-    fn flatten_call_opts_expr(&mut self, expr: &CallOptsExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_call_opts_expr(&mut self, expr: &CallOptsExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = vec![];
         let mut ncall_opts = vec![];
 
@@ -182,14 +182,14 @@ impl ExprFlattener {
         (nvdecls, nexpr.into())
     }
 
-    fn flatten_call_opt(&mut self, call_opt: &CallOpt) -> (Vec<VariableDecl>, CallOpt) {
+    fn flatten_call_opt(&mut self, call_opt: &CallOpt) -> (Vec<VarDecl>, CallOpt) {
         let (mut nvdecls, nvalue) = self.flatten_expr(&call_opt.value);
         let nvalue = self.promote_complex_expr(nvalue, &mut nvdecls);
         let ncall_opt = CallOpt { value: nvalue, ..call_opt.clone() };
         (nvdecls, ncall_opt)
     }
 
-    fn flatten_call_args(&mut self, call_args: &CallArgs) -> (Vec<VariableDecl>, CallArgs) {
+    fn flatten_call_args(&mut self, call_args: &CallArgs) -> (Vec<VarDecl>, CallArgs) {
         let mut nvdecls = vec![];
         match call_args {
             CallArgs::Unnamed(args) => {
@@ -216,7 +216,7 @@ impl ExprFlattener {
         }
     }
 
-    fn flatten_tuple_expr(&mut self, expr: &TupleExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_tuple_expr(&mut self, expr: &TupleExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = vec![];
         let mut nelems = vec![];
         for elem in &expr.elems {
@@ -234,7 +234,7 @@ impl ExprFlattener {
         (nvdecls, nexpr.into())
     }
 
-    fn flatten_index_expr(&mut self, expr: &IndexExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_index_expr(&mut self, expr: &IndexExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvar_decls = vec![];
 
         let (var_decls, nbase) = self.flatten_expr(expr.base_expr.borrow());
@@ -252,7 +252,7 @@ impl ExprFlattener {
         (nvar_decls, nexpr.into())
     }
 
-    fn flatten_slice_expr(&mut self, expr: &SliceExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_slice_expr(&mut self, expr: &SliceExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvar_decls = vec![];
 
         let (vdecls, nbase) = self.flatten_expr(expr.base_expr.borrow());
@@ -281,7 +281,7 @@ impl ExprFlattener {
         (nvar_decls, nexpr.into())
     }
 
-    fn flatten_member_expr(&mut self, expr: &MemberExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_member_expr(&mut self, expr: &MemberExpr) -> (Vec<VarDecl>, Expr) {
         // Do not flatten ABI-related expressions.
         if expr.member.to_string().eq(keywords::SELECTOR) {
             return (vec![], expr.clone().into());
@@ -301,7 +301,7 @@ impl ExprFlattener {
         (nvar_decls, nexpr.into())
     }
 
-    fn flatten_conditional_expr(&mut self, expr: &ConditionalExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_conditional_expr(&mut self, expr: &ConditionalExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = vec![];
 
         let (vdecls, ncond) = self.flatten_expr(expr.cond.borrow());
@@ -320,7 +320,7 @@ impl ExprFlattener {
         (nvdecls, nexpr.into())
     }
 
-    fn flatten_inline_array_expr(&mut self, expr: &InlineArrayExpr) -> (Vec<VariableDecl>, Expr) {
+    fn flatten_inline_array_expr(&mut self, expr: &InlineArrayExpr) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = vec![];
         let mut nelems = vec![];
         for elem in &expr.elems {
@@ -334,14 +334,14 @@ impl ExprFlattener {
     }
 }
 
-impl Normalize<'_, Vec<VariableDecl>> for ExprFlattener {
+impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
     /// Override `normalize_source_unit` to flatten expression inside variable
     /// declarations in source unit elements.
     fn normalize_source_unit(
         &mut self,
-        _acc: Vec<VariableDecl>,
+        _acc: Vec<VarDecl>,
         source_unit: &SourceUnit,
-    ) -> (Vec<VariableDecl>, SourceUnit) {
+    ) -> (Vec<VarDecl>, SourceUnit) {
         let mut nelems = vec![];
         for elem in source_unit.elems.iter() {
             let (vdecls, nelem) = self.normalize_source_unit_elem(vec![], elem);
@@ -358,9 +358,9 @@ impl Normalize<'_, Vec<VariableDecl>> for ExprFlattener {
     /// variable declarations in contract elements.
     fn normalize_contract_def(
         &mut self,
-        _acc: Vec<VariableDecl>,
+        _acc: Vec<VarDecl>,
         contract: &ContractDef,
-    ) -> (Vec<VariableDecl>, ContractDef) {
+    ) -> (Vec<VarDecl>, ContractDef) {
         let mut nelems = vec![];
         for elem in contract.body.iter() {
             let (vdecls, nelem) = self.normalize_contract_elem(vec![], elem);
@@ -377,9 +377,9 @@ impl Normalize<'_, Vec<VariableDecl>> for ExprFlattener {
     /// as statements of the current block.
     fn normalize_block(
         &mut self,
-        acc: Vec<VariableDecl>,
+        acc: Vec<VarDecl>,
         block: &Block,
-    ) -> (Vec<VariableDecl>, Block) {
+    ) -> (Vec<VarDecl>, Block) {
         let mut nstmts = vec![];
         for stmt in block.body.iter() {
             let (nvdecls, nstmt) = self.normalize_stmt(vec![], stmt);
@@ -400,9 +400,9 @@ impl Normalize<'_, Vec<VariableDecl>> for ExprFlattener {
     /// Override `normalize_var_decl` to capture mutability.
     fn normalize_var_decl(
         &mut self,
-        acc: Vec<VariableDecl>,
-        vdecl: &VariableDecl,
-    ) -> (Vec<VariableDecl>, VariableDecl) {
+        acc: Vec<VarDecl>,
+        vdecl: &VarDecl,
+    ) -> (Vec<VarDecl>, VarDecl) {
         let saved_mutability = self.current_mutability.clone();
         self.current_mutability = Some(vdecl.mutability.clone());
         let res = normalize::default::normalize_var_decl(self, acc, vdecl);
@@ -413,9 +413,9 @@ impl Normalize<'_, Vec<VariableDecl>> for ExprFlattener {
     /// Override `normalize_expr` to call the `flatten_expr` function.
     fn normalize_expr(
         &mut self,
-        acc: Vec<VariableDecl>,
+        acc: Vec<VarDecl>,
         expr: &Expr,
-    ) -> (Vec<VariableDecl>, Expr) {
+    ) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = acc;
         let (vdecls, nexpr) = self.flatten_expr(expr);
         nvdecls.extend(vdecls);

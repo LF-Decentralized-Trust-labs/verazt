@@ -14,19 +14,19 @@ impl ModifierDefFinder {
     pub(super) fn find_modifier_definitions(
         &mut self,
         source_unit: &SourceUnit,
-    ) -> HashMap<Name, FunctionDef> {
+    ) -> HashMap<Name, FuncDef> {
         let mut func_info = HashMap::new();
         self.fold_source_unit(&mut func_info, source_unit).clone()
     }
 }
 
-impl Fold<'_, &mut HashMap<Name, FunctionDef>> for ModifierDefFinder {
+impl Fold<'_, &mut HashMap<Name, FuncDef>> for ModifierDefFinder {
     /// Override `fold_source_unit_elem`.
     fn fold_source_unit_elem<'a>(
         &mut self,
-        acc: &'a mut HashMap<Name, FunctionDef>,
+        acc: &'a mut HashMap<Name, FuncDef>,
         elem: &SourceUnitElem,
-    ) -> &'a mut HashMap<Name, FunctionDef> {
+    ) -> &'a mut HashMap<Name, FuncDef> {
         match elem {
             SourceUnitElem::Contract(contract) => self.fold_contract_def(acc, contract),
             _ => acc,
@@ -36,9 +36,9 @@ impl Fold<'_, &mut HashMap<Name, FunctionDef>> for ModifierDefFinder {
     /// Override `fold_contract_elem`.
     fn fold_contract_elem<'a>(
         &mut self,
-        acc: &'a mut HashMap<Name, FunctionDef>,
+        acc: &'a mut HashMap<Name, FuncDef>,
         elem: &ContractElem,
-    ) -> &'a mut HashMap<Name, FunctionDef> {
+    ) -> &'a mut HashMap<Name, FuncDef> {
         match elem {
             ContractElem::FuncDef(func) if func.kind == FuncKind::Modifier => {
                 acc.insert(func.name.clone(), func.clone());
@@ -49,7 +49,7 @@ impl Fold<'_, &mut HashMap<Name, FunctionDef>> for ModifierDefFinder {
     }
 }
 
-fn find_modifier_declarations(source_unit: &SourceUnit) -> HashMap<Name, FunctionDef> {
+fn find_modifier_declarations(source_unit: &SourceUnit) -> HashMap<Name, FuncDef> {
     let mut finder = ModifierDefFinder::new();
     finder.find_modifier_definitions(source_unit)
 }
@@ -58,7 +58,7 @@ fn find_modifier_declarations(source_unit: &SourceUnit) -> HashMap<Name, Functio
 // Utilities function
 //-------------------------------------------------
 
-fn create_ident_from_var_decl(var: &VariableDecl) -> Identifier {
+fn create_ident_from_var_decl(var: &VarDecl) -> Identifier {
     Identifier::new(var.id, var.name.clone(), var.typ.clone(), var.loc)
 }
 
@@ -69,7 +69,7 @@ fn create_ident_from_var_decl(var: &VariableDecl) -> Identifier {
 /// Data structure for replacing a modifier invocation with statements in
 /// the body of the modifier declaration.
 struct ModifierTransformer {
-    modifier_def_map: HashMap<Name, FunctionDef>,
+    modifier_def_map: HashMap<Name, FuncDef>,
 }
 
 impl ModifierTransformer {
@@ -100,7 +100,7 @@ impl Map<'_> for ModifierTransformer {
     }
 
     /// Override `map_func_def`
-    fn map_func_def(&mut self, func: &FunctionDef) -> FunctionDef {
+    fn map_func_def(&mut self, func: &FuncDef) -> FuncDef {
         let mut func = func.clone();
 
         let mut base_constructor_modifier_invocs = vec![];

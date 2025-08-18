@@ -141,11 +141,11 @@ struct LibFunc {
     pub lib_name: Option<Name>,
 
     /// Definition of the function.
-    pub func_def: FunctionDef,
+    pub func_def: FuncDef,
 }
 
 impl LibFunc {
-    pub fn _new(lib_name: Option<Name>, func_def: FunctionDef) -> Self {
+    pub fn _new(lib_name: Option<Name>, func_def: FuncDef) -> Self {
         LibFunc { lib_name, func_def }
     }
 }

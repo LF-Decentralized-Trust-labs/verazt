@@ -38,7 +38,7 @@ impl Map<'_> for Renamer {
     }
 
     /// Override `map_func_def` to rename function names.
-    fn map_func_def(&mut self, func: &FunctionDef) -> FunctionDef {
+    fn map_func_def(&mut self, func: &FuncDef) -> FuncDef {
         // Save the current naming index before transforming the function definition.
         let current_naming_index = self.env.current_naming_index_map.clone();
 
@@ -138,7 +138,7 @@ impl Map<'_> for Renamer {
     }
 
     /// Override `map_user_defined_value_type_def` to rename the type's name.
-    fn map_udv_type_def(&mut self, typ: &UserTypeDef) -> UserTypeDef {
+    fn map_udv_type_def(&mut self, typ: &TypeDef) -> TypeDef {
         // Save the current naming index before transforming the Struct definition.
         let current_naming_index = self.env.current_naming_index_map.clone();
 
