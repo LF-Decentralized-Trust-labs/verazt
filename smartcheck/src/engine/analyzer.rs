@@ -21,7 +21,7 @@ impl Analyzer {
     pub fn analyze_solidity_ast(&self, source_unit: &solidity::ast::SourceUnit) {
         let tasks = task_generator_ast::generate_tasks(&self.config, source_unit);
         for task in tasks {
-            task.run();
+            task.check();
         }
     }
 
@@ -29,7 +29,7 @@ impl Analyzer {
     pub fn analyze_solidity_ir(&self, source_unit: smartir::ir::SourceUnit) {
         let tasks = task_generator_ir::initiate_tasks(source_unit);
         for task in tasks {
-            task.run();
+            task.check();
         }
     }
 }

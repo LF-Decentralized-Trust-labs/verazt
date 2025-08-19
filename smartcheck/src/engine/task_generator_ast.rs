@@ -1,11 +1,9 @@
 //! Module to generate tasks
 
-use std::vec;
-
-use crate::analysis::task::Task;
-use solidity::ast::*;
-
 use super::config::Config;
+use crate::tasks::task::Task;
+use solidity::ast::*;
+use std::vec;
 
 //-------------------------------------------------------------------------
 // Data structures representing task generator
@@ -35,8 +33,8 @@ impl TaskGenerator {
         TaskGenerator { config: config.clone(), source_unit: None, contract: None, function: None }
     }
 
-    /// Populate analysis tasks for Source Unit AST.
-    pub fn populate_ast_tasks(&mut self, source_unit: &SourceUnit) -> Vec<Box<dyn Task>> {
+    /// Generate analysis tasks for Source Unit AST.
+    pub fn generate_tasks(&mut self, source_unit: &SourceUnit) -> Vec<Box<dyn Task>> {
         self.source_unit = Some(source_unit.clone());
 
         let mut tasks = vec![];
@@ -69,19 +67,31 @@ impl TaskGenerator {
         tasks
     }
 
-    fn generate_function_task(&mut self, function: &FuncDef) -> Vec<Box<dyn Task>> {
-        self.function = Some(function.clone());
+    fn generate_function_task(&mut self, func: &FuncDef) -> Vec<Box<dyn Task>> {
+        self.function = Some(func.clone());
 
         let mut tasks = vec![];
-        if let Some(blk) = &function.body {
+
+        // Modifier tasks
+        for modifier_invoc in func.modifier_invocs.iter() {
+            tasks.extend(self.generate_modifier_task(modifier_invoc));
+        }
+
+        // Statement tasks
+        if let Some(blk) = &func.body {
             for stmt in blk.body.iter() {
                 tasks.extend(self.generate_statement_task(stmt));
             }
         }
+
         tasks
     }
 
     fn generate_statement_task(&mut self, stmt: &Stmt) -> Vec<Box<dyn Task>> {
+        vec![]
+    }
+
+    fn generate_modifier_task(&mut self, modifier_invoc: &CallExpr) -> Vec<Box<dyn Task>> {
         vec![]
     }
 }
@@ -107,6 +117,6 @@ impl TaskContext {
 
 pub fn generate_tasks(config: &Config, source_unit: &SourceUnit) -> Vec<Box<dyn Task>> {
     let mut generator = TaskGenerator::new(config);
-    let tasks = generator.populate_ast_tasks(source_unit);
+    let tasks = generator.generate_tasks(source_unit);
     tasks
 }
