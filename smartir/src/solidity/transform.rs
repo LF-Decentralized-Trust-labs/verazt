@@ -200,33 +200,33 @@ impl Transformer {
             ast::ContractElem::Using(_) => {
                 fail!("Transform contract element: using directive should be eliminated: {}", elem)
             }
-            ast::ContractElem::EventDef(event) => {
+            ast::ContractElem::Event(event) => {
                 let nevent = self.transform_event_def(event)?;
                 Ok(vec![nevent.into()])
             }
-            ast::ContractElem::ErrorDef(error) => {
+            ast::ContractElem::Error(error) => {
                 let nerror = self.transform_error_def(error)?;
                 Ok(vec![nerror.into()])
             }
-            ast::ContractElem::StructDef(struct_) => {
+            ast::ContractElem::Struct(struct_) => {
                 let nstruct = self.transform_struct_def(struct_)?;
                 Ok(vec![nstruct.into()])
             }
-            ast::ContractElem::EnumDef(enum_) => {
+            ast::ContractElem::Enum(enum_) => {
                 let nenum = self.transform_enum_def(enum_);
                 Ok(vec![nenum.into()])
             }
-            ast::ContractElem::TypeDef(_) => {
+            ast::ContractElem::Type(_) => {
                 fail!("Transform contract element: user-defined type must be eliminated!")
             }
-            ast::ContractElem::VarDecl(vdecl) => {
+            ast::ContractElem::Var(vdecl) => {
                 let (nvdecl, stmts) = self.transform_var_decl(vdecl)?;
                 if !stmts.is_empty() {
                     fail!("Handle statement declaring new vars");
                 };
                 Ok(vec![nvdecl.into()])
             }
-            ast::ContractElem::FuncDef(func) => {
+            ast::ContractElem::Func(func) => {
                 let nfunc = self.transform_func_def(func)?;
                 Ok(vec![nfunc.into()])
             }

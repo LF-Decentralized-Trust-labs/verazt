@@ -41,13 +41,13 @@ pub struct BaseContract {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum ContractElem {
     Using(UsingDir),
-    ErrorDef(ErrorDef),
-    EventDef(EventDef),
-    StructDef(StructDef),
-    EnumDef(EnumDef),
-    TypeDef(TypeDef),
-    VarDecl(VarDecl),
-    FuncDef(FuncDef),
+    Error(ErrorDef),
+    Event(EventDef),
+    Struct(StructDef),
+    Enum(EnumDef),
+    Type(TypeDef),
+    Var(VarDecl),
+    Func(FuncDef),
 }
 
 /// Enum definition.
@@ -174,7 +174,7 @@ impl ContractDef {
         self.body
             .iter()
             .filter_map(|elem| match elem {
-                ContractElem::FuncDef(func) => Some(func.clone()),
+                ContractElem::Func(func) => Some(func.clone()),
                 _ => None,
             })
             .collect()
@@ -184,23 +184,22 @@ impl ContractDef {
         self.body
             .iter()
             .filter_map(|elem| {
-                use ContractElem::*;
                 let contract = Some(self.name.clone());
                 match elem {
-                    StructDef(s) => {
+                    ContractElem::Struct(s) => {
                         let t = StructType::new(s.name.clone(), contract, DataLoc::None, false);
                         Some(Type::from(t))
                     }
-                    EnumDef(e) => {
+                    ContractElem::Enum(e) => {
                         let t = EnumType::new(e.name.clone(), contract);
                         Some(Type::from(t))
                     }
-                    TypeDef(t) => {
+                    ContractElem::Type(t) => {
                         let t = UserDefinedType::new(t.name.clone(), contract);
                         Some(Type::from(t))
                     }
-                    VarDecl(_) => todo!(),
-                    FuncDef(_) => todo!(),
+                    ContractElem::Var(_) => todo!(),
+                    ContractElem::Func(_) => todo!(),
                     _ => todo!(),
                 }
             })
@@ -209,7 +208,7 @@ impl ContractDef {
 
     pub fn find_function_def(&self, func_name: &str) -> Option<&FuncDef> {
         for elem in self.body.iter() {
-            if let ContractElem::FuncDef(func) = elem
+            if let ContractElem::Func(func) = elem
                 && (func.name.original_name() == func_name
                     || (func_name == "fallback" && func.is_fallback_function()))
             {
@@ -310,57 +309,57 @@ impl From<UsingDir> for ContractElem {
 
 impl From<EventDef> for ContractElem {
     fn from(event: EventDef) -> Self {
-        ContractElem::EventDef(event)
+        ContractElem::Event(event)
     }
 }
 
 impl From<ErrorDef> for ContractElem {
     fn from(error: ErrorDef) -> Self {
-        ContractElem::ErrorDef(error)
+        ContractElem::Error(error)
     }
 }
 
 impl From<StructDef> for ContractElem {
     fn from(struct_: StructDef) -> Self {
-        ContractElem::StructDef(struct_)
+        ContractElem::Struct(struct_)
     }
 }
 
 impl From<EnumDef> for ContractElem {
     fn from(enum_: EnumDef) -> Self {
-        ContractElem::EnumDef(enum_)
+        ContractElem::Enum(enum_)
     }
 }
 
 impl From<TypeDef> for ContractElem {
     fn from(typ: TypeDef) -> Self {
-        ContractElem::TypeDef(typ)
+        ContractElem::Type(typ)
     }
 }
 
 impl From<VarDecl> for ContractElem {
     fn from(var: VarDecl) -> Self {
-        ContractElem::VarDecl(var)
+        ContractElem::Var(var)
     }
 }
 
 impl From<FuncDef> for ContractElem {
     fn from(func: FuncDef) -> Self {
-        ContractElem::FuncDef(func)
+        ContractElem::Func(func)
     }
 }
 
 impl Display for ContractElem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ContractElem::EnumDef(e) => write!(f, "{e}"),
-            ContractElem::ErrorDef(e) => write!(f, "{e}"),
-            ContractElem::EventDef(e) => write!(f, "{e}"),
-            ContractElem::FuncDef(x) => write!(f, "{x}"),
-            ContractElem::StructDef(s) => write!(f, "{s}"),
-            ContractElem::TypeDef(t) => write!(f, "{t}"),
+            ContractElem::Enum(e) => write!(f, "{e}"),
+            ContractElem::Error(e) => write!(f, "{e}"),
+            ContractElem::Event(e) => write!(f, "{e}"),
+            ContractElem::Func(x) => write!(f, "{x}"),
+            ContractElem::Struct(s) => write!(f, "{s}"),
+            ContractElem::Type(t) => write!(f, "{t}"),
             ContractElem::Using(u) => write!(f, "{u}"),
-            ContractElem::VarDecl(v) => write!(f, "{v};"),
+            ContractElem::Var(v) => write!(f, "{v};"),
         }
     }
 }

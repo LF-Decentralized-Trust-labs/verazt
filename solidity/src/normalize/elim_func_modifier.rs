@@ -40,7 +40,7 @@ impl Fold<'_, &mut HashMap<Name, FuncDef>> for ModifierDefFinder {
         elem: &ContractElem,
     ) -> &'a mut HashMap<Name, FuncDef> {
         match elem {
-            ContractElem::FuncDef(func) if func.kind == FuncKind::Modifier => {
+            ContractElem::Func(func) if func.kind == FuncKind::Modifier => {
                 acc.insert(func.name.clone(), func.clone());
             }
             _ => {}
@@ -90,7 +90,7 @@ impl Map<'_> for ModifierTransformer {
             .body
             .iter()
             .filter(|elem| match elem {
-                ContractElem::FuncDef(func) => func.kind != FuncKind::Modifier,
+                ContractElem::Func(func) => func.kind != FuncKind::Modifier,
                 _ => true,
             })
             .map(|elem| map::default::map_contract_element(self, elem))

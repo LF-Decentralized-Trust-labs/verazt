@@ -376,32 +376,32 @@ fn find_call_definition_name(
         let scope = Some(contract.name.clone());
         for elem in contract.body.iter() {
             match elem {
-                ContractElem::FuncDef(f) if f.name.base == callee_name.base => {
+                ContractElem::Func(f) if f.name.base == callee_name.base => {
                     if f.kind == FuncKind::Modifier || check_call_type(callee_typ, &f.typ()) {
                         return (f.name.clone(), scope);
                     }
                 }
-                ContractElem::VarDecl(v) if v.name.base == callee_name.base => {
+                ContractElem::Var(v) if v.name.base == callee_name.base => {
                     // Call to a getter function of a contract variable.
                     return (v.name.clone(), scope);
                 }
-                ContractElem::ErrorDef(e) if e.name.base == callee_name.base => {
+                ContractElem::Error(e) if e.name.base == callee_name.base => {
                     if check_call_type(callee_typ, &e.get_type()) {
                         return (e.name.clone(), scope);
                     }
                 }
-                ContractElem::EventDef(e) if e.name.base == callee_name.base => {
+                ContractElem::Event(e) if e.name.base == callee_name.base => {
                     return (e.name.clone(), scope);
                 }
-                ContractElem::StructDef(s) if s.name.base == callee_name.base => {
+                ContractElem::Struct(s) if s.name.base == callee_name.base => {
                     // if check_call_type(typ, &struct_.constructor_typ()) {
                     return (s.name.clone(), scope);
                     // }
                 }
-                ContractElem::EnumDef(e) if e.name.base == callee_name.base => {
+                ContractElem::Enum(e) if e.name.base == callee_name.base => {
                     return (e.name.clone(), scope);
                 }
-                ContractElem::TypeDef(t) if t.name.base == callee_name.base => {
+                ContractElem::Type(t) if t.name.base == callee_name.base => {
                     return (t.name.clone(), scope);
                 }
                 _ => {}

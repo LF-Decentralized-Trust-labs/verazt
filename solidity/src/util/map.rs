@@ -606,13 +606,13 @@ pub mod default {
     ) -> ContractElem {
         match elem {
             ContractElem::Using(p) => mapper.map_using(p).into(),
-            ContractElem::EventDef(e) => mapper.map_event_def(e).into(),
-            ContractElem::ErrorDef(e) => mapper.map_error_def(e).into(),
-            ContractElem::StructDef(s) => mapper.map_struct_def(s).into(),
-            ContractElem::EnumDef(e) => mapper.map_enum_def(e).into(),
-            ContractElem::TypeDef(t) => mapper.map_udv_type_def(t).into(),
-            ContractElem::VarDecl(v) => mapper.map_var_decl(v).into(),
-            ContractElem::FuncDef(f) => mapper.map_func_def(f).into(),
+            ContractElem::Event(e) => mapper.map_event_def(e).into(),
+            ContractElem::Error(e) => mapper.map_error_def(e).into(),
+            ContractElem::Struct(s) => mapper.map_struct_def(s).into(),
+            ContractElem::Enum(e) => mapper.map_enum_def(e).into(),
+            ContractElem::Type(t) => mapper.map_udv_type_def(t).into(),
+            ContractElem::Var(v) => mapper.map_var_decl(v).into(),
+            ContractElem::Func(f) => mapper.map_func_def(f).into(),
         }
     }
 

@@ -616,13 +616,13 @@ pub mod default {
     ) -> T {
         match elem {
             ContractElem::Using(u) => folder.fold_using(acc, u),
-            ContractElem::EventDef(e) => folder.fold_event_def(acc, e),
-            ContractElem::ErrorDef(e) => folder.fold_error_def(acc, e),
-            ContractElem::StructDef(s) => folder.fold_struct_def(acc, s),
-            ContractElem::EnumDef(e) => folder.fold_enum_def(acc, e),
-            ContractElem::TypeDef(t) => folder.fold_udv_type_def(acc, t),
-            ContractElem::VarDecl(v) => folder.fold_var_decl(acc, v),
-            ContractElem::FuncDef(f) => folder.fold_func_def(acc, f),
+            ContractElem::Event(e) => folder.fold_event_def(acc, e),
+            ContractElem::Error(e) => folder.fold_error_def(acc, e),
+            ContractElem::Struct(s) => folder.fold_struct_def(acc, s),
+            ContractElem::Enum(e) => folder.fold_enum_def(acc, e),
+            ContractElem::Type(t) => folder.fold_udv_type_def(acc, t),
+            ContractElem::Var(v) => folder.fold_var_decl(acc, v),
+            ContractElem::Func(f) => folder.fold_func_def(acc, f),
         }
     }
 
