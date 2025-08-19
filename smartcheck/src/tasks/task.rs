@@ -1,6 +1,6 @@
-use crate::detectors::Detector;
+use issue::issue::Issue;
 
 pub trait Task {
     /// Generic function to run the task.
-    fn run(&self);
+    fn check(&self) -> Vec<Issue>;
 }

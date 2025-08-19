@@ -15,6 +15,7 @@ clap-verbosity-flag = "2.0.1"
 color-eyre = "0.6"
 env_logger = "0.11.8"
 extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
+issue = { path = "../issue" }
 log = "0.4"
 smartir = { path = "../smartir" }
 solidity = { path = "../solidity" }

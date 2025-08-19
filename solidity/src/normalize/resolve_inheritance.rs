@@ -208,7 +208,7 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
         let ncontract = map::default::map_contract_def(self, contract);
 
         let nelems = ncontract.body.iter().filter_map(|elem| match elem {
-            ContractElem::FuncDef(func) => {
+            ContractElem::Func(func) => {
                 // Remove all virtual functions which don't have a body
                 if func.is_virtual && func.body.is_none() {
                     None
@@ -221,7 +221,7 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
                         overriding: Overriding::None,
                         ..func.clone()
                     };
-                    Some(ContractElem::FuncDef(nfunc))
+                    Some(ContractElem::Func(nfunc))
                 }
             }
             _ => Some(elem.clone()),
@@ -292,8 +292,8 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
 
                 for base_contract_elem in base_contract.body.iter() {
                     let nmember = match base_contract_elem {
-                        ContractElem::VarDecl(v) if v.name.base == member.base => Some(&v.name),
-                        ContractElem::FuncDef(f) if f.name.base == member.base => Some(&f.name),
+                        ContractElem::Var(v) if v.name.base == member.base => Some(&v.name),
+                        ContractElem::Func(f) if f.name.base == member.base => Some(&f.name),
                         _ => None,
                     };
 

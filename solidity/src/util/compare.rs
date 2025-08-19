@@ -757,15 +757,15 @@ pub mod default {
         use ContractElem::*;
         match (elem1, elem2) {
             (Using(u1), Using(u2)) => comparer.compare_using_directive(u1, u2),
-            (EventDef(e1), EventDef(e2)) => comparer.compare_event_definition(e1, e2),
-            (ErrorDef(e1), ErrorDef(e2)) => comparer.compare_error_defitinion(e1, e2),
-            (StructDef(s1), StructDef(s2)) => comparer.compare_struct_def(s1, s2),
-            (EnumDef(e1), EnumDef(e2)) => comparer.compare_enum_def(e1, e2),
-            (TypeDef(type1), TypeDef(type2)) => {
+            (Event(e1), Event(e2)) => comparer.compare_event_definition(e1, e2),
+            (Error(e1), Error(e2)) => comparer.compare_error_defitinion(e1, e2),
+            (Struct(s1), Struct(s2)) => comparer.compare_struct_def(s1, s2),
+            (Enum(e1), Enum(e2)) => comparer.compare_enum_def(e1, e2),
+            (Type(type1), Type(type2)) => {
                 comparer.compare_user_defined_type_definition(type1, type2)
             }
-            (VarDecl(var1), VarDecl(var2)) => comparer.compare_var_decl(var1, var2),
-            (FuncDef(func1), FuncDef(func2)) => comparer.compare_func_def(func1, func2),
+            (Var(var1), Var(var2)) => comparer.compare_var_decl(var1, var2),
+            (Func(func1), Func(func2)) => comparer.compare_func_def(func1, func2),
             _ => error("Different contract elements", elem1, elem2, None),
         }
     }

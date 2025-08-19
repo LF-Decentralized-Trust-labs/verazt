@@ -1,4 +1,4 @@
-use super::{task_initiator_ast, task_initiator_ir};
+use super::{config::Config, task_generator_ast, task_generator_ir};
 use solidity::ast::{ContractDef, FuncDef, SourceUnit, Stmt, source_unit};
 
 //-------------------------------------------------------------------------
@@ -8,7 +8,9 @@ use solidity::ast::{ContractDef, FuncDef, SourceUnit, Stmt, source_unit};
 /// Analyzer is responsible for analyzing smart contract AST and IR.
 ///
 /// Make it generic to handle different smart contract languages.
-pub struct Analyzer {}
+pub struct Analyzer {
+    pub config: Config,
+}
 
 //-------------------------------------------------------------------------
 // Implementation for Analyzer
@@ -16,18 +18,18 @@ pub struct Analyzer {}
 
 impl Analyzer {
     /// Function to analyze Solidity AST.
-    pub fn analyze_solidity_ast(&self, source_unit: solidity::ast::SourceUnit) {
-        let tasks = task_initiator_ast::initiate_tasks(source_unit);
+    pub fn analyze_solidity_ast(&self, source_unit: &solidity::ast::SourceUnit) {
+        let tasks = task_generator_ast::generate_tasks(&self.config, source_unit);
         for task in tasks {
-            task.run();
+            task.check();
         }
     }
 
     /// Function to analyze Solidity IR.
     pub fn analyze_solidity_ir(&self, source_unit: smartir::ir::SourceUnit) {
-        let tasks = task_initiator_ir::initiate_tasks(source_unit);
+        let tasks = task_generator_ir::initiate_tasks(source_unit);
         for task in tasks {
-            task.run();
+            task.check();
         }
     }
 }

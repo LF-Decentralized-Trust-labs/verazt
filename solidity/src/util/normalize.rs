@@ -522,31 +522,31 @@ pub mod default {
                 let (nacc, nu) = normalizer.normalize_using(acc, u);
                 (nacc, nu.into())
             }
-            ContractElem::EventDef(e) => {
+            ContractElem::Event(e) => {
                 let (nacc, ne) = normalizer.normalize_event_def(acc, e);
                 (nacc, ne.into())
             }
-            ContractElem::ErrorDef(e) => {
+            ContractElem::Error(e) => {
                 let (nacc, ne) = normalizer.normalize_error_def(acc, e);
                 (nacc, ne.into())
             }
-            ContractElem::StructDef(s) => {
+            ContractElem::Struct(s) => {
                 let (nacc, ns) = normalizer.normalize_struct_def(acc, s);
                 (nacc, ns.into())
             }
-            ContractElem::EnumDef(e) => {
+            ContractElem::Enum(e) => {
                 let (nacc, ne) = normalizer.normalize_enum_def(acc, e);
                 (nacc, ne.into())
             }
-            ContractElem::TypeDef(t) => {
+            ContractElem::Type(t) => {
                 let (nacc, nt) = normalizer.normalize_udv_type_def(acc, t);
                 (nacc, nt.into())
             }
-            ContractElem::VarDecl(v) => {
+            ContractElem::Var(v) => {
                 let (nacc, nv) = normalizer.normalize_var_decl(acc, v);
                 (nacc, nv.into())
             }
-            ContractElem::FuncDef(f) => {
+            ContractElem::Func(f) => {
                 let (acc, nf) = normalizer.normalize_func_def(acc, f);
                 (acc, nf.into())
             }

@@ -519,13 +519,13 @@ pub mod default {
     ) {
         match contract {
             ContractElem::Using(using) => visitor.visit_using(using),
-            ContractElem::EventDef(event) => visitor.visit_event_def(event),
-            ContractElem::ErrorDef(error) => visitor.visit_error_def(error),
-            ContractElem::StructDef(struct_) => visitor.visit_struct_def(struct_),
-            ContractElem::EnumDef(enum_) => visitor.visit_enum_def(enum_),
-            ContractElem::TypeDef(typ) => visitor.visit_udv_type_def(typ),
-            ContractElem::VarDecl(var) => visitor.visit_var_decl(var),
-            ContractElem::FuncDef(func) => visitor.visit_func_def(func),
+            ContractElem::Event(event) => visitor.visit_event_def(event),
+            ContractElem::Error(error) => visitor.visit_error_def(error),
+            ContractElem::Struct(struct_) => visitor.visit_struct_def(struct_),
+            ContractElem::Enum(enum_) => visitor.visit_enum_def(enum_),
+            ContractElem::Type(typ) => visitor.visit_udv_type_def(typ),
+            ContractElem::Var(var) => visitor.visit_var_decl(var),
+            ContractElem::Func(func) => visitor.visit_func_def(func),
         }
     }
 

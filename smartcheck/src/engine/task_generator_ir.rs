@@ -1,6 +1,6 @@
 //! Module to initiate tasks
 
-use crate::analysis::task::Task;
+use crate::tasks::task::Task;
 use smartir::ir::SourceUnit;
 
 //-------------------------------------------------------------------------
