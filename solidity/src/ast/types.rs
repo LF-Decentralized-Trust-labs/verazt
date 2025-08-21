@@ -1,5 +1,5 @@
 use crate::ast::*;
-use meta::DataLoc;
+use meta::{DataLoc, Name};
 use num_bigint::BigInt;
 use std::fmt::{self, Display};
 

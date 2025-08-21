@@ -3,6 +3,7 @@
 //! This module will perform naming resolution for all inheritance and
 //! interfaces.
 
+use meta::Name;
 use crate::{ast::*, util::*};
 use std::collections::HashMap;
 

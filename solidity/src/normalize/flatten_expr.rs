@@ -1,5 +1,5 @@
 use crate::{ast::*, util::*};
-use meta::DataLoc;
+use meta::{DataLoc, Loc, NamingEnv};
 use std::borrow::Borrow;
 
 struct ExprFlattener {
@@ -375,11 +375,7 @@ impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
 
     /// Override `normalize_block` to accumulate all new variable declarations
     /// as statements of the current block.
-    fn normalize_block(
-        &mut self,
-        acc: Vec<VarDecl>,
-        block: &Block,
-    ) -> (Vec<VarDecl>, Block) {
+    fn normalize_block(&mut self, acc: Vec<VarDecl>, block: &Block) -> (Vec<VarDecl>, Block) {
         let mut nstmts = vec![];
         for stmt in block.body.iter() {
             let (nvdecls, nstmt) = self.normalize_stmt(vec![], stmt);
@@ -411,11 +407,7 @@ impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
     }
 
     /// Override `normalize_expr` to call the `flatten_expr` function.
-    fn normalize_expr(
-        &mut self,
-        acc: Vec<VarDecl>,
-        expr: &Expr,
-    ) -> (Vec<VarDecl>, Expr) {
+    fn normalize_expr(&mut self, acc: Vec<VarDecl>, expr: &Expr) -> (Vec<VarDecl>, Expr) {
         let mut nvdecls = acc;
         let (vdecls, nexpr) = self.flatten_expr(expr);
         nvdecls.extend(vdecls);

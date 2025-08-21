@@ -3,9 +3,8 @@
 //! This map pattern will compute output of the same type when traversing all
 //! data structures in the AST.
 
-use meta::DataLoc;
-
 use crate::ast::*;
+use meta::{DataLoc, Name, NamePath};
 
 //------------------------------------------------------------------
 // Trait providing the fold pattern.
@@ -404,7 +403,7 @@ pub trait Fold<'a, T> {
 
 /// Module contain default implementation of the folding pattern.
 pub mod default {
-    use meta::DataLoc;
+    use meta::{DataLoc, Name, NamePath};
 
     use super::Fold;
     use crate::ast::*;

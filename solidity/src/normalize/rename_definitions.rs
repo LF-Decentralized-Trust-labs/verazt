@@ -4,6 +4,8 @@
 //!
 //! The renaming is necessary to eliminate the `import` directives later.
 
+use meta::NamingEnv;
+
 use crate::{ast::*, util::*};
 
 //-------------------------------------------------

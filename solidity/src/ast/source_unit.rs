@@ -1,5 +1,6 @@
 use crate::ast::*;
 use bat::PrettyPrinter;
+use meta::Name;
 use std::{
     collections::HashMap,
     fmt::{self, Display},

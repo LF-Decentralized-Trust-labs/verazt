@@ -3,20 +3,19 @@ use issue::issue::{Issue, Severity};
 use meta::Loc;
 use solidity::ast::CallExpr;
 
-pub struct CentralizationRiskDetector {
-    // Modifier invocation to check the centralization risk.
+pub struct AccessControlDetector {
     modifier_invoc: CallExpr,
     context: TaskContext,
 }
 
-impl CentralizationRiskDetector {
+impl AccessControlDetector {
     pub fn new(modifier_invoc: CallExpr, context: TaskContext) -> Self {
-        CentralizationRiskDetector { modifier_invoc, context }
+        AccessControlDetector { modifier_invoc, context }
     }
 
     pub fn create_issue(&self, loc: Loc) -> Issue {
         Issue::new(
-            "Centralization Risk",
+            "Access Control",
             None, // FIXME: update description
             loc,
             Severity::Medium,
@@ -26,7 +25,7 @@ impl CentralizationRiskDetector {
     }
 }
 
-impl Task for CentralizationRiskDetector {
+impl Task for AccessControlDetector {
     fn check(&self) -> Vec<Issue> {
         // Implementation of the centralization risk task
         vec![]

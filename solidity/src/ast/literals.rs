@@ -1,7 +1,7 @@
+use crate::ast::*;
+use meta::Loc;
 use num_bigint::BigInt;
 use rust_decimal::Decimal;
-
-use crate::ast::*;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

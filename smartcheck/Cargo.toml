@@ -17,5 +17,6 @@ env_logger = "0.11.8"
 extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
 issue = { path = "../issue" }
 log = "0.4"
+meta = { path = "../meta" }
 smartir = { path = "../smartir" }
 solidity = { path = "../solidity" }

@@ -5,6 +5,7 @@
 //! - Indexing numbers are globally accross all source units.
 
 use crate::{ast::*, util::*};
+use meta::NamingEnv;
 use yul::{ast::Block as YBlock, normalize as ynormalize};
 
 //-------------------------------------------------

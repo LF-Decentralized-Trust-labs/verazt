@@ -4,7 +4,7 @@
 //! structure of the same type.
 
 use crate::ast::*;
-use meta::DataLoc;
+use meta::{DataLoc, Name, NamePath};
 
 //------------------------------------------------------------------
 // Trait for implementing the mapping utilities
@@ -392,7 +392,7 @@ pub trait Map<'a> {
 pub mod default {
     use super::Map;
     use crate::ast::*;
-    use meta::DataLoc;
+    use meta::{DataLoc, Name, NamePath};
 
     //-------------------------------------------------
     // Source unit
@@ -526,10 +526,7 @@ pub mod default {
     // Type definitions.
     //-------------------------------------------------
 
-    pub fn map_udv_type_def<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        typ: &'a TypeDef,
-    ) -> TypeDef {
+    pub fn map_udv_type_def<'a, T: Map<'a> + ?Sized>(mapper: &mut T, typ: &'a TypeDef) -> TypeDef {
         let nname = mapper.map_name(&typ.name);
         let nbase = mapper.map_type(&typ.base_typ);
         TypeDef { name: nname, base_typ: nbase, ..typ.clone() }
@@ -620,10 +617,7 @@ pub mod default {
     // Function
     //-------------------------------------------------
 
-    pub fn map_func_def<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        func: &'a FuncDef,
-    ) -> FuncDef {
+    pub fn map_func_def<'a, T: Map<'a> + ?Sized>(mapper: &mut T, func: &'a FuncDef) -> FuncDef {
         let name = mapper.map_name(&func.name);
         let params = mapper.map_var_decls(&func.params);
         let modifier_invocs = func
@@ -883,10 +877,7 @@ pub mod default {
     // Variable declaration.
     //-------------------------------------------------
 
-    pub fn map_var_decl<'a, T: Map<'a> + ?Sized>(
-        mapper: &mut T,
-        vdecl: &'a VarDecl,
-    ) -> VarDecl {
+    pub fn map_var_decl<'a, T: Map<'a> + ?Sized>(mapper: &mut T, vdecl: &'a VarDecl) -> VarDecl {
         let name = mapper.map_name(&vdecl.name);
         let typ = mapper.map_type(&vdecl.typ);
         let value = vdecl.value.as_ref().map(|e| mapper.map_expr(e));
@@ -1304,7 +1295,10 @@ pub mod default {
         MappingType { key: nkey, value: nvalue, data_loc: ndloc }
     }
 
-    pub fn map_type_name<'a, T: Map<'a> + ?Sized>(mapper: &mut T, typ: &'a UserDefinedType) -> UserDefinedType {
+    pub fn map_type_name<'a, T: Map<'a> + ?Sized>(
+        mapper: &mut T,
+        typ: &'a UserDefinedType,
+    ) -> UserDefinedType {
         let nname = mapper.map_name(&typ.name);
         let nscope = mapper.map_name_opt(&typ.scope);
         UserDefinedType { name: nname, scope: nscope }

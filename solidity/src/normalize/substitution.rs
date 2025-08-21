@@ -1,5 +1,7 @@
 //! Substituting `identifier` by an `expression`
 
+use meta::Name;
+
 use crate::{ast::*, util::*};
 use std::collections::HashMap;
 

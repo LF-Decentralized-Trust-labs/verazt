@@ -19,8 +19,3 @@ pub use sections::*;
 pub use source_unit::*;
 pub use statements::*;
 pub use types::*;
-
-// Metadata
-pub type Loc = meta::Loc;
-pub type Name = meta::Name;
-pub type NamingEnv = meta::NamingEnv;

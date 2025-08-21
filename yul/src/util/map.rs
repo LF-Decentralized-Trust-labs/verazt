@@ -3,6 +3,8 @@
 //! This map pattern will transform an input data structure into a new data
 //! structure of the same type.
 
+use meta::Name;
+
 use crate::ast::*;
 
 /// Trait implementing the map design pattern for Solidity AST.
@@ -137,6 +139,7 @@ pub mod default {
     use super::Map;
     use crate::ast::*;
     use either::Either;
+    use meta::Name;
 
     //-------------------------------------------------
     // Source unit

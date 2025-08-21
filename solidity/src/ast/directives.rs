@@ -1,4 +1,5 @@
 use crate::ast::*;
+use meta::{Loc, Name, NamePath};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

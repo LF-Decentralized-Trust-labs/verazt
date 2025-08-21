@@ -1,5 +1,6 @@
 use crate::ast::*;
 use extlib::{error::Result, fail};
+use meta::{Loc, Name};
 use std::{
     fmt::{self, Display},
     ops::Deref,

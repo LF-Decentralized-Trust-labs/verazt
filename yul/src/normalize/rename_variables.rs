@@ -1,6 +1,7 @@
 //! Module for renaming variables.
 
 use crate::{ast::*, util::*};
+use meta::{Name, NamingEnv};
 
 /// Function to rename variables.
 pub fn rename_variables(source_unit: &SourceUnit) -> SourceUnit {

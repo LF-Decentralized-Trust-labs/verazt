@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use extlib::error::Result;
-use meta::DataLoc;
+use meta::{DataLoc, Name, NamePath};
 
 //-------------------------------------------------
 // Trait for comparison
@@ -245,11 +245,7 @@ pub trait Compare<'a> {
     // Variable declaration.
     //-------------------------------------------------
 
-    fn compare_var_decl(
-        &mut self,
-        vdecl1: &'a VarDecl,
-        vdecl2: &'a VarDecl,
-    ) -> Result<()> {
+    fn compare_var_decl(&mut self, vdecl1: &'a VarDecl, vdecl2: &'a VarDecl) -> Result<()> {
         default::compare_var_decl(self, vdecl1, vdecl2)
     }
 
@@ -465,7 +461,11 @@ pub trait Compare<'a> {
         default::compare_mapping_type(self, t1, t2)
     }
 
-    fn compare_type_name(&mut self, t1: &'a UserDefinedType, t2: &'a UserDefinedType) -> Result<()> {
+    fn compare_type_name(
+        &mut self,
+        t1: &'a UserDefinedType,
+        t2: &'a UserDefinedType,
+    ) -> Result<()> {
         default::compare_type_name(self, t1, t2)
     }
 
@@ -498,7 +498,7 @@ pub mod default {
         error::{Report, Result},
         fail,
     };
-    use meta::DataLoc;
+    use meta::{DataLoc, Name};
     use std::fmt::Display;
 
     //-------------------------------------------------

@@ -1,5 +1,6 @@
 use crate::ir::*;
 use extlib::string::StringExt;
+use meta::{Loc, Name};
 use std::fmt::{self, Display};
 use yul::ast as yast;
 
