@@ -1,8 +1,8 @@
+use crate::ir::*;
+use meta::{DataLoc, Loc};
 use num_bigint::BigInt;
 use num_traits::One;
 use rust_decimal::Decimal;
-
-use crate::ir::*;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

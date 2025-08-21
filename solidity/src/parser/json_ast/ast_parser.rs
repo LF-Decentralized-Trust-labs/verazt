@@ -1,12 +1,12 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
 use crate::{ast::*, parser::typ::type_parser};
-use extlib::{error, fail};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
+use extlib::{error, fail};
 use itertools::izip;
 use lazy_static::lazy_static;
-use meta::DataLoc;
+use meta::{DataLoc, Loc, Name};
 use num_bigint::BigInt;
 use regex::Regex;
 use rust_decimal::Decimal;

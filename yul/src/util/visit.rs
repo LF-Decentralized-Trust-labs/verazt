@@ -2,6 +2,8 @@
 //!
 //! This visiting pattern will not transform any input data structure.
 
+use meta::Name;
+
 use crate::ast::*;
 
 /// Trait implementing the map design pattern for Solidity AST.

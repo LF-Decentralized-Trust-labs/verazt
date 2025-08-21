@@ -3,6 +3,8 @@
 //! This map pattern will compute output of the same type when traversing all
 //! data structures in the AST.
 
+use meta::Name;
+
 use crate::ast::*;
 
 /// Trait implementing the map design pattern for Solidity AST.
@@ -131,6 +133,7 @@ pub trait Fold<T> {
 /// Module contain default implementation of the folding pattern.
 pub mod default {
     use either::Either;
+    use meta::Name;
 
     use super::Fold;
     use crate::ast::*;

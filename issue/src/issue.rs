@@ -1,3 +1,5 @@
+use meta::Loc;
+
 //-------------------------------------------------------------------------
 // Data structures representing smart contract issues.
 //-------------------------------------------------------------------------
@@ -6,7 +8,8 @@ use std::fmt::{self, Display};
 
 pub struct Issue {
     pub name: String,
-    pub description: String,
+    pub description: Option<String>,
+    pub loc: Loc,
     pub severity: Severity,
     pub cwe_ids: Vec<usize>, // Related CWE: https://cwe.mitre.org/index.html
     pub swc_ids: Vec<usize>, // Related SWC: https://swcregistry.io/
@@ -26,20 +29,32 @@ pub enum Severity {
 
 impl Issue {
     pub fn new(
-        name: String,
-        description: String,
+        name: &str,
+        description: Option<&str>,
+        loc: Loc,
         severity: Severity,
         cwe_ids: Vec<usize>,
         swc_ids: Vec<usize>,
     ) -> Self {
-        Issue { name, description, severity, swc_ids, cwe_ids }
+        Issue {
+            name: name.to_string(),
+            description: description.map(|s| s.to_string()),
+            loc,
+            severity,
+            swc_ids,
+            cwe_ids,
+        }
     }
 }
 
 impl Display for Issue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Issue: {}", self.name)?;
-        writeln!(f, "Description: {}", self.description)?;
+        if let Some(ref desc) = self.description {
+            writeln!(f, "Description: {}", desc)?;
+        } else {
+            writeln!(f, "Description: No description provided")?;
+        }
         writeln!(f, "Severity: {}", self.severity)?;
         if !self.cwe_ids.is_empty() {
             writeln!(f, "Related CWE IDs: {:?}", self.cwe_ids)?;

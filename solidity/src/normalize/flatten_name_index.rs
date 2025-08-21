@@ -1,6 +1,7 @@
 //! Module to flatten names.
 
 use crate::{ast::*, util::*};
+use meta::Name;
 
 struct NameIdxFlattener {}
 

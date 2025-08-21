@@ -4,6 +4,7 @@
 //! renamed to resolve all ambiguities.
 
 use crate::{ast::*, util::*};
+use meta::Name;
 use std::{collections::HashMap, ops::Deref};
 
 /// Data structure modelling a function implementation that is used for target

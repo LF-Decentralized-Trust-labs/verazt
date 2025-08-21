@@ -1,5 +1,6 @@
 //! Module to eliminate function modifier from function definitions.
 
+use meta::Name;
 use crate::{ast::*, normalize::substitution, util::*};
 use std::{collections::HashMap, ops::Deref};
 

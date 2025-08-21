@@ -3,6 +3,7 @@
 //! The renaming will be done on both contract definitions and base contract
 //! information of inheritance.
 
+use meta::NamingEnv;
 use crate::{ast::*, util::*};
 
 #[derive(Debug, Clone)]

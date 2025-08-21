@@ -19,9 +19,3 @@ pub use statements::*;
 pub use types::*;
 pub use util::*;
 pub use variable::*;
-
-/* Metadata */
-
-pub type Loc = meta::Loc;
-pub type DataLoc = meta::DataLoc;
-pub type Name = meta::Name;
