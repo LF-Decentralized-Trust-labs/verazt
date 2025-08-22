@@ -1,7 +1,7 @@
 //! Module to eliminate `import` directive in Solidity smart contracts.
 
-use meta::Name;
 use crate::{ast::*, normalize::substitution::NameSubstitutor, util::*};
+use meta::Name;
 use std::{
     collections::{HashMap, HashSet},
     path::Path,

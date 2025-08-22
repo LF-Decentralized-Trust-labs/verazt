@@ -79,9 +79,7 @@ impl From<&str> for NamePath {
 
 impl From<&[Name]> for NamePath {
     fn from(names: &[Name]) -> Self {
-        Self {
-            names: names.to_vec(),
-        }
+        Self { names: names.to_vec() }
     }
 }
 
