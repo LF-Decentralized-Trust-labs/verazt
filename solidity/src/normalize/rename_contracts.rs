@@ -3,8 +3,8 @@
 //! The renaming will be done on both contract definitions and base contract
 //! information of inheritance.
 
-use meta::NamingEnv;
 use crate::{ast::*, util::*};
+use meta::NamingEnv;
 
 #[derive(Debug, Clone)]
 struct Renamer<'a> {
