@@ -1,4 +1,4 @@
-use crate::{ast::*, util::*};
+use crate::{ast::*, ast::utils::*};
 use meta::{DataLoc, Loc, NamingEnv};
 use std::borrow::Borrow;
 
@@ -401,7 +401,7 @@ impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
     ) -> (Vec<VarDecl>, VarDecl) {
         let saved_mutability = self.current_mutability.clone();
         self.current_mutability = Some(vdecl.mutability.clone());
-        let res = normalize::default::normalize_var_decl(self, acc, vdecl);
+        let res = crate::ast::utils::normalize::default::normalize_var_decl(self, acc, vdecl);
         self.current_mutability = saved_mutability;
         res
     }
@@ -438,8 +438,8 @@ pub fn flatten_expr(source_units: &[SourceUnit], env: Option<&NamingEnv>) -> Vec
 mod tests {
     use crate::{
         compile::compile_solidity_source_code,
-        normalize::{flatten_expr, util::configure_unit_test_env},
-        util::syntactic_comparer::compare_source_units,
+        passes::{flatten_expr, utils::configure_unit_test_env},
+        ast::utils::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 

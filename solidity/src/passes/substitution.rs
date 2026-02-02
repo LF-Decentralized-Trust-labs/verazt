@@ -2,7 +2,7 @@
 
 use meta::Name;
 
-use crate::{ast::*, util::*};
+use crate::{ast::*, ast::utils::*};
 use std::collections::HashMap;
 
 //-------------------------------------------------

@@ -18,7 +18,7 @@ pub mod substitution;
 pub mod unroll_unary_tuple;
 
 #[macro_use]
-pub mod util;
+pub mod utils;
 
 pub use elim_func_modifier::eliminate_modifier_invocs;
 pub use elim_import_directives::eliminate_import;
@@ -46,10 +46,10 @@ fn print_output_source_units(source_units: &[SourceUnit]) {
     }
 }
 
-/// Normalize source units.
+/// Run all normalization passes on source units.
 ///
 /// The order of normalization steps is important.
-pub fn normalize_source_units(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
+pub fn run_passes(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
     // First, unroll all single tuple to eliminate parenthesized-based expression.
     let source_units = unroll_unary_tuple(source_units);
     print_output_source_units(&source_units);

@@ -1,6 +1,6 @@
 //! Module to unroll tuples of single element, such as `(exp)` to `exp`.
 
-use crate::{ast::*, util::map::default, util::*};
+use crate::{ast::*, ast::utils::map::default, ast::utils::*};
 use std::ops::Deref;
 
 /// Data structure to unroll tuples containing single element.

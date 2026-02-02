@@ -1,7 +1,6 @@
 use crate::{
-    ast::{self, SourceUnit},
+    ast::{self, utils::export, SourceUnit},
     parser::ast_parser::{AstParser, JsonAst},
-    util::export,
     version::{
         self, check_range_constraint, check_version_constraint, find_compatible_solc_versions,
         find_pragma_solidity_versions,

@@ -11,6 +11,7 @@ pub mod source_unit;
 pub mod specifiers;
 pub mod statements;
 pub mod types;
+pub mod utils;
 
 pub use block::*;
 pub use builtins::*;

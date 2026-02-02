@@ -3,8 +3,8 @@
 use clap::{Parser, crate_version};
 use extlib::error;
 use solidity::{
-    ast::SourceUnit, compile::compile_input_file, normalize,
-    util::export::export_debugging_source_unit,
+    ast::SourceUnit, compile::compile_input_file, passes,
+    ast::utils::export::export_debugging_source_unit,
 };
 
 #[derive(Parser, Debug)]
@@ -110,8 +110,8 @@ fn main() {
         })
         .collect();
 
-    // Normalize AST
-    let normalized_source_units = normalize::normalize_source_units(&input_source_units);
+    // Run normalization passes
+    let normalized_source_units = passes::run_passes(&input_source_units);
 
     if args.print_normalized_program {
         println!("Source unit AST after normalization:");

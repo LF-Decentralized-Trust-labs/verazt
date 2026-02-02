@@ -3,7 +3,7 @@
 //! This module will perform naming resolution for all inheritance and
 //! interfaces.
 
-use crate::{ast::*, util::*};
+use crate::{ast::*, ast::utils::*};
 use meta::Name;
 use std::collections::HashMap;
 
@@ -382,11 +382,11 @@ mod tests {
     use super::*;
     use crate::{
         compile::compile_solidity_source_code,
-        normalize::{
+        passes::{
             flatten_name, rename_callees, rename_contracts, rename_definitions,
-            util::configure_unit_test_env,
+            utils::configure_unit_test_env,
         },
-        util::syntactic_comparer::compare_source_units,
+        ast::utils::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 

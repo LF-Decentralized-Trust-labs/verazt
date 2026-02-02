@@ -6,7 +6,7 @@
 //! - Firstly, rename all the function definitions
 //! - Secondly, rename function names in all callees.
 
-use crate::{ast::*, util::*};
+use crate::{ast::*, ast::utils::*};
 use extlib::{error::Result, fail};
 use meta::{Name, NamingEnv};
 
@@ -484,8 +484,8 @@ mod tests {
     use super::rename_callees;
     use crate::{
         compile::compile_solidity_source_code,
-        normalize::{rename_definitions, util::configure_unit_test_env},
-        util::syntactic_comparer::compare_source_units,
+        passes::{rename_definitions, utils::configure_unit_test_env},
+        ast::utils::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 

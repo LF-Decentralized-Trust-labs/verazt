@@ -3,9 +3,8 @@ use extlib::error;
 use solidity::{
     ast::{self, SourceUnit},
     compile::compile_input_file,
-    normalize,
-    parser::ast_parser,
-    util::{self, export::export_debugging_source_unit},
+    passes,
+    ast::utils::{self, export::export_debugging_source_unit},
 };
 
 #[derive(Parser, Debug)]

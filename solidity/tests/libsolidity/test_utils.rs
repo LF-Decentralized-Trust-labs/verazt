@@ -2,7 +2,8 @@
 use extlib::{error::Result, fail};
 use regex::Regex;
 use solidity::{
-    ast::SourceUnit, compile::compile_input_file, normalize, util::export::export_source_unit,
+    ast::SourceUnit, compile::compile_input_file, passes,
+    ast::utils::export::export_source_unit,
 };
 use std::{
     ffi::OsStr,
@@ -227,7 +228,7 @@ fn test_compiling_solidity_file(
         let normalized_dir_path: PathBuf = root_test_dir.join("normalized");
         let normalized_dir = normalized_dir_path.to_str().unwrap_or("");
 
-        let normalized_source_units = normalize::normalize_source_units(&parsed_source_units);
+        let normalized_source_units = passes::run_passes(&parsed_source_units);
 
         // Test compiling all normalized source units
         let mut exported_files = vec![];
