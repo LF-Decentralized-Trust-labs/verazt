@@ -1,11 +1,10 @@
 use crate::{
-    ast::{self, SourceUnit},
-    parser::ast_parser::{AstParser, JsonAst},
-    util::export,
-    version::{
+    ast::{self, SourceUnit, utils::export},
+    ast::utils::version::{
         self, check_range_constraint, check_version_constraint, find_compatible_solc_versions,
         find_pragma_solidity_versions,
     },
+    parser::ast_parser::{AstParser, JsonAst},
 };
 use extlib::{error::Result, fail};
 use node_semver::Version;

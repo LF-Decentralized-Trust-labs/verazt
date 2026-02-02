@@ -1,4 +1,4 @@
-use crate::{ast::*, version};
+use crate::{ast::*, ast::utils::version};
 use extlib::{error::Result, fail, string::StringExt};
 use meta::{DataLoc, Loc, Name};
 use node_semver::Range;

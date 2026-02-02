@@ -1,10 +1,9 @@
 [workspace]
 members = [
-  "issue",
+  "bugs",
   "meta",
-  "smartcheck",
-  "smartir",
-  "smartproof",
+  "kookaburra",
+  "seaeagle",
   "solidity",
   "yul",
 ]
