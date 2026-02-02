@@ -10,13 +10,21 @@ pub struct Issue {
     pub name: String,
     pub description: Option<String>,
     pub loc: Loc,
-    pub severity: Severity,
+    pub kind: IssueKind,
+    pub risk_level: RiskLevel,
     pub cwe_ids: Vec<usize>, // Related CWE: https://cwe.mitre.org/index.html
     pub swc_ids: Vec<usize>, // Related SWC: https://swcregistry.io/
 }
 
-pub enum Severity {
-    Informational,
+// FIXME: find a better name
+pub enum IssueKind {
+    Optimization,
+    Refactoring,
+    Vulnerability,
+}
+
+pub enum RiskLevel {
+    No,
     Low,
     Medium,
     High,
@@ -32,7 +40,8 @@ impl Issue {
         name: &str,
         description: Option<&str>,
         loc: Loc,
-        severity: Severity,
+        kind: IssueKind,
+        risk_level: RiskLevel,
         cwe_ids: Vec<usize>,
         swc_ids: Vec<usize>,
     ) -> Self {
@@ -40,7 +49,8 @@ impl Issue {
             name: name.to_string(),
             description: description.map(|s| s.to_string()),
             loc,
-            severity,
+            kind,
+            risk_level,
             swc_ids,
             cwe_ids,
         }
@@ -55,7 +65,8 @@ impl Display for Issue {
         } else {
             writeln!(f, "Description: No description provided")?;
         }
-        writeln!(f, "Severity: {}", self.severity)?;
+        writeln!(f, "Kind: {}", self.kind)?;
+        writeln!(f, "Risk Level: {}", self.risk_level)?;
         if !self.cwe_ids.is_empty() {
             writeln!(f, "Related CWE IDs: {:?}", self.cwe_ids)?;
         }
@@ -67,19 +78,43 @@ impl Display for Issue {
 }
 
 //-------------------------------------------------------------------------
-// Implementation for Severity
+// Implementation for IssueKind
 //-------------------------------------------------------------------------
 
-impl Severity {}
-
-impl Display for Severity {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl IssueKind {
+    pub fn as_str(&self) -> &str {
         match self {
-            Severity::Informational => write!(f, "Informational"),
-            Severity::Low => write!(f, "Low"),
-            Severity::Medium => write!(f, "Medium"),
-            Severity::High => write!(f, "High"),
-            Severity::Critical => write!(f, "Critical"),
+            IssueKind::Optimization => "Optimization",
+            IssueKind::Refactoring => "Refactoring",
+            IssueKind::Vulnerability => "Vulnerability",
         }
+    }
+}
+
+impl Display for IssueKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+//-------------------------------------------------------------------------
+// Implementation for RiskLevel
+//-------------------------------------------------------------------------
+
+impl RiskLevel {
+    pub fn as_str(&self) -> &str {
+        match self {
+            RiskLevel::No => "Informational",
+            RiskLevel::Low => "Low",
+            RiskLevel::Medium => "Medium",
+            RiskLevel::High => "High",
+            RiskLevel::Critical => "Critical",
+        }
+    }
+}
+
+impl Display for RiskLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }

@@ -2,7 +2,7 @@
 
 use super::config::Config;
 use crate::tasks::{
-    modifier_tasks::{self, centralization_risk},
+    modf_tasks::{self, centralization_risk},
     task::Task,
 };
 use solidity::ast::*;
@@ -20,6 +20,7 @@ pub struct TaskGenerator {
 }
 
 /// An analysis context of a Task
+#[derive(Debug, Clone)]
 pub struct TaskContext {
     pub source_unit: Option<SourceUnit>, // Current source unit
     pub contract: Option<ContractDef>,   // Current contract
@@ -103,12 +104,11 @@ impl TaskGenerator {
         vec![]
     }
 
-    fn generate_modifier_task(&mut self, modifier_invoc: &CallExpr) -> Vec<Box<dyn Task>> {
-        let centralization_risk_detector = modifier_tasks::AccessControlDetector::new(
-            modifier_invoc.clone(),
-            self.current_context(),
-        );
-        vec![Box::new(centralization_risk_detector)]
+    fn generate_modifier_task(&mut self, modf_invoc: &CallExpr) -> Vec<Box<dyn Task>> {
+        let ctx = self.current_context();
+        let access_control = modf_tasks::AccessControl::new(modf_invoc, &ctx);
+        let central_risk = modf_tasks::CentralizationRisk::new(modf_invoc, &ctx);
+        vec![Box::new(central_risk), Box::new(access_control)]
     }
 }
 
