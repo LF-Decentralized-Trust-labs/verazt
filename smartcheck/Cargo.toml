@@ -18,5 +18,4 @@ extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" 
 bugs = { path = "../bugs" }
 log = "0.4"
 meta = { path = "../meta" }
-smartir = { path = "../smartir" }
 solidity = { path = "../solidity" }

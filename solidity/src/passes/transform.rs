@@ -5,7 +5,7 @@ use either::Either::{self, Left, Right};
 use extlib::{error::Result, fail};
 use log::trace;
 use meta::{DataLoc, Loc};
-use solidity::ast;
+use crate::ast;
 use std::{borrow::BorrowMut, ops::Deref};
 
 pub fn transform_source_unit(source_unit: &ast::SourceUnit) -> Result<SourceUnit> {

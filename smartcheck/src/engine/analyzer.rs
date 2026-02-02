@@ -26,7 +26,7 @@ impl Analyzer {
     }
 
     /// Function to analyze Solidity IR.
-    pub fn analyze_solidity_ir(&self, source_unit: smartir::ir::SourceUnit) {
+    pub fn analyze_solidity_ir(&self, source_unit: solidity::ir::SourceUnit) {
         let tasks = task_generator_ir::initiate_tasks(source_unit);
         for task in tasks {
             task.check();

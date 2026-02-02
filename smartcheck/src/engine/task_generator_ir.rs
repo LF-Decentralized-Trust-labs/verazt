@@ -1,7 +1,7 @@
 //! Module to initiate tasks
 
 use crate::tasks::task::Task;
-use smartir::ir::SourceUnit;
+use solidity::ir::SourceUnit;
 
 //-------------------------------------------------------------------------
 // Data structures for task initiator

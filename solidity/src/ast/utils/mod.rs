@@ -4,6 +4,7 @@ pub mod fold;
 pub mod map;
 pub mod normalize;
 pub mod syntactic_comparer;
+pub mod version;
 pub mod visit;
 
 pub use compare::Compare;

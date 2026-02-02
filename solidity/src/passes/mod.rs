@@ -15,6 +15,7 @@ pub mod rename_definitions;
 pub mod rename_variables;
 pub mod resolve_inheritance;
 pub mod substitution;
+pub mod transform;
 pub mod unroll_unary_tuple;
 
 #[macro_use]

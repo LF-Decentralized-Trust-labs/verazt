@@ -3,7 +3,6 @@ members = [
   "bugs",
   "meta",
   "smartcheck",
-  "smartir",
   "smartproof",
   "solidity",
   "yul",
