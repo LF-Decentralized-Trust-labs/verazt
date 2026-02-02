@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "issue",
+  "bugs",
   "meta",
   "smartcheck",
   "smartir",

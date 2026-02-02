@@ -1,23 +1,23 @@
 use meta::Loc;
 
 //-------------------------------------------------------------------------
-// Data structures representing smart contract issues.
+// Data structures representing smart contract bugs.
 //-------------------------------------------------------------------------
 
 use std::fmt::{self, Display};
 
-pub struct Issue {
+pub struct Bug {
     pub name: String,
     pub description: Option<String>,
     pub loc: Loc,
-    pub kind: IssueKind,
+    pub kind: BugKind,
     pub risk_level: RiskLevel,
     pub cwe_ids: Vec<usize>, // Related CWE: https://cwe.mitre.org/index.html
     pub swc_ids: Vec<usize>, // Related SWC: https://swcregistry.io/
 }
 
 // FIXME: find a better name
-pub enum IssueKind {
+pub enum BugKind {
     Optimization,
     Refactoring,
     Vulnerability,
@@ -32,20 +32,20 @@ pub enum RiskLevel {
 }
 
 //-------------------------------------------------------------------------
-// Implementation for Issue
+// Implementation for Bug
 //-------------------------------------------------------------------------
 
-impl Issue {
+impl Bug {
     pub fn new(
         name: &str,
         description: Option<&str>,
         loc: Loc,
-        kind: IssueKind,
+        kind: BugKind,
         risk_level: RiskLevel,
         cwe_ids: Vec<usize>,
         swc_ids: Vec<usize>,
     ) -> Self {
-        Issue {
+        Bug {
             name: name.to_string(),
             description: description.map(|s| s.to_string()),
             loc,
@@ -57,9 +57,9 @@ impl Issue {
     }
 }
 
-impl Display for Issue {
+impl Display for Bug {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Issue: {}", self.name)?;
+        writeln!(f, "Bug: {}", self.name)?;
         if let Some(ref desc) = self.description {
             writeln!(f, "Description: {}", desc)?;
         } else {
@@ -78,20 +78,20 @@ impl Display for Issue {
 }
 
 //-------------------------------------------------------------------------
-// Implementation for IssueKind
+// Implementation for BugKind
 //-------------------------------------------------------------------------
 
-impl IssueKind {
+impl BugKind {
     pub fn as_str(&self) -> &str {
         match self {
-            IssueKind::Optimization => "Optimization",
-            IssueKind::Refactoring => "Refactoring",
-            IssueKind::Vulnerability => "Vulnerability",
+            BugKind::Optimization => "Optimization",
+            BugKind::Refactoring => "Refactoring",
+            BugKind::Vulnerability => "Vulnerability",
         }
     }
 }
 
-impl Display for IssueKind {
+impl Display for BugKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }

@@ -1,6 +1,6 @@
-use issue::issue::Issue;
+use bugs::bug::Bug;
 
 pub trait Task {
     /// Generic function to run the task.
-    fn check(&self) -> Vec<Issue>;
+    fn check(&self) -> Vec<Bug>;
 }

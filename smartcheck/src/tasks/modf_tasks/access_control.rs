@@ -1,5 +1,5 @@
 use crate::{engine::task_generator_ast::TaskContext, tasks::task::Task};
-use issue::issue::{Issue, IssueKind, RiskLevel};
+use bugs::bug::{Bug, BugKind, RiskLevel};
 use meta::Loc;
 use solidity::ast::CallExpr;
 
@@ -13,12 +13,12 @@ impl AccessControl {
         AccessControl { modifier_invoc: modifier_invoc.clone(), context: context.clone() }
     }
 
-    pub fn create_issue(&self, loc: Loc) -> Issue {
-        Issue::new(
+    pub fn create_issue(&self, loc: Loc) -> Bug {
+        Bug::new(
             "Access Control",
             None, // FIXME: update description
             loc,
-            IssueKind::Vulnerability,
+            BugKind::Vulnerability,
             RiskLevel::Medium,
             vec![], // FIXME: update related CWE IDs
             vec![], // FIXME: update related SWC IDs
@@ -27,7 +27,7 @@ impl AccessControl {
 }
 
 impl Task for AccessControl {
-    fn check(&self) -> Vec<Issue> {
+    fn check(&self) -> Vec<Bug> {
         // Implementation of the centralization risk task
         vec![]
     }
