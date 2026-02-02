@@ -5,13 +5,13 @@ use solidity::ast::CallExpr;
 
 pub struct CentralizationRisk {
     // Modifier invocation to check the centralization risk.
-    modifier_invoc: CallExpr,
-    context: TaskContext,
+    _modifier_invoc: CallExpr,
+    _context: TaskContext,
 }
 
 impl CentralizationRisk {
     pub fn new(modifier_invoc: &CallExpr, context: &TaskContext) -> Self {
-        CentralizationRisk { modifier_invoc: modifier_invoc.clone(), context: context.clone() }
+        CentralizationRisk { _modifier_invoc: modifier_invoc.clone(), _context: context.clone() }
     }
 
     pub fn create_issue(&self, loc: Loc) -> Bug {

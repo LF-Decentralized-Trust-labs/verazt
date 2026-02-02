@@ -2,7 +2,7 @@
 
 use super::config::Config;
 use crate::tasks::{
-    modf_tasks::{self, centralization_risk},
+    modf_tasks::{self},
     task::Task,
 };
 use solidity::ast::*;
@@ -100,7 +100,7 @@ impl TaskGenerator {
         tasks
     }
 
-    fn generate_statement_task(&mut self, stmt: &Stmt) -> Vec<Box<dyn Task>> {
+    fn generate_statement_task(&mut self, _stmt: &Stmt) -> Vec<Box<dyn Task>> {
         vec![]
     }
 

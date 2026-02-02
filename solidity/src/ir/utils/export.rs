@@ -26,8 +26,8 @@ pub fn export_source_unit(source_unit: &SourceUnit, output_file: &str) -> Result
 
 /// Export a source unit in IR form for debugging purpose.
 pub fn export_debugging_source_unit(
-    source_unit: &SourceUnit,
-    source_unit_type: &str,
+    _source_unit: &SourceUnit,
+    _source_unit_type: &str,
 ) -> Result<()> {
     // let file_path: String = source_unit.path.clone();
     // let (output_dir, file_stem) =

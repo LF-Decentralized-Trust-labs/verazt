@@ -763,7 +763,7 @@ impl Transformer {
 
     fn transform_unary_expr(&mut self, expr: &ast::UnaryExpr) -> Result<(Expr, Vec<Stmt>)> {
         let mut nstmts = vec![];
-        let typ = expr.typ.clone();
+        let _typ = expr.typ.clone();
 
         // Transform the operand first
         let (opr, mut stmts) = self.transform_expr(&expr.body)?;
@@ -798,12 +798,12 @@ impl Transformer {
 
     fn normalize_prefix_unary_expr(
         &mut self,
-        expr: &ast::UnaryExpr,
-        operator: &ast::UnaryOp,
-        var: Variable,
-        loc: Option<Loc>,
+        _expr: &ast::UnaryExpr,
+        _operator: &ast::UnaryOp,
+        _var: Variable,
+        _loc: Option<Loc>,
     ) -> Result<(Expr, Vec<Stmt>)> {
-        let assign_stmt: Stmt = {
+        let _assign_stmt: Stmt = {
             // let lhs = LValue::from(var.clone());
             // let bin_op = match operator {
             //     ast::UnaryOp::PreIncrement => BinOp::Add,
@@ -822,26 +822,26 @@ impl Transformer {
             // ExprStmt::new(expr, loc).into()
             todo!("Transform to function call!")
         };
-        let output_expr = Expr::from(var);
-        let nstmts = vec![assign_stmt];
-        Ok((output_expr, nstmts))
+        // let output_expr = Expr::from(var);
+        // let nstmts = vec![assign_stmt];
+        // Ok((output_expr, nstmts))
     }
 
     fn normalize_postfix_unary_expr(
         &mut self,
-        expr: &ast::UnaryExpr,
-        operator: &ast::UnaryOp,
+        _expr: &ast::UnaryExpr,
+        _operator: &ast::UnaryOp,
         var: Variable,
         loc: Option<Loc>,
     ) -> Result<(Expr, Vec<Stmt>)> {
         let typ = var.typ.clone();
         let vdecl = self.create_new_var_decl(typ.clone(), false, loc);
-        let var_decl_stmt = Stmt::from(VarDeclStmt::new(
+        let _var_decl_stmt = Stmt::from(VarDeclStmt::new(
             vec![Some(vdecl.clone())],
             Some(Expr::from(var.clone())),
             loc,
         ));
-        let assign_stmt: Stmt = {
+        let _assign_stmt: Stmt = {
             // let lhs = LValue::from(var.clone());
             // let bin_op = match operator {
             //     ast::UnaryOp::PostIncrement => BinOp::Add,
@@ -859,10 +859,10 @@ impl Transformer {
             // ExprStmt::new(expr, loc).into()
             todo!("Transform to function call!")
         };
-        let nstmts = vec![var_decl_stmt, assign_stmt];
-        let nvar = Variable::new(vdecl.name, typ, loc);
-        let output_expr = Expr::from(nvar);
-        Ok((output_expr, nstmts))
+        // let nstmts = vec![var_decl_stmt, assign_stmt];
+        // let nvar = Variable::new(vdecl.name, typ, loc);
+        // let output_expr = Expr::from(nvar);
+        // Ok((output_expr, nstmts))
     }
 
     //-------------------------------------------------
@@ -872,14 +872,14 @@ impl Transformer {
     fn transform_binary_expr(&mut self, expr: &ast::BinaryExpr) -> Result<(Expr, Vec<Stmt>)> {
         let mut nstmts = vec![];
         // let op = self.transform_binary_operator(&expr.operator);
-        let typ = expr.typ.clone();
+        let _typ = expr.typ.clone();
 
         let (lhs, mut stmts) = self.transform_expr(&expr.left)?;
-        let nlhs = self.convert_to_atomic(lhs, "Transform binary expr")?;
+        let _nlhs = self.convert_to_atomic(lhs, "Transform binary expr")?;
         nstmts.append(&mut stmts);
 
         let (rhs, mut stmts) = self.transform_expr(&expr.right)?;
-        let nrhs = self.convert_to_atomic(rhs, "Transform binary expr")?;
+        let _nrhs = self.convert_to_atomic(rhs, "Transform binary expr")?;
         nstmts.append(&mut stmts);
 
         // let output_expr = BinaryExpr::new(op, nlhs, nrhs, typ, expr.loc).into();
@@ -893,16 +893,16 @@ impl Transformer {
     //-------------------------------------------------
 
     fn transform_assign_expr(&mut self, expr: &ast::AssignExpr) -> Result<(Expr, Vec<Stmt>)> {
-        let typ = expr.typ.clone();
+        let _typ = expr.typ.clone();
 
         let mut nstmts = vec![];
-        let (nlhs, mut stmts) = self.transform_expr(&expr.left)?;
+        let (_nlhs, mut stmts) = self.transform_expr(&expr.left)?;
         nstmts.append(&mut stmts);
         let (nrhs, mut stmts) = self.transform_expr(&expr.right)?;
         nstmts.append(&mut stmts);
 
         // Transform self-assignment into a normal assignment
-        let nrhs = match expr.operator {
+        let _nrhs = match expr.operator {
             ast::AssignOp::Assign => nrhs,
             _ => fail!("Transform to IR: operator must be normalized: {}", expr.operator),
         };
@@ -1122,18 +1122,18 @@ impl Transformer {
         expr: &ast::ConditionalExpr,
     ) -> Result<(Expr, Vec<Stmt>)> {
         let mut nstmts = vec![];
-        let typ = self.transform_type(&expr.typ)?;
-        let ncond = {
+        let _typ = self.transform_type(&expr.typ)?;
+        let _ncond = {
             let (ncond, mut stmts) = self.transform_expr(&expr.cond)?;
             nstmts.append(&mut stmts);
             self.convert_to_atomic(ncond, "Transform condition expr")?
         };
-        let nopr1 = {
+        let _nopr1 = {
             let (nopr1, mut stmts) = self.transform_expr(&expr.true_br)?;
             nstmts.append(&mut stmts);
             self.convert_to_atomic(nopr1, "Transform condition expr")?
         };
-        let nopr2 = {
+        let _nopr2 = {
             let (nopr2, mut stmts) = self.transform_expr(&expr.false_br)?;
             nstmts.append(&mut stmts);
             self.convert_to_atomic(nopr2, "Transform condition expr")?

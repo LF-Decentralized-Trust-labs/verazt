@@ -4,13 +4,13 @@ use meta::Loc;
 use solidity::ast::CallExpr;
 
 pub struct AccessControl {
-    modifier_invoc: CallExpr,
-    context: TaskContext,
+    _modifier_invoc: CallExpr,
+    _context: TaskContext,
 }
 
 impl AccessControl {
     pub fn new(modifier_invoc: &CallExpr, context: &TaskContext) -> Self {
-        AccessControl { modifier_invoc: modifier_invoc.clone(), context: context.clone() }
+        AccessControl { _modifier_invoc: modifier_invoc.clone(), _context: context.clone() }
     }
 
     pub fn create_issue(&self, loc: Loc) -> Bug {

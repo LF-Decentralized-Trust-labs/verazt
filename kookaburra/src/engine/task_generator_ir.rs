@@ -20,7 +20,7 @@ impl TaskInitiator {
     }
 
     /// Populate analysis tasks for Source Unit IR.
-    pub fn populate_ast_tasks(&self, source_unit: SourceUnit) -> Vec<Box<dyn Task>> {
+    pub fn populate_ast_tasks(&self, _source_unit: SourceUnit) -> Vec<Box<dyn Task>> {
         // This function would typically gather tasks from various sources
         // and return them as a vector of boxed Task trait objects.
         vec![]

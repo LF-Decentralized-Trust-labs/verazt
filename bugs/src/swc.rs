@@ -3,10 +3,10 @@
 //-------------------------------------------------------------------------
 
 pub struct SWC {
-    id: String,
-    title: String,
-    description: String,
-    remediation: String,
-    cwe_ids: Vec<usize>, // CWE related to this SWC
-    references: String,
+    _id: String,
+    _title: String,
+    _description: String,
+    _remediation: String,
+    _cwe_ids: Vec<usize>, // CWE related to this SWC
+    _references: String,
 }

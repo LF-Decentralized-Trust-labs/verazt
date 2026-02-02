@@ -1,10 +1,10 @@
-use clap::{Parser, arg, crate_version};
+use clap::{Parser, crate_version};
 use extlib::error;
 use solidity::{
-    ast::utils::{self, export::export_debugging_source_unit},
-    ast::{self, SourceUnit},
+    ast::utils::export::export_debugging_source_unit,
+    ast::SourceUnit,
     compile::compile_input_file,
-    passes,
+    // passes,
 };
 
 #[derive(Parser, Debug)]
@@ -57,7 +57,7 @@ fn main() {
     let base_path = args.base_path.as_deref();
     let include_paths: &[String] = &args.include_path;
 
-    let input_source_units: Vec<SourceUnit> = args
+    let _input_source_units: Vec<SourceUnit> = args
         .input_files
         .iter()
         .flat_map(|file| {
