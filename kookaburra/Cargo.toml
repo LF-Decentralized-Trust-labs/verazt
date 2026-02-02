@@ -1,13 +1,13 @@
 [package]
-name = "smartcheck"
+name = "kookaburra"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "smartcheck"
-path = "src/smartcheck.rs"
+name = "kookaburra"
+path = "src/kookaburra.rs"
 
 [dependencies]
 clap = { version = "4.1.1", features = ["cargo"] }

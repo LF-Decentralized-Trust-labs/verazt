@@ -2,7 +2,7 @@
 members = [
   "bugs",
   "meta",
-  "smartcheck",
+  "kookaburra",
   "smartproof",
   "solidity",
   "yul",
