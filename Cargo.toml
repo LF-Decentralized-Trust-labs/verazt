@@ -3,7 +3,7 @@ members = [
   "bugs",
   "meta",
   "kookaburra",
-  "smartproof",
+  "seaeagle",
   "solidity",
   "yul",
 ]

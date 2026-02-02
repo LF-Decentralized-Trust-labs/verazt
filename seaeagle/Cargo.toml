@@ -1,9 +1,13 @@
 [package]
-name = "smartproof"
+name = "seaeagle"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
+
+[[bin]]
+name = "seaeagle"
+path = "src/seaeagle.rs"
 
 [dependencies]
 clap = { version = "4.1.1", features = ["cargo"] }

@@ -3,7 +3,7 @@
 //! Prerequisite: Assuming that all contract and library names are already
 //! renamed to resolve all ambiguities.
 
-use crate::ast::{*, utils::*};
+use crate::ast::{utils::*, *};
 use meta::Name;
 use std::{collections::HashMap, ops::Deref};
 
@@ -296,9 +296,9 @@ pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit
 #[cfg(test)]
 mod tests {
     use crate::{
+        ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
         passes::{eliminate_using_directives, utils::configure_unit_test_env},
-        ast::utils::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 

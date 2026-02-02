@@ -1,11 +1,11 @@
 //! Module to transform the original Solidity AST to Smart Contract IR.
 
+use crate::ast;
 use crate::ir::*;
 use either::Either::{self, Left, Right};
 use extlib::{error::Result, fail};
 use log::trace;
 use meta::{DataLoc, Loc};
-use crate::ast;
 use std::{borrow::BorrowMut, ops::Deref};
 
 pub fn transform_source_unit(source_unit: &ast::SourceUnit) -> Result<SourceUnit> {

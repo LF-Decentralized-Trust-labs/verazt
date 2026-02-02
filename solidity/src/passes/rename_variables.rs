@@ -4,7 +4,7 @@
 //! - Rename variables in different source units to have unique names.
 //! - Indexing numbers are globally accross all source units.
 
-use crate::{ast::*, ast::utils::*};
+use crate::{ast::utils::*, ast::*};
 use meta::NamingEnv;
 use yul::{ast::Block as YBlock, normalize as ynormalize};
 
@@ -109,8 +109,8 @@ pub fn rename_variables(
 mod tests {
     use super::rename_variables;
     use crate::{
-        compile::compile_solidity_source_code, passes::utils::configure_unit_test_env,
         ast::utils::syntactic_comparer::compare_source_units,
+        compile::compile_solidity_source_code, passes::utils::configure_unit_test_env,
     };
     use indoc::indoc;
 

@@ -1,4 +1,4 @@
-use crate::{ast::*, ast::utils::*};
+use crate::{ast::utils::*, ast::*};
 use meta::{DataLoc, Loc, NamingEnv};
 use std::borrow::Borrow;
 
@@ -437,9 +437,9 @@ pub fn flatten_expr(source_units: &[SourceUnit], env: Option<&NamingEnv>) -> Vec
 #[cfg(test)]
 mod tests {
     use crate::{
+        ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
         passes::{flatten_expr, utils::configure_unit_test_env},
-        ast::utils::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 

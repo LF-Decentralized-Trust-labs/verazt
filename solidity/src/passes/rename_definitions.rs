@@ -6,7 +6,7 @@
 
 use meta::NamingEnv;
 
-use crate::{ast::*, ast::utils::*};
+use crate::{ast::utils::*, ast::*};
 
 //-------------------------------------------------
 // Rename definitions
@@ -192,8 +192,8 @@ pub fn rename_definitions(
 mod tests {
     use super::rename_definitions;
     use crate::{
-        compile::compile_solidity_source_code, passes::utils::configure_unit_test_env,
         ast::utils::syntactic_comparer::compare_source_units,
+        compile::compile_solidity_source_code, passes::utils::configure_unit_test_env,
     };
     use indoc::indoc;
 

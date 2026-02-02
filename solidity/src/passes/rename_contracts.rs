@@ -3,7 +3,7 @@
 //! The renaming will be done on both contract definitions and base contract
 //! information of inheritance.
 
-use crate::{ast::*, ast::utils::*};
+use crate::{ast::utils::*, ast::*};
 use meta::NamingEnv;
 
 #[derive(Debug, Clone)]
@@ -186,9 +186,9 @@ pub fn rename_contracts(
 mod tests {
     use super::rename_contracts;
     use crate::{
+        ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
         passes::{flatten_name, utils::configure_unit_test_env},
-        ast::utils::syntactic_comparer::compare_source_units,
     };
     use indoc::indoc;
 

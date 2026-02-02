@@ -1,10 +1,10 @@
 use clap::{Parser, arg, crate_version};
 use extlib::error;
 use solidity::{
+    ast::utils::{self, export::export_debugging_source_unit},
     ast::{self, SourceUnit},
     compile::compile_input_file,
     passes,
-    ast::utils::{self, export::export_debugging_source_unit},
 };
 
 #[derive(Parser, Debug)]

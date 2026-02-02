@@ -2,8 +2,7 @@
 use extlib::{error::Result, fail};
 use regex::Regex;
 use solidity::{
-    ast::SourceUnit, compile::compile_input_file, passes,
-    ast::utils::export::export_source_unit,
+    ast::SourceUnit, ast::utils::export::export_source_unit, compile::compile_input_file, passes,
 };
 use std::{
     ffi::OsStr,
