@@ -12,7 +12,7 @@ pub mod specs;
 pub mod stmts;
 pub mod types;
 pub mod utils;
-pub mod simplify;
+pub mod normalize;
 pub mod yul;
 
 pub use block::*;

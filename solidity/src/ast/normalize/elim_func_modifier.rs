@@ -2,7 +2,7 @@
 
 use crate::{
     ast::{utils::*, *},
-    ast::simplify::substitution,
+    ast::normalize::substitution,
 };
 use meta::Name;
 use std::{collections::HashMap, ops::Deref};
@@ -200,7 +200,7 @@ mod tests {
     use super::eliminate_modifier_invocs;
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
-        compile::compile_solidity_source_code, ast::simplify::utils::configure_unit_test_env,
+        compile::compile_solidity_source_code, ast::normalize::utils::configure_unit_test_env,
     };
     use indoc::indoc;
 

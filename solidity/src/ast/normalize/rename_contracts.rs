@@ -188,7 +188,7 @@ mod tests {
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
-        ast::simplify::{flatten_name, utils::configure_unit_test_env},
+        ast::normalize::{flatten_name, utils::configure_unit_test_env},
     };
     use indoc::indoc;
 
