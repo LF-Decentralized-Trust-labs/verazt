@@ -193,7 +193,7 @@ mod tests {
     use super::rename_defs;
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
-        compile::compile_solidity_source_code, passes::utils::configure_unit_test_env,
+        compile::compile_solidity_source_code, ast::simplify::utils::configure_unit_test_env,
     };
     use indoc::indoc;
 

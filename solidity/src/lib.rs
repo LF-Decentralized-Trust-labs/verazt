@@ -6,5 +6,5 @@ pub mod ast;
 pub mod compile;
 pub mod ir;
 pub mod parsing;
-pub mod passes;
+pub mod codegen;
 pub mod yul;

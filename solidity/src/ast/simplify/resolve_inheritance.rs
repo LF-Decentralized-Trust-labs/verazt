@@ -383,7 +383,7 @@ mod tests {
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
-        passes::{
+        ast::simplify::{
             flatten_name, rename_callees, rename_contracts, rename_defs,
             utils::configure_unit_test_env,
         },

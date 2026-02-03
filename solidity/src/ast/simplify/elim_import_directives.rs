@@ -2,7 +2,7 @@
 
 use crate::{
     ast::{utils::*, *},
-    passes::substitution::NameSubstitutor,
+    ast::simplify::substitution::NameSubstitutor,
 };
 use meta::Name;
 use std::{
@@ -237,7 +237,7 @@ mod tests {
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code_list,
-        passes::{
+        ast::simplify::{
             rename_callees, rename_defs, rename_vars, utils::configure_unit_test_env,
         },
     };

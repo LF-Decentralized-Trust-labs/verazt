@@ -485,7 +485,7 @@ mod tests {
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
-        passes::{rename_defs, utils::configure_unit_test_env},
+        ast::simplify::{rename_defs, utils::configure_unit_test_env},
     };
     use indoc::indoc;
 

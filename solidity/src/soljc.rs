@@ -4,7 +4,8 @@ use clap::{Parser, crate_version};
 use extlib::error;
 use solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit,
-    compile::compile_input_file, passes,
+    codegen, ast::simplify,
+    compile::compile_input_file,
 };
 
 #[derive(Parser, Debug)]
@@ -111,7 +112,7 @@ fn main() {
         .collect();
 
     // Run normalization passes
-    let normalized_source_units = passes::run_passes(&input_source_units);
+    let normalized_source_units = simplify::run_passes(&input_source_units);
 
     if args.print_normalized_program {
         println!("Source unit AST after normalization:");
@@ -130,7 +131,7 @@ fn main() {
     // // Transform AST to IR:
     // let mut transformed_source_units = vec![];
     // for source_unit in &normalized_source_units {
-    //     let source_unit = match transform::transform_source_unit(source_unit)
+    //     let source_unit = match codegen::lower_source_unit(source_unit)
     // {         Ok(sunit) => sunit,
     //         Err(err) => panic!("{}", err),
     //     };

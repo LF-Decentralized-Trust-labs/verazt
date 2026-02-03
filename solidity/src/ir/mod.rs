@@ -9,6 +9,7 @@ pub mod source_unit;
 pub mod stmts;
 pub mod types;
 pub mod utils;
+pub mod normalize;
 pub mod var;
 pub mod yul;
 
