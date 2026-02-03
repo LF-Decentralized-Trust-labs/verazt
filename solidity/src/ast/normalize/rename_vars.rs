@@ -4,9 +4,23 @@
 //! - Rename variables in different source units to have unique names.
 //! - Indexing numbers are globally accross all source units.
 
-use crate::{ast::utils::*, ast::*, yul::normalize as yul_normalize};
-use crate::ast::yul::YulBlock;
+use crate::ast::utils::{self, Map};
+use crate::ast::*;
+use crate::ast::yul::{YulSourceUnit, YulBlock, YulIdentifier, YulFuncDef, YulVarDecl, YulMemberExpr};
+use crate::ast::yul::utils::{YulMap, yul_map_default};
 use crate::ast::NamingEnv;
+
+/// Function to rename variables in a YulSourceUnit.
+pub fn rename_yul_variables(source_unit: &YulSourceUnit) -> YulSourceUnit {
+    let mut renamer = Renamer::new(None);
+    renamer.map_yul_source_unit(source_unit)
+}
+
+/// Function to rename variables in a YulBlock.
+pub fn rename_yul_variables_in_block(block: &YulBlock, env: NamingEnv) -> YulBlock {
+    let mut renamer = Renamer::new(Some(&env));
+    renamer.map_yul_block(block)
+}
 
 //-------------------------------------------------
 // Rename variables.
@@ -35,6 +49,18 @@ impl Renamer {
         self.env = NamingEnv::new();
         self.map_source_units(source_units)
     }
+
+    fn create_new_idents(&mut self, idents: &[YulIdentifier]) -> Vec<YulIdentifier> {
+        idents
+            .iter()
+            .map(|ident| {
+                let name = &ident.name;
+                let (nname, nenv) = self.env.create_new_name(&name.base);
+                self.env = nenv;
+                YulIdentifier { name: nname, ..ident.clone() }
+            })
+            .collect()
+    }
 }
 
 impl Map<'_> for Renamer {
@@ -44,7 +70,7 @@ impl Map<'_> for Renamer {
         let current_naming_index = self.env.current_naming_index_map.clone();
 
         // Transform block..
-        let nblock = map::default::map_block(self, block);
+        let nblock = utils::map::default::map_block(self, block);
 
         // Restore the current naming index and return result
         self.env.current_naming_index_map = current_naming_index;
@@ -57,14 +83,14 @@ impl Map<'_> for Renamer {
     /// Yul AST.
     fn map_asm_stmt(&mut self, stmt: &AsmStmt) -> AsmStmt {
         let blk = YulBlock::new(stmt.body.clone());
-        let nblk = yul_normalize::rename_variables::rename_yul_variables_in_block(&blk, self.env.clone());
+        let nblk = rename_yul_variables_in_block(&blk, self.env.clone());
         AsmStmt { body: nblk.body, ..stmt.clone() }
     }
 
     /// Override `map_var_decl`.
     fn map_var_decl(&mut self, vdecl: &VarDecl) -> VarDecl {
         // First, transform the variable declaration normally.
-        let nvdecl = map::default::map_var_decl(self, vdecl);
+        let nvdecl = utils::map::default::map_var_decl(self, vdecl);
 
         // Then, create a new index for the variable name.
         let base_name = &nvdecl.name.base;
@@ -98,6 +124,48 @@ pub fn rename_vars(
     let mut renamer = Renamer::new(env);
     let nsource_units = renamer.rename_variables(source_units);
     (nsource_units, renamer.env)
+}
+
+impl YulMap for Renamer {
+    fn map_yul_func_def(&mut self, func: &YulFuncDef) -> YulFuncDef {
+        // Save the current renaming environment
+        let stored_env = self.env.clone();
+
+        // Transform the function.
+        let nfunc = yul_map_default::map_yul_func_def(self, func);
+
+        // Restore the renaming environment
+        self.env = stored_env;
+
+        // Return result.
+        nfunc
+    }
+
+    /// Override `map_yul_var_decl`.
+    fn map_yul_var_decl(&mut self, vdecl: &YulVarDecl) -> YulVarDecl {
+        let nidents = self.create_new_idents(&vdecl.vars);
+        let nvalue = vdecl
+            .value
+            .as_ref()
+            .map(|expr| yul_map_default::map_yul_expr(self, expr));
+        YulVarDecl::new(nidents, nvalue)
+    }
+
+    /// Override `map_yul_member_expr`.
+    fn map_yul_member_expr(&mut self, expr: &YulMemberExpr) -> YulMemberExpr {
+        // Only rename the base of the member access expression, since the member name
+        // are Yul keywords
+        let nbase = self.map_yul_name(&expr.base);
+        YulMemberExpr { base: nbase, ..expr.clone() }
+    }
+
+    /// Override `map_yul_name`.
+    fn map_yul_name(&mut self, name: &Name) -> Name {
+        let idx = self.env.get_current_index(&name.base);
+        let mut nname = name.clone();
+        nname.set_index(idx);
+        nname
+    }
 }
 
 //-------------------------------------------------
