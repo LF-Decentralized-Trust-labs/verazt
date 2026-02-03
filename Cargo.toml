@@ -5,7 +5,6 @@ members = [
   "kookaburra",
   "seaeagle",
   "solidity",
-  "yul",
 ]
 
 [workspace.package]
