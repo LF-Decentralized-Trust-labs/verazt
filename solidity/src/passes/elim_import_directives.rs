@@ -238,7 +238,7 @@ mod tests {
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code_list,
         passes::{
-            rename_callees, rename_definitions, rename_variables, utils::configure_unit_test_env,
+            rename_callees, rename_defs, rename_vars, utils::configure_unit_test_env,
         },
     };
     use indoc::indoc;
@@ -310,8 +310,8 @@ mod tests {
 
         // Need to rename variables, definitions, etc before eliminating import
         // directives.
-        let (output_sunits, env) = rename_variables(&input_sunits, None);
-        let (output_sunits, env) = rename_definitions(&output_sunits, Some(&env));
+        let (output_sunits, env) = rename_vars(&input_sunits, None);
+        let (output_sunits, env) = rename_defs(&output_sunits, Some(&env));
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
 
         // Elimiante import directives
@@ -464,8 +464,8 @@ mod tests {
 
         // Need to rename variables, definitions, etc before eliminating import
         // directives.
-        let (output_sunits, env) = rename_variables(&input_sunits, None);
-        let (output_sunits, env) = rename_definitions(&output_sunits, Some(&env));
+        let (output_sunits, env) = rename_vars(&input_sunits, None);
+        let (output_sunits, env) = rename_defs(&output_sunits, Some(&env));
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
 
         // Elimiante import directives

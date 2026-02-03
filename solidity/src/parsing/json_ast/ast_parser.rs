@@ -460,12 +460,14 @@ impl AstParser {
             .into();
         let arguments = node
             .get("arguments")
-            .ok_or_else(|| error!("Base contract arguments not found: {node}"))?
-            .as_array()
-            .ok_or_else(|| error!("Base contract arguments invalid: {node}"))?
-            .iter()
-            .map(|v| self.parse_expr(v))
-            .collect::<Result<Vec<Expr>>>()?;
+            .map(|args| {
+                args.as_array()
+                    .ok_or_else(|| error!("Base contract arguments invalid: {node}"))?
+                    .iter()
+                    .map(|v| self.parse_expr(v))
+                    .collect::<Result<Vec<Expr>>>()
+            })
+            .unwrap_or(Ok(vec![]))?;
         let loc = self.parse_source_location(node);
         Ok(BaseContract::new(contract_name, arguments, loc))
     }
@@ -774,12 +776,14 @@ impl AstParser {
             .into();
         let args = node
             .get("arguments")
-            .ok_or_else(|| error!("Modifier invocation arguments not found: {node}"))?
-            .as_array()
-            .ok_or_else(|| error!("Modifier invocation arguments invalid: {node}"))?
-            .iter()
-            .map(|v| self.parse_expr(v))
-            .collect::<Result<Vec<Expr>>>()?;
+            .map(|args| {
+                args.as_array()
+                    .ok_or_else(|| error!("Modifier invocation arguments invalid: {node}"))?
+                    .iter()
+                    .map(|v| self.parse_expr(v))
+                    .collect::<Result<Vec<Expr>>>()
+            })
+            .unwrap_or(Ok(vec![]))?;
         let kind = node
             .get("kind")
             .ok_or_else(|| error!("Modifier invocation kind not found: {node}"))?

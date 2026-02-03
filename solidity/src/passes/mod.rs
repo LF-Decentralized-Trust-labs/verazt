@@ -11,8 +11,8 @@ pub mod flatten_name_index;
 pub mod merge_pragmas;
 pub mod rename_callees;
 pub mod rename_contracts;
-pub mod rename_definitions;
-pub mod rename_variables;
+pub mod rename_defs;
+pub mod rename_vars;
 pub mod resolve_inheritance;
 pub mod substitution;
 pub mod transform;
@@ -31,8 +31,8 @@ pub use merge_pragmas::merge_pragmas;
 use meta::NamingEnv;
 pub use rename_callees::rename_callees;
 pub use rename_contracts::rename_contracts;
-pub use rename_definitions::rename_definitions;
-pub use rename_variables::rename_variables;
+pub use rename_defs::rename_defs;
+pub use rename_vars::rename_vars;
 pub use resolve_inheritance::resolve_inheritance;
 pub use unroll_unary_tuple::unroll_unary_tuple;
 
@@ -61,7 +61,7 @@ pub fn run_passes(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
     print_output_source_units(&source_units);
 
     // First, rename all variables.
-    let (source_units, env) = rename_variables(&source_units, Some(&env));
+    let (source_units, env) = rename_vars(&source_units, Some(&env));
     print_output_source_units(&source_units);
 
     // Eliminate using directives.
@@ -69,7 +69,7 @@ pub fn run_passes(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
     print_output_source_units(&source_units);
 
     // Then, rename all definitions' names.
-    let (source_units, env) = rename_definitions(&source_units, Some(&env));
+    let (source_units, env) = rename_defs(&source_units, Some(&env));
     print_output_source_units(&source_units);
 
     // After that, merge imported elements to relevant source units.

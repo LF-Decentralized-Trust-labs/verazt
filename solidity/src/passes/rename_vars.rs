@@ -90,7 +90,7 @@ impl Map<'_> for Renamer {
 }
 
 /// Function to rename ariables.
-pub fn rename_variables(
+pub fn rename_vars(
     source_units: &[SourceUnit],
     env: Option<&NamingEnv>,
 ) -> (Vec<SourceUnit>, NamingEnv) {
@@ -107,7 +107,7 @@ pub fn rename_variables(
 /// Unit tests
 #[cfg(test)]
 mod tests {
-    use super::rename_variables;
+    use super::rename_vars;
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code, passes::utils::configure_unit_test_env,
@@ -177,7 +177,7 @@ mod tests {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
-        let (output_sunits, _) = rename_variables(&input_sunits, None);
+        let (output_sunits, _) = rename_vars(&input_sunits, None);
 
         let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.15") {
             Ok(sunits) => sunits,

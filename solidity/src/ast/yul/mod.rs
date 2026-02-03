@@ -1,23 +1,23 @@
 //! Yul AST data structures.
 
 pub mod block;
-pub mod definitions;
-pub mod expressions;
-pub mod identifier;
-pub mod literals;
+pub mod defs;
+pub mod exprs;
+pub mod ident;
+pub mod lits;
 pub mod sections;
 pub mod source_unit;
-pub mod statements;
+pub mod stmts;
 pub mod types;
 pub mod utils;
 
 pub use block::*;
-pub use definitions::*;
-pub use expressions::*;
-pub use identifier::*;
-pub use literals::*;
+pub use defs::*;
+pub use exprs::*;
+pub use ident::*;
+pub use lits::*;
 pub use sections::*;
 pub use source_unit::*;
-pub use statements::*;
+pub use stmts::*;
 pub use types::*;
 pub use utils::*;

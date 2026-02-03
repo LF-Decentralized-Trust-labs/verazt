@@ -1,15 +1,15 @@
 //! Yul IR data structures.
 
 pub mod block;
-pub mod definitions;
-pub mod expressions;
-pub mod literals;
-pub mod statements;
+pub mod defs;
+pub mod exprs;
+pub mod lits;
+pub mod stmts;
 pub mod types;
 
 pub use block::*;
-pub use definitions::*;
-pub use expressions::*;
-pub use literals::*;
-pub use statements::*;
+pub use defs::*;
+pub use exprs::*;
+pub use lits::*;
+pub use stmts::*;
 pub use types::*;

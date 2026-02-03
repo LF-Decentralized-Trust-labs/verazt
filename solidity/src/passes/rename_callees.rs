@@ -485,7 +485,7 @@ mod tests {
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
-        passes::{rename_definitions, utils::configure_unit_test_env},
+        passes::{rename_defs, utils::configure_unit_test_env},
     };
     use indoc::indoc;
 
@@ -557,7 +557,7 @@ mod tests {
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
 
-        let (output_sunits, env) = rename_definitions(&input_sunits, None);
+        let (output_sunits, env) = rename_defs(&input_sunits, None);
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
 
         let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.15") {

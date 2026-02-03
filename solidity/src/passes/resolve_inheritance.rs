@@ -384,7 +384,7 @@ mod tests {
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code,
         passes::{
-            flatten_name, rename_callees, rename_contracts, rename_definitions,
+            flatten_name, rename_callees, rename_contracts, rename_defs,
             utils::configure_unit_test_env,
         },
     };
@@ -487,7 +487,7 @@ mod tests {
             Err(err) => panic!("Failed to parse input source unit: {err}"),
         };
         let (output_sunits, env) = rename_contracts(&input_sunits, None);
-        let (output_sunits, env) = rename_definitions(&output_sunits, Some(&env));
+        let (output_sunits, env) = rename_defs(&output_sunits, Some(&env));
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
         let output_sunits = resolve_inheritance(&output_sunits);
         let output_sunits = flatten_name(&output_sunits);

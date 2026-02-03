@@ -173,7 +173,7 @@ impl Map<'_> for Renamer {
 //-------------------------------------------------
 
 /// Rename definitions of contracts, functions, enums, structs, events, errors.
-pub fn rename_definitions(
+pub fn rename_defs(
     source_units: &[SourceUnit],
     env: Option<&NamingEnv>,
 ) -> (Vec<SourceUnit>, NamingEnv) {
@@ -190,7 +190,7 @@ pub fn rename_definitions(
 /// Unit tests
 #[cfg(test)]
 mod tests {
-    use super::rename_definitions;
+    use super::rename_defs;
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
         compile::compile_solidity_source_code, passes::utils::configure_unit_test_env,
@@ -266,7 +266,7 @@ mod tests {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
-        let (output_sunits, _) = rename_definitions(&input_sunits, None);
+        let (output_sunits, _) = rename_defs(&input_sunits, None);
 
         let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.15") {
             Ok(sunits) => sunits,
