@@ -1,13 +1,13 @@
 [package]
-name = "kookaburra"
+name = "falcon"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "kookaburra"
-path = "src/kookaburra.rs"
+name = "falcon"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.1.1", features = ["cargo"] }

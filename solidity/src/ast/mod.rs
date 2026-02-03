@@ -3,7 +3,7 @@
 pub mod block;
 pub mod builtins;
 pub mod defs;
-pub mod directives;
+pub mod dirs;
 pub mod exprs;
 pub mod ident;
 pub mod lits;
@@ -19,7 +19,7 @@ pub mod name;
 pub use block::*;
 pub use builtins::*;
 pub use defs::*;
-pub use directives::*;
+pub use dirs::*;
 pub use exprs::*;
 pub use ident::*;
 pub use lits::*;
