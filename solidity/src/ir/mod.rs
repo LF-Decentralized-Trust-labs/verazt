@@ -10,6 +10,7 @@ pub mod statements;
 pub mod types;
 pub mod utils;
 pub mod variable;
+pub mod yul;
 
 pub use block::*;
 pub use definitions::*;

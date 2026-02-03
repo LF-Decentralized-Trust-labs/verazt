@@ -5,5 +5,6 @@ extern crate log;
 pub mod ast;
 pub mod compile;
 pub mod ir;
-pub mod parser;
+pub mod parsing;
 pub mod passes;
+pub mod yul;

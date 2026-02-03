@@ -1,8 +1,8 @@
 use crate::ast::*;
+use crate::ast::yul as yast;
 use extlib::string::StringExt;
 use meta::Loc;
 use std::fmt::{self, Display};
-use yul::ast as yast;
 
 //-------------------------------------------------------------------------
 // Data structure representing all statements
@@ -34,7 +34,7 @@ pub struct AsmStmt {
     pub id: Option<isize>,
     pub is_evmasm: bool,
     pub asm_flags: Vec<String>,
-    pub body: Vec<yast::Stmt>,
+    pub body: Vec<yast::YulStmt>,
     pub loc: Option<Loc>,
 }
 
@@ -338,7 +338,7 @@ impl AsmStmt {
         id: Option<isize>,
         evmasm: bool,
         flags: Vec<String>,
-        body: Vec<yast::Stmt>,
+        body: Vec<yast::YulStmt>,
         loc: Option<Loc>,
     ) -> Self {
         AsmStmt { id, is_evmasm: evmasm, asm_flags: flags, body, loc }

@@ -4,9 +4,9 @@
 //! - Rename variables in different source units to have unique names.
 //! - Indexing numbers are globally accross all source units.
 
-use crate::{ast::utils::*, ast::*};
+use crate::{ast::utils::*, ast::*, yul::normalize as yul_normalize};
+use crate::ast::yul::YulBlock;
 use meta::NamingEnv;
-use yul::{ast::Block as YBlock, normalize as ynormalize};
 
 //-------------------------------------------------
 // Rename variables.
@@ -56,8 +56,8 @@ impl Map<'_> for Renamer {
     /// Override `map_asm_stmt` to transfer the naming environment to
     /// Yul AST.
     fn map_asm_stmt(&mut self, stmt: &AsmStmt) -> AsmStmt {
-        let blk = YBlock::new(stmt.body.clone());
-        let nblk = ynormalize::rename_variables::rename_variables_in_block(&blk, self.env.clone());
+        let blk = YulBlock::new(stmt.body.clone());
+        let nblk = yul_normalize::rename_variables::rename_yul_variables_in_block(&blk, self.env.clone());
         AsmStmt { body: nblk.body, ..stmt.clone() }
     }
 

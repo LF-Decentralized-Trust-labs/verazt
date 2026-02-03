@@ -38,4 +38,3 @@ rust_decimal = "1.27"
 serde = { package = "serde_json", version = "1.0" }
 tempfile = "3.3.0"
 time-graph = { version = "0.3.0", features = ["table"] }
-yul = { path = "../yul" }

@@ -1,6 +1,8 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
-use crate::{ast::*, parser::typ::type_parser};
+use crate::{ast::*, parsing::typ::type_parser};
+use crate::ast::yul as yast;
+use crate::parsing::yul as yul_parser;
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
 use extlib::{error, fail};
@@ -12,10 +14,6 @@ use regex::Regex;
 use rust_decimal::Decimal;
 use serde::Value;
 use std::{fs, ops::Deref, path::Path, str::FromStr};
-use yul::{
-    ast::{self as yast, Block as YBlock, IntType as YIntType, Type as YType},
-    parsing::parser as YulParser,
-};
 
 //------------------------------------------------------------------
 // Static variables
@@ -855,8 +853,8 @@ impl AstParser {
             Some(ast_node) => self.parse_yul_block(ast_node)?,
             // Solidity 0.4, 0.5
             None => match node.get("operations") {
-                Some(Value::String(asm)) => YulParser::parse_inline_assembly_block(asm)?,
-                _ => YBlock::new(vec![]),
+                Some(Value::String(asm)) => yul_parser::parse_inline_assembly_block(asm)?,
+                _ => yast::YulBlock::new(vec![]),
             },
         };
         Ok(AsmStmt::new(id, false, vec![], blk.body, loc).into())
@@ -1940,7 +1938,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul function definition from a JSON AST node.
-    fn parse_yul_func_def(&mut self, node: &Value) -> Result<yast::FuncDef> {
+    fn parse_yul_func_def(&mut self, node: &Value) -> Result<yast::YulFuncDef> {
         let name = self.parse_name(node)?;
         let body = node
             .get("body")
@@ -1961,7 +1959,7 @@ impl AstParser {
             .iter()
             .map(|v| self.parse_yul_ident(v))
             .collect::<Result<Vec<_>>>()?;
-        Ok(yast::FuncDef::new(&name, params, ret_vars, body))
+        Ok(yast::YulFuncDef::new(&name, params, ret_vars, body))
     }
 
     //-------------------------------------------------
@@ -1969,7 +1967,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul block.
-    fn parse_yul_block(&mut self, node: &Value) -> Result<yast::Block> {
+    fn parse_yul_block(&mut self, node: &Value) -> Result<yast::YulBlock> {
         let stmts = node
             .get("statements")
             .ok_or_else(|| error!("Yul block statements not found: {node}"))?
@@ -1978,7 +1976,7 @@ impl AstParser {
             .iter()
             .map(|v| self.parse_yul_stmt(v))
             .collect::<Result<Vec<_>>>()?;
-        Ok(yast::Block::new(stmts))
+        Ok(yast::YulBlock::new(stmts))
     }
 
     //-------------------------------------------------
@@ -1986,7 +1984,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul variable declaration statement.
-    fn parse_yul_var_decl_stmt(&mut self, node: &Value) -> Result<yast::VarDecl> {
+    fn parse_yul_var_decl_stmt(&mut self, node: &Value) -> Result<yast::YulVarDecl> {
         let vars = node
             .get("variables")
             .ok_or_else(|| error!("Yul variable declarations not found: {node}"))?
@@ -1996,7 +1994,7 @@ impl AstParser {
             .map(|v| self.parse_yul_ident(v))
             .collect::<Result<Vec<_>>>()?;
         let value = node.get("value").and_then(|v| self.parse_yul_expr(v).ok());
-        Ok(yast::VarDecl::new(vars, value))
+        Ok(yast::YulVarDecl::new(vars, value))
     }
 
     //-------------------------------------------------
@@ -2004,7 +2002,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul statement.
-    fn parse_yul_stmt(&mut self, node: &Value) -> Result<yast::Stmt> {
+    fn parse_yul_stmt(&mut self, node: &Value) -> Result<yast::YulStmt> {
         match self.get_node_type(node)?.as_str() {
             "YulVariableDeclaration" => self.parse_yul_var_decl_stmt(node).map(|stmt| stmt.into()),
             "YulExpressionStatement" => self.parse_yul_expr_stmt(node).map(|stmt| stmt.into()),
@@ -2014,9 +2012,9 @@ impl AstParser {
             "YulForLoop" => self.parse_yul_for_loop_stmt(node).map(|stmt| stmt.into()),
             "YulSwitch" => self.parse_yul_switch_stmt(node).map(|stmt| stmt.into()),
             "YulBlock" => self.parse_yul_block(node).map(|stmt| stmt.into()),
-            "YulLeave" => Ok(yast::Stmt::Leave),
-            "YulContinue" => Ok(yast::Stmt::Continue),
-            "YulBreak" => Ok(yast::Stmt::Break),
+            "YulLeave" => Ok(yast::YulStmt::Leave),
+            "YulContinue" => Ok(yast::YulStmt::Continue),
+            "YulBreak" => Ok(yast::YulStmt::Break),
             _ => todo!("parse yul statement: {node}"),
         }
     }
@@ -2026,7 +2024,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul assignment statement
-    fn parse_yul_assign_stmt(&mut self, node: &Value) -> Result<yast::AssignStmt> {
+    fn parse_yul_assign_stmt(&mut self, node: &Value) -> Result<yast::YulAssignStmt> {
         let vars = node
             .get("variableNames")
             .ok_or_else(|| error!("Yul assignment variable names note found: {node}"))?
@@ -2039,7 +2037,7 @@ impl AstParser {
             .get("value")
             .ok_or_else(|| error!("Yul assignment value not found: {node}"))
             .and_then(|v| self.parse_yul_expr(v))?;
-        Ok(yast::AssignStmt::new(vars, value))
+        Ok(yast::YulAssignStmt::new(vars, value))
     }
 
     //-------------------------------------------------
@@ -2047,7 +2045,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul expression statement.
-    fn parse_yul_expr_stmt(&mut self, node: &Value) -> Result<yast::Expr> {
+    fn parse_yul_expr_stmt(&mut self, node: &Value) -> Result<yast::YulExpr> {
         node.get("expression")
             .ok_or_else(|| error!("Yul expression statement expression not found: {node}"))
             .and_then(|v| self.parse_yul_expr(v))
@@ -2058,7 +2056,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul if statement.
-    fn parse_yul_if_stmt(&mut self, node: &Value) -> Result<yast::IfStmt> {
+    fn parse_yul_if_stmt(&mut self, node: &Value) -> Result<yast::YulIfStmt> {
         let body = node
             .get("body")
             .ok_or_else(|| error!("Yul if statement body not found: {node}"))
@@ -2067,7 +2065,7 @@ impl AstParser {
             .get("condition")
             .ok_or_else(|| error!("Yul if statement condition not found: {node}"))
             .and_then(|v| self.parse_yul_expr(v))?;
-        Ok(yast::IfStmt::new(cond, body))
+        Ok(yast::YulIfStmt::new(cond, body))
     }
 
     //-------------------------------------------------
@@ -2075,7 +2073,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul for loop.
-    fn parse_yul_for_loop_stmt(&mut self, node: &Value) -> Result<yast::ForStmt> {
+    fn parse_yul_for_loop_stmt(&mut self, node: &Value) -> Result<yast::YulForStmt> {
         let pre = node
             .get("pre")
             .ok_or_else(|| error!("Yul loop statement: pre not found: {node}"))
@@ -2092,7 +2090,7 @@ impl AstParser {
             .get("condition")
             .ok_or_else(|| error!("Yul loop statement: condition not found: {node}"))
             .and_then(|v| self.parse_yul_expr(v))?;
-        Ok(yast::ForStmt::new(pre, cond, post, body))
+        Ok(yast::YulForStmt::new(pre, cond, post, body))
     }
 
     //-------------------------------------------------
@@ -2100,7 +2098,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul switch statement
-    fn parse_yul_switch_stmt(&mut self, node: &Value) -> Result<yast::SwitchStmt> {
+    fn parse_yul_switch_stmt(&mut self, node: &Value) -> Result<yast::YulSwitchStmt> {
         let expr = node
             .get("expression")
             .ok_or_else(|| error!("Yul switch expression not found: {node}"))
@@ -2117,7 +2115,7 @@ impl AstParser {
                             .get("body")
                             .ok_or_else(|| error!("Yul switch default body not found: {v}"))
                             .and_then(|v| self.parse_yul_block(v))?;
-                        defaults.push(yast::SwitchDefault::new(default));
+                        defaults.push(yast::YulSwitchDefault::new(default));
                     } else {
                         let body = v
                             .get("body")
@@ -2127,7 +2125,7 @@ impl AstParser {
                             .get("value")
                             .ok_or_else(|| error!("Yul switch case value not found: {node}"))
                             .and_then(|n| self.parse_yul_lit(n))?;
-                        cases.push(yast::SwitchValue::new(value, body));
+                        cases.push(yast::YulSwitchValue::new(value, body));
                     }
                 }
             }
@@ -2136,7 +2134,7 @@ impl AstParser {
         }
         let default = defaults.first();
         if defaults.len() < 2 {
-            Ok(yast::SwitchStmt::new(expr, cases, default.cloned()))
+            Ok(yast::YulSwitchStmt::new(expr, cases, default.cloned()))
         } else {
             fail!("Yul switch statement has multiple default case: {node}");
         }
@@ -2147,7 +2145,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul expression.
-    fn parse_yul_expr(&mut self, node: &Value) -> Result<yast::Expr> {
+    fn parse_yul_expr(&mut self, node: &Value) -> Result<yast::YulExpr> {
         match self.get_node_type(node)?.as_str() {
             "YulLiteral" => self.parse_yul_lit(node).map(|exp| exp.into()),
             "YulIdentifier" => self.parse_yul_ident_or_member_expr(node),
@@ -2161,7 +2159,7 @@ impl AstParser {
     //-------------------------------------------------
 
     /// Parse a Yul function call expression.
-    fn parse_yul_function_call(&mut self, node: &Value) -> Result<yast::CallExpr> {
+    fn parse_yul_function_call(&mut self, node: &Value) -> Result<yast::YulCallExpr> {
         let callee = node
             .get("functionName")
             .ok_or_else(|| error!("Function call callee not found: {node}"))
@@ -2173,7 +2171,7 @@ impl AstParser {
             .ok_or_else(|| error!("Function call type invalid: {node}"))
             .and_then(|s| self.parse_yul_type(s))?;
         let loc = self.parse_source_location(node);
-        let fn_name = yast::Identifier::new(Name::new(callee, None), typ, loc);
+        let fn_name = yast::YulIdentifier::new(Name::new(callee, None), typ, loc);
         let arg_values = node
             .get("arguments")
             .ok_or_else(|| error!("Function call arguments not found: {node}"))?
@@ -2181,15 +2179,15 @@ impl AstParser {
             .ok_or_else(|| error!("Function call arguments invalid: {node}"))?
             .iter()
             .map(|v| self.parse_yul_expr(v))
-            .collect::<Result<Vec<yast::Expr>>>()?;
-        Ok(yast::CallExpr::new(fn_name, arg_values))
+            .collect::<Result<Vec<yast::YulExpr>>>()?;
+        Ok(yast::YulCallExpr::new(fn_name, arg_values))
     }
 
     //-------------------------------------------------
     // Yul identifier
     //-------------------------------------------------
 
-    fn parse_yul_ident(&self, node: &Value) -> Result<yast::Identifier> {
+    fn parse_yul_ident(&self, node: &Value) -> Result<yast::YulIdentifier> {
         let name = self.parse_name(node)?;
         let loc = self.parse_source_location(node);
         let typ = node
@@ -2198,10 +2196,10 @@ impl AstParser {
             .as_str()
             .ok_or_else(|| error!("Yul identifier type invalid: {node}"))
             .and_then(|s| self.parse_yul_type(s))?;
-        Ok(yast::Identifier::new(Name::new(name.to_string(), None), typ, loc))
+        Ok(yast::YulIdentifier::new(Name::new(name.to_string(), None), typ, loc))
     }
 
-    fn parse_yul_ident_or_member_expr(&self, node: &Value) -> Result<yast::Expr> {
+    fn parse_yul_ident_or_member_expr(&self, node: &Value) -> Result<yast::YulExpr> {
         let name = self.parse_name(node)?;
         let loc = self.parse_source_location(node);
         let typ = node
@@ -2213,12 +2211,12 @@ impl AstParser {
         let components = name.split('.').collect::<Vec<&str>>();
         match components[..] {
             [name] => {
-                Ok(yast::Identifier::new(Name::new(name.to_string(), None), typ, loc).into())
+                Ok(yast::YulIdentifier::new(Name::new(name.to_string(), None), typ, loc).into())
             }
             [name1, name2] => {
                 let base = Name::new(name1.to_string(), None);
                 let member = Name::new(name2.to_string(), None);
-                Ok(yast::MemberExpr::new(base, member, loc).into())
+                Ok(yast::YulMemberExpr::new(base, member, loc).into())
             }
             _ => fail!("Failed to parse Yul identifier: {node}"),
         }
@@ -2228,7 +2226,7 @@ impl AstParser {
     // Yul literals
     //-------------------------------------------------
 
-    fn parse_yul_lit(&self, node: &Value) -> Result<yast::Lit> {
+    fn parse_yul_lit(&self, node: &Value) -> Result<yast::YulLit> {
         node.get("kind")
             .ok_or_else(|| error!("Yul literal kind not found: {node}"))?
             .as_str()
@@ -2236,11 +2234,11 @@ impl AstParser {
             .and_then(|s| match s {
                 "number" => match node.get("value") {
                     Some(Value::String(s)) if s.starts_with("0x") => {
-                        Ok(yast::NumLit::Hex(s.to_string()).into())
+                        Ok(yast::YulNumLit::Hex(s.to_string()).into())
                     }
                     Some(v) => {
                         let number = self.parse_int_lit(v)?;
-                        Ok(yast::NumLit::Dec(number).into())
+                        Ok(yast::YulNumLit::Dec(number).into())
                     }
                     _ => fail!("Failed to parse number literal"),
                 },
@@ -2251,31 +2249,31 @@ impl AstParser {
             })
     }
 
-    fn parse_yul_string_lit(&self, node: &Value) -> Result<yast::StringLit> {
+    fn parse_yul_string_lit(&self, node: &Value) -> Result<yast::YulStringLit> {
         node.get("value")
             .ok_or_else(|| error!("Yul string literal value not found: {node}"))?
             .as_str()
             .ok_or_else(|| error!("Yul string literal value invalid: {node}"))
-            .and_then(|s| Ok(yast::StringLit::new(s)))
+            .and_then(|s| Ok(yast::YulStringLit::new(s)))
     }
 
-    fn parse_yul_hex_lit(&self, node: &Value) -> Result<yast::Lit> {
+    fn parse_yul_hex_lit(&self, node: &Value) -> Result<yast::YulLit> {
         let hex_value = node
             .get("hexValue")
             .ok_or_else(|| error!("Yul literal hex value not found: {node}"))?
             .as_str()
             .ok_or_else(|| error!("Yul literal hex value invalid: {node}"))?;
-        Ok(yast::HexLit::new(hex_value).into())
+        Ok(yast::YulHexLit::new(hex_value).into())
     }
 
     //-------------------------------------------------
     // Yul type
     //-------------------------------------------------
 
-    fn parse_yul_type(&self, data_type: &str) -> Result<YType> {
+    fn parse_yul_type(&self, data_type: &str) -> Result<yast::YulType> {
         match data_type {
-            "bool" => Ok(YType::Bool),
-            "string" => Ok(YType::String),
+            "bool" => Ok(yast::YulType::Bool),
+            "string" => Ok(yast::YulType::String),
             "uint" | "int" => {
                 let regex = match Regex::new(r"(\d+)") {
                     Ok(re) => re,
@@ -2295,9 +2293,9 @@ impl AstParser {
                     None => 256,
                 };
                 let signed = data_type.starts_with("int");
-                Ok(YType::Int(YIntType::new(bitwidth, signed)))
+                Ok(yast::YulType::Int(yast::YulIntType::new(bitwidth, signed)))
             }
-            _ => Ok(YType::Unkn),
+            _ => Ok(yast::YulType::Unkn),
         }
     }
 }

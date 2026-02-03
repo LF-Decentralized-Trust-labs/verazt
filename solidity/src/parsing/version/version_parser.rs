@@ -7,7 +7,7 @@ use pest_derive::Parser;
 ///
 /// This data structure is automatically derived by [`Pest`] parser.
 #[derive(Parser)]
-#[grammar = "parser/version/version_grammar.pest"]
+#[grammar = "parsing/version/version_grammar.pest"]
 struct PragmaParser;
 
 impl PragmaParser {
