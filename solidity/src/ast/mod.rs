@@ -2,28 +2,34 @@
 
 pub mod block;
 pub mod builtins;
-pub mod definitions;
+pub mod defs;
 pub mod directives;
-pub mod expressions;
-pub mod identifier;
-pub mod literals;
+pub mod exprs;
+pub mod ident;
+pub mod lits;
 pub mod source_unit;
-pub mod specifiers;
-pub mod statements;
+pub mod specs;
+pub mod stmts;
 pub mod types;
 pub mod utils;
+pub mod normalize;
+pub mod yul;
+pub mod loc;
+pub mod name;
 
 pub use block::*;
 pub use builtins::*;
-pub use definitions::*;
+pub use defs::*;
 pub use directives::*;
-pub use expressions::*;
-pub use identifier::*;
-pub use literals::*;
+pub use exprs::*;
+pub use ident::*;
+pub use lits::*;
 pub use source_unit::*;
-pub use specifiers::*;
-pub use statements::*;
+pub use specs::*;
+pub use stmts::*;
 pub use types::*;
+pub use loc::*;
+pub use name::*;
 
 /// Trait to export AST elements to compilable Solidity code.
 pub trait Export {

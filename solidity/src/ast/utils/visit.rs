@@ -3,7 +3,7 @@
 //! This visiting pattern will not transform any input data structure.
 
 use crate::ast::*;
-use meta::{DataLoc, Name, NamePath};
+use crate::ast::{DataLoc, Name, NamePath};
 
 //------------------------------------------------------------------
 // Trait for implementing the visiting pattern
@@ -370,7 +370,7 @@ pub trait Visit<'a> {
 pub mod default {
     use super::Visit;
     use crate::ast::*;
-    use meta::{DataLoc, Name, NamePath};
+    use crate::ast::{DataLoc, Name, NamePath};
 
     //-------------------------------------------------
     // Source unit

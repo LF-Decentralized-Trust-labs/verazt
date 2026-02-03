@@ -1,11 +1,10 @@
 [workspace]
 members = [
   "bugs",
-  "meta",
+
   "kookaburra",
   "seaeagle",
   "solidity",
-  "yul",
 ]
 
 [workspace.package]

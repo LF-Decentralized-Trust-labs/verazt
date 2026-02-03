@@ -1,6 +1,6 @@
 use crate::ast::*;
 use extlib::string::StringExt;
-use meta::Loc;
+use crate::ast::Loc;
 use std::fmt::{self, Display};
 
 #[derive(PartialEq, Eq, Debug, Clone)]

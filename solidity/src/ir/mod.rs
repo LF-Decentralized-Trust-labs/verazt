@@ -1,23 +1,24 @@
 //! Smart contract IR to facilitate formal verification and symbolic execution.
 
 pub mod block;
-pub mod definitions;
-pub mod expressions;
-pub mod literals;
+pub mod defs;
+pub mod exprs;
+pub mod lits;
 pub mod printer;
 pub mod source_unit;
-pub mod statements;
+pub mod stmts;
 pub mod types;
 pub mod utils;
-pub mod variable;
+pub mod var;
+pub mod yul;
 
 pub use block::*;
-pub use definitions::*;
-pub use expressions::*;
-pub use literals::*;
+pub use defs::*;
+pub use exprs::*;
+pub use lits::*;
 pub use printer::*;
 pub use source_unit::*;
-pub use statements::*;
+pub use stmts::*;
 pub use types::*;
 pub use utils::*;
-pub use variable::*;
+pub use var::*;
