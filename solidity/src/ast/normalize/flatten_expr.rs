@@ -1,5 +1,5 @@
 use crate::{ast::utils::*, ast::*};
-use meta::{DataLoc, Loc, NamingEnv};
+use crate::ast::{DataLoc, Loc, NamingEnv};
 use std::borrow::Borrow;
 
 struct ExprFlattener {

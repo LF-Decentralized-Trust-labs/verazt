@@ -1,4 +1,4 @@
-use meta::{DataLoc, Name};
+use crate::ast::{DataLoc, Name};
 use num_bigint::BigInt;
 use std::fmt::{self, Display};
 

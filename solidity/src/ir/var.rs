@@ -1,4 +1,4 @@
-use meta::Loc;
+use crate::ast::Loc;
 
 use crate::ir::*;
 use std::fmt::{self, Display};

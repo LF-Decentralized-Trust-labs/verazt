@@ -1,7 +1,7 @@
 //! Module handling Yul IR expressions.
 
 use super::*;
-use meta::Name;
+use crate::ast::Name;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

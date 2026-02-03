@@ -6,7 +6,7 @@
 
 use crate::{ast::utils::*, ast::*, yul::normalize as yul_normalize};
 use crate::ast::yul::YulBlock;
-use meta::NamingEnv;
+use crate::ast::NamingEnv;
 
 //-------------------------------------------------
 // Rename variables.

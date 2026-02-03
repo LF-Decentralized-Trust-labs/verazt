@@ -1,6 +1,6 @@
 use crate::{engine::task_generator_ast::TaskContext, tasks::task::Task};
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use meta::Loc;
+use solidity::ast::Loc;
 use solidity::ast::CallExpr;
 
 pub struct CentralizationRisk {

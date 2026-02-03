@@ -1,7 +1,7 @@
 //! Module handling Yul identifier.
 
 use super::*;
-use meta::{Loc, Name};
+use crate::ast::{Loc, Name};
 use std::fmt::{self, Display};
 
 #[derive(Clone, PartialEq, Eq, Debug)]

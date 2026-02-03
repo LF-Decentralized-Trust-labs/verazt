@@ -4,7 +4,7 @@ use crate::{
     ast::{utils::*, *},
     ast::normalize::substitution,
 };
-use meta::Name;
+use crate::ast::Name;
 use std::{collections::HashMap, ops::Deref};
 
 #[derive(Clone)]

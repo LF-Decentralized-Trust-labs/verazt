@@ -1,7 +1,7 @@
 //! Module for renaming Yul variables.
 
 use crate::ast::yul::{*, utils::{YulMap, yul_map_default}};
-use meta::{Name, NamingEnv};
+use crate::ast::{Name, NamingEnv};
 
 /// Function to rename variables in a YulSourceUnit.
 pub fn rename_yul_variables(source_unit: &YulSourceUnit) -> YulSourceUnit {

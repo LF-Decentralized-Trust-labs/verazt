@@ -3,7 +3,7 @@
 //! This map pattern will transform an input data structure into a new data
 //! structure of the same type.
 
-use meta::Name;
+use crate::ast::Name;
 
 use crate::ast::yul::*;
 
@@ -139,7 +139,7 @@ pub mod yul_map_default {
     use super::YulMap;
     use crate::ast::yul::*;
     use either::Either;
-    use meta::Name;
+    use crate::ast::Name;
 
     //-------------------------------------------------
     // Source unit

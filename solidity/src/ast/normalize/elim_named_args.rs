@@ -1,7 +1,7 @@
 //! Module to eliminate named arguments in Solidity smart contracts.
 
 use crate::ast::{utils::*, *};
-use meta::Name;
+use crate::ast::Name;
 use std::collections::HashMap;
 
 //-------------------------------------------------

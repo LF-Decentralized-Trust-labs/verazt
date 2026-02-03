@@ -5,7 +5,7 @@ use crate::ir::*;
 use either::Either::{self, Left, Right};
 use extlib::{error::Result, fail};
 use log::trace;
-use meta::{DataLoc, Loc};
+use crate::ast::{DataLoc, Loc};
 use std::{borrow::BorrowMut, ops::Deref};
 
 pub fn lower_source_unit(source_unit: &ast::SourceUnit) -> Result<SourceUnit> {

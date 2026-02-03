@@ -1,6 +1,6 @@
 // use crate::ast::*;
 use extlib::{error::Result, fail};
-use meta::Name;
+use crate::ast::Name;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

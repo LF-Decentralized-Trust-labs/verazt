@@ -1,5 +1,5 @@
 use crate::ast::*;
-use meta::{Loc, Name};
+use crate::ast::{Loc, Name};
 use std::{
     fmt::{self, Display},
     hash::{Hash, Hasher},

@@ -1,7 +1,7 @@
 use crate::ir::*;
 use crate::ast::yul as yast;
 use extlib::string::StringExt;
-use meta::{Loc, Name};
+use crate::ast::{Loc, Name};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

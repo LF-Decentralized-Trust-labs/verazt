@@ -1,6 +1,6 @@
 //! Substituting `identifier` by an `expression`
 
-use meta::Name;
+use crate::ast::Name;
 
 use crate::{ast::utils::*, ast::*};
 use std::collections::HashMap;

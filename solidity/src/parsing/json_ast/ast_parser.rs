@@ -8,7 +8,7 @@ use color_eyre::eyre::Result;
 use extlib::{error, fail};
 use itertools::izip;
 use lazy_static::lazy_static;
-use meta::{DataLoc, Loc, Name};
+use crate::ast::{DataLoc, Loc, Name};
 use num_bigint::BigInt;
 use regex::Regex;
 use rust_decimal::Decimal;

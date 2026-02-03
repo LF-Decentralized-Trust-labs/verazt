@@ -7,7 +7,7 @@ use crate::{
 use Either::{Left, Right};
 use either::Either;
 use extlib::{error::Result, fail};
-use meta::{Loc, Name};
+use crate::ast::{Loc, Name};
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 use regex::Regex;

@@ -1,5 +1,5 @@
 use crate::ast::*;
-use meta::Loc;
+use crate::ast::Loc;
 use num_bigint::BigInt;
 use rust_decimal::Decimal;
 use std::fmt::{self, Display};

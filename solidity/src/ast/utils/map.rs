@@ -4,7 +4,7 @@
 //! structure of the same type.
 
 use crate::ast::*;
-use meta::{DataLoc, Name, NamePath};
+use crate::ast::{DataLoc, Name, NamePath};
 
 //------------------------------------------------------------------
 // Trait for implementing the mapping utilities
@@ -392,7 +392,7 @@ pub trait Map<'a> {
 pub mod default {
     use super::Map;
     use crate::ast::*;
-    use meta::{DataLoc, Name, NamePath};
+    use crate::ast::{DataLoc, Name, NamePath};
 
     //-------------------------------------------------
     // Source unit

@@ -4,7 +4,7 @@
 //! interfaces.
 
 use crate::{ast::utils::*, ast::*};
-use meta::Name;
+use crate::ast::Name;
 use std::collections::HashMap;
 
 //-------------------------------------------------

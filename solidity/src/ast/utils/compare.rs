@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use extlib::error::Result;
-use meta::{DataLoc, Name, NamePath};
+use crate::ast::{DataLoc, Name, NamePath};
 
 //-------------------------------------------------
 // Trait for comparison
@@ -498,7 +498,7 @@ pub mod default {
         error::{Report, Result},
         fail,
     };
-    use meta::{DataLoc, Name};
+    use crate::ast::{DataLoc, Name};
     use std::fmt::Display;
 
     //-------------------------------------------------

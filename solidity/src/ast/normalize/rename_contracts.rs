@@ -4,7 +4,7 @@
 //! information of inheritance.
 
 use crate::{ast::utils::*, ast::*};
-use meta::NamingEnv;
+use crate::ast::NamingEnv;
 
 #[derive(Debug, Clone)]
 struct Renamer<'a> {

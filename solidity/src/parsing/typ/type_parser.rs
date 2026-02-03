@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use extlib::{error::Result, fail};
-use meta::{DataLoc, Name};
+use crate::ast::{DataLoc, Name};
 use num_bigint::BigInt;
 use pest::{
     Parser,

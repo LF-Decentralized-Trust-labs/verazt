@@ -14,6 +14,8 @@ pub mod types;
 pub mod utils;
 pub mod normalize;
 pub mod yul;
+pub mod loc;
+pub mod name;
 
 pub use block::*;
 pub use builtins::*;
@@ -26,6 +28,8 @@ pub use source_unit::*;
 pub use specs::*;
 pub use stmts::*;
 pub use types::*;
+pub use loc::*;
+pub use name::*;
 
 /// Trait to export AST elements to compilable Solidity code.
 pub trait Export {

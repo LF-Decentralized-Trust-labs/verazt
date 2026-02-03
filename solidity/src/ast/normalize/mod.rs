@@ -27,7 +27,7 @@ pub use elim_using_directives::eliminate_using_directives;
 pub use flatten_expr::flatten_expr;
 pub use flatten_name_index::flatten_name;
 pub use merge_pragmas::merge_pragmas;
-use meta::NamingEnv;
+use crate::ast::NamingEnv;
 pub use rename_callees::rename_callees;
 pub use rename_contracts::rename_contracts;
 pub use rename_defs::rename_defs;

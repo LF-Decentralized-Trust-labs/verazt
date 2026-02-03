@@ -1,4 +1,4 @@
-use meta::Loc;
+use solidity::ast::Loc;
 
 //-------------------------------------------------------------------------
 // Data structures representing smart contract bugs.

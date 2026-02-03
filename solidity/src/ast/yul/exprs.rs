@@ -1,7 +1,7 @@
 //! Module handling Yul expressions.
 
 use super::*;
-use meta::{Loc, Name};
+use crate::ast::{Loc, Name};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

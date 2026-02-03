@@ -3,7 +3,7 @@
 //! This map pattern will compute output of the same type when traversing all
 //! data structures in the AST.
 
-use meta::Name;
+use crate::ast::Name;
 
 use crate::ast::yul::*;
 
@@ -133,7 +133,7 @@ pub trait YulFold<T> {
 /// Module containing default implementation of the folding pattern for Yul AST.
 pub mod yul_fold_default {
     use either::Either;
-    use meta::Name;
+    use crate::ast::Name;
 
     use super::YulFold;
     use crate::ast::yul::*;
