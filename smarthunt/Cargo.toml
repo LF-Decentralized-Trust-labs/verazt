@@ -1,12 +1,12 @@
 [package]
-name = "falcon"
+name = "smarthunt"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "falcon"
+name = "smarthunt"
 path = "src/main.rs"
 
 [dependencies]
