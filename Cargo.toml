@@ -2,8 +2,8 @@
 members = [
   "bugs",
 
-  "kookaburra",
-  "seaeagle",
+  "smarthunt",
+  "smartproof",
   "solidity",
 ]
 

@@ -1,6 +1,6 @@
 //! Module handling a source unit.
 
-use crate::ir::printer;
+use crate::ir::utils::printer;
 use crate::ir::*;
 use std::{
     fmt::{self, Display},
