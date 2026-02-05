@@ -100,10 +100,11 @@ SmartHunt is a modular, extensible, and high-performance bug detection framework
 **Leveraging Existing verazt Infrastructure:**
 - **solidity crate** already provides complete parsing and normalization pipeline:
   - Compilation via solc with version negotiation
-  - JSON AST parsing to internal Rust representation
+  - JSON AST parsing to internal Rust representation (includes full type information from solc!)
   - 15 normalization passes (inheritance resolution, modifier expansion, expression flattening, etc.)
   - Optional IR generation for formal verification
   - Visitor/Fold/Map patterns for AST/IR traversal
+  - **Complete type information** for all expressions (from solc's semantic analysis)
 - **bugs crate** already provides bug/issue reporting data structures:
   - `Bug` struct with all necessary fields (name, description, location, kind, risk level, CWE/SWC IDs)
   - `BugKind` enum (Vulnerability, Refactoring, Optimization)
@@ -112,102 +113,9 @@ SmartHunt is a modular, extensible, and high-performance bug detection framework
 
 ---
 
-## 2. Leveraging the solidity Crate Infrastructure
+## 2. Pass-Based Analysis Architecture
 
-### 2.0 What the solidity Crate Provides
-
-The **solidity crate** (with soljc binary) is a complete Solidity compilation and normalization infrastructure already built and battle-tested in verazt. SmartHunt leverages this foundation instead of reimplementing basic parsing and AST handling.
-
-#### Available APIs
-
-**Compilation:**
-```rust
-use solidity::compile;
-
-// Compile Solidity files with all imports resolved
-let source_units = compile::compile_input_file(
-    input_file,
-    base_path,
-    &include_paths,
-    solc_version,
-)?;
-```
-
-**Normalization:**
-```rust
-use solidity::ast::normalize;
-
-// Run 15 normalization passes
-let normalized = normalize::run_passes(&source_units);
-```
-
-**IR Generation:**
-```rust
-use solidity::codegen;
-
-// Lower AST to IR (optional)
-let ir_units: Vec<ir::SourceUnit> = normalized
-    .iter()
-    .map(|su| codegen::lower_source_unit(su))
-    .collect::<Result<_>>()?;
-```
-
-**AST Traversal:**
-```rust
-use solidity::ast::utils::{visit::Visit, fold::Fold, map::Map};
-
-// Visitor pattern (read-only traversal)
-struct MyVisitor;
-impl Visit for MyVisitor {
-    fn visit_func_def(&mut self, func: &FuncDef) {
-        // Analyze function
-    }
-}
-
-// Fold pattern (accumulator-based)
-struct BugCollector { bugs: Vec<Bug> }
-impl Fold<Vec<Bug>> for BugCollector {
-    fn fold_func_def(&mut self, func: &FuncDef) -> Vec<Bug> {
-        // Collect bugs from function
-    }
-}
-```
-
-#### What's Already Normalized
-
-After `normalize::run_passes()`, the AST has:
-- ✅ **Unique identifiers** for all contracts, functions, variables
-- ✅ **Resolved inheritance** (C3 linearization applied)
-- ✅ **Inlined modifiers** (modifier code expanded into functions)
-- ✅ **Flattened expressions** (complex nested expressions → atomic operations)
-- ✅ **Eliminated imports** (all imported code merged)
-- ✅ **Eliminated using directives** (using statements resolved)
-- ✅ **Positional arguments** (named arguments converted)
-- ✅ **Merged pragmas** (consolidated version constraints)
-
-This significantly simplifies SmartHunt's work - we can focus on **analysis** rather than **normalization**.
-
-#### Impact on SmartHunt Architecture
-
-**Before (if we had to build everything):**
-```
-SmartHunt → Build parser → Build normalizer → Build bug structs → Build analysis → Build detectors
-             [Weeks 1-4]    [Weeks 5-8]        [Week 9]          [Weeks 10-13]   [Weeks 14-18]
-```
-
-**After (leveraging solidity + bugs crates):**
-```
-SmartHunt → Use solidity crate → Use bugs crate → Build analysis → Build detectors
-            [Week 1]              [Already done!]   [Weeks 2-6]      [Weeks 7-18]
-```
-
-**Time saved:** ~8-9 weeks on parsing, normalization, and bug reporting infrastructure!
-
----
-
-## 3. Pass-Based Analysis Architecture
-
-### 3.1 Pass Scheduling and Dependencies
+### 2.1 Pass Scheduling and Dependencies
 
 Analysis is organized into **passes** that execute in a specific order. Each pass:
 - Has explicit dependencies on other passes
@@ -215,60 +123,54 @@ Analysis is organized into **passes** that execute in a specific order. Each pas
 - Can be skipped if not required by enabled detectors
 - Can run in parallel with other passes when dependencies are met
 
-### 3.2 Pass Phases
+### 2.2 Pass Phases
 
-#### Phase 1: Preprocessing and Context Building (Sequential)
+**Note:** Compilation, normalization (15 passes), and type information are already provided by the **solidity crate**. The passes below are what SmartHunt needs to implement.
 
-**Pass 1.1: AST Preprocessing** ✅ **Already Implemented in solidity crate!**
-- **Purpose:** Prepare AST for analysis
+**Legend:**
+- 🌳 **AST-based pass** - operates on the normalized Abstract Syntax Tree
+- ⚙️ **IR-based pass** - operates on the Intermediate Representation (optional, more precise)
+- 🔄 **Hybrid pass** - can use both AST and IR depending on configuration
+
+#### Phase 1: Context Building (Sequential)
+
+**Pass 1.1: Symbol Table Extraction** 🌳 **AST-based**
+- **Purpose:** Build fast lookup structures for program entities
 - **Operations:**
-  - ✅ Compilation via `solidity::compile::compile_input_file()`
-  - ✅ JSON AST parsing via `solidity::parsing::json_ast::AstParser`
-  - ✅ 15 normalization passes via `solidity::ast::normalize::run_passes()`:
-    - Unroll unary tuples
-    - Rename contracts, vars, defs, callees
-    - Eliminate import/using directives
-    - Merge pragmas
-    - Resolve inheritance (C3 linearization)
-    - Eliminate named args
-    - Expand function modifiers (inline modifier code)
-    - Flatten complex expressions to atomic form
-  - ✅ Optional IR generation via `solidity::codegen::lower_source_unit()`
-  - **New work:** Build symbol tables from normalized AST
-  - **New work:** Extract inheritance graph (already linearized)
-  - **New work:** Extract modifier information (already expanded)
+  - Extract all contracts, functions, variables from normalized AST
+  - Build name → definition mappings
+  - Extract inheritance hierarchy (already linearized by solidity crate)
 - **Artifacts Produced:**
-  - `SymbolTable`: Map of all definitions (contracts, functions, vars) - **TO BUILD**
-  - `InheritanceGraph`: Linearized inheritance relationships - **TO EXTRACT**
-  - Normalized AST and optional IR - **ALREADY AVAILABLE**
+  - `SymbolTable`: Fast lookup for all definitions
+  - `InheritanceGraph`: Contract inheritance relationships
 - **Consumers:** All subsequent passes
-- **Note:** This pass is mostly configuration - calling existing solidity crate APIs
 
-**Pass 1.2: Type System Analysis**
-- **Purpose:** Build complete type information
+**Pass 1.2: Type Index Construction** 🌳 **AST-based**
+- **Purpose:** Build fast type lookup structures
 - **Operations:**
-  - Infer types for all expressions
-  - Resolve user-defined types (structs, enums)
-  - Check type compatibility
-  - Build type hierarchy
+  - Index type information (already in AST from solc)
+  - Create type relationship graph
+  - Add convenience methods for common type checks
 - **Artifacts Produced:**
-  - `TypeContext`: Type information for every expression
-  - `TypeGraph`: Relationships between types
+  - `TypeIndex`: Fast type queries
+  - `TypeGraph`: Type relationships (inheritance, conversions)
 - **Consumers:** All detection passes requiring type information
 
-**Pass 1.3: Control Flow Graph (CFG) Construction**
+**Pass 1.3: Control Flow Graph (CFG) Construction** 🔄 **Hybrid (AST or IR)**
 - **Purpose:** Build control flow graphs for all functions
 - **Operations:**
   - Create basic blocks for each function
   - Identify entry/exit points
   - Handle loops, conditionals, try-catch
   - Link function calls
+- **Input:** Can work on either AST (normalized, flattened expressions) or IR (atomic operations)
+- **Recommendation:** Use IR when available for more precise CFG (atomic operations are easier to analyze)
 - **Artifacts Produced:**
   - `ControlFlowGraph`: Per-function CFG
   - `BasicBlock`: List of basic blocks per function
 - **Consumers:** Data flow analysis, reachability analysis, reentrancy detection
 
-**Pass 1.4: Call Graph Construction**
+**Pass 1.4: Call Graph Construction** 🌳 **AST-based**
 - **Purpose:** Build inter-procedural call relationships
 - **Operations:**
   - Track direct function calls
@@ -287,7 +189,7 @@ Analysis is organized into **passes** that execute in a specific order. Each pas
 
 These passes analyze individual functions or contracts in isolation and can run concurrently.
 
-**Pass 2.1: Local Pattern Matching**
+**Pass 2.1: Local Pattern Matching** 🌳 **AST-based**
 - **Purpose:** Fast AST pattern detection
 - **Detectors:**
   - Deprecated constructs (`tx.origin`, `block.timestamp` misuse)
@@ -300,7 +202,7 @@ These passes analyze individual functions or contracts in isolation and can run 
 - **Parallelization:** One thread per contract or function
 - **Estimated Time:** < 50ms per contract
 
-**Pass 2.2: Local Semantic Analysis**
+**Pass 2.2: Local Semantic Analysis** 🌳 **AST-based**
 - **Purpose:** Function-level semantic checks
 - **Detectors:**
   - Uninitialized local variables
@@ -313,7 +215,7 @@ These passes analyze individual functions or contracts in isolation and can run 
 - **Parallelization:** One thread per function
 - **Estimated Time:** 50-100ms per contract
 
-**Pass 2.3: State Variable Analysis**
+**Pass 2.3: State Variable Analysis** 🌳 **AST-based**
 - **Purpose:** Analyze state variable usage
 - **Detectors:**
   - Uninitialized state variables
@@ -330,13 +232,15 @@ These passes analyze individual functions or contracts in isolation and can run 
 
 These passes require call graph or CFG and analyze interactions between functions.
 
-**Pass 3.1: Data Flow Analysis**
+**Pass 3.1: Data Flow Analysis** 🔄 **Hybrid (better on IR for precision)**
 - **Purpose:** Track how data flows through functions
 - **Operations:**
   - Reaching definitions analysis
   - Live variable analysis
   - Taint analysis (user input → sensitive operations)
   - Constant propagation
+- **Input:** Can work on AST CFG or IR CFG
+- **Recommendation:** Use IR for higher precision (atomic operations make tracking clearer)
 - **Artifacts Produced:**
   - `TaintGraph`: Sources (user input) → sinks (sensitive ops)
   - `DefUseChains`: Variable definition-use relationships
@@ -348,7 +252,7 @@ These passes require call graph or CFG and analyze interactions between function
 - **Parallelization:** Parallel analysis per contract (separate CFGs)
 - **Estimated Time:** 100-300ms per contract
 
-**Pass 3.2: State Mutation Analysis**
+**Pass 3.2: State Mutation Analysis** 🔄 **Hybrid (AST or IR)**
 - **Purpose:** Track state changes across function calls
 - **Operations:**
   - Identify read/write operations on state variables
@@ -365,7 +269,7 @@ These passes require call graph or CFG and analyze interactions between function
 - **Parallelization:** Per-contract analysis
 - **Estimated Time:** 100-200ms per contract
 
-**Pass 3.3: Access Control Analysis**
+**Pass 3.3: Access Control Analysis** 🌳 **AST-based**
 - **Purpose:** Verify access control patterns
 - **Operations:**
   - Identify privileged functions (onlyOwner, onlyAdmin, etc.)
@@ -379,7 +283,7 @@ These passes require call graph or CFG and analyze interactions between function
 - **Parallelization:** Per-contract analysis
 - **Estimated Time:** 50-150ms per contract
 
-**Pass 3.4: Reentrancy Analysis**
+**Pass 3.4: Reentrancy Analysis** 🔄 **Hybrid (AST for basic, IR for deep analysis)**
 - **Purpose:** Deep reentrancy detection
 - **Operations:**
   - Identify external calls (untrusted)
@@ -400,7 +304,7 @@ These passes require call graph or CFG and analyze interactions between function
 
 These passes analyze interactions between multiple contracts.
 
-**Pass 4.1: External Interaction Analysis**
+**Pass 4.1: External Interaction Analysis** 🌳 **AST-based**
 - **Purpose:** Analyze cross-contract calls
 - **Operations:**
   - Map external call dependencies
@@ -415,7 +319,7 @@ These passes analyze interactions between multiple contracts.
 - **Parallelization:** Grouped by contract clusters
 - **Estimated Time:** 100-500ms per contract cluster
 
-**Pass 4.2: Economic/Game Theory Analysis**
+**Pass 4.2: Economic/Game Theory Analysis** 🌳 **AST-based**
 - **Purpose:** Detect economic vulnerabilities
 - **Operations:**
   - Track value flows (ETH, tokens)
@@ -435,12 +339,14 @@ These passes analyze interactions between multiple contracts.
 
 These passes are opt-in for deep analysis.
 
-**Pass 5.1: Symbolic Execution (Limited)**
+**Pass 5.1: Symbolic Execution (Limited)** ⚙️ **IR-based (requires IR)**
 - **Purpose:** Explore execution paths symbolically
 - **Operations:**
   - Bounded symbolic execution (limited depth)
   - Path condition collection
   - SMT solver integration (Z3)
+- **Input:** **Requires IR** (atomic operations essential for symbolic execution)
+- **Why IR:** Complex expressions must be broken down into atomic operations for symbolic analysis
 - **Detectors:**
   - Unreachable code
   - Assert violations
@@ -449,11 +355,13 @@ These passes are opt-in for deep analysis.
 - **Parallelization:** Per function with path limit
 - **Estimated Time:** 1-10s per function (depth-limited)
 
-**Pass 5.2: Formal Verification (Limited)**
+**Pass 5.2: Formal Verification (Limited)** ⚙️ **IR-based (requires IR)**
 - **Purpose:** Prove properties using formal methods
 - **Operations:**
   - Convert to verification conditions
   - Use SMT solvers for property checking
+- **Input:** **Requires IR** (verification requires normalized, atomic operations)
+- **Why IR:** Formal methods need simplified, normalized representation
 - **Detectors:**
   - Invariant violations
   - Specification mismatches
@@ -462,48 +370,51 @@ These passes are opt-in for deep analysis.
 
 ---
 
-### 3.3 Pass Dependency Graph
+### 2.3 Pass Dependency Graph
+
+**Legend:** 🌳 AST-based | ⚙️ IR-based | 🔄 Hybrid
 
 ```
-solidity crate (Compilation + Normalization)
-    │  ✅ Already implemented!
+solidity crate (Compilation + Normalization + Types)
+    │  ✅ Already provided!
+    │  Produces: AST (normalized) + optional IR
     │
     ▼
-Pass 1.1 (Symbol Table Extraction)
+Pass 1.1 🌳 (Symbol Table Extraction)
     │
-    ├─→ Pass 1.2 (Type Analysis)
+    ├─→ Pass 1.2 🌳 (Type Index)
     │       │
-    │       └─→ Pass 2.2 (Local Semantic)
+    │       └─→ Pass 2.2 🌳 (Local Semantic)
     │
-    ├─→ Pass 1.3 (CFG Construction)
+    ├─→ Pass 1.3 🔄 (CFG Construction) - works on AST or IR
     │       │
-    │       ├─→ Pass 3.1 (Data Flow)
+    │       ├─→ Pass 3.1 🔄 (Data Flow) - better on IR
     │       │       │
-    │       │       └─→ Pass 3.4 (Reentrancy)
+    │       │       └─→ Pass 3.4 🔄 (Reentrancy)
     │       │
-    │       └─→ Pass 5.1 (Symbolic Execution)
+    │       └─→ Pass 5.1 ⚙️ (Symbolic Execution) - requires IR
     │
-    ├─→ Pass 1.4 (Call Graph)
+    ├─→ Pass 1.4 🌳 (Call Graph)
     │       │
-    │       ├─→ Pass 3.1 (Data Flow)
-    │       ├─→ Pass 3.2 (State Mutation)
-    │       ├─→ Pass 3.4 (Reentrancy)
-    │       └─→ Pass 4.1 (External Interaction)
+    │       ├─→ Pass 3.1 🔄 (Data Flow)
+    │       ├─→ Pass 3.2 🔄 (State Mutation)
+    │       ├─→ Pass 3.4 🔄 (Reentrancy)
+    │       └─→ Pass 4.1 🌳 (External Interaction)
     │
-    └─→ Pass 2.1 (Local Patterns) ─┐
-                                    ├─→ Results Aggregation
-    Pass 2.3 (State Variables) ────┤
-                                    │
-    Pass 3.3 (Access Control) ─────┤
-                                    │
-    Pass 4.2 (Economic Analysis) ──┘
+    └─→ Pass 2.1 🌳 (Local Patterns) ─┐
+                                      ├─→ Results Aggregation
+    Pass 2.3 🌳 (State Variables) ────┤
+                                      │
+    Pass 3.3 🌳 (Access Control) ─────┤
+                                      │
+    Pass 4.2 🌳 (Economic Analysis) ──┘
 ```
 
 ---
 
-## 4. Detector Framework
+## 3. Detector Framework
 
-### 4.1 Detector Taxonomy
+### 3.1 Detector Taxonomy
 
 Detectors are organized by **category** and **complexity**:
 
@@ -525,7 +436,7 @@ Detectors are organized by **category** and **complexity**:
 - **Informational:** Missing NatSpec, floating pragma, SPDX license
 - **Style:** Visibility, ordering, naming conventions
 
-### 4.2 Detector Interface
+### 3.2 Detector Interface
 
 All detectors implement a unified trait:
 
@@ -567,7 +478,7 @@ pub trait Detector: Send + Sync {
 
 **Note:** We reuse the `Bug`, `BugKind`, and `RiskLevel` types from the existing **bugs crate**, ensuring consistency across all verazt tools (smarthunt, smartproof, etc.).
 
-### 4.3 Detector Registration
+### 3.3 Detector Registration
 
 Detectors are registered in a central registry:
 
@@ -598,7 +509,7 @@ impl DetectorRegistry {
 }
 ```
 
-### 4.4 Pattern-Based Detector DSL
+### 3.4 Pattern-Based Detector DSL
 
 For simple pattern matching, provide a declarative DSL:
 
@@ -633,15 +544,15 @@ This macro expands to a full Detector implementation that creates `Bug` instance
 
 ---
 
-## 5. Analysis Context and Caching
+## 4. Analysis Context and Caching
 
-### 5.1 Analysis Context
+### 4.1 Analysis Context
 
 The `AnalysisContext` holds all analysis artifacts and provides a unified interface:
 
 ```rust
 pub struct AnalysisContext {
-    /// Original AST
+    /// Original AST (includes type info from solc!)
     pub source_units: Vec<SourceUnit>,
 
     /// Optional IR
@@ -651,8 +562,8 @@ pub struct AnalysisContext {
     pub symbols: SymbolTable,
     pub inheritance: InheritanceGraph,
 
-    /// Type system
-    pub type_context: TypeContext,
+    /// Type system (types already in AST, this is just an index for fast lookup)
+    pub type_index: TypeIndex,
 
     /// Control flow
     pub cfgs: HashMap<FunctionId, ControlFlowGraph>,
@@ -692,7 +603,7 @@ impl AnalysisContext {
 }
 ```
 
-### 5.2 Caching Strategy
+### 4.2 Caching Strategy
 
 To avoid redundant computation:
 
@@ -713,9 +624,9 @@ To avoid redundant computation:
 
 ---
 
-## 6. Parallelization Strategy
+## 5. Parallelization Strategy
 
-### 6.1 Parallel Pass Execution
+### 5.1 Parallel Pass Execution
 
 Passes are scheduled based on dependencies:
 
@@ -744,7 +655,7 @@ impl PassScheduler {
 }
 ```
 
-### 6.2 Parallel Detector Execution
+### 5.2 Parallel Detector Execution
 
 Detectors within the same pass can run concurrently:
 
@@ -762,7 +673,7 @@ pub async fn run_detectors(
 }
 ```
 
-### 6.3 Parallel Contract Analysis
+### 5.3 Parallel Contract Analysis
 
 For large projects with many contracts:
 
@@ -784,7 +695,7 @@ pub fn analyze_contracts_parallel(
 }
 ```
 
-### 6.4 Thread Pool Configuration
+### 5.4 Thread Pool Configuration
 
 ```rust
 pub struct ParallelConfig {
@@ -801,9 +712,9 @@ pub struct ParallelConfig {
 
 ---
 
-## 7. Configuration and Customization
+## 6. Configuration and Customization
 
-### 7.1 Configuration File Format
+### 6.1 Configuration File Format
 
 Support TOML configuration:
 
@@ -872,7 +783,7 @@ function = "emergencyWithdraw"
 reason = "Reviewed and accepted"
 ```
 
-### 7.2 Command-Line Interface
+### 6.2 Command-Line Interface
 
 ```bash
 smarthunt [OPTIONS] <INPUT_FILES>
@@ -935,7 +846,7 @@ EXAMPLES:
     smarthunt --no-ir --threads 16 src/
 ```
 
-### 7.3 Detector Registry and Discovery
+### 6.3 Detector Registry and Discovery
 
 Support dynamic detector loading:
 
@@ -961,9 +872,9 @@ pub fn load_plugin_detectors(
 
 ---
 
-## 8. Output Formats
+## 7. Output Formats
 
-### 8.1 JSON Format
+### 7.1 JSON Format
 
 ```json
 {
@@ -1036,7 +947,7 @@ pub fn load_plugin_detectors(
 }
 ```
 
-### 8.2 Markdown Format
+### 7.2 Markdown Format
 
 ```markdown
 # SmartHunt Analysis Report
@@ -1098,7 +1009,7 @@ function withdraw() public {
 ---
 ```
 
-### 8.3 SARIF Format
+### 7.3 SARIF Format
 
 Support Static Analysis Results Interchange Format for IDE integration:
 
@@ -1163,7 +1074,7 @@ Support Static Analysis Results Interchange Format for IDE integration:
 
 ---
 
-## 9. Priority Detectors to Implement
+## 8. Priority Detectors to Implement
 
 ### Phase 1: Core Vulnerability Detectors (Critical/High)
 
@@ -1240,7 +1151,7 @@ Support Static Analysis Results Interchange Format for IDE integration:
 
 ---
 
-## 10. Implementation Roadmap
+## 9. Implementation Roadmap
 
 ### Milestone 1: Core Infrastructure (Weeks 1-2)
 
@@ -1271,25 +1182,26 @@ Support Static Analysis Results Interchange Format for IDE integration:
 ### Milestone 2: Context Building & Graph Construction (Weeks 3-4)
 
 **Goals:**
-- ~~Implement AST preprocessing pass~~ **Use existing solidity crate!**
-- Extract symbol tables from normalized AST
-- Implement type system analysis
+- Extract symbol tables from normalized AST (provided by solidity crate)
+- Build type index for fast lookups (types already in AST from solc)
 - Implement CFG construction
 - Implement call graph construction
 
 **Deliverables:**
 - `smarthunt/src/passes/symbol_table.rs` - Extract symbols from normalized AST
-- `smarthunt/src/passes/type_analysis.rs` - Enhanced type information
+- `smarthunt/src/passes/type_index.rs` - Index types for fast queries
 - `smarthunt/src/passes/cfg.rs` - CFG construction
 - `smarthunt/src/passes/call_graph.rs` - Call graph construction
 - `smarthunt/src/graph/cfg.rs` - CFG data structures
 - `smarthunt/src/graph/call_graph.rs` - Call graph data structures
 - `smarthunt/src/graph/symbol_table.rs` - Symbol table data structures
+- `smarthunt/src/graph/type_index.rs` - Type index data structures
 
 **Testing:**
 - Test symbol table extraction from normalized AST
+- Test type index queries
 - Test CFG construction on various control flow patterns
-- Test call graph on inheritance and interfaces (use normalized, flattened AST)
+- Test call graph on inheritance and interfaces
 
 ---
 
@@ -1437,21 +1349,21 @@ Support Static Analysis Results Interchange Format for IDE integration:
 
 ---
 
-## 11. Testing Strategy
+## 10. Testing Strategy
 
-### 11.1 Unit Testing
+### 10.1 Unit Testing
 
 - Test each detector independently with minimal contracts
 - Test each pass with isolated AST fragments
 - Test utility functions (CFG construction, taint analysis, etc.)
 
-### 11.2 Integration Testing
+### 10.2 Integration Testing
 
 - Test complete analysis pipeline on real contracts
 - Test pass scheduling and dependencies
 - Test parallelization correctness
 
-### 11.3 Regression Testing
+### 10.3 Regression Testing
 
 - Maintain suite of vulnerable contracts from:
   - SWC Registry examples
@@ -1459,13 +1371,13 @@ Support Static Analysis Results Interchange Format for IDE integration:
   - CTF challenges (Ethernaut, Damn Vulnerable DeFi)
 - Ensure all known vulnerabilities are detected
 
-### 11.4 False Positive Testing
+### 10.4 False Positive Testing
 
 - Test on well-audited contracts (OpenZeppelin, Uniswap, AAVE)
 - Measure false positive rate
 - Tune confidence levels
 
-### 11.5 Performance Testing
+### 10.5 Performance Testing
 
 - Benchmark on large codebases (100+ contracts)
 - Measure memory usage
@@ -1473,9 +1385,9 @@ Support Static Analysis Results Interchange Format for IDE integration:
 
 ---
 
-## 12. Future Extensions
+## 11. Future Extensions
 
-### 12.1 Rule Engine
+### 11.1 Rule Engine
 
 Allow users to define custom detectors using a DSL:
 
@@ -1497,32 +1409,32 @@ rules:
           - $STATE is state variable
 ```
 
-### 12.2 Machine Learning Integration
+### 11.2 Machine Learning Integration
 
 - Train ML models on labeled vulnerabilities
 - Use embeddings for similarity-based detection
 - Anomaly detection for unusual patterns
 
-### 12.3 Symbolic Execution Integration
+### 11.3 Symbolic Execution Integration
 
 - Deep integration with smartproof for full formal verification
 - Bounded model checking
 - Invariant inference
 
-### 12.4 IDE Integration
+### 11.4 IDE Integration
 
 - VSCode extension with real-time analysis
 - LSP (Language Server Protocol) support
 - Quick fixes and refactoring suggestions
 
-### 12.5 CI/CD Integration
+### 11.5 CI/CD Integration
 
 - GitHub Actions for PR analysis
 - GitLab CI integration
 - Slack/Discord notifications
 - Diff-based analysis (only analyze changed code)
 
-### 12.6 Web Interface
+### 11.6 Web Interface
 
 - Upload contracts for analysis
 - Interactive reports with code highlighting
@@ -1531,7 +1443,7 @@ rules:
 
 ---
 
-## 13. Comparison with Existing Tools
+## 12. Comparison with Existing Tools
 
 ### SmartHunt vs Slither
 
@@ -1593,7 +1505,7 @@ rules:
 
 ---
 
-## 14. Success Metrics
+## 13. Success Metrics
 
 ### Performance Metrics
 - **Analysis Time:** < 1 second per contract (local analysis)
@@ -1613,7 +1525,7 @@ rules:
 
 ---
 
-## 15. Risks and Mitigations
+## 14. Risks and Mitigations
 
 ### Risk 1: False Positives
 **Impact:** Users lose trust if too many false alarms
@@ -1645,7 +1557,7 @@ rules:
 
 ---
 
-## 16. Conclusion
+## 15. Conclusion
 
 SmartHunt will be a state-of-the-art bug detection framework for Solidity smart contracts, leveraging:
 
@@ -1676,11 +1588,12 @@ The phased implementation plan ensures we deliver value incrementally, starting 
 
 ---
 
-**Document Version:** 2.0 (Updated to leverage solidity crate)
+**Document Version:** 2.1 (Streamlined - focus on work to be done)
 **Author:** SmartHunt Planning Team
 **Date:** 2026-02-05
 **Status:** Draft - Awaiting Review
 
 **Changelog:**
+- v2.1: Removed detailed descriptions of already-completed features (solidity/bugs crates)
 - v2.0: Updated to leverage existing solidity crate (soljc) for parsing and normalization
 - v1.0: Initial plan

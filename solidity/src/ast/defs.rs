@@ -105,7 +105,7 @@ pub struct FuncDef {
 }
 
 /// Function kind.
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub enum FuncKind {
     Constructor,
     Receive,
