@@ -297,7 +297,7 @@ pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit
 mod tests {
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
-        compile::compile_solidity_source_code,
+        parser::parse_solidity_source_code,
         ast::normalize::{eliminate_using_directives, utils::configure_unit_test_env},
     };
     use indoc::indoc;
@@ -334,12 +334,12 @@ mod tests {
                 }
             }"###};
 
-        let input_sunit = match compile_solidity_source_code(input_contract, "0.8.15") {
+        let input_sunit = match parse_solidity_source_code(input_contract, "0.8.15") {
             Ok(source_units) => source_units[0].clone(),
             Err(err) => panic!("Failed to parse input source unit: {err}"),
         };
         let output_sunits = eliminate_using_directives(&[input_sunit]);
-        let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.15") {
+        let expected_sunits = match parse_solidity_source_code(expected_contract, "0.8.15") {
             Ok(source_units) => source_units,
             Err(err) => panic!("Failed to parse expected source unit: {err}"),
         };
@@ -382,13 +382,13 @@ mod tests {
                 }
             }"###};
 
-        let input_sunits = match compile_solidity_source_code(input_contract, "0.8.15") {
+        let input_sunits = match parse_solidity_source_code(input_contract, "0.8.15") {
             Ok(source_units) => source_units,
             Err(err) => panic!("Failed to parse input source code: {err}"),
         };
         let output_sunits = eliminate_using_directives(&input_sunits);
 
-        let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.15") {
+        let expected_sunits = match parse_solidity_source_code(expected_contract, "0.8.15") {
             Ok(source_units) => source_units,
             Err(err) => panic!("Failed to parse expected source code: {err}"),
         };

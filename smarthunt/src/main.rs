@@ -19,7 +19,7 @@ use smarthunt::{
 use solidity::{
     ast::utils::export::export_debugging_source_unit,
     ast::SourceUnit,
-    compile::compile_input_file,
+    parser::parse_input_file,
     analysis::context::AnalysisContext,
 };
 use std::fs;
@@ -349,7 +349,7 @@ fn run_analysis(args: Arguments) {
             eprintln!("Compiling: {}", file);
         }
 
-        let source_units = match compile_input_file(file, base_path, include_paths, solc_ver) {
+        let source_units = match parse_input_file(file, base_path, include_paths, solc_ver) {
             Ok(source_units) => source_units,
             Err(err) => {
                 eprintln!("Error compiling {}: {}", file, err);

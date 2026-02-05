@@ -236,7 +236,7 @@ mod tests {
     use super::eliminate_import;
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
-        compile::compile_solidity_source_code_list,
+        parser::parse_solidity_source_code_list,
         ast::normalize::{
             rename_callees, rename_defs, rename_vars, utils::configure_unit_test_env,
         },
@@ -297,13 +297,13 @@ mod tests {
             }"###},
         );
 
-        let input_sunits = match compile_solidity_source_code_list(&[input_1, input_2], "0.8.15") {
+        let input_sunits = match parse_solidity_source_code_list(&[input_1, input_2], "0.8.15") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse input source unit: {}", err),
         };
 
         let expected_sunits =
-            match compile_solidity_source_code_list(&[expected_1, expected_2], "0.8.15") {
+            match parse_solidity_source_code_list(&[expected_1, expected_2], "0.8.15") {
                 Ok(sunits) => sunits,
                 Err(err) => panic!("Failed to parse expected source unit: {}", err),
             };
@@ -449,12 +449,12 @@ mod tests {
         );
 
         let input_sunits =
-            match compile_solidity_source_code_list(&[input_1, input_2, input_3], "0.8.15") {
+            match parse_solidity_source_code_list(&[input_1, input_2, input_3], "0.8.15") {
                 Ok(sunits) => sunits,
                 Err(err) => panic!("Failed to parse input source unit: {}", err),
             };
 
-        let expected_sunits = match compile_solidity_source_code_list(
+        let expected_sunits = match parse_solidity_source_code_list(
             &[expected_1, expected_2, expected_3],
             "0.8.15",
         ) {

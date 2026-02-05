@@ -104,11 +104,11 @@ pub fn configure_solc_compiler(solc_ver: &Version) {
     }
 }
 
-/// Compile input file to source units in AST format.
+/// Parse input file to source units in AST format.
 ///
 /// The two inputs `base_path` and `include_path` are similar to the inputs of
 /// Solc. Auto detect Solc version if not provided
-pub fn compile_input_file(
+pub fn parse_input_file(
     input_file: &str,
     base_path: Option<&str>,
     include_paths: &[String],
@@ -237,7 +237,7 @@ pub fn compile_input_file(
 /// Function to parse a Solidity source code string to internal AST.
 ///
 /// `solc_ver` is the Solidity version, empty string means unknown version.
-pub fn compile_solidity_source_code(source_code: &str, solc_ver: &str) -> Result<Vec<SourceUnit>> {
+pub fn parse_solidity_source_code(source_code: &str, solc_ver: &str) -> Result<Vec<SourceUnit>> {
     // Save the source code to a temporarily Solidity file
     let solidity_file = match save_to_temporary_file(source_code, "contract.sol") {
         Ok(filename) => filename,
@@ -245,13 +245,13 @@ pub fn compile_solidity_source_code(source_code: &str, solc_ver: &str) -> Result
     };
 
     // Parse the Solidity file to internal AST.
-    compile_input_file(&solidity_file, None, &[], Some(solc_ver))
+    parse_input_file(&solidity_file, None, &[], Some(solc_ver))
 }
 
 /// Function to parse a list of Solidity source code strings to internal AST.
 ///
 /// `source_code_list` is a list of source code string and file name pairs.
-pub fn compile_solidity_source_code_list(
+pub fn parse_solidity_source_code_list(
     source_code_list: &[(&str, &str)],
     solc_ver: &str,
 ) -> Result<Vec<SourceUnit>> {
@@ -265,7 +265,7 @@ pub fn compile_solidity_source_code_list(
     for input_file in solidity_files {
         let input_path = Path::new(&input_file);
         let base_path = input_path.parent().and_then(|p| p.to_str());
-        let sunits = compile_input_file(&input_file, base_path, &[], Some(solc_ver))?;
+        let sunits = parse_input_file(&input_file, base_path, &[], Some(solc_ver))?;
         sunits.iter().for_each(|sunit| {
             if !output_sunits.iter().any(|sunit2| sunit.path == sunit2.path) {
                 output_sunits.push(sunit.clone())

@@ -1,8 +1,8 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
-use crate::{ast::*, compile::type_parser::type_parser};
+use crate::{ast::*, parser::type_parser::type_parser};
 use crate::ast::yul as yast;
-use crate::compile::yul_parser;
+use crate::parser::yul_parser;
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
 use extlib::{error, fail};
@@ -311,7 +311,7 @@ impl AstParser {
         let id = self.parse_id(node).ok();
         let loc = self.parse_source_location(node);
         let file_path = node
-            .get("flie")
+            .get("file")
             .ok_or_else(|| error!("Import directive: file path not found: {node}"))?
             .as_str()
             .ok_or_else(|| error!("Import directive: file path invalid: {node}"))?
@@ -353,8 +353,7 @@ impl AstParser {
             .and_then(|v| self.parse_name(v))?;
         let alias = node
             .get("local")
-            .ok_or_else(|| error!("Import symbol alias: local key not found: {node}"))?
-            .as_str()
+            .and_then(|v| v.as_str())
             .map(|s| s.to_string());
         let loc = self.parse_source_location(node);
         Ok(ImportSymbol::new(symbol, alias, loc))

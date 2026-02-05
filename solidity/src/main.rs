@@ -5,7 +5,7 @@ use extlib::error;
 use solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit,
     ast::normalize,
-    compile::compile_input_file,
+    parser::parse_input_file,
 };
 
 #[derive(Parser, Debug)]
@@ -91,7 +91,7 @@ fn main() {
         .input_files
         .iter()
         .flat_map(|file| {
-            let source_units = match compile_input_file(file, base_path, include_paths, solc_ver) {
+            let source_units = match parse_input_file(file, base_path, include_paths, solc_ver) {
                 Ok(source_units) => source_units,
                 Err(err) => panic!("{}", err),
             };

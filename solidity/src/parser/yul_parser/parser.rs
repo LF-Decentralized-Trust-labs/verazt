@@ -2,7 +2,7 @@
 
 use crate::{
     ast::yul::*,
-    compile::yul_parser::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
+    parser::yul_parser::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
 };
 use Either::{Left, Right};
 use either::Either;
@@ -17,7 +17,7 @@ use std::fs;
 ///
 /// This data structure is automatically derived by [`Pest`] parser.
 #[derive(Parser)]
-#[grammar = "compile/yul_parser/yul_grammar.pest"]
+#[grammar = "parser/yul_parser/yul_grammar.pest"]
 struct YulParser;
 
 impl YulParser {

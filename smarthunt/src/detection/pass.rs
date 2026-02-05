@@ -10,12 +10,12 @@ use solidity::ast::Loc;
 /// Confidence level for a detection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ConfidenceLevel {
-    /// High confidence - very likely to be a real issue.
-    High,
-    /// Medium confidence - likely issue but may need manual review.
-    Medium,
     /// Low confidence - possible issue, needs careful review.
     Low,
+    /// Medium confidence - likely issue but may need manual review.
+    Medium,
+    /// High confidence - very likely to be a real issue.
+    High,
 }
 
 impl std::fmt::Display for ConfidenceLevel {
