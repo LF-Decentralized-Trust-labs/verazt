@@ -5,6 +5,10 @@ authors = { workspace = true }
 license = { workspace = true }
 edition = { workspace = true }
 
+[features]
+default = []
+parallel = ["rayon"]
+
 [[bin]]
 name = "soljc"
 path = "src/soljc.rs"
@@ -32,9 +36,11 @@ num-traits = "0.2"
 pest = "2.5"
 pest_derive = "2.5"
 petgraph = "0.6"
+rayon = { version = "1.8", optional = true }
 regex = "1.5"
 remain = "0.2"
 rust_decimal = "1.27"
 serde = { package = "serde_json", version = "1.0" }
 tempfile = "3.3.0"
+thiserror = "1.0"
 time-graph = { version = "0.3.0", features = ["table"] }

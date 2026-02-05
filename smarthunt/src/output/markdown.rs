@@ -1,0 +1,147 @@
+//! Markdown output formatter.
+
+use crate::output::formatter::{AnalysisReport, OutputFormatter, format_location};
+use bugs::bug::RiskLevel;
+
+/// Markdown output formatter.
+#[derive(Debug, Default)]
+pub struct MarkdownFormatter;
+
+impl MarkdownFormatter {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl OutputFormatter for MarkdownFormatter {
+    fn format(&self, report: &AnalysisReport) -> String {
+        let mut output = String::new();
+        
+        // Header
+        output.push_str("# SmartHunt Analysis Report\n\n");
+        
+        // Metadata
+        output.push_str("## Summary\n\n");
+        output.push_str(&format!("- **Version**: {}\n", report.version));
+        output.push_str(&format!("- **Timestamp**: {}\n", report.timestamp.to_rfc3339()));
+        output.push_str(&format!("- **Duration**: {:.2}s\n", report.duration.as_secs_f64()));
+        output.push_str(&format!("- **Files Analyzed**: {}\n", report.files_analyzed.len()));
+        output.push('\n');
+        
+        // Statistics
+        output.push_str("### Findings Summary\n\n");
+        output.push_str("| Severity | Count |\n");
+        output.push_str("|----------|-------|\n");
+        output.push_str(&format!("| 🔴 Critical | {} |\n", report.stats.bugs_by_severity.critical));
+        output.push_str(&format!("| 🟠 High | {} |\n", report.stats.bugs_by_severity.high));
+        output.push_str(&format!("| 🟡 Medium | {} |\n", report.stats.bugs_by_severity.medium));
+        output.push_str(&format!("| 🔵 Low | {} |\n", report.stats.bugs_by_severity.low));
+        output.push_str(&format!("| ℹ️ Info | {} |\n", report.stats.bugs_by_severity.info));
+        output.push_str(&format!("| **Total** | **{}** |\n", report.total_bugs()));
+        output.push('\n');
+        
+        // Files
+        if !report.files_analyzed.is_empty() {
+            output.push_str("### Files Analyzed\n\n");
+            for file in &report.files_analyzed {
+                output.push_str(&format!("- `{}`\n", file));
+            }
+            output.push('\n');
+        }
+        
+        // Findings
+        if !report.bugs.is_empty() {
+            output.push_str("## Findings\n\n");
+            
+            // Group by severity
+            let severities = [
+                RiskLevel::Critical,
+                RiskLevel::High,
+                RiskLevel::Medium,
+                RiskLevel::Low,
+                RiskLevel::No,
+            ];
+            
+            for severity in severities {
+                let bugs: Vec<_> = report.bugs.iter()
+                    .filter(|b| b.risk_level.as_str() == severity.as_str())
+                    .collect();
+                
+                if !bugs.is_empty() {
+                    let icon = match severity {
+                        RiskLevel::Critical => "🔴",
+                        RiskLevel::High => "🟠",
+                        RiskLevel::Medium => "🟡",
+                        RiskLevel::Low => "🔵",
+                        RiskLevel::No => "ℹ️",
+                    };
+                    
+                    output.push_str(&format!("### {} {} Issues\n\n", icon, severity));
+                    
+                    for (i, bug) in bugs.iter().enumerate() {
+                        output.push_str(&format!("#### {}. {}\n\n", i + 1, bug.name));
+                        
+                        output.push_str(&format!("- **Location**: `{}`\n", format_location(bug)));
+                        
+                        if let Some(swc_id) = bug.swc_ids.first() {
+                            output.push_str(&format!(
+                                "- **SWC ID**: [SWC-{}](https://swcregistry.io/docs/SWC-{})\n",
+                                swc_id, swc_id
+                            ));
+                        }
+                        
+                        if let Some(cwe_id) = bug.cwe_ids.first() {
+                            output.push_str(&format!(
+                                "- **CWE ID**: [CWE-{}](https://cwe.mitre.org/data/definitions/{}.html)\n",
+                                cwe_id, cwe_id
+                            ));
+                        }
+                        
+                        output.push_str(&format!("- **Category**: {}\n", bug.kind.as_str()));
+                        output.push('\n');
+                        
+                        if let Some(desc) = &bug.description {
+                            output.push_str("**Description:**\n\n");
+                            output.push_str(desc);
+                            output.push_str("\n\n");
+                        }
+                        
+                        output.push_str("---\n\n");
+                    }
+                }
+            }
+        } else {
+            output.push_str("## Findings\n\n");
+            output.push_str("✅ No issues found!\n\n");
+        }
+        
+        // Footer
+        output.push_str("---\n\n");
+        output.push_str("*Generated by SmartHunt - AST-based Smart Contract Bug Detection*\n");
+        
+        output
+    }
+
+    fn extension(&self) -> &'static str {
+        "md"
+    }
+
+    fn content_type(&self) -> &'static str {
+        "text/markdown"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_markdown_formatter() {
+        let report = AnalysisReport::new(vec![], vec![], Duration::from_secs(1));
+        let formatter = MarkdownFormatter::new();
+        let output = formatter.format(&report);
+        assert!(output.contains("# SmartHunt Analysis Report"));
+        assert!(output.contains("No issues found"));
+    }
+}

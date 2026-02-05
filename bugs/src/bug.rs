@@ -6,6 +6,7 @@ use solidity::ast::Loc;
 
 use std::fmt::{self, Display};
 
+#[derive(Debug, Clone)]
 pub struct Bug {
     pub name: String,
     pub description: Option<String>,
@@ -17,12 +18,14 @@ pub struct Bug {
 }
 
 // FIXME: find a better name
+#[derive(Debug, Clone)]
 pub enum BugKind {
     Optimization,
     Refactoring,
     Vulnerability,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RiskLevel {
     No,
     Low,
