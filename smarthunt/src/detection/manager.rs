@@ -5,9 +5,9 @@
 use crate::detection::pass::BugDetectionPass;
 use crate::detection::registry::DetectorRegistry;
 use bugs::bug::Bug;
-use solidity::analysis::context::AnalysisContext;
-use solidity::analysis::manager::{PassManager, PassManagerConfig};
-use solidity::analysis::pass_id::PassId;
+use crate::analysis::context::AnalysisContext;
+use crate::analysis::manager::{PassManager, PassManagerConfig};
+use crate::analysis::pass_id::PassId;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 

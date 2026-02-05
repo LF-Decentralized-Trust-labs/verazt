@@ -15,12 +15,13 @@ use smarthunt::{
     JsonFormatter,
     MarkdownFormatter,
     SarifFormatter,
+    AnalysisContext,  // Use local analysis module
+    AnalysisConfig,
 };
 use solidity::{
     ast::utils::export::export_debugging_source_unit,
     ast::SourceUnit,
     parser::parse_input_file,
-    analysis::context::AnalysisContext,
 };
 use std::fs;
 use std::time::Instant;
@@ -383,7 +384,7 @@ fn run_analysis(args: Arguments) {
     }
 
     // Create analysis context
-    let context = AnalysisContext::new(all_source_units, solidity::analysis::context::AnalysisConfig::default());
+    let context = AnalysisContext::new(all_source_units, AnalysisConfig::default());
 
     // Run detectors using new detection framework
     let mut registry = DetectorRegistry::new();

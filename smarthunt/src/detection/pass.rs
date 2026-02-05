@@ -1,10 +1,10 @@
 //! Bug Detection Pass Trait
 //!
-//! Extends the solidity crate's Pass trait with vulnerability detection capabilities.
+//! Extends the analysis framework's Pass trait with vulnerability detection capabilities.
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use solidity::analysis::pass::Pass;
-use solidity::analysis::context::AnalysisContext;
+use crate::analysis::pass::Pass;
+use crate::analysis::context::AnalysisContext;
 use solidity::ast::Loc;
 
 /// Confidence level for a detection.
@@ -41,7 +41,7 @@ pub enum DetectorError {
     MissingAnalysis(String),
 
     #[error("Analysis pass error: {0}")]
-    AnalysisError(#[from] solidity::analysis::pass::PassError),
+    AnalysisError(#[from] crate::analysis::pass::PassError),
 }
 
 /// Trait for bug detection passes.

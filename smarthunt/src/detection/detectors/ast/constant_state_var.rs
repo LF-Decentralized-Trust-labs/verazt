@@ -6,11 +6,11 @@
 //! data flow analysis to track state mutations.
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use solidity::analysis::context::AnalysisContext;
-use solidity::analysis::pass::Pass;
-use solidity::analysis::pass_id::PassId;
-use solidity::analysis::pass_level::PassLevel;
-use solidity::analysis::pass_representation::PassRepresentation;
+use crate::analysis::context::AnalysisContext;
+use crate::analysis::pass::Pass;
+use crate::analysis::pass_id::PassId;
+use crate::analysis::pass_level::PassLevel;
+use crate::analysis::pass_representation::PassRepresentation;
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 
 /// Detector for state variables that could be constant or immutable.

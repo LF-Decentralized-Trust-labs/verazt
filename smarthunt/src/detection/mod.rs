@@ -1,11 +1,11 @@
 //! Bug Detection Framework
 //!
-//! This module provides the bug detection framework that extends the analysis
-//! framework from the solidity crate with vulnerability detection capabilities.
+//! This module provides the bug detection framework that extends SmartHunt's
+//! analysis framework with vulnerability detection capabilities.
 //!
 //! # Architecture
 //!
-//! The detection framework is built on top of the solidity crate's analysis
+//! The detection framework is built on top of SmartHunt's analysis
 //! framework, extending it with:
 //!
 //! - `BugDetectionPass` trait for vulnerability detection passes
@@ -24,7 +24,7 @@
 //!
 //! ```ignore
 //! use smarthunt::detection::{DetectionManager, BugDetectionPass};
-//! use solidity::analysis::AnalysisContext;
+//! use smarthunt::AnalysisContext;
 //!
 //! let mut manager = DetectionManager::new();
 //! manager.register_detector(Box::new(TxOriginDetector::new()));
