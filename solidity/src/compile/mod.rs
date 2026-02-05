@@ -1,11 +1,20 @@
+pub mod json_ast;
+pub mod typ;
+pub mod version;
+pub mod yul;
+
+pub use json_ast::ast_parser;
+pub use typ::type_parser;
+pub use version::version_parser;
+
 use crate::{
     ast::{self, SourceUnit, utils::export},
     ast::utils::version::{
-        self, check_range_constraint, check_version_constraint, find_compatible_solc_versions,
+        check_range_constraint, check_version_constraint, find_compatible_solc_versions,
         find_pragma_solidity_versions,
     },
-    parsing::json_ast::{AstParser, JsonAst},
 };
+use self::json_ast::{AstParser, JsonAst};
 use extlib::{error::Result, fail};
 use node_semver::Version;
 use regex::Regex;
@@ -175,7 +184,7 @@ pub fn compile_input_file(
         }
 
         // Solc 0.8.10 and newer don't need the flag `compact-format`
-        match version::check_version_constraint(solc_ver, ">=0.4.12 <= 0.8.9") {
+        match check_version_constraint(solc_ver, ">=0.4.12 <= 0.8.9") {
             true => args += " --combined-json ast,compact-format",
             false => args += " --combined-json ast",
         }
@@ -256,7 +265,9 @@ pub fn compile_solidity_source_code_list(
     // Parse Solidity files to internal AST.
     let mut output_sunits: Vec<SourceUnit> = vec![];
     for input_file in solidity_files {
-        let sunits = compile_input_file(&input_file, None, &[], Some(solc_ver))?;
+        let input_path = Path::new(&input_file);
+        let base_path = input_path.parent().and_then(|p| p.to_str());
+        let sunits = compile_input_file(&input_file, base_path, &[], Some(solc_ver))?;
         sunits.iter().for_each(|sunit| {
             if !output_sunits.iter().any(|sunit2| sunit.path == sunit2.path) {
                 output_sunits.push(sunit.clone())
