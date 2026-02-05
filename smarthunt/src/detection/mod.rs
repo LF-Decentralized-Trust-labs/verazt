@@ -39,5 +39,5 @@ pub mod manager;
 pub mod detectors;
 
 pub use pass::{BugDetectionPass, DetectorResult, create_bug};
-pub use registry::DetectorRegistry;
+pub use registry::{DetectorRegistry, register_all_detectors};
 pub use manager::DetectionManager;

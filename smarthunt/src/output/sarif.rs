@@ -183,9 +183,9 @@ impl From<&AnalysisReport> for SarifLog {
                 });
             }
         }
-        
+
         let rules: Vec<_> = rules_map.into_values().collect();
-        
+
         let results: Vec<_> = report.bugs.iter().map(|bug| {
             SarifResult {
                 rule_id: format!("{:?}", bug.kind).to_lowercase().replace(' ', "-"),
@@ -208,7 +208,7 @@ impl From<&AnalysisReport> for SarifLog {
                 }],
             }
         }).collect();
-        
+
         let artifacts: Vec<_> = report.files_analyzed.iter().map(|f| {
             SarifArtifact {
                 location: SarifArtifactLocation {
@@ -216,7 +216,7 @@ impl From<&AnalysisReport> for SarifLog {
                 },
             }
         }).collect();
-        
+
         SarifLog {
             schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json".to_string(),
             version: "2.1.0".to_string(),

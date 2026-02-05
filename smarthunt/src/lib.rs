@@ -8,7 +8,7 @@
 //! SmartHunt uses a pass-based architecture built on top of the analysis
 //! framework from the `solidity` crate:
 //!
-//! - `detection`: New pass-based detection framework
+//! - `detection`: Pass-based detection framework
 //!   - `BugDetectionPass`: Trait for vulnerability detectors
 //!   - `DetectionManager`: Orchestrates analysis and detection
 //!   - `detectors`: Categorized bug detectors (AST, IR, Hybrid)
@@ -26,20 +26,18 @@
 //! println!("Found {} bugs", result.total_bugs());
 //! ```
 
-// New pass-based detection framework
+// Pass-based detection framework
 pub mod detection;
 
-// Legacy modules (kept for backward compatibility during migration)
-pub mod detectors;
+// Output formatting
 pub mod output;
 
 // CLI configuration
 pub mod config;
 
-// Re-export from new detection framework
-pub use detection::{BugDetectionPass, DetectionManager, DetectorRegistry as NewDetectorRegistry};
+// Re-export from detection framework
+pub use detection::{BugDetectionPass, DetectionManager, DetectorRegistry, register_all_detectors};
 
-// Re-export legacy types (for backward compatibility)
-pub use detectors::{Detector, DetectorRegistry, create_default_registry, AnalysisContext};
+// Re-export output types
 pub use output::{AnalysisReport, OutputFormatter, JsonFormatter, MarkdownFormatter, SarifFormatter};
 pub use config::{Config, OutputFormat, SeverityFilter};

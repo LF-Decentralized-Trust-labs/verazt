@@ -43,19 +43,19 @@ impl OutputFormatter for JsonFormatter {
 pub struct JsonReport {
     /// SmartHunt version
     pub version: String,
-    
+
     /// Analysis timestamp
     pub timestamp: String,
-    
+
     /// Analysis duration in milliseconds
     pub duration_ms: u64,
-    
+
     /// Files analyzed
     pub files_analyzed: Vec<String>,
-    
+
     /// Summary statistics
     pub summary: JsonSummary,
-    
+
     /// All findings
     pub findings: Vec<JsonFinding>,
 }

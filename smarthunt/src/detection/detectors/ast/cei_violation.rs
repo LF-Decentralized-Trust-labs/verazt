@@ -1,32 +1,62 @@
-//! CEI Violation detector.
+//! CEI Pattern Violation Detector
 //!
 //! Detects violations of the Checks-Effects-Interactions pattern.
+//!
+//! The CEI pattern requires that state changes (effects) happen before
+//! external calls (interactions) to prevent reentrancy vulnerabilities.
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::detectors::AnalysisContext;
-use solidity::ast::{
-    Block, ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
-};
+use solidity::analysis::context::AnalysisContext;
+use solidity::analysis::pass::Pass;
+use solidity::analysis::pass_id::PassId;
+use solidity::analysis::pass_level::PassLevel;
+use solidity::analysis::pass_representation::PassRepresentation;
+use solidity::ast::{Block, ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
+use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 
 /// Detector for CEI (Checks-Effects-Interactions) pattern violations.
+#[derive(Debug, Default)]
 pub struct CeiViolationDetector;
 
 impl CeiViolationDetector {
     pub fn new() -> Self {
         Self
     }
-}
 
-impl Default for CeiViolationDetector {
-    fn default() -> Self {
-        Self::new()
+    fn check_function(&self, func: &FuncDef, contract_name: &str, bugs: &mut Vec<Bug>) {
+        // Skip if function has nonReentrant modifier
+        for modifier in &func.modifier_invocs {
+            if let Expr::Ident(ident) = modifier.callee.as_ref() {
+                if ident.name.base.as_str() == "nonReentrant" {
+                    return;
+                }
+            }
+        }
+
+        if let Some(body) = &func.body {
+            let mut analyzer = CeiAnalyzer::new();
+            analyzer.analyze_block(body);
+
+            for issue in analyzer.violations {
+                let bug = create_bug(
+                    self,
+                    Some(&format!(
+                        "State update at line {} occurs after external call at line {}. \
+                         This violates the Checks-Effects-Interactions pattern.",
+                        issue.state_update_line,
+                        issue.external_call_line,
+                    )),
+                    issue.loc,
+                );
+                bugs.push(bug);
+            }
+        }
     }
 }
 
-impl Detector for CeiViolationDetector {
-    fn id(&self) -> &'static str {
-        "cei-violation"
+impl Pass for CeiViolationDetector {
+    fn id(&self) -> PassId {
+        PassId::CeiViolation
     }
 
     fn name(&self) -> &'static str {
@@ -34,11 +64,47 @@ impl Detector for CeiViolationDetector {
     }
 
     fn description(&self) -> &'static str {
-        "The Checks-Effects-Interactions pattern requires that state changes \
-         (effects) happen before external calls (interactions). Violating this \
-         pattern can lead to reentrancy vulnerabilities."
+        "Detects violations of the Checks-Effects-Interactions pattern"
     }
 
+    fn level(&self) -> PassLevel {
+        PassLevel::Program
+    }
+
+    fn representation(&self) -> PassRepresentation {
+        PassRepresentation::Ast
+    }
+
+    fn dependencies(&self) -> Vec<PassId> {
+        vec![]
+    }
+}
+
+impl BugDetectionPass for CeiViolationDetector {
+    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+        let mut bugs = Vec::new();
+
+        for source_unit in &context.source_units {
+            for elem in &source_unit.elems {
+                match elem {
+                    SourceUnitElem::Contract(contract) => {
+                        let contract_name = &contract.name.base;
+                        for elem in &contract.body {
+                            if let ContractElem::Func(func) = elem {
+                                self.check_function(func, contract_name, &mut bugs);
+                            }
+                        }
+                    }
+                    SourceUnitElem::Func(func) => {
+                        self.check_function(func, "global", &mut bugs);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(bugs)
+    }
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability
@@ -60,16 +126,6 @@ impl Detector for CeiViolationDetector {
         vec![107] // SWC-107: Reentrancy
     }
 
-    fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-
-        for source_unit in &context.source_units {
-            self.visit_source_unit(source_unit, context, &mut bugs);
-        }
-
-        bugs
-    }
-
     fn recommendation(&self) -> &'static str {
         "Follow the Checks-Effects-Interactions pattern: perform all checks first, \
          then make state changes, and finally interact with external contracts. \
@@ -81,65 +137,6 @@ impl Detector for CeiViolationDetector {
             "https://swcregistry.io/docs/SWC-107",
             "https://fravoll.github.io/solidity-patterns/checks_effects_interactions.html",
         ]
-    }
-}
-
-impl CeiViolationDetector {
-    fn visit_source_unit(&self, source_unit: &SourceUnit, context: &AnalysisContext, bugs: &mut Vec<Bug>) {
-        for elem in &source_unit.elems {
-            match elem {
-                SourceUnitElem::Contract(contract) => {
-                    self.visit_contract(contract, context, bugs);
-                }
-                SourceUnitElem::Func(func) => {
-                    self.visit_function(func, None, context, bugs);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn visit_contract(&self, contract: &ContractDef, context: &AnalysisContext, bugs: &mut Vec<Bug>) {
-        for elem in &contract.body {
-            if let ContractElem::Func(func) = elem {
-                self.visit_function(func, Some(contract), context, bugs);
-            }
-        }
-    }
-
-    fn visit_function(
-        &self,
-        func: &FuncDef,
-        contract: Option<&ContractDef>,
-        context: &AnalysisContext,
-        bugs: &mut Vec<Bug>,
-    ) {
-        // Skip if function has nonReentrant modifier
-        for modifier in &func.modifier_invocs {
-            if let Expr::Ident(ident) = modifier.callee.as_ref() {
-                if ident.name.base.as_str() == "nonReentrant" {
-                    return;
-                }
-            }
-        }
-
-        if let Some(body) = &func.body {
-            let mut analyzer = CeiAnalyzer::new();
-            analyzer.analyze_block(body);
-
-            for issue in analyzer.violations {
-                let bug = create_bug(
-                    self,
-                    Some(&format!(
-                        "State update at line {} occurs after external call at line {}.",
-                        issue.state_update_line,
-                        issue.external_call_line,
-                    )),
-                    issue.loc,
-                );
-                bugs.push(bug);
-            }
-        }
     }
 }
 
@@ -326,8 +323,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_cei_violation_detector_new() {
+    fn test_cei_violation_detector() {
         let detector = CeiViolationDetector::new();
-        assert_eq!(detector.id(), "cei-violation");
+        assert_eq!(detector.id(), PassId::CeiViolation);
+        assert_eq!(detector.swc_ids(), vec![107]);
     }
 }

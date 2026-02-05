@@ -7,19 +7,19 @@ use std::time::Duration;
 pub struct AnalysisReport {
     /// All bugs found
     pub bugs: Vec<Bug>,
-    
+
     /// Source files analyzed
     pub files_analyzed: Vec<String>,
-    
+
     /// Analysis duration
     pub duration: Duration,
-    
+
     /// SmartHunt version
     pub version: String,
-    
+
     /// Analysis timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
-    
+
     /// Statistics
     pub stats: AnalysisStats,
 }
@@ -29,13 +29,13 @@ pub struct AnalysisReport {
 pub struct AnalysisStats {
     /// Total number of contracts analyzed
     pub contracts: usize,
-    
+
     /// Total number of functions analyzed
     pub functions: usize,
-    
+
     /// Number of detectors run
     pub detectors_run: usize,
-    
+
     /// Bugs by severity
     pub bugs_by_severity: BugsBySeverity,
 }
@@ -58,7 +58,7 @@ impl AnalysisReport {
         duration: Duration,
     ) -> Self {
         let mut stats = AnalysisStats::default();
-        
+
         // Count bugs by severity
         for bug in &bugs {
             match bug.risk_level {
@@ -69,7 +69,7 @@ impl AnalysisReport {
                 bugs::bug::RiskLevel::No => stats.bugs_by_severity.info += 1,
             }
         }
-        
+
         Self {
             bugs,
             files_analyzed,
@@ -100,10 +100,10 @@ impl AnalysisReport {
 pub trait OutputFormatter {
     /// Format the analysis report.
     fn format(&self, report: &AnalysisReport) -> String;
-    
+
     /// Get the file extension for this format.
     fn extension(&self) -> &'static str;
-    
+
     /// Get the content type for this format.
     fn content_type(&self) -> &'static str;
 }

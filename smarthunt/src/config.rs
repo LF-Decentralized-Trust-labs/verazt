@@ -67,19 +67,19 @@ impl Config {
         if !self.detectors.enabled.is_empty() {
             return self.detectors.enabled.iter().any(|d| d == id);
         }
-        
+
         // Check if it's disabled
         if self.detectors.disabled.iter().any(|d| d == id) {
             return false;
         }
-        
+
         // Otherwise, it's enabled
         true
     }
 
     pub fn should_report_severity(&self, severity: &bugs::bug::RiskLevel) -> bool {
         use bugs::bug::RiskLevel;
-        
+
         let severity_level = match severity {
             RiskLevel::Critical => 5,
             RiskLevel::High => 4,
@@ -87,7 +87,7 @@ impl Config {
             RiskLevel::Low => 2,
             RiskLevel::No => 1,
         };
-        
+
         let min_level = match self.min_severity {
             SeverityFilter::Critical => 5,
             SeverityFilter::High => 4,
@@ -95,25 +95,12 @@ impl Config {
             SeverityFilter::Low => 2,
             SeverityFilter::Informational => 1,
         };
-        
+
         severity_level >= min_level
     }
 
     pub fn should_report_category(&self, _category: &bugs::bug::BugKind) -> bool {
         // For now, report all categories
         true
-    }
-
-    pub fn get_enabled<'a>(&self, registry: &'a crate::detectors::DetectorRegistry) -> Vec<&'a dyn crate::detectors::Detector> {
-        let all = registry.all();
-        
-        all.iter()
-            .filter(|d| {
-                self.is_detector_enabled(d.id()) &&
-                self.should_report_severity(&d.risk_level()) &&
-                self.should_report_category(&d.bug_kind())
-            })
-            .copied()
-            .collect()
     }
 }

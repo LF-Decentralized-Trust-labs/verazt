@@ -29,15 +29,17 @@ impl DetectorRegistry {
 
     /// Register a detector.
     pub fn register(&mut self, detector: Box<dyn BugDetectionPass>) {
-        let id = detector.name().to_string();
+        let name = detector.name().to_string();
+        let pass_id = detector.id().as_str().to_string();
         let idx = self.detectors.len();
         self.detectors.push(detector);
-        self.by_id.insert(id, idx);
+        self.by_id.insert(name.clone(), idx);
+        self.by_id.insert(pass_id, idx);
     }
 
-    /// Get a detector by name.
-    pub fn get(&self, name: &str) -> Option<&dyn BugDetectionPass> {
-        self.by_id.get(name).map(|&idx| self.detectors[idx].as_ref())
+    /// Get a detector by name or ID.
+    pub fn get(&self, name_or_id: &str) -> Option<&dyn BugDetectionPass> {
+        self.by_id.get(name_or_id).map(|&idx| self.detectors[idx].as_ref())
     }
 
     /// Get all registered detectors.
@@ -95,10 +97,25 @@ impl DetectorRegistry {
 
 /// Register all built-in detectors.
 pub fn register_all_detectors(registry: &mut DetectorRegistry) {
-    // TODO: Register all detectors here once migrated
-    // registry.register(Box::new(TxOriginDetector::new()));
-    // registry.register(Box::new(ReentrancyDetector::new()));
-    // ...
+    use crate::detection::detectors::ast::*;
+
+    // AST-based detectors
+    registry.register(Box::new(TxOriginDetector::new()));
+    registry.register(Box::new(FloatingPragmaDetector::new()));
+    registry.register(Box::new(VisibilityDetector::new()));
+    registry.register(Box::new(DeprecatedDetector::new()));
+    registry.register(Box::new(LowLevelCallDetector::new()));
+    registry.register(Box::new(UncheckedCallDetector::new()));
+    registry.register(Box::new(ShadowingDetector::new()));
+    registry.register(Box::new(TimestampDependenceDetector::new()));
+    registry.register(Box::new(DelegatecallDetector::new()));
+    registry.register(Box::new(UninitializedStorageDetector::new()));
+    registry.register(Box::new(CentralizationRiskDetector::new()));
+    registry.register(Box::new(CeiViolationDetector::new()));
+    registry.register(Box::new(ReentrancyDetector::new()));
+    registry.register(Box::new(MissingAccessControlDetector::new()));
+    registry.register(Box::new(DeadCodeDetector::new()));
+    registry.register(Box::new(ConstantStateVarDetector::new()));
 }
 
 #[cfg(test)]

@@ -1,97 +1,42 @@
-//! Uninitialized variable detector.
+//! Uninitialized Variable Detector
 //!
-//! Detects uninitialized storage variables (SWC-109).
+//! Detects uninitialized storage variables and storage pointers (SWC-109).
+//!
+//! This detector finds:
+//! - State variables that are not explicitly initialized
+//! - Local storage pointers that could point to arbitrary storage locations
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::detectors::AnalysisContext;
-use solidity::ast::{ContractDef, ContractElem, DataLoc, Expr, Loc, Stmt, VarMut, Type};
+use solidity::analysis::context::AnalysisContext;
+use solidity::analysis::pass::Pass;
+use solidity::analysis::pass_id::PassId;
+use solidity::analysis::pass_level::PassLevel;
+use solidity::analysis::pass_representation::PassRepresentation;
+use solidity::ast::{ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnit, SourceUnitElem, Stmt, Type, VarMut};
+use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use std::collections::HashSet;
 
-/// Detector for uninitialized variables.
-pub struct UninitializedDetector;
+/// Detector for uninitialized storage variables and pointers.
+#[derive(Debug, Default)]
+pub struct UninitializedStorageDetector;
 
-impl UninitializedDetector {
+impl UninitializedStorageDetector {
     pub fn new() -> Self {
         Self
     }
-}
 
-impl Default for UninitializedDetector {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Detector for UninitializedDetector {
-    fn id(&self) -> &'static str {
-        "uninitialized"
+    fn should_warn_uninitialized(&self, typ: &Type) -> bool {
+        // Warn for mapping and array types that might need initialization
+        matches!(typ, Type::Mapping(_) | Type::Array(_))
     }
 
-    fn name(&self) -> &'static str {
-        "Uninitialized Variables"
-    }
-
-    fn description(&self) -> &'static str {
-        "Storage variables or local storage pointers that are not initialized \
-         may point to unexpected storage slots, leading to data corruption."
-    }
-
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> ConfidenceLevel {
-        ConfidenceLevel::Medium
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![824] // CWE-824: Access of Uninitialized Pointer
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![109] // SWC-109: Uninitialized Storage Pointer
-    }
-
-    fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-        
-        for source_unit in &context.source_units {
-            for elem in &source_unit.elems {
-                if let solidity::ast::SourceUnitElem::Contract(contract) = elem {
-                    self.check_contract(&contract.name.base, &contract, &mut bugs);
-                }
-            }
-        }
-        
-        bugs
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Initialize all storage variables explicitly. For local variables with storage \
-         location, assign a reference to a state variable before use."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-109",
-        ]
-    }
-}
-
-impl UninitializedDetector {
     fn check_contract(&self, contract_name: &str, contract: &ContractDef, bugs: &mut Vec<Bug>) {
         // Check state variables without initialization
         for elem in &contract.body {
             if let ContractElem::Var(state_var) = elem {
                 // Skip constants and immutables (they must be initialized)
                 let is_constant = matches!(state_var.mutability, VarMut::Constant | VarMut::Immutable);
-                
+
                 if !is_constant && state_var.value.is_none() {
                     // Check if it's a complex type that should be initialized
                     if self.should_warn_uninitialized(&state_var.typ) {
@@ -111,7 +56,7 @@ impl UninitializedDetector {
                 }
             }
         }
-        
+
         // Check functions for uninitialized local storage pointers
         for elem in &contract.body {
             if let ContractElem::Func(func) = elem {
@@ -121,11 +66,6 @@ impl UninitializedDetector {
                 }
             }
         }
-    }
-
-    fn should_warn_uninitialized(&self, typ: &Type) -> bool {
-        // Warn for mapping and array types that might need initialization
-        matches!(typ, Type::Mapping(_) | Type::Array(_))
     }
 
     fn check_block(
@@ -170,7 +110,7 @@ impl UninitializedDetector {
                             bugs.push(bug);
                         }
                     }
-                    
+
                     // Track initialized variables
                     if var_decl.value.is_some() {
                         initialized.insert(var.name.base.clone());
@@ -211,14 +151,85 @@ impl UninitializedDetector {
     }
 }
 
+impl Pass for UninitializedStorageDetector {
+    fn id(&self) -> PassId {
+        PassId::UninitializedStorage
+    }
+
+    fn name(&self) -> &'static str {
+        "Uninitialized Storage"
+    }
+
+    fn description(&self) -> &'static str {
+        "Detects uninitialized storage variables and storage pointers"
+    }
+
+    fn level(&self) -> PassLevel {
+        PassLevel::Program
+    }
+
+    fn representation(&self) -> PassRepresentation {
+        PassRepresentation::Ast
+    }
+
+    fn dependencies(&self) -> Vec<PassId> {
+        vec![]
+    }
+}
+
+impl BugDetectionPass for UninitializedStorageDetector {
+    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+        let mut bugs = Vec::new();
+
+        for source_unit in &context.source_units {
+            for elem in &source_unit.elems {
+                if let SourceUnitElem::Contract(contract) = elem {
+                    self.check_contract(&contract.name.base, contract, &mut bugs);
+                }
+            }
+        }
+
+        Ok(bugs)
+    }
+
+    fn bug_kind(&self) -> BugKind {
+        BugKind::Vulnerability
+    }
+
+    fn risk_level(&self) -> RiskLevel {
+        RiskLevel::High
+    }
+
+    fn confidence(&self) -> ConfidenceLevel {
+        ConfidenceLevel::Medium
+    }
+
+    fn cwe_ids(&self) -> Vec<usize> {
+        vec![824] // CWE-824: Access of Uninitialized Pointer
+    }
+
+    fn swc_ids(&self) -> Vec<usize> {
+        vec![109] // SWC-109: Uninitialized Storage Pointer
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Initialize all storage variables explicitly. For local variables with storage \
+         location, assign a reference to a state variable before use."
+    }
+
+    fn references(&self) -> Vec<&'static str> {
+        vec!["https://swcregistry.io/docs/SWC-109"]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_uninitialized_detector() {
-        let detector = UninitializedDetector::new();
-        assert_eq!(detector.id(), "uninitialized");
+    fn test_uninitialized_storage_detector() {
+        let detector = UninitializedStorageDetector::new();
+        assert_eq!(detector.id(), PassId::UninitializedStorage);
         assert_eq!(detector.swc_ids(), vec![109]);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }

@@ -8,8 +8,9 @@ use smarthunt::{
     Config,
     OutputFormat,
     SeverityFilter,
-    create_default_registry,
-    AnalysisContext,
+    DetectorRegistry,
+    register_all_detectors,
+    BugDetectionPass,
     AnalysisReport,
     OutputFormatter,
     JsonFormatter,
@@ -20,6 +21,7 @@ use solidity::{
     ast::utils::export::export_debugging_source_unit,
     ast::SourceUnit,
     compile::compile_input_file,
+    analysis::context::AnalysisContext,
 };
 use std::fs;
 use std::path::Path;
@@ -156,21 +158,22 @@ fn main() {
 }
 
 fn list_detectors() {
-    let registry = create_default_registry();
-    println!("Available Detectors ({}):", registry.count());
+    let mut registry = DetectorRegistry::new();
+    register_all_detectors(&mut registry);
+    println!("Available Detectors ({}):", registry.len());
     println!("========================\n");
 
-    let detectors = registry.all();
-    let mut sorted_detectors: Vec<_> = detectors.iter().collect();
-    sorted_detectors.sort_by(|a, b| a.id().cmp(b.id()));
+    let detectors = registry.all().collect::<Vec<_>>();
+    let mut sorted_detectors = detectors.clone();
+    sorted_detectors.sort_by(|a, b| a.name().cmp(&b.name()));
 
-    println!("{:<20} {:<30} {:<10} {:<10}", "ID", "Name", "Severity", "Confidence");
-    println!("{}", "-".repeat(70));
+    println!("{:<25} {:<35} {:<10} {:<10}", "ID", "Name", "Severity", "Confidence");
+    println!("{}", "-".repeat(85));
 
     for detector in sorted_detectors {
         println!(
-            "{:<20} {:<30} {:<10} {:<10}",
-            detector.id(),
+            "{:<25} {:<35} {:<10} {:<10}",
+            detector.id().as_str(),
             detector.name(),
             detector.risk_level().as_str(),
             format!("{:?}", detector.confidence()).to_lowercase(),
@@ -181,12 +184,13 @@ fn list_detectors() {
 }
 
 fn show_detector(id: &str) {
-    let registry = create_default_registry();
+    let mut registry = DetectorRegistry::new();
+    register_all_detectors(&mut registry);
 
     match registry.get(id) {
         Some(detector) => {
             println!("Detector: {}", detector.name());
-            println!("ID: {}", detector.id());
+            println!("ID: {}", detector.id().as_str());
             println!("Severity: {}", detector.risk_level());
             println!("Confidence: {:?}", detector.confidence());
             println!();
@@ -380,13 +384,21 @@ fn run_analysis(args: Arguments) {
         std::process::exit(1);
     }
 
-    // Create minimal analysis context for legacy detectors
-    let context = AnalysisContext::new(all_source_units);
+    // Create analysis context
+    let mut context = AnalysisContext::new(all_source_units, solidity::analysis::context::AnalysisConfig::default());
 
-    // Run detectors using old registry (legacy system)
-    // TODO: Migrate to new detection framework
-    let registry = create_default_registry();
-    let enabled_detectors = config.get_enabled(&registry);
+    // Run detectors using new detection framework
+    let mut registry = DetectorRegistry::new();
+    register_all_detectors(&mut registry);
+
+    // Get enabled detectors based on config
+    let enabled_detectors = if !config.detectors.enabled.is_empty() {
+        config.detectors.enabled.iter()
+            .filter_map(|name| registry.get(name))
+            .collect::<Vec<_>>()
+    } else {
+        registry.all().collect::<Vec<_>>()
+    };
 
     let all_bugs = if config.num_threads > 1 {
         // Parallel detector execution using rayon
@@ -407,8 +419,8 @@ fn run_analysis(args: Arguments) {
             enabled_detectors
                 .par_iter()
                 .flat_map(|detector| {
-                    log::debug!("Running detector: {}", detector.id());
-                    detector.detect(&context)
+                    log::debug!("Running detector: {}", detector.name());
+                    detector.detect(&context).unwrap_or_default()
                 })
                 .collect::<Vec<_>>()
         })
@@ -417,10 +429,10 @@ fn run_analysis(args: Arguments) {
         let mut bugs = Vec::new();
         for detector in enabled_detectors {
             if args.debug {
-                eprintln!("Running detector: {}", detector.id());
+                eprintln!("Running detector: {}", detector.name());
             }
 
-            bugs.extend(detector.detect(&context));
+            bugs.extend(detector.detect(&context).unwrap_or_default());
         }
         bugs
     };
