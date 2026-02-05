@@ -7,4 +7,5 @@ pub mod compile;
 pub mod ir;
 pub mod parsing;
 pub mod codegen;
+pub mod analysis;
 
