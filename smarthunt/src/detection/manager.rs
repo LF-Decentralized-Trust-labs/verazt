@@ -205,7 +205,7 @@ impl DetectionManager {
     /// Run required analysis passes.
     fn run_analysis_passes(
         &self,
-        context: &mut AnalysisContext,
+        _context: &mut AnalysisContext,
         required: &HashSet<PassId>,
     ) -> Result<(), String> {
         // For now, just check that the passes exist
@@ -318,11 +318,7 @@ impl Default for DetectionManager {
     }
 }
 
-fn num_cpus_get() -> usize {
-    std::thread::available_parallelism()
-        .map(|p| p.get())
-        .unwrap_or(1)
-}
+
 
 /// Module for getting CPU count.
 mod num_cpus {

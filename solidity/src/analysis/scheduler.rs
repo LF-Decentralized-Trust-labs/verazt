@@ -99,7 +99,7 @@ impl PassScheduler {
     /// Register a pass with the scheduler.
     pub fn register_pass(&mut self, pass: &dyn Pass) {
         let pass_id = pass.id();
-        
+
         self.registered_passes.insert(pass_id);
         self.representations.insert(pass_id, pass.representation());
         self.dependency_graph.add_pass(pass_id);
@@ -199,7 +199,7 @@ impl PassScheduler {
 mod tests {
     use super::*;
     use crate::analysis::pass_level::PassLevel;
-    use crate::analysis::context::AnalysisContext;
+
 
     // Mock pass for testing
     struct MockPass {

@@ -1,60 +1,24 @@
 //! Integration tests for SmartHunt.
 
 use smarthunt::{
-    AnalysisContext, Config, PassScheduler, create_default_registry,
+    Config,
     AnalysisReport, OutputFormatter, JsonFormatter, MarkdownFormatter, SarifFormatter,
 };
-use solidity::compile::compile_input_file;
 use std::time::Duration;
 
 mod detectors;
 mod output;
 mod passes;
 
-/// Test that the registry contains all expected detectors.
-#[test]
-fn test_registry_has_all_detectors() {
-    let registry = create_default_registry();
-
-    let expected_detectors = vec![
-        "tx-origin",
-        "reentrancy",
-        "unchecked-call",
-        "floating-pragma",
-        "low-level-call",
-        "shadowing",
-        "uninitialized",
-        "deprecated",
-        "visibility",
-        "dead-code",
-        // New detectors added
-        "cei-violation",
-        "missing-access-control",
-        "delegatecall",
-        "centralization-risk",
-        "constant-state-var",
-        "timestamp-dependence",
-    ];
-
-    for detector_id in expected_detectors {
-        assert!(
-            registry.get(detector_id).is_some(),
-            "Detector '{}' should be registered",
-            detector_id
-        );
-    }
-
-    assert_eq!(registry.count(), 16, "Should have 16 detectors");
-}
+/// Test creation of default registry is handled in detectors.rs via helper now.
 
 /// Test that the config loads from TOML correctly.
 #[test]
 fn test_config_default() {
     let config = Config::default();
 
-    assert!(config.detectors.vulnerabilities);
-    assert!(config.detectors.refactoring);
-    assert!(config.detectors.optimization);
+    // Check default values
+    assert_eq!(config.num_threads, 1);
 }
 
 /// Test creating an analysis report.

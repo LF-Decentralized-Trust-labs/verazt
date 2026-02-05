@@ -11,7 +11,7 @@ use solidity::analysis::pass::Pass;
 use solidity::analysis::pass_id::PassId;
 use solidity::analysis::pass_level::PassLevel;
 use solidity::analysis::pass_representation::PassRepresentation;
-use solidity::ast::{Block, ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
+use solidity::ast::{Block, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 
 /// Detector for CEI (Checks-Effects-Interactions) pattern violations.
@@ -23,7 +23,7 @@ impl CeiViolationDetector {
         Self
     }
 
-    fn check_function(&self, func: &FuncDef, contract_name: &str, bugs: &mut Vec<Bug>) {
+    fn check_function(&self, func: &FuncDef, _contract_name: &str, bugs: &mut Vec<Bug>) {
         // Skip if function has nonReentrant modifier
         for modifier in &func.modifier_invocs {
             if let Expr::Ident(ident) = modifier.callee.as_ref() {

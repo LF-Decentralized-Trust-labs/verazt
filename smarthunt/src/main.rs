@@ -10,7 +10,6 @@ use smarthunt::{
     SeverityFilter,
     DetectorRegistry,
     register_all_detectors,
-    BugDetectionPass,
     AnalysisReport,
     OutputFormatter,
     JsonFormatter,
@@ -24,7 +23,6 @@ use solidity::{
     analysis::context::AnalysisContext,
 };
 use std::fs;
-use std::path::Path;
 use std::time::Instant;
 
 #[derive(Parser, Debug)]
@@ -385,7 +383,7 @@ fn run_analysis(args: Arguments) {
     }
 
     // Create analysis context
-    let mut context = AnalysisContext::new(all_source_units, solidity::analysis::context::AnalysisConfig::default());
+    let context = AnalysisContext::new(all_source_units, solidity::analysis::context::AnalysisConfig::default());
 
     // Run detectors using new detection framework
     let mut registry = DetectorRegistry::new();
