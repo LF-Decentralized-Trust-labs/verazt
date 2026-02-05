@@ -1,11 +1,9 @@
-pub mod json_ast;
-pub mod typ;
-pub mod version;
-pub mod yul;
+pub mod json_ast_parser;
+pub mod type_parser;
+pub mod version_parser;
+pub mod yul_parser;
 
-pub use json_ast::ast_parser;
-pub use typ::type_parser;
-pub use version::version_parser;
+pub use json_ast_parser::ast_parser;
 
 use crate::{
     ast::{self, SourceUnit, utils::export},
@@ -14,7 +12,7 @@ use crate::{
         find_pragma_solidity_versions,
     },
 };
-use self::json_ast::{AstParser, JsonAst};
+use self::json_ast_parser::{AstParser, JsonAst};
 use extlib::{error::Result, fail};
 use node_semver::Version;
 use regex::Regex;
