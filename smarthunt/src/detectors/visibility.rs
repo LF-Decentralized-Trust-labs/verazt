@@ -7,6 +7,7 @@ use crate::detectors::{Detector, ConfidenceLevel, create_bug};
 use crate::engine::context::AnalysisContext;
 use crate::passes::PassId;
 use solidity::ast::{ContractDef, ContractElem, FuncKind, FuncVis, Loc, VarVis};
+use solidity::ast::utils::Visit;
 
 /// Detector for visibility issues.
 pub struct VisibilityDetector;
@@ -62,17 +63,11 @@ impl Detector for VisibilityDetector {
     }
 
     fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-        
+        let mut visitor = VisibilityVisitor::new(self);
         for source_unit in &context.source_units {
-            for elem in &source_unit.elems {
-                if let solidity::ast::SourceUnitElem::Contract(contract) = elem {
-                    self.check_contract(&contract.name.base, &contract, &mut bugs);
-                }
-            }
+            visitor.visit_source_unit(source_unit);
         }
-        
-        bugs
+        visitor.bugs
     }
 
     fn recommendation(&self) -> &'static str {
@@ -91,78 +86,88 @@ impl Detector for VisibilityDetector {
 }
 
 impl VisibilityDetector {
-    fn check_contract(&self, contract_name: &str, contract: &ContractDef, bugs: &mut Vec<Bug>) {
-        for elem in &contract.body {
-            match elem {
-                ContractElem::Func(func) => {
-                    // Check if function has explicit visibility (not None)
-                    let has_visibility = !matches!(func.visibility, FuncVis::None);
-                    
-                    // Skip constructors, fallback, and receive functions
-                    let is_special = matches!(func.kind, FuncKind::Constructor | FuncKind::Fallback | FuncKind::Receive);
-                    
-                    if !has_visibility && !is_special {
-                        let func_name = func.name.base.as_str();
-                        let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                        let bug = create_bug(
-                            self,
-                            Some(&format!(
-                                "Function '{}' in contract '{}' has no explicit visibility. \
-                                 It defaults to public.",
-                                func_name, contract_name
-                            )),
-                            loc,
-                        );
-                        bugs.push(bug);
-                    }
-                    
-                    // Check for public functions that could be external
-                    let is_public = matches!(func.visibility, FuncVis::Public);
-                    
-                    if is_public && !self.is_called_internally(&func.name, contract) {
-                        let func_name = func.name.base.as_str();
-                        let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                        let bug = create_bug(
-                            self,
-                            Some(&format!(
-                                "Function '{}' in contract '{}' is public but could be external \
-                                 (not called internally). Consider using 'external' for gas optimization.",
-                                func_name, contract_name
-                            )),
-                            loc,
-                        );
-                        bugs.push(bug);
-                    }
-                }
-                ContractElem::Var(state_var) => {
-                    // Check if state variable has explicit visibility (not None)
-                    let has_visibility = !matches!(state_var.visibility, VarVis::None);
-                    
-                    if !has_visibility {
-                        let var_name = state_var.name.base.as_str();
-                        let loc = state_var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                        let bug = create_bug(
-                            self,
-                            Some(&format!(
-                                "State variable '{}' in contract '{}' has no explicit visibility. \
-                                 It defaults to internal.",
-                                var_name, contract_name
-                            )),
-                            loc,
-                        );
-                        bugs.push(bug);
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
     fn is_called_internally(&self, _func_name: &solidity::ast::Name, _contract: &ContractDef) -> bool {
         // Simplified check - in a real implementation, we would analyze the call graph
         // For now, we assume all public functions could be called internally
         // This avoids false positives
         true
+    }
+}
+
+/// Visitor to collect visibility issues.
+struct VisibilityVisitor<'a, 'b> {
+    detector: &'a VisibilityDetector,
+    bugs: Vec<Bug>,
+    current_contract: Option<String>,
+    _marker: std::marker::PhantomData<&'b ()>,
+}
+
+impl<'a, 'b> VisibilityVisitor<'a, 'b> {
+    fn new(detector: &'a VisibilityDetector) -> Self {
+        Self {
+            detector,
+            bugs: Vec::new(),
+            current_contract: None,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, 'b> Visit<'b> for VisibilityVisitor<'a, 'b> {
+    fn visit_contract_def(&mut self, contract: &'b ContractDef) {
+        self.current_contract = Some(contract.name.base.clone());
+        solidity::ast::utils::visit::default::visit_contract_def(self, contract);
+        self.current_contract = None;
+    }
+
+    fn visit_contract_elem(&mut self, elem: &'b ContractElem) {
+        let contract_name = self.current_contract.as_deref().unwrap_or("<unknown>");
+
+        match elem {
+            ContractElem::Func(func) => {
+                // Check if function has explicit visibility (not None)
+                let has_visibility = !matches!(func.visibility, FuncVis::None);
+
+                // Skip constructors, fallback, and receive functions
+                let is_special = matches!(func.kind, FuncKind::Constructor | FuncKind::Fallback | FuncKind::Receive);
+
+                if !has_visibility && !is_special {
+                    let func_name = func.name.base.as_str();
+                    let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
+                    let bug = create_bug(
+                        self.detector,
+                        Some(&format!(
+                            "Function '{}' in contract '{}' has no explicit visibility. \
+                             It defaults to public.",
+                            func_name, contract_name
+                        )),
+                        loc,
+                    );
+                    self.bugs.push(bug);
+                }
+            }
+            ContractElem::Var(state_var) => {
+                // Check if state variable has explicit visibility (not None)
+                let has_visibility = !matches!(state_var.visibility, VarVis::None);
+
+                if !has_visibility {
+                    let var_name = state_var.name.base.as_str();
+                    let loc = state_var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
+                    let bug = create_bug(
+                        self.detector,
+                        Some(&format!(
+                            "State variable '{}' in contract '{}' has no explicit visibility. \
+                             It defaults to internal.",
+                            var_name, contract_name
+                        )),
+                        loc,
+                    );
+                    self.bugs.push(bug);
+                }
+            }
+            _ => {}
+        }
+        solidity::ast::utils::visit::default::visit_contract_elem(self, elem);
     }
 }
 

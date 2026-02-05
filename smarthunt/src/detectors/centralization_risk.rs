@@ -6,9 +6,8 @@ use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detectors::{Detector, ConfidenceLevel, create_bug};
 use crate::engine::context::AnalysisContext;
 use crate::passes::PassId;
-use solidity::ast::{
-    ContractDef, ContractElem, Expr, FuncDef, FuncVis, Loc, SourceUnit, SourceUnitElem,
-};
+use solidity::ast::{ContractDef, ContractElem, Expr, FuncDef, Loc};
+use solidity::ast::utils::Visit;
 
 /// Detector for centralization risks.
 pub struct CentralizationRiskDetector;
@@ -65,13 +64,11 @@ impl Detector for CentralizationRiskDetector {
     }
 
     fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-
+        let mut visitor = CentralizationRiskVisitor::new(self, context);
         for source_unit in &context.source_units {
-            self.visit_source_unit(source_unit, context, &mut bugs);
+            visitor.visit_source_unit(source_unit);
         }
-
-        bugs
+        visitor.bugs
     }
 
     fn recommendation(&self) -> &'static str {
@@ -100,42 +97,6 @@ impl CentralizationRiskDetector {
         "blacklist", "whitelist",
     ];
 
-    fn visit_source_unit(&self, source_unit: &SourceUnit, context: &AnalysisContext, bugs: &mut Vec<Bug>) {
-        for elem in &source_unit.elems {
-            if let SourceUnitElem::Contract(contract) = elem {
-                self.visit_contract(contract, context, bugs);
-            }
-        }
-    }
-
-    fn visit_contract(&self, contract: &ContractDef, context: &AnalysisContext, bugs: &mut Vec<Bug>) {
-        let mut privileged_functions = Vec::new();
-
-        for elem in &contract.body {
-            if let ContractElem::Func(func) = elem {
-                if self.is_privileged_function(func) {
-                    privileged_functions.push(func);
-                }
-            }
-        }
-
-        // Report if there are multiple privileged functions
-        if privileged_functions.len() >= 3 {
-            for func in privileged_functions {
-                let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                let bug = create_bug(
-                    self,
-                    Some(&format!(
-                        "Privileged function '{}' may pose centralization risk.",
-                        func.name.base.as_str()
-                    )),
-                    loc,
-                );
-                bugs.push(bug);
-            }
-        }
-    }
-
     fn is_privileged_function(&self, func: &FuncDef) -> bool {
         // Check if function has owner/admin modifier
         let has_privilege_modifier = func.modifier_invocs.iter().any(|m| {
@@ -155,6 +116,55 @@ impl CentralizationRiskDetector {
         let func_name = func.name.base.as_str().to_lowercase();
         Self::RISKY_FUNCTION_PATTERNS.iter()
             .any(|pattern| func_name.contains(&pattern.to_lowercase()))
+    }
+}
+
+/// Visitor to collect centralization risk bugs.
+struct CentralizationRiskVisitor<'a, 'b> {
+    detector: &'a CentralizationRiskDetector,
+    bugs: Vec<Bug>,
+    privileged_functions: Vec<&'b solidity::ast::FuncDef>,
+}
+
+impl<'a, 'b> CentralizationRiskVisitor<'a, 'b> {
+    fn new(detector: &'a CentralizationRiskDetector, _context: &'a AnalysisContext) -> Self {
+        Self {
+            detector,
+            bugs: Vec::new(),
+            privileged_functions: Vec::new(),
+        }
+    }
+}
+
+impl<'a, 'b> Visit<'b> for CentralizationRiskVisitor<'a, 'b> {
+    fn visit_contract_def(&mut self, contract: &'b ContractDef) {
+        // Reset for each contract
+        self.privileged_functions.clear();
+
+        // Collect privileged functions first
+        for elem in &contract.body {
+            if let ContractElem::Func(func) = elem {
+                if self.detector.is_privileged_function(func) {
+                    self.privileged_functions.push(func);
+                }
+            }
+        }
+
+        // Report if there are multiple privileged functions
+        if self.privileged_functions.len() >= 3 {
+            for func in &self.privileged_functions {
+                let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
+                let bug = create_bug(
+                    self.detector,
+                    Some(&format!(
+                        "Privileged function '{}' may pose centralization risk.",
+                        func.name.base.as_str()
+                    )),
+                    loc,
+                );
+                self.bugs.push(bug);
+            }
+        }
     }
 }
 

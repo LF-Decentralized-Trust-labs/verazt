@@ -6,7 +6,8 @@ use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detectors::{Detector, ConfidenceLevel, create_bug};
 use crate::engine::context::AnalysisContext;
 use crate::passes::PassId;
-use solidity::ast::{ContractDef, ContractElem, Loc, Stmt, VarDecl};
+use solidity::ast::{ContractDef, ContractElem, Loc};
+use solidity::ast::utils::Visit;
 use std::collections::HashMap;
 
 /// Detector for variable shadowing.
@@ -63,17 +64,11 @@ impl Detector for ShadowingDetector {
     }
 
     fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-        
+        let mut visitor = ShadowingVisitor::new(self);
         for source_unit in &context.source_units {
-            for elem in &source_unit.elems {
-                if let solidity::ast::SourceUnitElem::Contract(contract) = elem {
-                    self.check_contract(&contract.name.base, &contract, &mut bugs);
-                }
-            }
+            visitor.visit_source_unit(source_unit);
         }
-        
-        bugs
+        visitor.bugs
     }
 
     fn recommendation(&self) -> &'static str {
@@ -88,111 +83,93 @@ impl Detector for ShadowingDetector {
     }
 }
 
-impl ShadowingDetector {
-    fn check_contract(&self, contract_name: &str, contract: &ContractDef, bugs: &mut Vec<Bug>) {
-        // Collect state variables
-        let mut state_vars: HashMap<String, Loc> = HashMap::new();
-        
+impl ShadowingDetector {}
+
+/// Visitor to collect variable shadowing bugs.
+struct ShadowingVisitor<'a, 'b> {
+    detector: &'a ShadowingDetector,
+    bugs: Vec<Bug>,
+    contract_name: Option<String>,
+    state_vars: HashMap<String, Loc>,
+    _marker: std::marker::PhantomData<&'b ()>,
+}
+
+impl<'a, 'b> ShadowingVisitor<'a, 'b> {
+    fn new(detector: &'a ShadowingDetector) -> Self {
+        Self {
+            detector,
+            bugs: Vec::new(),
+            contract_name: None,
+            state_vars: HashMap::new(),
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, 'b> Visit<'b> for ShadowingVisitor<'a, 'b> {
+    fn visit_contract_def(&mut self, contract: &'b ContractDef) {
+        self.contract_name = Some(contract.name.base.clone());
+        self.state_vars.clear();
+
+        // Collect state variables first
         for elem in &contract.body {
             if let ContractElem::Var(state_var) = elem {
-                state_vars.insert(
+                self.state_vars.insert(
                     state_var.name.base.clone(),
                     state_var.loc.unwrap_or(Loc::new(1, 1, 1, 1)),
                 );
             }
         }
-        
-        // Check functions for shadowing
-        for elem in &contract.body {
-            if let ContractElem::Func(func) = elem {
-                // Check function parameters
-                for param in &func.params {
-                    if let Some(state_loc) = state_vars.get(&param.name.base) {
-                        let loc = param.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                        let bug = create_bug(
-                            self,
-                            Some(&format!(
-                                "Parameter '{}' shadows state variable in contract '{}' \
-                                 defined at line {}",
-                                param.name.base, contract_name, state_loc.start_line
-                            )),
-                            loc,
-                        );
-                        bugs.push(bug);
-                    }
-                }
-                
-                // Check function body
-                if let Some(body) = &func.body {
-                    self.check_block(contract_name, body, &state_vars, bugs);
-                }
-            }
-        }
+
+        // Now visit the contract
+        solidity::ast::utils::visit::default::visit_contract_def(self, contract);
+        self.contract_name = None;
+        self.state_vars.clear();
     }
 
-    fn check_block(
-        &self,
-        contract_name: &str,
-        block: &solidity::ast::Block,
-        state_vars: &HashMap<String, Loc>,
-        bugs: &mut Vec<Bug>,
-    ) {
-        for s in &block.body {
-            self.check_statement(contract_name, s, state_vars, bugs);
+    fn visit_func_def(&mut self, func: &'b solidity::ast::FuncDef) {
+        let contract_name = self.contract_name.as_deref().unwrap_or("<unknown>");
+
+        // Check function parameters
+        for param in &func.params {
+            if let Some(state_loc) = self.state_vars.get(&param.name.base) {
+                let loc = param.loc.unwrap_or(Loc::new(1, 1, 1, 1));
+                let bug = create_bug(
+                    self.detector,
+                    Some(&format!(
+                        "Parameter '{}' shadows state variable in contract '{}' \
+                         defined at line {}",
+                        param.name.base, contract_name, state_loc.start_line
+                    )),
+                    loc,
+                );
+                self.bugs.push(bug);
+            }
         }
+
+        solidity::ast::utils::visit::default::visit_func_def(self, func);
     }
 
-    fn check_statement(
-        &self,
-        contract_name: &str,
-        stmt: &Stmt,
-        state_vars: &HashMap<String, Loc>,
-        bugs: &mut Vec<Bug>,
-    ) {
-        match stmt {
-            Stmt::Block(block) => {
-                self.check_block(contract_name, block, state_vars, bugs);
+    fn visit_var_decl_stmt(&mut self, stmt: &'b solidity::ast::VarDeclStmt) {
+        let contract_name = self.contract_name.as_deref().unwrap_or("<unknown>");
+
+        for var in stmt.var_decls.iter().flatten() {
+            if let Some(state_loc) = self.state_vars.get(&var.name.base) {
+                let loc = var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
+                let bug = create_bug(
+                    self.detector,
+                    Some(&format!(
+                        "Local variable '{}' shadows state variable in contract '{}' \
+                         defined at line {}",
+                        var.name.base, contract_name, state_loc.start_line
+                    )),
+                    loc,
+                );
+                self.bugs.push(bug);
             }
-            Stmt::VarDecl(var_decl) => {
-                for var in var_decl.var_decls.iter().flatten() {
-                    if let Some(state_loc) = state_vars.get(&var.name.base) {
-                        let loc = var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                        let bug = create_bug(
-                            self,
-                            Some(&format!(
-                                "Local variable '{}' shadows state variable in contract '{}' \
-                                 defined at line {}",
-                                var.name.base, contract_name, state_loc.start_line
-                            )),
-                            loc,
-                        );
-                        bugs.push(bug);
-                    }
-                }
-            }
-            Stmt::If(if_stmt) => {
-                self.check_statement(contract_name, &if_stmt.true_branch, state_vars, bugs);
-                if let Some(false_br) = &if_stmt.false_branch {
-                    self.check_statement(contract_name, false_br, state_vars, bugs);
-                }
-            }
-            Stmt::While(while_stmt) => {
-                self.check_statement(contract_name, &while_stmt.body, state_vars, bugs);
-            }
-            Stmt::For(for_stmt) => {
-                if let Some(pre) = &for_stmt.pre_loop {
-                    self.check_statement(contract_name, pre, state_vars, bugs);
-                }
-                self.check_statement(contract_name, &for_stmt.body, state_vars, bugs);
-            }
-            Stmt::DoWhile(do_while) => {
-                self.check_statement(contract_name, &do_while.body, state_vars, bugs);
-            }
-            Stmt::Try(try_stmt) => {
-                self.check_block(contract_name, &try_stmt.body, state_vars, bugs);
-            }
-            _ => {}
         }
+
+        solidity::ast::utils::visit::default::visit_var_decl_stmt(self, stmt);
     }
 }
 #[cfg(test)]

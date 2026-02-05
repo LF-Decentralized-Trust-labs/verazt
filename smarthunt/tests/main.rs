@@ -15,7 +15,7 @@ mod passes;
 #[test]
 fn test_registry_has_all_detectors() {
     let registry = create_default_registry();
-    
+
     let expected_detectors = vec![
         "tx-origin",
         "reentrancy",
@@ -35,7 +35,7 @@ fn test_registry_has_all_detectors() {
         "constant-state-var",
         "timestamp-dependence",
     ];
-    
+
     for detector_id in expected_detectors {
         assert!(
             registry.get(detector_id).is_some(),
@@ -43,7 +43,7 @@ fn test_registry_has_all_detectors() {
             detector_id
         );
     }
-    
+
     assert_eq!(registry.count(), 16, "Should have 16 detectors");
 }
 
@@ -51,7 +51,7 @@ fn test_registry_has_all_detectors() {
 #[test]
 fn test_config_default() {
     let config = Config::default();
-    
+
     assert!(config.detectors.vulnerabilities);
     assert!(config.detectors.refactoring);
     assert!(config.detectors.optimization);
@@ -63,9 +63,9 @@ fn test_analysis_report_creation() {
     let bugs = vec![];
     let files = vec!["test.sol".to_string()];
     let duration = Duration::from_secs(1);
-    
+
     let report = AnalysisReport::new(bugs, files, duration);
-    
+
     assert_eq!(report.total_bugs(), 0);
     assert!(!report.has_bugs());
     assert!(!report.has_high_severity());
@@ -78,11 +78,11 @@ fn test_json_formatter() {
     let bugs = vec![];
     let files = vec!["test.sol".to_string()];
     let duration = Duration::from_secs(1);
-    
+
     let report = AnalysisReport::new(bugs, files, duration);
     let formatter = JsonFormatter::new(true);
     let output = formatter.format(&report);
-    
+
     assert!(output.contains("\"version\""));
     assert!(output.contains("\"findings\""));
     assert!(output.contains("\"summary\""));
@@ -94,11 +94,11 @@ fn test_markdown_formatter() {
     let bugs = vec![];
     let files = vec!["test.sol".to_string()];
     let duration = Duration::from_secs(1);
-    
+
     let report = AnalysisReport::new(bugs, files, duration);
     let formatter = MarkdownFormatter::new();
     let output = formatter.format(&report);
-    
+
     assert!(output.contains("# SmartHunt Analysis Report"));
     assert!(output.contains("No issues found"));
 }
@@ -109,11 +109,11 @@ fn test_sarif_formatter() {
     let bugs = vec![];
     let files = vec!["test.sol".to_string()];
     let duration = Duration::from_secs(1);
-    
+
     let report = AnalysisReport::new(bugs, files, duration);
     let formatter = SarifFormatter::new(true);
     let output = formatter.format(&report);
-    
+
     assert!(output.contains("\"$schema\""));
     assert!(output.contains("\"version\": \"2.1.0\""));
     assert!(output.contains("SmartHunt"));

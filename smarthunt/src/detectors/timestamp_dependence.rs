@@ -6,9 +6,8 @@ use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detectors::{Detector, ConfidenceLevel, create_bug};
 use crate::engine::context::AnalysisContext;
 use crate::passes::PassId;
-use solidity::ast::{
-    Block, ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
-};
+use solidity::ast::{Expr, Loc};
+use solidity::ast::utils::Visit;
 
 /// Detector for timestamp dependence.
 pub struct TimestampDependenceDetector;
@@ -65,13 +64,11 @@ impl Detector for TimestampDependenceDetector {
     }
 
     fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-
+        let mut visitor = TimestampVisitor::new(self);
         for source_unit in &context.source_units {
-            self.visit_source_unit(source_unit, &mut bugs);
+            visitor.visit_source_unit(source_unit);
         }
-
-        bugs
+        visitor.bugs
     }
 
     fn recommendation(&self) -> &'static str {
@@ -88,113 +85,6 @@ impl Detector for TimestampDependenceDetector {
 }
 
 impl TimestampDependenceDetector {
-    fn visit_source_unit(&self, source_unit: &SourceUnit, bugs: &mut Vec<Bug>) {
-        for elem in &source_unit.elems {
-            match elem {
-                SourceUnitElem::Contract(contract) => {
-                    self.visit_contract(contract, bugs);
-                }
-                SourceUnitElem::Func(func) => {
-                    self.visit_function(func, bugs);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn visit_contract(&self, contract: &ContractDef, bugs: &mut Vec<Bug>) {
-        for elem in &contract.body {
-            if let ContractElem::Func(func) = elem {
-                self.visit_function(func, bugs);
-            }
-        }
-    }
-
-    fn visit_function(&self, func: &FuncDef, bugs: &mut Vec<Bug>) {
-        if let Some(body) = &func.body {
-            self.visit_block(body, bugs, false);
-        }
-    }
-
-    fn visit_block(&self, block: &Block, bugs: &mut Vec<Bug>, in_condition: bool) {
-        for stmt in &block.body {
-            self.visit_stmt(stmt, bugs, in_condition);
-        }
-    }
-
-    fn visit_stmt(&self, stmt: &Stmt, bugs: &mut Vec<Bug>, in_condition: bool) {
-        match stmt {
-            Stmt::Block(block) => self.visit_block(block, bugs, in_condition),
-
-            Stmt::If(if_stmt) => {
-                // Check condition for timestamp usage
-                if let Some(loc) = self.find_timestamp_usage(&if_stmt.condition, true) {
-                    let bug = create_bug(
-                        self,
-                        Some("block.timestamp used in a condition, which can be manipulated by miners."),
-                        loc,
-                    );
-                    bugs.push(bug);
-                }
-
-                self.visit_stmt(&if_stmt.true_branch, bugs, false);
-                if let Some(false_br) = &if_stmt.false_branch {
-                    self.visit_stmt(false_br, bugs, false);
-                }
-            }
-
-            Stmt::While(while_stmt) => {
-                if let Some(loc) = self.find_timestamp_usage(&while_stmt.condition, true) {
-                    let bug = create_bug(
-                        self,
-                        Some("block.timestamp used in a loop condition."),
-                        loc,
-                    );
-                    bugs.push(bug);
-                }
-                self.visit_stmt(&while_stmt.body, bugs, false);
-            }
-
-            Stmt::For(for_stmt) => {
-                if let Some(cond) = &for_stmt.condition {
-                    if let Some(loc) = self.find_timestamp_usage(cond, true) {
-                        let bug = create_bug(
-                            self,
-                            Some("block.timestamp used in a loop condition."),
-                            loc,
-                        );
-                        bugs.push(bug);
-                    }
-                }
-                self.visit_stmt(&for_stmt.body, bugs, false);
-            }
-
-            Stmt::Expr(expr_stmt) => {
-                // Check for require/assert with timestamp
-                if let Expr::Call(call) = &expr_stmt.expr {
-                    if let Expr::Ident(ident) = call.callee.as_ref() {
-                        if matches!(ident.name.base.as_str(), "require" | "assert") {
-                            if let solidity::ast::CallArgs::Unnamed(args) = &call.args {
-                                if let Some(first_arg) = args.first() {
-                                    if let Some(loc) = self.find_timestamp_usage(first_arg, true) {
-                                        let bug = create_bug(
-                                            self,
-                                            Some("block.timestamp used in require/assert condition."),
-                                            loc,
-                                        );
-                                        bugs.push(bug);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            _ => {}
-        }
-    }
-
     fn find_timestamp_usage(&self, expr: &Expr, in_comparison: bool) -> Option<Loc> {
         match expr {
             Expr::Member(member) => {
@@ -252,6 +142,88 @@ impl TimestampDependenceDetector {
 
             _ => None,
         }
+    }
+}
+
+/// Visitor to collect timestamp dependence bugs.
+struct TimestampVisitor<'a, 'b> {
+    detector: &'a TimestampDependenceDetector,
+    bugs: Vec<Bug>,
+    _marker: std::marker::PhantomData<&'b ()>,
+}
+
+impl<'a, 'b> TimestampVisitor<'a, 'b> {
+    fn new(detector: &'a TimestampDependenceDetector) -> Self {
+        Self {
+            detector,
+            bugs: Vec::new(),
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, 'b> Visit<'b> for TimestampVisitor<'a, 'b> {
+    fn visit_if_stmt(&mut self, stmt: &'b solidity::ast::IfStmt) {
+        // Check condition for timestamp usage
+        if let Some(loc) = self.detector.find_timestamp_usage(&stmt.condition, true) {
+            let bug = create_bug(
+                self.detector,
+                Some("block.timestamp used in a condition, which can be manipulated by miners."),
+                loc,
+            );
+            self.bugs.push(bug);
+        }
+        // Continue with default visiting
+        solidity::ast::utils::visit::default::visit_if_stmt(self, stmt);
+    }
+
+    fn visit_while_stmt(&mut self, stmt: &'b solidity::ast::WhileStmt) {
+        if let Some(loc) = self.detector.find_timestamp_usage(&stmt.condition, true) {
+            let bug = create_bug(
+                self.detector,
+                Some("block.timestamp used in a loop condition."),
+                loc,
+            );
+            self.bugs.push(bug);
+        }
+        solidity::ast::utils::visit::default::visit_while_stmt(self, stmt);
+    }
+
+    fn visit_for_stmt(&mut self, stmt: &'b solidity::ast::ForStmt) {
+        if let Some(cond) = &stmt.condition {
+            if let Some(loc) = self.detector.find_timestamp_usage(cond, true) {
+                let bug = create_bug(
+                    self.detector,
+                    Some("block.timestamp used in a loop condition."),
+                    loc,
+                );
+                self.bugs.push(bug);
+            }
+        }
+        solidity::ast::utils::visit::default::visit_for_stmt(self, stmt);
+    }
+
+    fn visit_expr_stmt(&mut self, stmt: &'b solidity::ast::ExprStmt) {
+        // Check for require/assert with timestamp
+        if let Expr::Call(call) = &stmt.expr {
+            if let Expr::Ident(ident) = call.callee.as_ref() {
+                if matches!(ident.name.base.as_str(), "require" | "assert") {
+                    if let solidity::ast::CallArgs::Unnamed(args) = &call.args {
+                        if let Some(first_arg) = args.first() {
+                            if let Some(loc) = self.detector.find_timestamp_usage(first_arg, true) {
+                                let bug = create_bug(
+                                    self.detector,
+                                    Some("block.timestamp used in require/assert condition."),
+                                    loc,
+                                );
+                                self.bugs.push(bug);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        solidity::ast::utils::visit::default::visit_expr_stmt(self, stmt);
     }
 }
 
