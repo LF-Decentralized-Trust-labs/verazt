@@ -3,8 +3,7 @@
 //! This module defines the core detector trait that all detectors implement.
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use crate::engine::context::AnalysisContext;
-use crate::passes::PassId;
+use crate::detectors::context::AnalysisContext;
 use crate::detectors::ConfidenceLevel;
 
 /// Trait for bug detectors.
@@ -20,9 +19,6 @@ pub trait Detector: Send + Sync {
 
     /// Detailed description of what this detector finds.
     fn description(&self) -> &'static str;
-
-    /// Which passes must run before this detector.
-    fn required_passes(&self) -> Vec<PassId>;
 
     /// Bug category (Vulnerability, Refactoring, Optimization).
     fn bug_kind(&self) -> BugKind;

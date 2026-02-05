@@ -4,8 +4,7 @@
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::engine::context::AnalysisContext;
-use crate::passes::PassId;
+use crate::detectors::AnalysisContext;
 use solidity::ast::{ContractDef, ContractElem, Expr, FuncDef, Loc};
 use solidity::ast::utils::Visit;
 
@@ -39,9 +38,6 @@ impl Detector for CentralizationRiskDetector {
          manipulate the contract state."
     }
 
-    fn required_passes(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable, PassId::AccessControl]
-    }
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability

@@ -1,12 +1,11 @@
 //! Reentrancy detector.
 //!
 //! Detects potential reentrancy vulnerabilities.
+#![allow(dead_code, unused_variables)]
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::engine::context::AnalysisContext;
-use crate::graph::FunctionId;
-use crate::passes::PassId;
+use crate::detectors::{Detector, ConfidenceLevel, create_bug, AnalysisContext};
+use solidity::analysis::FunctionId;
 use solidity::ast::{
     Block, ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
 };
@@ -40,9 +39,6 @@ impl Detector for ReentrancyDetector {
          to re-enter the function and exploit the inconsistent state."
     }
 
-    fn required_passes(&self) -> Vec<PassId> {
-        vec![PassId::Cfg, PassId::CallGraph, PassId::StateMutation]
-    }
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability
@@ -64,14 +60,10 @@ impl Detector for ReentrancyDetector {
         vec![107] // SWC-107: Reentrancy
     }
 
-    fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-        
-        for source_unit in &context.source_units {
-            self.visit_source_unit(source_unit, context, &mut bugs);
-        }
-        
-        bugs
+    fn detect(&self, _context: &AnalysisContext) -> Vec<Bug> {
+        // TODO: Reimplement using new analysis framework
+        // This detector requires call graph and state mutation analysis
+        vec![]
     }
 
     fn recommendation(&self) -> &'static str {
@@ -325,13 +317,14 @@ impl<'a> ReentrancyAnalyzer<'a> {
     }
 
     fn is_state_update(&self, expr: &Expr) -> bool {
+        // TODO: Re-enable when migrating to new analysis framework
         // Check if the expression is a state variable access
-        if let Some(context) = &self.context.state_mutations {
-            if let Some(name) = self.get_base_name(expr) {
-                // Check if this is a known state variable
-                return context.writes.contains_key(&name);
-            }
-        }
+        // if let Some(context) = &self.context.state_mutations {
+        //     if let Some(name) = self.get_base_name(expr) {
+        //         // Check if this is a known state variable
+        //         return context.writes.contains_key(&name);
+        //     }
+        // }
         
         // Fall back to simple heuristic: check if it's a member access on self/this
         // or a simple identifier that could be a state variable

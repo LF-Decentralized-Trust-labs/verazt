@@ -1,12 +1,10 @@
 //! Missing Access Control detector.
 //!
 //! Detects public/external functions that modify state but lack access control.
+#![allow(dead_code, unused_variables)]
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
-use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::engine::context::AnalysisContext;
-use crate::graph::FunctionId;
-use crate::passes::PassId;
+use crate::detectors::{Detector, ConfidenceLevel, create_bug, AnalysisContext};
 use solidity::ast::{
     Block, ContractDef, ContractElem, Expr, FuncDef, FuncVis, Loc, SourceUnit, SourceUnitElem, Stmt,
 };
@@ -40,9 +38,6 @@ impl Detector for MissingAccessControlDetector {
          access control modifiers to prevent unauthorized access."
     }
 
-    fn required_passes(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable, PassId::StateMutation, PassId::AccessControl]
-    }
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability
@@ -64,14 +59,10 @@ impl Detector for MissingAccessControlDetector {
         vec![105, 106] // SWC-105: Unprotected Ether Withdrawal, SWC-106: Unprotected SELFDESTRUCT
     }
 
-    fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-
-        for source_unit in &context.source_units {
-            self.visit_source_unit(source_unit, context, &mut bugs);
-        }
-
-        bugs
+    fn detect(&self, _context: &AnalysisContext) -> Vec<Bug> {
+        // TODO: Reimplement using new analysis framework
+        // This detector requires modifier and access control analysis
+        vec![]
     }
 
     fn recommendation(&self) -> &'static str {
@@ -178,15 +169,17 @@ impl MissingAccessControlDetector {
             .any(|op| func_name.contains(&op.to_lowercase()));
 
         // Check if function modifies state
-        let func_id = FunctionId::from_func(func, Some(contract));
-        let modifies_state = context.modifies_state(&func_id);
+        // TODO: Re-enable when migrating to new analysis framework
+        // let func_id = FunctionId::from_func(func, Some(contract));
+        // let modifies_state = context.modifies_state(&func_id);
+        let modifies_state = false; // Placeholder
 
         // Check for sensitive operations in body
         let has_sensitive_ops = func.body.as_ref()
             .map(|body| self.has_sensitive_operation(body))
             .unwrap_or(false);
 
-        if (is_sensitive_name || has_sensitive_ops) && !has_access_control {
+        if (is_sensitive_name || has_sensitive_ops || modifies_state) && !has_access_control {
             let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
             let bug = create_bug(
                 self,

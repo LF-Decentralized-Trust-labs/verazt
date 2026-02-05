@@ -1,11 +1,11 @@
 //! Constant/Immutable State Variable detector.
 //!
 //! Detects state variables that could be constant or immutable.
+#![allow(dead_code, unused_variables)]
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::engine::context::AnalysisContext;
-use crate::passes::PassId;
+use crate::detectors::AnalysisContext;
 use solidity::ast::{
     ContractDef, ContractElem, Loc, SourceUnit, SourceUnitElem, VarDecl, VarMut,
 };
@@ -40,9 +40,6 @@ impl Detector for ConstantStateVarDetector {
          declared as constant or immutable to save gas."
     }
 
-    fn required_passes(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable, PassId::StateMutation]
-    }
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Optimization
@@ -64,14 +61,10 @@ impl Detector for ConstantStateVarDetector {
         vec![]
     }
 
-    fn detect(&self, context: &AnalysisContext) -> Vec<Bug> {
-        let mut bugs = Vec::new();
-
-        for source_unit in &context.source_units {
-            self.visit_source_unit(source_unit, context, &mut bugs);
-        }
-
-        bugs
+    fn detect(&self, _context: &AnalysisContext) -> Vec<Bug> {
+        // TODO: Reimplement using new analysis framework
+        // This detector requires state mutation analysis
+        vec![]
     }
 
     fn recommendation(&self) -> &'static str {
@@ -116,13 +109,14 @@ impl ConstantStateVarDetector {
         // Get the set of modified state variables from context
         let mut modified_vars: HashSet<String> = HashSet::new();
 
-        if let Some(state_mutations) = &context.state_mutations {
-            for (_func_id, vars) in &state_mutations.function_writes {
-                for var in vars {
-                    modified_vars.insert(var.base.to_string());
-                }
-            }
-        }
+        // TODO: Re-enable when migrating to new analysis framework
+        // if let Some(state_mutations) = &context.state_mutations {
+        //     for (_func_id, vars) in &state_mutations.function_writes {
+        //         for var in vars {
+        //             modified_vars.insert(var.base.to_string());
+        //         }
+        //     }
+        // }
 
         // Check for each state variable
         for var in mutable_state_vars {

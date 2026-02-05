@@ -5,10 +5,11 @@
 use clap::{Parser, Subcommand, crate_version};
 use extlib::error;
 use smarthunt::{
-    AnalysisContext,
     Config,
-    create_default_scheduler,
+    OutputFormat,
+    SeverityFilter,
     create_default_registry,
+    AnalysisContext,
     AnalysisReport,
     OutputFormatter,
     JsonFormatter,
@@ -319,18 +320,18 @@ fn run_analysis(args: Arguments) {
     }
 
     config.output_format = match args.format.as_str() {
-        "json" => smarthunt::engine::config::OutputFormat::Json,
-        "markdown" | "md" => smarthunt::engine::config::OutputFormat::Markdown,
-        "sarif" => smarthunt::engine::config::OutputFormat::Sarif,
-        _ => smarthunt::engine::config::OutputFormat::Text,
+        "json" => OutputFormat::Json,
+        "markdown" | "md" => OutputFormat::Markdown,
+        "sarif" => OutputFormat::Sarif,
+        _ => OutputFormat::Text,
     };
 
     config.min_severity = match args.min_severity.as_str() {
-        "critical" => smarthunt::engine::config::SeverityFilter::Critical,
-        "high" => smarthunt::engine::config::SeverityFilter::High,
-        "medium" => smarthunt::engine::config::SeverityFilter::Medium,
-        "low" => smarthunt::engine::config::SeverityFilter::Low,
-        _ => smarthunt::engine::config::SeverityFilter::Informational,
+        "critical" => SeverityFilter::Critical,
+        "high" => SeverityFilter::High,
+        "medium" => SeverityFilter::Medium,
+        "low" => SeverityFilter::Low,
+        _ => SeverityFilter::Informational,
     };
 
     // Parse input files
@@ -379,23 +380,13 @@ fn run_analysis(args: Arguments) {
         std::process::exit(1);
     }
 
-    // Create analysis context
-    let mut context = AnalysisContext::new(all_source_units, config.clone());
+    // Create minimal analysis context for legacy detectors
+    let context = AnalysisContext::new(all_source_units);
 
-    // Run analysis passes using the default scheduler with all passes registered
-    let mut scheduler = create_default_scheduler();
-    if let Err(e) = scheduler.execute_all(&mut context) {
-        eprintln!("Analysis pass failed: {}", e);
-        std::process::exit(1);
-    }
-
-    if args.debug {
-        scheduler.print_summary();
-    }
-
-    // Run detectors
+    // Run detectors using old registry (legacy system)
+    // TODO: Migrate to new detection framework
     let registry = create_default_registry();
-    let enabled_detectors = registry.get_enabled(&config);
+    let enabled_detectors = config.get_enabled(&registry);
 
     let all_bugs = if config.num_threads > 1 {
         // Parallel detector execution using rayon
@@ -441,19 +432,19 @@ fn run_analysis(args: Arguments) {
 
     // Format output
     let output = match config.output_format {
-        smarthunt::engine::config::OutputFormat::Json => {
+        OutputFormat::Json => {
             let formatter = JsonFormatter::new(true);
             formatter.format(&report)
         }
-        smarthunt::engine::config::OutputFormat::Markdown => {
+        OutputFormat::Markdown => {
             let formatter = MarkdownFormatter::new();
             formatter.format(&report)
         }
-        smarthunt::engine::config::OutputFormat::Sarif => {
+        OutputFormat::Sarif => {
             let formatter = SarifFormatter::new(true);
             formatter.format(&report)
         }
-        smarthunt::engine::config::OutputFormat::Text => {
+        OutputFormat::Text => {
             format_text_output(&report)
         }
     };

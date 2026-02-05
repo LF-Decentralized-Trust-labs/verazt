@@ -2,7 +2,7 @@
 
 use crate::output::formatter::{AnalysisReport, OutputFormatter};
 use serde::{Serialize, Deserialize};
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use bugs::bug::Bug;
 
 /// JSON output formatter.
 #[derive(Debug, Default)]

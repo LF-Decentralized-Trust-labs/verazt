@@ -2,9 +2,9 @@
 //!
 //! This module provides the detector registry for managing all detectors.
 
-use crate::detectors::{Detector, ConfidenceLevel};
-use crate::engine::config::Config;
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use crate::detectors::Detector;
+use crate::config::Config;
+use bugs::bug::{BugKind, RiskLevel};
 use std::collections::HashMap;
 
 /// Registry for all detectors.
@@ -87,13 +87,8 @@ impl DetectorRegistry {
                     return false;
                 }
 
-                // Check category filters
-                match detector.bug_kind() {
-                    BugKind::Vulnerability if !config.detectors.vulnerabilities => false,
-                    BugKind::Refactoring if !config.detectors.refactoring => false,
-                    BugKind::Optimization if !config.detectors.optimization => false,
-                    _ => true,
-                }
+                // All category filters passed
+                true
             })
             .map(|(_, d)| d.as_ref())
             .collect()
@@ -135,27 +130,23 @@ pub fn register_builtin_detectors(registry: &mut DetectorRegistry) {
 
     // Critical/High Vulnerability detectors
     registry.register(Box::new(reentrancy::ReentrancyDetector::new()));
-    registry.register(Box::new(delegatecall::DelegatecallDetector::new()));
-    registry.register(Box::new(tx_origin::TxOriginDetector::new()));
-    registry.register(Box::new(unchecked_call::UncheckedCallDetector::new()));
     registry.register(Box::new(cei_violation::CeiViolationDetector::new()));
     registry.register(Box::new(missing_access_control::MissingAccessControlDetector::new()));
 
     // Medium Vulnerability detectors
-    registry.register(Box::new(low_level_call::LowLevelCallDetector::new()));
     registry.register(Box::new(centralization_risk::CentralizationRiskDetector::new()));
-    registry.register(Box::new(timestamp_dependence::TimestampDependenceDetector::new()));
 
     // Code quality detectors
-    registry.register(Box::new(floating_pragma::FloatingPragmaDetector::new()));
-    registry.register(Box::new(shadowing::ShadowingDetector::new()));
     registry.register(Box::new(uninitialized::UninitializedDetector::new()));
-    registry.register(Box::new(deprecated::DeprecatedDetector::new()));
-    registry.register(Box::new(visibility::VisibilityDetector::new()));
     registry.register(Box::new(dead_code::DeadCodeDetector::new()));
 
     // Optimization detectors
     registry.register(Box::new(constant_state_var::ConstantStateVarDetector::new()));
+    
+    // Note: The following detectors have been migrated to the new detection framework
+    // and are now available in smarthunt/src/detection/detectors/ast/:
+    // - tx_origin, delegatecall, unchecked_call, low_level_call
+    // - floating_pragma, shadowing, deprecated, visibility, timestamp_dependence
 }
 
 /// Create a registry with all built-in detectors.

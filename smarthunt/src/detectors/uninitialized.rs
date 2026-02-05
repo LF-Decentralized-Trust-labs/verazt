@@ -4,8 +4,7 @@
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::engine::context::AnalysisContext;
-use crate::passes::PassId;
+use crate::detectors::AnalysisContext;
 use solidity::ast::{ContractDef, ContractElem, DataLoc, Expr, Loc, Stmt, VarMut, Type};
 use std::collections::HashSet;
 
@@ -38,9 +37,6 @@ impl Detector for UninitializedDetector {
          may point to unexpected storage slots, leading to data corruption."
     }
 
-    fn required_passes(&self) -> Vec<PassId> {
-        vec![PassId::DataFlow]
-    }
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability

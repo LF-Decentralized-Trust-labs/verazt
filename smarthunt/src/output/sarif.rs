@@ -5,7 +5,7 @@
 
 use crate::output::formatter::{AnalysisReport, OutputFormatter};
 use serde::{Serialize, Deserialize};
-use bugs::bug::{Bug, RiskLevel};
+use bugs::bug::RiskLevel;
 
 /// SARIF output formatter.
 #[derive(Debug, Default)]

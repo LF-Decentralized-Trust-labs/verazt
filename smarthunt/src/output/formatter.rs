@@ -1,7 +1,6 @@
 //! Output formatter trait.
 
 use bugs::bug::Bug;
-use crate::engine::context::AnalysisContext;
 use std::time::Duration;
 
 /// Analysis report containing all findings.

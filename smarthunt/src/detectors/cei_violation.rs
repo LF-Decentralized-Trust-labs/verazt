@@ -4,8 +4,7 @@
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detectors::{Detector, ConfidenceLevel, create_bug};
-use crate::engine::context::AnalysisContext;
-use crate::passes::PassId;
+use crate::detectors::AnalysisContext;
 use solidity::ast::{
     Block, ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
 };
@@ -40,9 +39,6 @@ impl Detector for CeiViolationDetector {
          pattern can lead to reentrancy vulnerabilities."
     }
 
-    fn required_passes(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable, PassId::StateMutation]
-    }
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability
