@@ -25,7 +25,7 @@ pub struct ModifierInfo {
     /// Whether this is a reentrancy guard.
     pub is_reentrancy_guard: bool,
     /// Location in source.
-    pub loc: Option<crate::ast::Loc>,
+    pub loc: Option<solidity::ast::Loc>,
 }
 
 /// Modifier usage on a function.
@@ -149,7 +149,7 @@ impl ModifierAnalysis {
             .filter_map(|m| {
                 // Extract name from callee expression
                 match m.callee.as_ref() {
-                    crate::ast::Expr::Ident(ident) => Some(ident.name.clone()),
+                    solidity::ast::Expr::Ident(ident) => Some(ident.name.clone()),
                     _ => None,
                 }
             })

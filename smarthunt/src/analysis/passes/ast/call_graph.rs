@@ -22,7 +22,7 @@ pub struct CallSite {
     /// The called function (if resolvable).
     pub callee: Option<FunctionId>,
     /// Location in source.
-    pub loc: Option<crate::ast::Loc>,
+    pub loc: Option<solidity::ast::Loc>,
     /// Whether this is an external call.
     pub is_external: bool,
     /// Whether this is a delegate call.
