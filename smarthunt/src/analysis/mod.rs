@@ -55,3 +55,17 @@ pub use passes::ast::{
     InheritanceGraphPass, InheritanceGraph, InheritanceGraphExt,
     ModifierAnalysisPass, ModifierAnalysis, ModifierInfo, ModifierAnalysisExt,
 };
+
+// Re-export IR passes
+pub use passes::ir::{
+    CfgPass, ControlFlowGraph, BasicBlock, BasicBlockId, Terminator,
+};
+
+// Re-export data flow framework and analyses
+pub use passes::dataflow::{
+    DataFlowFact, TransferFunction, AnalysisDirection, DataFlowSolver,
+    TaintAnalysisPass, TaintMap, TaintSource, TaintSink,
+    DefUseChainPass, DefUseChain, Definition, Use,
+    LivenessAnalysisPass, LiveSet,
+    StateMutationPass, StateMutation, StateWrite, StateRead,
+};
