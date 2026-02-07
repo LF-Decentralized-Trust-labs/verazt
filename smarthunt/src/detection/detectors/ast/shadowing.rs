@@ -76,4 +76,8 @@ impl BugDetectionPass for ShadowingDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![119] // SWC-119: Shadowing State Variables
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Rename the shadowed variable to remove ambiguity."
+    }
 }

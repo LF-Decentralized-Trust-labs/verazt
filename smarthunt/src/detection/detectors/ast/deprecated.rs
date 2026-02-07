@@ -76,4 +76,8 @@ impl BugDetectionPass for DeprecatedDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![111] // SWC-111: Use of Deprecated Solidity Functions
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Replace deprecated features with their modern equivalents."
+    }
 }

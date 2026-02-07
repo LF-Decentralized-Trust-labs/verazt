@@ -76,4 +76,8 @@ impl BugDetectionPass for DelegatecallDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![112] // SWC-112: Delegatecall to Untrusted Callee
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Verify the target contract is trusted and update state variables carefully."
+    }
 }

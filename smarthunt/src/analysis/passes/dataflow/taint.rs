@@ -8,7 +8,7 @@ use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::analysis::context::AnalysisContext;
 use solidity::ast::Loc;
-use std::collections::HashMap;
+
 
 /// Taint source (untrusted data origin).
 #[derive(Debug, Clone, PartialEq, Eq)]

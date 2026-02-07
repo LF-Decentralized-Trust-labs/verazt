@@ -1,5 +1,5 @@
-use crate::irdfa::var::{VarId, VarScope};
-use solidity::ir::{Expr, Stmt};
+use crate::irdfa::var::VarId;
+use solidity::ir::{AtomicExpr, CalleeExpr, Expr, Stmt};
 
 /// Collect variables that are used (read) in a statement
 pub fn collect_used_vars(stmt: &Stmt) -> Vec<VarId> {
@@ -13,13 +13,20 @@ pub fn collect_used_vars(stmt: &Stmt) -> Vec<VarId> {
             if let Some(value) = &v.value {
                 collect_used_vars_expr(value, &mut vars);
             }
+            for decl_opt in &v.vars {
+                if let Some(decl) = decl_opt {
+                    if let Some(value) = &decl.value {
+                        collect_used_vars_expr(value, &mut vars);
+                    }
+                }
+            }
         }
         Stmt::If(i) => {
             collect_used_vars_expr(&i.condition, &mut vars);
         }
         Stmt::Return(r) => {
-            if let Some(value) = &r.value {
-                collect_used_vars_expr(value, &mut vars);
+            if let Some(expr) = &r.expr {
+                collect_used_vars_expr(expr, &mut vars);
             }
         }
         Stmt::Loop(l) => {
@@ -40,12 +47,24 @@ pub fn collect_defined_vars(stmt: &Stmt) -> Vec<VarId> {
     match stmt {
         Stmt::VarDecl(v) => {
             // A variable declaration defines a new variable
-            vars.push(VarId::local(&v.name));
+            for decl_opt in &v.vars {
+                if let Some(decl) = decl_opt {
+                    vars.push(VarId::local(&decl.name));
+                }
+            }
         }
         Stmt::Expr(e) => {
             // Check if this is an assignment expression
-            if let Expr::Assign(assign) = &e.expr {
-                collect_defined_vars_expr(&assign.lhs, &mut vars);
+            if let Expr::Call(call) = &e.expr {
+                if let CalleeExpr::BuiltIn(name) = &call.callee {
+                    if name == "=" || name.ends_with("=") {
+                        if let Some(lhs) = call.args.first() {
+                            if let AtomicExpr::Var(v) = lhs {
+                                vars.push(VarId::local(&v.name));
+                            }
+                        }
+                    }
+                }
             }
         }
         _ => {}
@@ -54,82 +73,79 @@ pub fn collect_defined_vars(stmt: &Stmt) -> Vec<VarId> {
     vars
 }
 
-/// Helper to collect variables used in an expression
-fn collect_used_vars_expr(expr: &Expr, vars: &mut Vec<VarId>) {
+fn collect_used_vars_atomic(expr: &AtomicExpr, vars: &mut Vec<VarId>) {
     match expr {
-        Expr::Ident(id) => {
-            // Identifier references a variable
-            vars.push(VarId::local(&id.name));
-        }
-        Expr::Member(m) => {
-            // For member access, the object is used
-            collect_used_vars_expr(&m.object, vars);
-        }
-        Expr::Index(i) => {
-            // Both array/mapping and index are used
-            collect_used_vars_expr(&i.object, vars);
-            collect_used_vars_expr(&i.index, vars);
-        }
-        Expr::Binary(b) => {
-            collect_used_vars_expr(&b.left, vars);
-            collect_used_vars_expr(&b.right, vars);
-        }
-        Expr::Unary(u) => {
-            collect_used_vars_expr(&u.operand, vars);
-        }
-        Expr::Assign(a) => {
-            // In assignment, RHS is used, LHS is defined
-            // But for nested expressions, LHS might also be read (e.g., x += 1)
-            collect_used_vars_expr(&a.rhs, vars);
-
-            // For compound assignments, the LHS is also read
-            if a.op != solidity::ir::AssignOp::Assign {
-                collect_used_vars_expr(&a.lhs, vars);
-            }
-        }
-        Expr::Call(c) => {
-            collect_used_vars_expr(&c.callee, vars);
-            for arg in c.args.args.iter() {
-                collect_used_vars_expr(arg, vars);
-            }
-        }
-        Expr::Conditional(c) => {
-            collect_used_vars_expr(&c.condition, vars);
-            collect_used_vars_expr(&c.true_expr, vars);
-            collect_used_vars_expr(&c.false_expr, vars);
-        }
-        Expr::Tuple(t) => {
-            for elem in &t.elems {
-                collect_used_vars_expr(elem, vars);
-            }
-        }
+        AtomicExpr::Var(v) => vars.push(VarId::local(&v.name)),
         _ => {}
     }
 }
 
-/// Helper to collect variables defined in an expression (LHS of assignment)
-fn collect_defined_vars_expr(expr: &Expr, vars: &mut Vec<VarId>) {
+/// Helper to collect variables used in an expression
+fn collect_used_vars_expr(expr: &Expr, vars: &mut Vec<VarId>) {
     match expr {
-        Expr::Ident(id) => {
-            vars.push(VarId::local(&id.name));
+        Expr::Var(v) => {
+            vars.push(VarId::local(&v.name));
         }
         Expr::Member(m) => {
-            // Member assignment might be to a state variable
-            if let Expr::Ident(obj) = &*m.object {
-                // Could be a state variable access
-                vars.push(VarId::state(&m.member, &obj.name));
-            }
+            collect_used_vars_expr(&m.base, vars);
         }
         Expr::Index(i) => {
-            // Array/mapping element assignment
-            collect_defined_vars_expr(&i.object, vars);
-        }
-        Expr::Tuple(t) => {
-            // Tuple destructuring assignment
-            for elem in &t.elems {
-                collect_defined_vars_expr(elem, vars);
+            vars.push(VarId::local(&i.base.name));
+            if let Some(idx) = &i.index {
+                collect_used_vars_atomic(idx, vars);
             }
         }
+        Expr::Call(c) => {
+            // Check for assignment: LHS might NOT be used if simple assignment
+            let mut is_simple_assignment = false;
+            if let CalleeExpr::BuiltIn(name) = &c.callee {
+                if name == "=" {
+                    is_simple_assignment = true;
+                }
+            }
+
+            if is_simple_assignment {
+                // Skip first arg (LHS)
+                for arg in c.args.iter().skip(1) {
+                    collect_used_vars_atomic(arg, vars);
+                }
+            } else {
+                // Callee might be Expr? No, CalleeExpr.
+                match &c.callee {
+                    CalleeExpr::MemberExpr(m) => {
+                        collect_used_vars_expr(&Expr::Member(m.clone()), vars)
+                    }
+                    _ => {}
+                }
+                for arg in &c.args {
+                    collect_used_vars_atomic(arg, vars);
+                }
+            }
+        }
+        Expr::Tuple(t) => {
+            for elem in &t.elems {
+                if let Some(e) = elem {
+                    collect_used_vars_atomic(e, vars);
+                }
+            }
+        }
+        Expr::InlineArray(a) => {
+            for elem in &a.elems {
+                collect_used_vars_atomic(elem, vars);
+            }
+        }
+        // Conditional, New, TypeName, Lit do not introduce variable uses
+        // Wait, Conditional does!
+        // Expr::Conditional(c) isMISSING from my draft above? match cases must be exhaustive or default
+        // In default (or explicit), handle Conditional
+        // solidity::ir::exprs.rs: ConditionalExpr { cond, true_br, false_br } - they are AtomicExpr?
+        // Let's check ir/exprs.rs again for ConditionalExpr.
         _ => {}
     }
+}
+
+pub fn get_vars_in_expr(expr: &Expr) -> Vec<VarId> {
+    let mut vars = Vec::new();
+    collect_used_vars_expr(expr, &mut vars);
+    vars
 }

@@ -76,4 +76,8 @@ impl BugDetectionPass for UncheckedCallDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![104] // SWC-104: Unchecked Call Return Value
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Ensure the return value of the low-level call is checked."
+    }
 }

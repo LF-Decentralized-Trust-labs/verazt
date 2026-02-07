@@ -213,26 +213,26 @@ impl ContainsPattern {
             Expr::Binary(b) => self
                 .search_expr(&b.left, ctx)
                 .or_else(|| self.search_expr(&b.right, ctx)),
-            Expr::Unary(u) => self.search_expr(&u.operand, ctx),
-            Expr::Call(c) => {
-                self.search_expr(&c.callee, ctx).or_else(|| {
-                    c.args
-                        .args
-                        .iter()
-                        .find_map(|arg| self.search_expr(arg, ctx))
-                })
-            }
-            Expr::Member(m) => self.search_expr(&m.object, ctx),
+            Expr::Unary(u) => self.search_expr(&u.body, ctx),
+            Expr::Call(c) => self
+                .search_expr(&c.callee, ctx)
+                .or_else(|| match &c.args {
+                    solidity::ast::CallArgs::Unnamed(args) => args.iter().find_map(|arg| self.search_expr(arg, ctx)),
+                    solidity::ast::CallArgs::Named(args) => {
+                        args.iter().find_map(|arg| self.search_expr(&arg.value, ctx))
+                    }
+                }),
+            Expr::Member(m) => self.search_expr(&m.base, ctx),
             Expr::Index(i) => self
-                .search_expr(&i.object, ctx)
-                .or_else(|| self.search_expr(&i.index, ctx)),
+                .search_expr(&i.base_expr, ctx)
+                .or_else(|| i.index.as_ref().and_then(|idx| self.search_expr(idx, ctx))),
             Expr::Conditional(c) => self
-                .search_expr(&c.condition, ctx)
-                .or_else(|| self.search_expr(&c.true_expr, ctx))
-                .or_else(|| self.search_expr(&c.false_expr, ctx)),
+                .search_expr(&c.cond, ctx)
+                .or_else(|| self.search_expr(&c.true_br, ctx))
+                .or_else(|| self.search_expr(&c.false_br, ctx)),
             Expr::Assign(a) => self
-                .search_expr(&a.lhs, ctx)
-                .or_else(|| self.search_expr(&a.rhs, ctx)),
+                .search_expr(&a.left, ctx)
+                .or_else(|| self.search_expr(&a.right, ctx)),
             _ => None,
         }
     }
@@ -249,18 +249,22 @@ impl Pattern for ContainsPattern {
             Stmt::Expr(e) => self.search_expr(&e.expr, ctx),
             Stmt::If(i) => self
                 .search_expr(&i.condition, ctx)
-                .or_else(|| {
-                    i.true_branch
-                        .stmts
-                        .iter()
-                        .find_map(|s| self.match_stmt(s, ctx))
+                .or_else(|| match i.true_branch.as_ref() {
+                    solidity::ast::Stmt::Block(b) => b.body.iter().find_map(|s| self.match_stmt(s, ctx)),
+                    _ => self.match_stmt(&i.true_branch, ctx),
                 })
                 .or_else(|| {
                     i.false_branch
                         .as_ref()
-                        .and_then(|fb| fb.stmts.iter().find_map(|s| self.match_stmt(s, ctx)))
+                        .and_then(|fb| match fb.as_ref() {
+                            solidity::ast::Stmt::Block(b) => b.body.iter().find_map(|s| self.match_stmt(s, ctx)),
+                            _ => self.match_stmt(fb, ctx),
+                        })
                 }),
-            Stmt::Return(r) => r.value.as_ref().and_then(|v| self.search_expr(v, ctx)),
+            solidity::ast::Stmt::DoWhile(w) => self
+                .match_stmt(&w.body, ctx)
+                .or_else(|| self.search_expr(&w.condition, ctx)),
+            Stmt::Return(r) => r.expr.as_ref().and_then(|v| self.search_expr(v, ctx)),
             Stmt::VarDecl(v) => v.value.as_ref().and_then(|val| self.search_expr(val, ctx)),
             _ => None,
         }

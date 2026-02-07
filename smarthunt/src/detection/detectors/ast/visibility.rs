@@ -74,6 +74,10 @@ impl BugDetectionPass for VisibilityDetector {
     }
 
     fn swc_ids(&self) -> Vec<usize> {
-        vec![100] // SWC-100: Function Default Visibility
+        vec![100, 108] // SWC-100: Function Default Visibility, SWC-108: State Variable Default Visibility
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Explicitly define visibility for all functions and state variables."
     }
 }

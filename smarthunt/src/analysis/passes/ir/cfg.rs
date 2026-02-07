@@ -9,7 +9,7 @@ use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::analysis::context::AnalysisContext;
-use solidity::ir::{self, Stmt, Expr, Lit, BoolLit};
+use solidity::ir::{self, Stmt, Expr};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -187,7 +187,7 @@ impl CfgPass {
     }
 
     /// Build CFG for a single IR function.
-    fn build_cfg_for_function(&self, _func: &ir::FuncDef) -> PassResult<ControlFlowGraph> {
+    fn _build_cfg_for_function(&self, _func: &ir::FuncDef) -> PassResult<ControlFlowGraph> {
         // For now, create a simple single-block CFG
         // TODO: Implement full CFG construction from IR statements
 
@@ -262,6 +262,7 @@ impl AnalysisPass for CfgPass {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use solidity::ir::{Lit, BoolLit};
 
     #[test]
     fn test_basic_block_creation() {

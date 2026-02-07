@@ -84,9 +84,9 @@ fn test_shadowing_detector() {
 #[test]
 fn test_uninitialized_detector() {
     let registry = create_registry();
-    let detector = registry.get("uninitialized").expect("uninitialized detector should exist");
+    let detector = registry.get("uninitialized-storage").expect("uninitialized detector should exist");
 
-    assert_eq!(detector.id().as_str(), "uninitialized");
+    assert_eq!(detector.id().as_str(), "uninitialized-storage");
     assert_eq!(detector.swc_ids(), vec![109]);
 }
 

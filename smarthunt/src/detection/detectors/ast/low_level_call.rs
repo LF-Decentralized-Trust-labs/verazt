@@ -76,4 +76,8 @@ impl BugDetectionPass for LowLevelCallDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![]
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Avoid low-level calls. If necessary, ensure proper checks and handling."
+    }
 }

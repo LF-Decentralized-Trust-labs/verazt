@@ -24,8 +24,8 @@ impl IdentPattern {
 
 impl Pattern for IdentPattern {
     fn match_expr(&self, expr: &Expr, ctx: &MatchContext) -> Option<Match> {
-        if let Expr::Ident(id) = expr {
-            if id.name.name == self.name {
+        if let solidity::ast::Expr::Ident(id) = expr {
+            if id.name.base == self.name {
                 let mut captures = HashMap::new();
                 if let Some(key) = &self.capture_as {
                     captures.insert(key.clone(), CapturedNode::Ident(id.clone()));
@@ -77,12 +77,12 @@ impl MemberAccessPattern {
 
 impl Pattern for MemberAccessPattern {
     fn match_expr(&self, expr: &Expr, ctx: &MatchContext) -> Option<Match> {
-        if let Expr::Member(m) = expr {
-            if m.member.name == self.member {
-                if let Some(obj_match) = self.object.match_expr(&m.object, ctx) {
+        if let solidity::ast::Expr::Member(m) = expr {
+            if m.member.base == self.member {
+                if let Some(obj_match) = self.object.match_expr(&m.base, ctx) {
                     let mut captures = obj_match.captures;
                     if let Some(key) = &self.capture_object_as {
-                        captures.insert(key.clone(), CapturedNode::Expr(m.object.clone()));
+                        captures.insert(key.clone(), CapturedNode::Expr(m.base.clone()));
                     }
                     return Some(Match {
                         loc: m.loc,

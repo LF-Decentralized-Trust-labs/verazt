@@ -30,9 +30,9 @@ fn test_pass_dependencies_valid() {
     let symbol_table_pass = SymbolTablePass::new();
     assert!(symbol_table_pass.dependencies().is_empty());
 
-    // TypeIndex depends on SymbolTable
+    // TypeIndex has no dependencies
     let type_index_pass = TypeIndexPass::new();
-    assert!(type_index_pass.dependencies().contains(&PassId::SymbolTable));
+    assert!(type_index_pass.dependencies().is_empty());
 
     // CFG depends on SymbolTable
     // let cfg_pass = CfgPass::new();

@@ -128,7 +128,7 @@ impl BasicBlock {
 
         // Also collect uses from terminator condition
         if let Terminator::Branch { condition, .. } = &self.terminator {
-            let uses = collect_used_vars_expr(condition);
+            let uses = crate::irdfa::utils::get_vars_in_expr(condition);
             for var in uses {
                 if !local_defs.contains(&var) {
                     self.upward_exposed.insert(var.clone());
@@ -292,27 +292,3 @@ fn collect_defined_vars(stmt: &Stmt) -> Vec<VarId> {
     crate::irdfa::utils::collect_defined_vars(stmt)
 }
 
-/// Collect variables used in an expression (simple version for terminators)
-fn collect_used_vars_expr(expr: &Expr) -> Vec<VarId> {
-    let mut vars = Vec::new();
-
-    match expr {
-        Expr::Ident(id) => {
-            vars.push(VarId::local(&id.name));
-        }
-        Expr::Member(m) => {
-            // Recursively collect from object
-            vars.extend(collect_used_vars_expr(&m.object));
-        }
-        Expr::Binary(b) => {
-            vars.extend(collect_used_vars_expr(&b.left));
-            vars.extend(collect_used_vars_expr(&b.right));
-        }
-        Expr::Unary(u) => {
-            vars.extend(collect_used_vars_expr(&u.operand));
-        }
-        _ => {}
-    }
-
-    vars
-}

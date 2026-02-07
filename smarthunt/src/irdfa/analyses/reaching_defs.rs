@@ -1,5 +1,5 @@
 use crate::irdfa::cfg::BasicBlockId;
-use crate::irdfa::lattice::{Lattice, PowerSetLattice};
+use crate::irdfa::lattice::PowerSetLattice;
 use crate::irdfa::solver::Transfer;
 use crate::irdfa::var::VarId;
 use solidity::ast::Loc;

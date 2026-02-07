@@ -11,7 +11,7 @@ pub type FunctionId = String; // Placeholder
 /// Result of a pattern match
 #[derive(Clone, Debug)]
 pub struct Match {
-    pub loc: Loc,
+    pub loc: Option<Loc>,
     pub captures: HashMap<String, CapturedNode>,
     pub context: MatchContext,
 }

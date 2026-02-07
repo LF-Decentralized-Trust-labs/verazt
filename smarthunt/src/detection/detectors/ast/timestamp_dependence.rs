@@ -76,4 +76,8 @@ impl BugDetectionPass for TimestampDependenceDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![116] // SWC-116: Block values as a proxy for time
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Avoid using block.timestamp for critical logic or randomness."
+    }
 }

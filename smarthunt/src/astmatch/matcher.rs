@@ -1,5 +1,5 @@
 use crate::astmatch::core::{Match, MatchContext, Pattern};
-use solidity::ast::{ContractDef, ContractElem, Expr, FuncDef, SourceUnit, SourceUnitElem, Stmt};
+use solidity::ast::{ContractElem, Expr, SourceUnit, SourceUnitElem, Stmt};
 use std::collections::HashMap;
 
 /// Pattern matcher that runs multiple patterns in one traversal
@@ -72,30 +72,43 @@ impl<'a> PatternVisitor<'a> {
                 self.visit_expr(&b.left);
                 self.visit_expr(&b.right);
             }
-            Expr::Unary(u) => self.visit_expr(&u.operand),
+            Expr::Unary(u) => self.visit_expr(&u.body),
             Expr::Call(c) => {
                 self.visit_expr(&c.callee);
-                for arg in c.args.args.iter() {
-                    self.visit_expr(arg);
+                match &c.args {
+                    solidity::ast::CallArgs::Unnamed(args) => {
+                        for arg in args {
+                            self.visit_expr(arg);
+                        }
+                    }
+                    solidity::ast::CallArgs::Named(args) => {
+                        for arg in args {
+                            self.visit_expr(&arg.value);
+                        }
+                    }
                 }
             }
-            Expr::Member(m) => self.visit_expr(&m.object),
+            Expr::Member(m) => self.visit_expr(&m.base),
             Expr::Index(i) => {
-                self.visit_expr(&i.object);
-                self.visit_expr(&i.index);
+                self.visit_expr(&i.base_expr);
+                if let Some(idx) = &i.index {
+                    self.visit_expr(idx);
+                }
             }
             Expr::Conditional(c) => {
-                self.visit_expr(&c.condition);
-                self.visit_expr(&c.true_expr);
-                self.visit_expr(&c.false_expr);
+                self.visit_expr(&c.cond);
+                self.visit_expr(&c.true_br);
+                self.visit_expr(&c.false_br);
             }
             Expr::Assign(a) => {
-                self.visit_expr(&a.lhs);
-                self.visit_expr(&a.rhs);
+                self.visit_expr(&a.left);
+                self.visit_expr(&a.right);
             }
             Expr::Tuple(t) => {
                 for e in &t.elems {
-                    self.visit_expr(e);
+                    if let Some(expr) = e {
+                        self.visit_expr(expr);
+                    }
                 }
             }
             Expr::InlineArray(arr) => {
@@ -120,13 +133,13 @@ impl<'a> PatternVisitor<'a> {
             Stmt::Expr(e) => self.visit_expr(&e.expr),
             Stmt::If(i) => {
                 self.visit_expr(&i.condition);
-                self.visit_block(&i.true_branch);
+                self.visit_stmt(&i.true_branch);
                 if let Some(fb) = &i.false_branch {
-                    self.visit_block(fb);
+                    self.visit_stmt(fb);
                 }
             }
             Stmt::Return(r) => {
-                if let Some(e) = &r.value {
+                if let Some(e) = &r.expr {
                     self.visit_expr(e);
                 }
             }
@@ -136,39 +149,30 @@ impl<'a> PatternVisitor<'a> {
                 }
             }
             Stmt::While(w) => {
-                let prev_in_loop = self.context.in_loop;
-                self.context.in_loop = true;
                 self.visit_expr(&w.condition);
-                self.visit_block(&w.body);
-                self.context.in_loop = prev_in_loop;
+                self.visit_stmt(&w.body);
             }
             Stmt::DoWhile(d) => {
-                let prev_in_loop = self.context.in_loop;
-                self.context.in_loop = true;
-                self.visit_block(&d.body);
+                self.visit_stmt(&d.body);
                 self.visit_expr(&d.condition);
-                self.context.in_loop = prev_in_loop;
             }
             Stmt::For(f) => {
-                let prev_in_loop = self.context.in_loop;
-                self.context.in_loop = true;
-                if let Some(init) = &f.init {
+                if let Some(init) = &f.pre_loop {
                     self.visit_stmt(init);
                 }
                 if let Some(cond) = &f.condition {
                     self.visit_expr(cond);
                 }
-                if let Some(post) = &f.post {
-                    self.visit_expr(post);
+                if let Some(post) = &f.post_loop {
+                    self.visit_stmt(post);
                 }
-                self.visit_block(&f.body);
-                self.context.in_loop = prev_in_loop;
+                self.visit_stmt(&f.body);
             }
             Stmt::Block(b) => self.visit_block(b),
             Stmt::Try(t) => {
-                self.visit_expr(&t.expr);
-                for clause in &t.clauses {
-                    self.visit_block(&clause.block);
+                self.visit_expr(&t.guarded_expr);
+                for clause in &t.catch_clauses {
+                    self.visit_block(&clause.body);
                 }
             }
             Stmt::Emit(e) => {
@@ -184,7 +188,7 @@ impl<'a> PatternVisitor<'a> {
     }
 
     fn visit_block(&mut self, block: &solidity::ast::Block) {
-        for stmt in &block.stmts {
+        for stmt in &block.body {
             self.visit_stmt(stmt);
         }
     }
@@ -199,16 +203,16 @@ impl<'a> PatternVisitor<'a> {
         }
     }
 
-    fn visit_contract(&mut self, contract: &ContractDef) {
+    fn visit_contract(&mut self, contract: &solidity::ast::ContractDef) {
         let prev_contract = self.context.current_contract.clone();
-        self.context.current_contract = Some(contract.name.name.clone());
+        self.context.current_contract = Some(contract.name.base.clone());
 
-        for elem in &contract.elems {
+        for elem in &contract.body {
             match elem {
-                ContractElem::FuncDef(f) => self.visit_function(f),
-                ContractElem::VarDecl(v) => {
-                    if let Some(init) = &v.value {
-                        self.visit_expr(init);
+                ContractElem::Func(f) => self.visit_function(f),
+                ContractElem::Var(v) => {
+                    if let Some(val) = &v.value {
+                        self.visit_expr(val);
                     }
                 }
                 _ => {}
@@ -218,9 +222,9 @@ impl<'a> PatternVisitor<'a> {
         self.context.current_contract = prev_contract;
     }
 
-    fn visit_function(&mut self, func: &FuncDef) {
+    fn visit_function(&mut self, func: &solidity::ast::FuncDef) {
         let prev_function = self.context.current_function.clone();
-        self.context.current_function = Some(func.name.name.clone());
+        self.context.current_function = Some(func.name.base.clone());
 
         if let Some(body) = &func.body {
             self.visit_block(body);

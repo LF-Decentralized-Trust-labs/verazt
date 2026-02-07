@@ -91,7 +91,7 @@ impl PatternBuilder {
 
     /// Binary not-equal pattern helper
     pub fn binary_ne(left: impl Pattern + 'static, right: impl Pattern + 'static) -> BinaryPattern {
-        BinaryPattern::new(Box::new(left), BinOp::NotEq, Box::new(right))
+        BinaryPattern::new(Box::new(left), BinOp::Ne, Box::new(right))
     }
 }
 
@@ -111,7 +111,7 @@ impl BinaryPattern {
 impl Pattern for BinaryPattern {
     fn match_expr(&self, expr: &solidity::ast::Expr, ctx: &crate::astmatch::core::MatchContext) -> Option<Match> {
         if let solidity::ast::Expr::Binary(b) = expr {
-            if b.op == self.op {
+            if b.operator == self.op {
                 let left_match = self.left.match_expr(&b.left, ctx)?;
                 let right_match = self.right.match_expr(&b.right, ctx)?;
 
