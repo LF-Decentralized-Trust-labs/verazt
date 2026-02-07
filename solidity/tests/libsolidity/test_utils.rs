@@ -2,7 +2,7 @@
 use extlib::{error::Result, fail};
 use regex::Regex;
 use solidity::{
-    ast::SourceUnit, ast::utils::export::export_source_unit, compile::compile_input_file,
+    ast::SourceUnit, ast::utils::export::export_source_unit, parser::parse_input_file,
     ast::normalize,
 };
 use std::{
@@ -166,7 +166,7 @@ fn test_compiling_solidity_file(
 ) -> bool {
     let mut parsed_source_units: Vec<SourceUnit> = vec![];
     for input_file in input_files {
-        match compile_input_file(input_file, Some(preprocessed_dir), &[], Some(solc_ver)) {
+        match parse_input_file(input_file, Some(preprocessed_dir), &[], Some(solc_ver)) {
             Ok(source_units) => {
                 // Check if source units are compiled successfully.
                 assert!(
@@ -216,7 +216,7 @@ fn test_compiling_solidity_file(
         // Now compile all the exported files to test if they are valid Solidity files.
         for file in exported_files {
             info!("- Test compilation: {file}");
-            if let Err(err) = compile_input_file(&file, Some(parsed_dir), &[], Some(solc_ver)) {
+            if let Err(err) = parse_input_file(&file, Some(parsed_dir), &[], Some(solc_ver)) {
                 panic!("Failed to compile: {file}\n\nError: {err}");
             }
         }
@@ -250,7 +250,7 @@ fn test_compiling_solidity_file(
         for file in exported_files {
             // Compile the normalized Solidity file by Solc again
             info!("- Test compilation: {file}");
-            if let Err(err) = compile_input_file(&file, Some(normalized_dir), &[], Some(solc_ver))
+            if let Err(err) = parse_input_file(&file, Some(normalized_dir), &[], Some(solc_ver))
             {
                 panic!("Failed to compile: {file}\n\nError: {err}");
             }

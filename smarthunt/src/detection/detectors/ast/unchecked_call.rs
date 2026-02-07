@@ -4,11 +4,11 @@
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use solidity::analysis::pass::Pass;
-use solidity::analysis::pass_id::PassId;
-use solidity::analysis::pass_level::PassLevel;
-use solidity::analysis::pass_representation::PassRepresentation;
-use solidity::analysis::context::AnalysisContext;
+use crate::analysis::pass::Pass;
+use crate::analysis::pass_id::PassId;
+use crate::analysis::pass_level::PassLevel;
+use crate::analysis::pass_representation::PassRepresentation;
+use crate::analysis::context::AnalysisContext;
 
 /// Detector for unchecked call returns.
 pub struct UncheckedCallDetector;
@@ -75,5 +75,9 @@ impl BugDetectionPass for UncheckedCallDetector {
 
     fn swc_ids(&self) -> Vec<usize> {
         vec![104] // SWC-104: Unchecked Call Return Value
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Ensure the return value of the low-level call is checked."
     }
 }

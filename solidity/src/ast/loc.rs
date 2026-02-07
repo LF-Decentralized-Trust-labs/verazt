@@ -6,7 +6,7 @@ use std::fmt::{self, Display};
 //-------------------------------------------------------------------------
 
 /// Source code location.
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub struct Loc {
     pub start_line: usize,
     pub start_col: usize,

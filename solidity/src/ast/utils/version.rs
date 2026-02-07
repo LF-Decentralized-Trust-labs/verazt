@@ -1,6 +1,6 @@
 //! Module handling Soldity versions.
 
-use crate::parsing::version::version_parser;
+use crate::parser::version_parser::version_parser;
 use extlib::{error::Result, fail};
 use node_semver::{Range, Version};
 use std::fs;

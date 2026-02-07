@@ -4,11 +4,11 @@
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use solidity::analysis::pass::Pass;
-use solidity::analysis::pass_id::PassId;
-use solidity::analysis::pass_level::PassLevel;
-use solidity::analysis::pass_representation::PassRepresentation;
-use solidity::analysis::context::AnalysisContext;
+use crate::analysis::pass::Pass;
+use crate::analysis::pass_id::PassId;
+use crate::analysis::pass_level::PassLevel;
+use crate::analysis::pass_representation::PassRepresentation;
+use crate::analysis::context::AnalysisContext;
 
 /// Detector for visibility issues.
 pub struct VisibilityDetector;
@@ -74,6 +74,10 @@ impl BugDetectionPass for VisibilityDetector {
     }
 
     fn swc_ids(&self) -> Vec<usize> {
-        vec![100] // SWC-100: Function Default Visibility
+        vec![100, 108] // SWC-100: Function Default Visibility, SWC-108: State Variable Default Visibility
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Explicitly define visibility for all functions and state variables."
     }
 }

@@ -11,7 +11,7 @@ parallel = ["rayon"]
 
 [[bin]]
 name = "soljc"
-path = "src/soljc.rs"
+path = "src/main.rs"
 
 [dependencies]
 backtrace = "0.3"

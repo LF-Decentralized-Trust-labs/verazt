@@ -187,7 +187,7 @@ mod tests {
     use super::rename_contracts;
     use crate::{
         ast::utils::syntactic_comparer::compare_source_units,
-        compile::compile_solidity_source_code,
+        parser::parse_solidity_source_code,
         ast::normalize::{flatten_name, utils::configure_unit_test_env},
     };
     use indoc::indoc;
@@ -273,14 +273,14 @@ mod tests {
                 }
             }"###};
 
-        let input_sunits = match compile_solidity_source_code(input_contract, "0.8.17") {
+        let input_sunits = match parse_solidity_source_code(input_contract, "0.8.17") {
             Ok(input_sunits) => input_sunits,
             Err(err) => panic!("Failed to parse input source unit: {err}"),
         };
         let (output_sunits, _) = rename_contracts(&input_sunits, None);
         let output_sunits = flatten_name(&output_sunits);
 
-        let expected_sunits = match compile_solidity_source_code(expected_contract, "0.8.17") {
+        let expected_sunits = match parse_solidity_source_code(expected_contract, "0.8.17") {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse expected source unit: {err}"),
         };

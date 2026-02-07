@@ -5,9 +5,20 @@
 //!
 //! # Architecture
 //!
-//! SmartHunt uses a pass-based architecture built on top of the analysis
-//! framework from the `solidity` crate:
+//! SmartHunt uses a pass-based architecture with a built-in analysis framework:
 //!
+//! - `irdfa`: IR Data Flow Analysis framework (standalone)
+//!   - Generic lattice framework for abstract domains
+//!   - Worklist-based solver for forward/backward analysis
+//!   - Built-in analyses (reaching definitions, liveness, taint, etc.)
+//! - `astmatch`: AST Pattern Matching framework (standalone)
+//!   - Declarative pattern definitions with captures
+//!   - Composable pattern combinators
+//!   - Multi-pattern single-pass matching
+//! - `analysis`: Core analysis framework (migrated from solidity crate)
+//!   - `PassManager`: Orchestrates pass registration, scheduling, and execution
+//!   - `AnalysisContext`: Central storage for AST, IR, and analysis artifacts
+//!   - Pass infrastructure for dependency resolution
 //! - `detection`: Pass-based detection framework
 //!   - `BugDetectionPass`: Trait for vulnerability detectors
 //!   - `DetectionManager`: Orchestrates analysis and detection
@@ -17,7 +28,7 @@
 //!
 //! ```ignore
 //! use smarthunt::detection::{DetectionManager, BugDetectionPass};
-//! use solidity::analysis::context::AnalysisContext;
+//! use smarthunt::AnalysisContext;
 //!
 //! let mut manager = DetectionManager::new();
 //! // Register detectors...
@@ -25,6 +36,15 @@
 //! let result = manager.run(&mut context);
 //! println!("Found {} bugs", result.total_bugs());
 //! ```
+
+// IR Data Flow Analysis framework (standalone)
+pub mod irdfa;
+
+// AST Pattern Matching framework (standalone)
+pub mod astmatch;
+
+// Analysis framework (migrated from solidity crate)
+pub mod analysis;
 
 // Pass-based detection framework
 pub mod detection;
@@ -34,6 +54,12 @@ pub mod output;
 
 // CLI configuration
 pub mod config;
+
+// Re-export core analysis types for convenience
+pub use analysis::{
+    Pass, AnalysisPass, PassId, PassLevel, PassRepresentation,
+    AnalysisContext, AnalysisConfig, PassManager, PassManagerConfig,
+};
 
 // Re-export from detection framework
 pub use detection::{BugDetectionPass, DetectionManager, DetectorRegistry, register_all_detectors};

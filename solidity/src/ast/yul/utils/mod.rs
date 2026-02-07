@@ -1,3 +1,5 @@
+// FIXME: merge all modules here into ast/utils and delete this module
+
 //! Utility traits for Yul AST.
 
 pub mod fold;

@@ -10,21 +10,20 @@ use smarthunt::{
     SeverityFilter,
     DetectorRegistry,
     register_all_detectors,
-    BugDetectionPass,
     AnalysisReport,
     OutputFormatter,
     JsonFormatter,
     MarkdownFormatter,
     SarifFormatter,
+    AnalysisContext,  // Use local analysis module
+    AnalysisConfig,
 };
 use solidity::{
     ast::utils::export::export_debugging_source_unit,
     ast::SourceUnit,
-    compile::compile_input_file,
-    analysis::context::AnalysisContext,
+    parser::parse_input_file,
 };
 use std::fs;
-use std::path::Path;
 use std::time::Instant;
 
 #[derive(Parser, Debug)]
@@ -351,7 +350,7 @@ fn run_analysis(args: Arguments) {
             eprintln!("Compiling: {}", file);
         }
 
-        let source_units = match compile_input_file(file, base_path, include_paths, solc_ver) {
+        let source_units = match parse_input_file(file, base_path, include_paths, solc_ver) {
             Ok(source_units) => source_units,
             Err(err) => {
                 eprintln!("Error compiling {}: {}", file, err);
@@ -385,7 +384,7 @@ fn run_analysis(args: Arguments) {
     }
 
     // Create analysis context
-    let mut context = AnalysisContext::new(all_source_units, solidity::analysis::context::AnalysisConfig::default());
+    let context = AnalysisContext::new(all_source_units, AnalysisConfig::default());
 
     // Run detectors using new detection framework
     let mut registry = DetectorRegistry::new();

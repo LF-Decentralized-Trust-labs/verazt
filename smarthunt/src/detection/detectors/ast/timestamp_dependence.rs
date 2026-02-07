@@ -4,11 +4,11 @@
 
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use solidity::analysis::pass::Pass;
-use solidity::analysis::pass_id::PassId;
-use solidity::analysis::pass_level::PassLevel;
-use solidity::analysis::pass_representation::PassRepresentation;
-use solidity::analysis::context::AnalysisContext;
+use crate::analysis::pass::Pass;
+use crate::analysis::pass_id::PassId;
+use crate::analysis::pass_level::PassLevel;
+use crate::analysis::pass_representation::PassRepresentation;
+use crate::analysis::context::AnalysisContext;
 
 /// Detector for timestamp dependence.
 pub struct TimestampDependenceDetector;
@@ -75,5 +75,9 @@ impl BugDetectionPass for TimestampDependenceDetector {
 
     fn swc_ids(&self) -> Vec<usize> {
         vec![116] // SWC-116: Block values as a proxy for time
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Avoid using block.timestamp for critical logic or randomness."
     }
 }
