@@ -3,7 +3,7 @@
 //! Manages registration and discovery of bug detectors.
 
 use crate::analysis::pass_id::PassId;
-use crate::detection::pass::BugDetectionPass;
+use crate::pipeline::detector::BugDetectionPass;
 use std::collections::HashMap;
 
 /// Registry for managing bug detectors.

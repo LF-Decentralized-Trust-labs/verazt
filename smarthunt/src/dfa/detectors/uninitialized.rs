@@ -12,7 +12,7 @@ use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugKind, RiskLevel};
 use solidity::ast::{
     ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnitElem, Stmt, Type, VarMut,
@@ -171,7 +171,7 @@ impl Pass for UninitializedDfaDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![]
+        vec![PassId::SymbolTable]
     }
 }
 

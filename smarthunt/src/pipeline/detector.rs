@@ -1,4 +1,4 @@
-//! Bug Detection Pass Trait
+//! Bug Detector Trait
 //!
 //! Extends the analysis framework's Pass trait with vulnerability detection
 //! capabilities.
