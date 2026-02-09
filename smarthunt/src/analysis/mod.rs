@@ -57,10 +57,3 @@ pub use passes::ast::{
 
 // Re-export IR passes
 pub use passes::ir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
-
-// Re-export data flow framework and analyses
-pub use passes::dataflow::{
-    AnalysisDirection, DataFlowFact, DataFlowSolver, DefUseChain, DefUseChainPass, Definition,
-    LiveSet, LivenessAnalysisPass, StateMutation, StateMutationPass, StateRead, StateWrite,
-    TaintAnalysisPass, TaintMap, TaintSink, TaintSource, TransferFunction, Use,
-};
