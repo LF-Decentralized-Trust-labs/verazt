@@ -9,9 +9,7 @@ pub struct PatternMatcher {
 
 impl PatternMatcher {
     pub fn new() -> Self {
-        Self {
-            patterns: Vec::new(),
-        }
+        Self { patterns: Vec::new() }
     }
 
     pub fn add_pattern(&mut self, name: impl Into<String>, pattern: impl Pattern + 'static) {
@@ -30,11 +28,8 @@ impl PatternMatcher {
             results.insert(name.clone(), Vec::new());
         }
 
-        let mut visitor = PatternVisitor {
-            matcher: self,
-            context: ctx.clone(),
-            results: &mut results,
-        };
+        let mut visitor =
+            PatternVisitor { matcher: self, context: ctx.clone(), results: &mut results };
 
         for unit in units {
             visitor.visit_source_unit(unit);

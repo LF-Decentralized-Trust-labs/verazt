@@ -1,8 +1,8 @@
 //! Module for parsing data type.
 
 use crate::ast::*;
-use extlib::{error::Result, fail};
 use crate::ast::{DataLoc, Name};
+use extlib::{error::Result, fail};
 use num_bigint::BigInt;
 use pest::{
     Parser,

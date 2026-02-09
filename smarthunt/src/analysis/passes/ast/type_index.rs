@@ -2,14 +2,13 @@
 //!
 //! This pass builds an index of all types defined in the program.
 
-use crate::analysis::pass::{Pass, AnalysisPass, PassResult};
+use crate::analysis::context::AnalysisContext;
+use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use solidity::ast::{
-    ContractDef, ContractElem, EnumDef, Name, SourceUnit, SourceUnitElem,
-    StructDef, TypeDef,
+    ContractDef, ContractElem, EnumDef, Name, SourceUnit, SourceUnitElem, StructDef, TypeDef,
 };
 use std::collections::HashMap;
 
@@ -82,8 +81,10 @@ impl TypeIndex {
             match elem {
                 SourceUnitElem::Contract(contract) => {
                     let name = contract.name.base.to_string();
-                    self.types.insert(name, TypeInfo::Contract(contract.clone()));
-                    self.contracts.insert(contract.name.clone(), contract.clone());
+                    self.types
+                        .insert(name, TypeInfo::Contract(contract.clone()));
+                    self.contracts
+                        .insert(contract.name.clone(), contract.clone());
                     self.process_contract(contract);
                 }
                 SourceUnitElem::Struct(s) => {

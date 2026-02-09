@@ -1,5 +1,5 @@
-use crate::ir::*;
 use crate::ast::{DataLoc, Loc};
+use crate::ir::*;
 use num_bigint::BigInt;
 use num_traits::One;
 use rust_decimal::Decimal;

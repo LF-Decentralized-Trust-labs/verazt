@@ -88,11 +88,7 @@ impl BasicBlock {
     pub fn compute_successors(&mut self) {
         self.successors = match &self.terminator {
             Terminator::Jump(target) => vec![*target],
-            Terminator::Branch {
-                true_block,
-                false_block,
-                ..
-            } => vec![*true_block, *false_block],
+            Terminator::Branch { true_block, false_block, .. } => vec![*true_block, *false_block],
             Terminator::Return | Terminator::Revert | Terminator::Unreachable => vec![],
         };
     }
@@ -249,7 +245,8 @@ impl ControlFlowGraph {
         postorder.push(block_id);
     }
 
-    /// Identify exit blocks (blocks with no successors or return/revert terminators)
+    /// Identify exit blocks (blocks with no successors or return/revert
+    /// terminators)
     pub fn compute_exit_blocks(&mut self) {
         self.exit_blocks.clear();
 
@@ -266,7 +263,8 @@ impl ControlFlowGraph {
         }
     }
 
-    /// Compute all metadata (predecessors, reverse postorder, exit blocks, def/use)
+    /// Compute all metadata (predecessors, reverse postorder, exit blocks,
+    /// def/use)
     pub fn compute_metadata(&mut self) {
         self.compute_predecessors();
         self.compute_reverse_postorder();
@@ -291,4 +289,3 @@ fn collect_used_vars(stmt: &Stmt) -> Vec<VarId> {
 fn collect_defined_vars(stmt: &Stmt) -> Vec<VarId> {
     crate::dfa::utils::collect_defined_vars(stmt)
 }
-

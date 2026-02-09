@@ -1,32 +1,30 @@
-//! Floating Pragma Detector
+//! Floating Pragma Detector (GREP-based)
 //!
-//! Detects unlocked compiler versions in pragma directives.
+//! Detects unlocked compiler versions in pragma directives using
+//! pattern matching.
 
-use bugs::bug::{Bug, BugKind, RiskLevel};
-use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
+use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use bugs::bug::{Bug, BugKind, RiskLevel};
 use solidity::ast::{PragmaKind, SourceUnitElem};
 
-/// Detector for floating pragma.
-pub struct FloatingPragmaDetector;
+/// GREP-based detector for floating pragma.
+///
+/// Detects unlocked compiler versions that can lead to unexpected behavior.
+#[derive(Debug, Default)]
+pub struct FloatingPragmaGrepDetector;
 
-impl FloatingPragmaDetector {
+impl FloatingPragmaGrepDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for FloatingPragmaDetector {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Pass for FloatingPragmaDetector {
+impl Pass for FloatingPragmaGrepDetector {
     fn id(&self) -> PassId {
         PassId::FloatingPragma
     }
@@ -52,7 +50,7 @@ impl Pass for FloatingPragmaDetector {
     }
 }
 
-impl BugDetectionPass for FloatingPragmaDetector {
+impl BugDetectionPass for FloatingPragmaGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -61,7 +59,8 @@ impl BugDetectionPass for FloatingPragmaDetector {
                 if let SourceUnitElem::Pragma(pragma) = elem {
                     if let PragmaKind::Version(version) = &pragma.kind {
                         // Check if version is floating (contains ^ or > or <)
-                        if version.contains('^') || version.contains('>') || version.contains('<') {
+                        if version.contains('^') || version.contains('>') || version.contains('<')
+                        {
                             if let Some(loc) = pragma.loc {
                                 let bug = create_bug(
                                     self,
@@ -101,5 +100,22 @@ impl BugDetectionPass for FloatingPragmaDetector {
 
     fn recommendation(&self) -> &'static str {
         "Lock the pragma version to a specific compiler version."
+    }
+
+    fn references(&self) -> Vec<&'static str> {
+        vec!["https://swcregistry.io/docs/SWC-103"]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_floating_pragma_grep_detector() {
+        let detector = FloatingPragmaGrepDetector::new();
+        assert_eq!(detector.id(), PassId::FloatingPragma);
+        assert_eq!(detector.swc_ids(), vec![103]);
+        assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

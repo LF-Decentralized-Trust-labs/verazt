@@ -19,20 +19,20 @@
 //! 3. Create an `AnalysisPass` that uses `DataFlowSolver`
 //! 4. Register the pass with PassManager
 
-pub mod framework;
-pub mod taint;
 pub mod def_use;
+pub mod framework;
 pub mod liveness;
 pub mod state_mutation;
+pub mod taint;
 
 // Re-export core framework types
 pub use framework::{
-    DataFlowFact, TransferFunction, AnalysisDirection,
-    DataFlowSolver, DataFlowResult, DataFlowError,
+    AnalysisDirection, DataFlowError, DataFlowFact, DataFlowResult, DataFlowSolver,
+    TransferFunction,
 };
 
 // Re-export specific analyses
-pub use taint::{TaintAnalysisPass, TaintMap, TaintSource, TaintSink, TaintStatus};
-pub use def_use::{DefUseChainPass, DefUseChain, Definition, Use};
-pub use liveness::{LivenessAnalysisPass, LiveSet};
-pub use state_mutation::{StateMutationPass, StateMutation, StateWrite, StateRead};
+pub use def_use::{DefUseChain, DefUseChainPass, Definition, Use};
+pub use liveness::{LiveSet, LivenessAnalysisPass};
+pub use state_mutation::{StateMutation, StateMutationPass, StateRead, StateWrite};
+pub use taint::{TaintAnalysisPass, TaintMap, TaintSink, TaintSource, TaintStatus};

@@ -1,10 +1,11 @@
 //! Bug Detection Pass Trait
 //!
-//! Extends the analysis framework's Pass trait with vulnerability detection capabilities.
+//! Extends the analysis framework's Pass trait with vulnerability detection
+//! capabilities.
 
-use bugs::bug::{Bug, BugKind, RiskLevel};
-use crate::analysis::pass::Pass;
 use crate::analysis::context::AnalysisContext;
+use crate::analysis::pass::Pass;
+use bugs::bug::{Bug, BugKind, RiskLevel};
 use solidity::ast::Loc;
 
 /// Confidence level for a detection.
@@ -124,11 +125,7 @@ pub trait BugDetectionPass: Pass {
 ///
 /// This is a convenience function for detectors to create Bug instances
 /// with consistent metadata.
-pub fn create_bug(
-    detector: &dyn BugDetectionPass,
-    description: Option<&str>,
-    loc: Loc,
-) -> Bug {
+pub fn create_bug(detector: &dyn BugDetectionPass, description: Option<&str>, loc: Loc) -> Bug {
     Bug::new(
         detector.name(),
         description,

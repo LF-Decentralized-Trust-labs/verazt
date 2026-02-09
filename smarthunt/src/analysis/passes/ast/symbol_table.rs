@@ -2,14 +2,14 @@
 //!
 //! This pass builds a symbol table for fast lookup of program entities.
 
-use crate::analysis::pass::{Pass, AnalysisPass, PassResult};
+use crate::analysis::context::AnalysisContext;
+use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use solidity::ast::{
-    ContractDef, ContractElem, EnumDef, ErrorDef, EventDef, FuncDef, FuncKind,
-    Name, SourceUnit, SourceUnitElem, StructDef, TypeDef, VarDecl,
+    ContractDef, ContractElem, EnumDef, ErrorDef, EventDef, FuncDef, FuncKind, Name, SourceUnit,
+    SourceUnitElem, StructDef, TypeDef, VarDecl,
 };
 use std::collections::HashMap;
 
@@ -92,7 +92,8 @@ impl SymbolTable {
         for elem in &source_unit.elems {
             match elem {
                 SourceUnitElem::Contract(contract) => {
-                    self.contracts.insert(contract.name.clone(), contract.clone());
+                    self.contracts
+                        .insert(contract.name.clone(), contract.clone());
                     self.process_contract(contract);
                 }
                 SourceUnitElem::Func(func) => {
@@ -125,10 +126,8 @@ impl SymbolTable {
                     self.functions.insert(id, func.clone());
                 }
                 ContractElem::Var(var) => {
-                    self.state_variables.insert(
-                        (contract.name.clone(), var.name.clone()),
-                        var.clone(),
-                    );
+                    self.state_variables
+                        .insert((contract.name.clone(), var.name.clone()), var.clone());
                 }
                 ContractElem::Struct(s) => {
                     self.structs.insert(s.name.clone(), s.clone());
@@ -183,13 +182,7 @@ impl SymbolTable {
     pub fn get_contract_state_variables(&self, contract_name: &Name) -> Vec<&VarDecl> {
         self.state_variables
             .iter()
-            .filter_map(|((c, _), var)| {
-                if c == contract_name {
-                    Some(var)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|((c, _), var)| if c == contract_name { Some(var) } else { None })
             .collect()
     }
 

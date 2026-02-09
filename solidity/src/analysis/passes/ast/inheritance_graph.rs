@@ -2,11 +2,11 @@
 //!
 //! This pass builds the inheritance graph for contracts.
 
-use crate::analysis::pass::{Pass, AnalysisPass, PassResult};
+use crate::analysis::context::AnalysisContext;
+use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use crate::ast::{ContractDef, Name, SourceUnit, SourceUnitElem};
 use std::collections::{HashMap, HashSet};
 

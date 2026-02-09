@@ -26,10 +26,11 @@
 pub mod cfg;
 pub mod lattice;
 pub mod solver;
-pub mod var;
 pub mod utils;
+pub mod var;
 
 pub mod analyses;
+pub mod detectors;
 
 // Re-export commonly used types
 pub use cfg::{BasicBlock, BasicBlockId, ControlFlowGraph, Terminator};

@@ -2,11 +2,11 @@
 //!
 //! This pass analyzes function modifiers and their usage.
 
-use crate::analysis::pass::{Pass, AnalysisPass, PassResult};
+use crate::analysis::context::AnalysisContext;
+use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use crate::analysis::passes::ast::symbol_table::FunctionId;
 use solidity::ast::{
     ContractDef, ContractElem, FuncDef, FuncKind, Name, SourceUnit, SourceUnitElem,
@@ -62,24 +62,50 @@ impl ModifierAnalysis {
     /// Create a new empty modifier analysis.
     pub fn new() -> Self {
         let mut analysis = Self::default();
-        
+
         // Common access control modifier patterns
-        analysis.access_control_modifiers.insert("onlyOwner".to_string());
-        analysis.access_control_modifiers.insert("onlyAdmin".to_string());
-        analysis.access_control_modifiers.insert("onlyRole".to_string());
-        analysis.access_control_modifiers.insert("onlyMinter".to_string());
-        analysis.access_control_modifiers.insert("onlyPauser".to_string());
-        analysis.access_control_modifiers.insert("onlyGovernance".to_string());
-        analysis.access_control_modifiers.insert("onlyController".to_string());
-        analysis.access_control_modifiers.insert("onlyAuthorized".to_string());
-        analysis.access_control_modifiers.insert("whenNotPaused".to_string());
-        analysis.access_control_modifiers.insert("whenPaused".to_string());
-        
+        analysis
+            .access_control_modifiers
+            .insert("onlyOwner".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("onlyAdmin".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("onlyRole".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("onlyMinter".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("onlyPauser".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("onlyGovernance".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("onlyController".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("onlyAuthorized".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("whenNotPaused".to_string());
+        analysis
+            .access_control_modifiers
+            .insert("whenPaused".to_string());
+
         // Common reentrancy guard patterns
-        analysis.reentrancy_guard_modifiers.insert("nonReentrant".to_string());
-        analysis.reentrancy_guard_modifiers.insert("noReentrant".to_string());
-        analysis.reentrancy_guard_modifiers.insert("reentrancyGuard".to_string());
-        
+        analysis
+            .reentrancy_guard_modifiers
+            .insert("nonReentrant".to_string());
+        analysis
+            .reentrancy_guard_modifiers
+            .insert("noReentrant".to_string());
+        analysis
+            .reentrancy_guard_modifiers
+            .insert("reentrancyGuard".to_string());
+
         analysis
     }
 
@@ -113,13 +139,13 @@ impl ModifierAnalysis {
 
     fn add_modifier(&mut self, contract: &ContractDef, modifier: &FuncDef) {
         let name_str = modifier.name.base.as_str();
-        
+
         let is_access_control = self.access_control_modifiers.contains(name_str)
             || name_str.starts_with("only")
             || name_str.starts_with("when");
-            
-        let is_reentrancy_guard = self.reentrancy_guard_modifiers.contains(name_str)
-            || name_str.contains("reentran");
+
+        let is_reentrancy_guard =
+            self.reentrancy_guard_modifiers.contains(name_str) || name_str.contains("reentran");
 
         let info = ModifierInfo {
             name: modifier.name.clone(),
@@ -129,10 +155,8 @@ impl ModifierAnalysis {
             loc: modifier.loc,
         };
 
-        self.definitions.insert(
-            (contract.name.clone(), modifier.name.clone()),
-            info,
-        );
+        self.definitions
+            .insert((contract.name.clone(), modifier.name.clone()), info);
     }
 
     fn process_function(&mut self, contract: &ContractDef, func: &FuncDef) {
@@ -156,7 +180,8 @@ impl ModifierAnalysis {
             .collect();
 
         if !modifiers.is_empty() {
-            self.function_modifiers.insert(func_id.clone(), modifiers.clone());
+            self.function_modifiers
+                .insert(func_id.clone(), modifiers.clone());
 
             for modifier_name in &modifiers {
                 self.modifier_functions
@@ -169,7 +194,10 @@ impl ModifierAnalysis {
 
     /// Get modifiers used by a function.
     pub fn get_function_modifiers(&self, func: &FunctionId) -> Vec<Name> {
-        self.function_modifiers.get(func).cloned().unwrap_or_default()
+        self.function_modifiers
+            .get(func)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Check if a function has a specific modifier.
@@ -189,7 +217,8 @@ impl ModifierAnalysis {
                 }
                 // Check if the modifier is defined as access control
                 if let Some(contract) = &func.contract {
-                    if let Some(info) = self.definitions.get(&(contract.clone(), modifier.clone())) {
+                    if let Some(info) = self.definitions.get(&(contract.clone(), modifier.clone()))
+                    {
                         if info.is_access_control {
                             return true;
                         }
@@ -209,7 +238,8 @@ impl ModifierAnalysis {
                 }
                 // Check if the modifier is defined as reentrancy guard
                 if let Some(contract) = &func.contract {
-                    if let Some(info) = self.definitions.get(&(contract.clone(), modifier.clone())) {
+                    if let Some(info) = self.definitions.get(&(contract.clone(), modifier.clone()))
+                    {
                         if info.is_reentrancy_guard {
                             return true;
                         }

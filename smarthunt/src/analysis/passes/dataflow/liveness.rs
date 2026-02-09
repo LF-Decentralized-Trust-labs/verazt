@@ -2,11 +2,11 @@
 //!
 //! Computes live variables at each program point.
 
+use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use std::collections::HashSet;
 
 /// Variable identifier.

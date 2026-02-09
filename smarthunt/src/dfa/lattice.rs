@@ -40,9 +40,7 @@ pub struct PowerSetLattice<T: Clone + Eq + Hash> {
 
 impl<T: Clone + Eq + Hash> PowerSetLattice<T> {
     pub fn new() -> Self {
-        Self {
-            elements: HashSet::new(),
-        }
+        Self { elements: HashSet::new() }
     }
 
     pub fn from_set(elements: HashSet<T>) -> Self {
@@ -74,9 +72,7 @@ impl<T: Clone + Eq + Hash> Default for PowerSetLattice<T> {
 
 impl<T: Clone + Eq + Hash + Send + Sync + Debug> Lattice for PowerSetLattice<T> {
     fn bottom() -> Self {
-        Self {
-            elements: HashSet::new(),
-        }
+        Self { elements: HashSet::new() }
     }
 
     fn top() -> Self {
@@ -86,9 +82,7 @@ impl<T: Clone + Eq + Hash + Send + Sync + Debug> Lattice for PowerSetLattice<T> 
     }
 
     fn join(&self, other: &Self) -> Self {
-        Self {
-            elements: self.elements.union(&other.elements).cloned().collect(),
-        }
+        Self { elements: self.elements.union(&other.elements).cloned().collect() }
     }
 
     fn meet(&self, other: &Self) -> Self {
@@ -114,9 +108,7 @@ pub struct MapLattice<K: Clone + Eq + Hash, V: Lattice> {
 
 impl<K: Clone + Eq + Hash, V: Lattice> MapLattice<K, V> {
     pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
+        Self { map: HashMap::new() }
     }
 
     pub fn get(&self, key: &K) -> Option<&V> {
@@ -144,9 +136,7 @@ impl<K: Clone + Eq + Hash, V: Lattice> Default for MapLattice<K, V> {
 
 impl<K: Clone + Eq + Hash + Send + Sync + Debug, V: Lattice> Lattice for MapLattice<K, V> {
     fn bottom() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
+        Self { map: HashMap::new() }
     }
 
     fn top() -> Self {
@@ -275,31 +265,19 @@ impl<A: Lattice, B: Lattice> ProductLattice<A, B> {
 
 impl<A: Lattice, B: Lattice> Lattice for ProductLattice<A, B> {
     fn bottom() -> Self {
-        Self {
-            first: A::bottom(),
-            second: B::bottom(),
-        }
+        Self { first: A::bottom(), second: B::bottom() }
     }
 
     fn top() -> Self {
-        Self {
-            first: A::top(),
-            second: B::top(),
-        }
+        Self { first: A::top(), second: B::top() }
     }
 
     fn join(&self, other: &Self) -> Self {
-        Self {
-            first: self.first.join(&other.first),
-            second: self.second.join(&other.second),
-        }
+        Self { first: self.first.join(&other.first), second: self.second.join(&other.second) }
     }
 
     fn meet(&self, other: &Self) -> Self {
-        Self {
-            first: self.first.meet(&other.first),
-            second: self.second.meet(&other.second),
-        }
+        Self { first: self.first.meet(&other.first), second: self.second.meet(&other.second) }
     }
 
     fn less_or_equal(&self, other: &Self) -> bool {

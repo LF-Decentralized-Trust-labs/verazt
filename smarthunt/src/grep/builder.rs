@@ -1,8 +1,6 @@
 use crate::grep::composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
 use crate::grep::core::{Match, Pattern};
-use crate::grep::primitives::{
-    AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern,
-};
+use crate::grep::primitives::{AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern};
 use solidity::ast::BinOp;
 
 /// Builder for creating patterns fluently
@@ -85,12 +83,18 @@ impl PatternBuilder {
     }
 
     /// Binary comparison pattern helper
-    pub fn binary_eq(left: impl Pattern + 'static, right: impl Pattern + 'static) -> BinaryPattern {
+    pub fn binary_eq(
+        left: impl Pattern + 'static,
+        right: impl Pattern + 'static,
+    ) -> BinaryPattern {
         BinaryPattern::new(Box::new(left), BinOp::Eq, Box::new(right))
     }
 
     /// Binary not-equal pattern helper
-    pub fn binary_ne(left: impl Pattern + 'static, right: impl Pattern + 'static) -> BinaryPattern {
+    pub fn binary_ne(
+        left: impl Pattern + 'static,
+        right: impl Pattern + 'static,
+    ) -> BinaryPattern {
         BinaryPattern::new(Box::new(left), BinOp::Ne, Box::new(right))
     }
 }
@@ -109,7 +113,11 @@ impl BinaryPattern {
 }
 
 impl Pattern for BinaryPattern {
-    fn match_expr(&self, expr: &solidity::ast::Expr, ctx: &crate::grep::core::MatchContext) -> Option<Match> {
+    fn match_expr(
+        &self,
+        expr: &solidity::ast::Expr,
+        ctx: &crate::grep::core::MatchContext,
+    ) -> Option<Match> {
         if let solidity::ast::Expr::Binary(b) = expr {
             if b.operator == self.op {
                 let left_match = self.left.match_expr(&b.left, ctx)?;
@@ -119,17 +127,17 @@ impl Pattern for BinaryPattern {
                 let mut captures = left_match.captures;
                 captures.extend(right_match.captures);
 
-                return Some(Match {
-                    loc: b.loc,
-                    captures,
-                    context: ctx.clone(),
-                });
+                return Some(Match { loc: b.loc, captures, context: ctx.clone() });
             }
         }
         None
     }
 
-    fn match_stmt(&self, _stmt: &solidity::ast::Stmt, _ctx: &crate::grep::core::MatchContext) -> Option<Match> {
+    fn match_stmt(
+        &self,
+        _stmt: &solidity::ast::Stmt,
+        _ctx: &crate::grep::core::MatchContext,
+    ) -> Option<Match> {
         None
     }
 

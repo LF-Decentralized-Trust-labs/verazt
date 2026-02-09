@@ -23,10 +23,7 @@ pub struct DefUseChains {
 
 impl DefUseChains {
     pub fn new() -> Self {
-        Self {
-            def_to_uses: HashMap::new(),
-            use_to_defs: HashMap::new(),
-        }
+        Self { def_to_uses: HashMap::new(), use_to_defs: HashMap::new() }
     }
 
     pub fn add_def_use(&mut self, def: Definition, use_point: Use) {

@@ -4,11 +4,13 @@
 //! - Rename variables in different source units to have unique names.
 //! - Indexing numbers are globally accross all source units.
 
-use crate::ast::utils::{self, Map};
-use crate::ast::*;
-use crate::ast::yul::{YulSourceUnit, YulBlock, YulIdentifier, YulFuncDef, YulVarDecl, YulMemberExpr};
-use crate::ast::yul::utils::{YulMap, yul_map_default};
 use crate::ast::NamingEnv;
+use crate::ast::utils::{self, Map};
+use crate::ast::yul::utils::{YulMap, yul_map_default};
+use crate::ast::yul::{
+    YulBlock, YulFuncDef, YulIdentifier, YulMemberExpr, YulSourceUnit, YulVarDecl,
+};
+use crate::ast::*;
 
 /// Function to rename variables in a YulSourceUnit.
 pub fn rename_yul_variables(source_unit: &YulSourceUnit) -> YulSourceUnit {
@@ -177,8 +179,8 @@ impl YulMap for Renamer {
 mod tests {
     use super::rename_vars;
     use crate::{
-        ast::utils::syntactic_comparer::compare_source_units,
-        parser::parse_solidity_source_code, ast::normalize::utils::configure_unit_test_env,
+        ast::normalize::utils::configure_unit_test_env,
+        ast::utils::syntactic_comparer::compare_source_units, parser::parse_solidity_source_code,
     };
     use indoc::indoc;
 

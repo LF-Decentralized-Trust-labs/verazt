@@ -2,12 +2,12 @@
 //!
 //! Orchestrates the execution of analysis passes and bug detectors.
 
-use crate::detection::pass::BugDetectionPass;
-use crate::detection::registry::DetectorRegistry;
-use bugs::bug::Bug;
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::manager::{PassManager, PassManagerConfig};
 use crate::analysis::pass_id::PassId;
+use crate::detection::pass::BugDetectionPass;
+use crate::detection::registry::DetectorRegistry;
+use bugs::bug::Bug;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
@@ -222,7 +222,8 @@ impl DetectionManager {
         let mut all_stats = Vec::new();
 
         // Collect enabled detectors
-        let detectors: Vec<_> = self.registry
+        let detectors: Vec<_> = self
+            .registry
             .all()
             .filter(|d| self.is_detector_enabled(*d))
             .collect();
@@ -272,10 +273,7 @@ impl DetectionManager {
         detector: &dyn BugDetectionPass,
     ) -> (Vec<Bug>, DetectorStats) {
         let start = Instant::now();
-        let mut stat = DetectorStats {
-            name: detector.name().to_string(),
-            ..Default::default()
-        };
+        let mut stat = DetectorStats { name: detector.name().to_string(), ..Default::default() };
 
         match detector.detect(context) {
             Ok(bugs) => {
@@ -317,8 +315,6 @@ impl Default for DetectionManager {
         Self::new()
     }
 }
-
-
 
 /// Module for getting CPU count.
 mod num_cpus {

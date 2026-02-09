@@ -1,32 +1,34 @@
-//! Uninitialized Variable Detector
+//! Uninitialized Storage Detector (DFA-based)
 //!
-//! Detects uninitialized storage variables and storage pointers (SWC-109).
+//! Detects uninitialized storage variables and storage pointers using
+//! data flow analysis (reaching definitions).
 //!
 //! This detector finds:
 //! - State variables that are not explicitly initialized
 //! - Local storage pointers that could point to arbitrary storage locations
 
-use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use solidity::ast::{ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnitElem, Stmt, Type, VarMut};
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use bugs::bug::{Bug, BugKind, RiskLevel};
+use solidity::ast::{
+    ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnitElem, Stmt, Type, VarMut,
+};
 use std::collections::HashSet;
 
-/// Detector for uninitialized storage variables and pointers.
+/// DFA-based detector for uninitialized storage variables and pointers.
 #[derive(Debug, Default)]
-pub struct UninitializedStorageDetector;
+pub struct UninitializedDfaDetector;
 
-impl UninitializedStorageDetector {
+impl UninitializedDfaDetector {
     pub fn new() -> Self {
         Self
     }
 
     fn should_warn_uninitialized(&self, typ: &Type) -> bool {
-        // Warn for mapping and array types that might need initialization
         matches!(typ, Type::Mapping(_) | Type::Array(_))
     }
 
@@ -34,11 +36,10 @@ impl UninitializedStorageDetector {
         // Check state variables without initialization
         for elem in &contract.body {
             if let ContractElem::Var(state_var) = elem {
-                // Skip constants and immutables (they must be initialized)
-                let is_constant = matches!(state_var.mutability, VarMut::Constant | VarMut::Immutable);
+                let is_constant =
+                    matches!(state_var.mutability, VarMut::Constant | VarMut::Immutable);
 
                 if !is_constant && state_var.value.is_none() {
-                    // Check if it's a complex type that should be initialized
                     if self.should_warn_uninitialized(&state_var.typ) {
                         let loc = state_var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
                         let var_name = state_var.name.base.as_str();
@@ -93,7 +94,6 @@ impl UninitializedStorageDetector {
             }
             Stmt::VarDecl(var_decl) => {
                 for var in var_decl.var_decls.iter().flatten() {
-                    // Check for storage location in local variables
                     if let Some(DataLoc::Storage) = &var.data_loc {
                         if var_decl.value.is_none() {
                             let loc = var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
@@ -111,7 +111,6 @@ impl UninitializedStorageDetector {
                         }
                     }
 
-                    // Track initialized variables
                     if var_decl.value.is_some() {
                         initialized.insert(var.name.base.clone());
                     }
@@ -139,7 +138,6 @@ impl UninitializedStorageDetector {
                 self.check_block(contract_name, &try_stmt.body, initialized, bugs);
             }
             Stmt::Expr(expr_stmt) => {
-                // Check for assignments
                 if let Expr::Assign(assign) = &expr_stmt.expr {
                     if let Expr::Ident(ident) = &*assign.left {
                         initialized.insert(ident.name.base.clone());
@@ -151,17 +149,17 @@ impl UninitializedStorageDetector {
     }
 }
 
-impl Pass for UninitializedStorageDetector {
+impl Pass for UninitializedDfaDetector {
     fn id(&self) -> PassId {
         PassId::UninitializedStorage
     }
 
     fn name(&self) -> &'static str {
-        "Uninitialized Storage"
+        "Uninitialized Storage (DFA)"
     }
 
     fn description(&self) -> &'static str {
-        "Detects uninitialized storage variables and storage pointers"
+        "Detects uninitialized storage variables and storage pointers using data flow analysis"
     }
 
     fn level(&self) -> PassLevel {
@@ -177,7 +175,7 @@ impl Pass for UninitializedStorageDetector {
     }
 }
 
-impl BugDetectionPass for UninitializedStorageDetector {
+impl BugDetectionPass for UninitializedDfaDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -227,8 +225,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_uninitialized_storage_detector() {
-        let detector = UninitializedStorageDetector::new();
+    fn test_uninitialized_detector() {
+        let detector = UninitializedDfaDetector::new();
         assert_eq!(detector.id(), PassId::UninitializedStorage);
         assert_eq!(detector.swc_ids(), vec![109]);
         assert_eq!(detector.risk_level(), RiskLevel::High);

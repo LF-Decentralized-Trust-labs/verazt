@@ -26,11 +26,7 @@ impl Pattern for AndPattern {
             combined_captures.extend(m.captures);
         }
 
-        Some(Match {
-            loc: loc?,
-            captures: combined_captures,
-            context: ctx.clone(),
-        })
+        Some(Match { loc: loc?, captures: combined_captures, context: ctx.clone() })
     }
 
     fn match_stmt(&self, stmt: &Stmt, ctx: &MatchContext) -> Option<Match> {
@@ -45,11 +41,7 @@ impl Pattern for AndPattern {
             combined_captures.extend(m.captures);
         }
 
-        Some(Match {
-            loc: loc?,
-            captures: combined_captures,
-            context: ctx.clone(),
-        })
+        Some(Match { loc: loc?, captures: combined_captures, context: ctx.clone() })
     }
 
     fn name(&self) -> &str {
@@ -115,11 +107,7 @@ impl Pattern for NotPattern {
     fn match_expr(&self, expr: &Expr, ctx: &MatchContext) -> Option<Match> {
         if self.inner.match_expr(expr, ctx).is_none() {
             // Return a match with no captures
-            Some(Match {
-                loc: expr.loc(),
-                captures: HashMap::new(),
-                context: ctx.clone(),
-            })
+            Some(Match { loc: expr.loc(), captures: HashMap::new(), context: ctx.clone() })
         } else {
             None
         }
@@ -127,11 +115,7 @@ impl Pattern for NotPattern {
 
     fn match_stmt(&self, stmt: &Stmt, ctx: &MatchContext) -> Option<Match> {
         if self.inner.match_stmt(stmt, ctx).is_none() {
-            Some(Match {
-                loc: stmt.loc(),
-                captures: HashMap::new(),
-                context: ctx.clone(),
-            })
+            Some(Match { loc: stmt.loc(), captures: HashMap::new(), context: ctx.clone() })
         } else {
             None
         }
@@ -157,30 +141,19 @@ impl WherePattern {
     where
         F: Fn(&Match) -> bool + Send + Sync + 'static,
     {
-        Self {
-            inner,
-            predicate: Box::new(predicate),
-        }
+        Self { inner, predicate: Box::new(predicate) }
     }
 }
 
 impl Pattern for WherePattern {
     fn match_expr(&self, expr: &Expr, ctx: &MatchContext) -> Option<Match> {
         let m = self.inner.match_expr(expr, ctx)?;
-        if (self.predicate)(&m) {
-            Some(m)
-        } else {
-            None
-        }
+        if (self.predicate)(&m) { Some(m) } else { None }
     }
 
     fn match_stmt(&self, stmt: &Stmt, ctx: &MatchContext) -> Option<Match> {
         let m = self.inner.match_stmt(stmt, ctx)?;
-        if (self.predicate)(&m) {
-            Some(m)
-        } else {
-            None
-        }
+        if (self.predicate)(&m) { Some(m) } else { None }
     }
 
     fn name(&self) -> &str {
@@ -214,14 +187,14 @@ impl ContainsPattern {
                 .search_expr(&b.left, ctx)
                 .or_else(|| self.search_expr(&b.right, ctx)),
             Expr::Unary(u) => self.search_expr(&u.body, ctx),
-            Expr::Call(c) => self
-                .search_expr(&c.callee, ctx)
-                .or_else(|| match &c.args {
-                    solidity::ast::CallArgs::Unnamed(args) => args.iter().find_map(|arg| self.search_expr(arg, ctx)),
-                    solidity::ast::CallArgs::Named(args) => {
-                        args.iter().find_map(|arg| self.search_expr(&arg.value, ctx))
-                    }
-                }),
+            Expr::Call(c) => self.search_expr(&c.callee, ctx).or_else(|| match &c.args {
+                solidity::ast::CallArgs::Unnamed(args) => {
+                    args.iter().find_map(|arg| self.search_expr(arg, ctx))
+                }
+                solidity::ast::CallArgs::Named(args) => args
+                    .iter()
+                    .find_map(|arg| self.search_expr(&arg.value, ctx)),
+            }),
             Expr::Member(m) => self.search_expr(&m.base, ctx),
             Expr::Index(i) => self
                 .search_expr(&i.base_expr, ctx)
@@ -250,16 +223,18 @@ impl Pattern for ContainsPattern {
             Stmt::If(i) => self
                 .search_expr(&i.condition, ctx)
                 .or_else(|| match i.true_branch.as_ref() {
-                    solidity::ast::Stmt::Block(b) => b.body.iter().find_map(|s| self.match_stmt(s, ctx)),
+                    solidity::ast::Stmt::Block(b) => {
+                        b.body.iter().find_map(|s| self.match_stmt(s, ctx))
+                    }
                     _ => self.match_stmt(&i.true_branch, ctx),
                 })
                 .or_else(|| {
-                    i.false_branch
-                        .as_ref()
-                        .and_then(|fb| match fb.as_ref() {
-                            solidity::ast::Stmt::Block(b) => b.body.iter().find_map(|s| self.match_stmt(s, ctx)),
-                            _ => self.match_stmt(fb, ctx),
-                        })
+                    i.false_branch.as_ref().and_then(|fb| match fb.as_ref() {
+                        solidity::ast::Stmt::Block(b) => {
+                            b.body.iter().find_map(|s| self.match_stmt(s, ctx))
+                        }
+                        _ => self.match_stmt(fb, ctx),
+                    })
                 }),
             solidity::ast::Stmt::DoWhile(w) => self
                 .match_stmt(&w.body, ctx)

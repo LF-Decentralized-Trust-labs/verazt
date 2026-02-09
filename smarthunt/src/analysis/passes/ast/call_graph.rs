@@ -2,15 +2,15 @@
 //!
 //! This pass builds a call graph for function call relationships.
 
-use crate::analysis::pass::{Pass, AnalysisPass, PassResult};
+use crate::analysis::context::AnalysisContext;
+use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use crate::analysis::passes::ast::symbol_table::FunctionId;
 use solidity::ast::{
-    Block, CallArgs, ContractDef, ContractElem, Expr, FuncDef, Name, SourceUnit, SourceUnitElem,
-    FuncKind, Stmt,
+    Block, CallArgs, ContractDef, ContractElem, Expr, FuncDef, FuncKind, Name, SourceUnit,
+    SourceUnitElem, Stmt,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -68,7 +68,10 @@ impl CallGraph {
 
     /// Add a call edge.
     pub fn add_call(&mut self, caller: FunctionId, callee: FunctionId) {
-        self.callees.entry(caller.clone()).or_default().insert(callee.clone());
+        self.callees
+            .entry(caller.clone())
+            .or_default()
+            .insert(callee.clone());
         self.callers.entry(callee).or_default().insert(caller);
     }
 
@@ -108,17 +111,26 @@ impl CallGraph {
 
     /// Check if a function makes external calls.
     pub fn has_external_calls(&self, func: &FunctionId) -> bool {
-        self.external_calls.get(func).map(|c| !c.is_empty()).unwrap_or(false)
+        self.external_calls
+            .get(func)
+            .map(|c| !c.is_empty())
+            .unwrap_or(false)
     }
 
     /// Check if a function makes delegate calls.
     pub fn has_delegate_calls(&self, func: &FunctionId) -> bool {
-        self.delegate_calls.get(func).map(|c| !c.is_empty()).unwrap_or(false)
+        self.delegate_calls
+            .get(func)
+            .map(|c| !c.is_empty())
+            .unwrap_or(false)
     }
 
     /// Get external calls made by a function.
     pub fn get_external_calls(&self, func: &FunctionId) -> Vec<&CallSite> {
-        self.external_calls.get(func).map(|c| c.iter().collect()).unwrap_or_default()
+        self.external_calls
+            .get(func)
+            .map(|c| c.iter().collect())
+            .unwrap_or_default()
     }
 
     /// Get the number of functions in the graph.
@@ -144,11 +156,7 @@ struct CallGraphBuilder<'a> {
 
 impl<'a> CallGraphBuilder<'a> {
     fn new(graph: &'a mut CallGraph) -> Self {
-        Self {
-            graph,
-            current_contract: None,
-            current_function: None,
-        }
+        Self { graph, current_contract: None, current_function: None }
     }
 
     fn visit_source_unit(&mut self, source_unit: &SourceUnit) {
@@ -298,14 +306,16 @@ impl<'a> CallGraphBuilder<'a> {
                     self.graph.call_sites.push(call_site.clone());
 
                     if is_external {
-                        self.graph.external_calls
+                        self.graph
+                            .external_calls
                             .entry(caller.clone())
                             .or_default()
                             .push(call_site.clone());
                     }
 
                     if is_delegatecall {
-                        self.graph.delegate_calls
+                        self.graph
+                            .delegate_calls
                             .entry(caller.clone())
                             .or_default()
                             .push(call_site);

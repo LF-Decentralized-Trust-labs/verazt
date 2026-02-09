@@ -2,11 +2,11 @@
 //!
 //! Tracks variable definitions and their uses.
 
+use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use crate::analysis::passes::ir::BasicBlockId;
 use solidity::ast::Loc;
 use std::collections::HashMap;

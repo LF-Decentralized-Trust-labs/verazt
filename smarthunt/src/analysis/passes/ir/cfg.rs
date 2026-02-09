@@ -1,15 +1,15 @@
 //! Control Flow Graph Construction
 //!
-//! This module implements control flow graph (CFG) construction for IR functions.
-//! The CFG represents the flow of control through a function as a directed graph
-//! of basic blocks.
+//! This module implements control flow graph (CFG) construction for IR
+//! functions. The CFG represents the flow of control through a function as a
+//! directed graph of basic blocks.
 
+use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
-use solidity::ir::{self, Stmt, Expr};
+use solidity::ir::{self, Expr, Stmt};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -120,12 +120,7 @@ pub struct ControlFlowGraph {
 impl ControlFlowGraph {
     /// Create a new empty CFG.
     pub fn new(function_name: String, entry: BasicBlockId) -> Self {
-        Self {
-            function_name,
-            blocks: HashMap::new(),
-            entry,
-            exit: None,
-        }
+        Self { function_name, blocks: HashMap::new(), entry, exit: None }
     }
 
     /// Add a basic block to the CFG.
@@ -151,11 +146,10 @@ impl ControlFlowGraph {
         }
 
         // Recompute from successors
-        let edges: Vec<(BasicBlockId, BasicBlockId)> = self.blocks
+        let edges: Vec<(BasicBlockId, BasicBlockId)> = self
+            .blocks
             .values()
-            .flat_map(|block| {
-                block.successors.iter().map(move |&succ| (block.id, succ))
-            })
+            .flat_map(|block| block.successors.iter().map(move |&succ| (block.id, succ)))
             .collect();
 
         for (pred, succ) in edges {
@@ -240,9 +234,7 @@ impl AnalysisPass for CfgPass {
     fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
         // Check if IR is available
         if context.ir_units.is_none() {
-            return Err(crate::analysis::pass::PassError::IrNotAvailable(
-                self.name().to_string()
-            ));
+            return Err(crate::analysis::pass::PassError::IrNotAvailable(self.name().to_string()));
         }
 
         // For now, just mark as completed
@@ -262,7 +254,7 @@ impl AnalysisPass for CfgPass {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solidity::ir::{Lit, BoolLit};
+    use solidity::ir::{BoolLit, Lit};
 
     #[test]
     fn test_basic_block_creation() {
@@ -277,10 +269,7 @@ mod tests {
 
     #[test]
     fn test_basic_block_successors() {
-        let mut block = BasicBlock::new(
-            BasicBlockId(0),
-            Terminator::Jump(BasicBlockId(1))
-        );
+        let mut block = BasicBlock::new(BasicBlockId(0), Terminator::Jump(BasicBlockId(1)));
 
         block.compute_successors();
         assert_eq!(block.successors, vec![BasicBlockId(1)]);
@@ -307,7 +296,7 @@ mod tests {
                 condition: Expr::Lit(Lit::Bool(BoolLit { value: true, loc: None })),
                 true_block: BasicBlockId(1),
                 false_block: BasicBlockId(2),
-            }
+            },
         );
         block0.compute_successors();
 

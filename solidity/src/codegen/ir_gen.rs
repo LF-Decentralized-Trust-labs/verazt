@@ -1,11 +1,11 @@
 //! Module to transform the original Solidity AST to Smart Contract IR.
 
 use crate::ast;
+use crate::ast::{DataLoc, Loc};
 use crate::ir::*;
 use either::Either::{self, Left, Right};
 use extlib::{error::Result, fail};
 use log::trace;
-use crate::ast::{DataLoc, Loc};
 use std::{borrow::BorrowMut, ops::Deref};
 
 pub fn lower_source_unit(source_unit: &ast::SourceUnit) -> Result<SourceUnit> {
@@ -99,12 +99,10 @@ impl IrGen {
                 Ok(nfunc) => Ok(vec![nfunc.into()]),
                 Err(err) => Err(err),
             },
-            ast::SourceUnitElem::Contract(contract) => {
-                match self.lower_contract_def(contract) {
-                    Ok(ncontract) => Ok(vec![ncontract.into()]),
-                    Err(err) => Err(err),
-                }
-            }
+            ast::SourceUnitElem::Contract(contract) => match self.lower_contract_def(contract) {
+                Ok(ncontract) => Ok(vec![ncontract.into()]),
+                Err(err) => Err(err),
+            },
         }
     }
 
@@ -193,10 +191,7 @@ impl IrGen {
         Ok(ContractDef::new(contract.name.to_string(), kind, nbody, contract.loc))
     }
 
-    fn lower_contract_element(
-        &mut self,
-        elem: &ast::ContractElem,
-    ) -> Result<Vec<ContractElem>> {
+    fn lower_contract_element(&mut self, elem: &ast::ContractElem) -> Result<Vec<ContractElem>> {
         match elem {
             ast::ContractElem::Using(_) => {
                 fail!("Transform contract element: using directive should be eliminated: {}", elem)
@@ -238,10 +233,7 @@ impl IrGen {
     ///
     /// Outputs are the transformed expression and new statements generated
     /// during the transformation.
-    fn lower_call_args(
-        &mut self,
-        arg: &ast::CallArgs,
-    ) -> Result<(Vec<AtomicExpr>, Vec<Stmt>)> {
+    fn lower_call_args(&mut self, arg: &ast::CallArgs) -> Result<(Vec<AtomicExpr>, Vec<Stmt>)> {
         if let ast::CallArgs::Unnamed(exprs) = arg {
             let mut nstmts = vec![];
             let (nexprs, stmts) = self.lower_exprs(exprs)?;
@@ -686,10 +678,7 @@ impl IrGen {
         Ok((var, nstmts))
     }
 
-    fn lower_var_decls(
-        &mut self,
-        vdecl: &[ast::VarDecl],
-    ) -> Result<(Vec<VarDecl>, Vec<Stmt>)> {
+    fn lower_var_decls(&mut self, vdecl: &[ast::VarDecl]) -> Result<(Vec<VarDecl>, Vec<Stmt>)> {
         let mut nstmts = vec![];
         let mut nvdecls = vec![];
         for v in vdecl.iter() {

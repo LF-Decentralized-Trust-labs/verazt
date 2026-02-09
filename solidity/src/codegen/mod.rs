@@ -2,4 +2,4 @@
 
 pub mod ir_gen;
 
-pub use ir_gen::{lower_source_unit, IrGen};
+pub use ir_gen::{IrGen, lower_source_unit};

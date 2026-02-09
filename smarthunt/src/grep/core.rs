@@ -1,4 +1,4 @@
-use solidity::ast::{Expr, Identifier, Lit, Stmt, Type, Loc};
+use solidity::ast::{Expr, Identifier, Lit, Loc, Stmt, Type};
 use std::collections::HashMap;
 use std::sync::Arc;
 

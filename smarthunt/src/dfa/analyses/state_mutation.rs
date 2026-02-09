@@ -49,10 +49,7 @@ pub struct StateAccessSequence {
 
 impl StateAccessSequence {
     pub fn new() -> Self {
-        Self {
-            accesses: Vec::new(),
-            external_calls: Vec::new(),
-        }
+        Self { accesses: Vec::new(), external_calls: Vec::new() }
     }
 }
 

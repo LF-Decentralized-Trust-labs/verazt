@@ -3,9 +3,9 @@
 //! This module provides the central storage for analysis artifacts,
 //! supporting both AST and IR representations.
 
+use crate::analysis::pass_id::PassId;
 use crate::ast::SourceUnit;
 use crate::ir;
-use crate::analysis::pass_id::PassId;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -44,18 +44,12 @@ impl AnalysisConfig {
 
     /// Create configuration with parallel execution enabled.
     pub fn parallel() -> Self {
-        Self {
-            enable_parallel: true,
-            ..Self::new()
-        }
+        Self { enable_parallel: true, ..Self::new() }
     }
 
     /// Create configuration with IR enabled.
     pub fn with_ir() -> Self {
-        Self {
-            enable_ir: true,
-            ..Self::new()
-        }
+        Self { enable_ir: true, ..Self::new() }
     }
 }
 

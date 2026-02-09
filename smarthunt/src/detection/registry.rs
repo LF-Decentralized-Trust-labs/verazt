@@ -2,8 +2,8 @@
 //!
 //! Manages registration and discovery of bug detectors.
 
-use crate::detection::pass::BugDetectionPass;
 use crate::analysis::pass_id::PassId;
+use crate::detection::pass::BugDetectionPass;
 use std::collections::HashMap;
 
 /// Registry for managing bug detectors.
@@ -39,7 +39,9 @@ impl DetectorRegistry {
 
     /// Get a detector by name or ID.
     pub fn get(&self, name_or_id: &str) -> Option<&dyn BugDetectionPass> {
-        self.by_id.get(name_or_id).map(|&idx| self.detectors[idx].as_ref())
+        self.by_id
+            .get(name_or_id)
+            .map(|&idx| self.detectors[idx].as_ref())
     }
 
     /// Get all registered detectors.
@@ -97,25 +99,27 @@ impl DetectorRegistry {
 
 /// Register all built-in detectors.
 pub fn register_all_detectors(registry: &mut DetectorRegistry) {
-    use crate::detection::detectors::ast::*;
+    // DFA-based detectors (data flow analysis on IR)
+    use crate::dfa::detectors::*;
+    registry.register(Box::new(CeiViolationDfaDetector::new()));
+    registry.register(Box::new(DeadCodeDfaDetector::new()));
+    registry.register(Box::new(ReentrancyDfaDetector::new()));
+    registry.register(Box::new(UncheckedCallDfaDetector::new()));
+    registry.register(Box::new(UninitializedDfaDetector::new()));
 
-    // AST-based detectors
-    registry.register(Box::new(TxOriginDetector::new()));
-    registry.register(Box::new(FloatingPragmaDetector::new()));
-    registry.register(Box::new(VisibilityDetector::new()));
-    registry.register(Box::new(DeprecatedDetector::new()));
-    registry.register(Box::new(LowLevelCallDetector::new()));
-    registry.register(Box::new(UncheckedCallDetector::new()));
-    registry.register(Box::new(ShadowingDetector::new()));
-    registry.register(Box::new(TimestampDependenceDetector::new()));
-    registry.register(Box::new(DelegatecallDetector::new()));
-    registry.register(Box::new(UninitializedStorageDetector::new()));
-    registry.register(Box::new(CentralizationRiskDetector::new()));
-    registry.register(Box::new(CeiViolationDetector::new()));
-    registry.register(Box::new(ReentrancyDetector::new()));
-    registry.register(Box::new(MissingAccessControlDetector::new()));
-    registry.register(Box::new(DeadCodeDetector::new()));
-    registry.register(Box::new(ConstantStateVarDetector::new()));
+    // GREP-based detectors (declarative AST pattern matching)
+    use crate::grep::detectors::*;
+    registry.register(Box::new(CentralizationRiskGrepDetector::new()));
+    registry.register(Box::new(ConstantStateVarGrepDetector::new()));
+    registry.register(Box::new(DelegatecallGrepDetector::new()));
+    registry.register(Box::new(DeprecatedGrepDetector::new()));
+    registry.register(Box::new(FloatingPragmaGrepDetector::new()));
+    registry.register(Box::new(LowLevelCallGrepDetector::new()));
+    registry.register(Box::new(MissingAccessControlGrepDetector::new()));
+    registry.register(Box::new(ShadowingGrepDetector::new()));
+    registry.register(Box::new(TimestampDependenceGrepDetector::new()));
+    registry.register(Box::new(TxOriginGrepDetector::new()));
+    registry.register(Box::new(VisibilityGrepDetector::new()));
 }
 
 #[cfg(test)]

@@ -136,10 +136,10 @@ fn collect_used_vars_expr(expr: &Expr, vars: &mut Vec<VarId>) {
         }
         // Conditional, New, TypeName, Lit do not introduce variable uses
         // Wait, Conditional does!
-        // Expr::Conditional(c) isMISSING from my draft above? match cases must be exhaustive or default
-        // In default (or explicit), handle Conditional
-        // solidity::ir::exprs.rs: ConditionalExpr { cond, true_br, false_br } - they are AtomicExpr?
-        // Let's check ir/exprs.rs again for ConditionalExpr.
+        // Expr::Conditional(c) isMISSING from my draft above? match cases must be exhaustive or
+        // default In default (or explicit), handle Conditional
+        // solidity::ir::exprs.rs: ConditionalExpr { cond, true_br, false_br } - they are
+        // AtomicExpr? Let's check ir/exprs.rs again for ConditionalExpr.
         _ => {}
     }
 }

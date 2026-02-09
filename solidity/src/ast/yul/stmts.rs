@@ -161,7 +161,12 @@ impl Display for YulAssignStmt {
 //-------------------------------------------------------------------------
 
 impl YulForStmt {
-    pub fn new(pre_loop: YulBlock, condition: YulExpr, post_loop: YulBlock, body: YulBlock) -> YulForStmt {
+    pub fn new(
+        pre_loop: YulBlock,
+        condition: YulExpr,
+        post_loop: YulBlock,
+        body: YulBlock,
+    ) -> YulForStmt {
         YulForStmt { pre_loop, condition, post_loop, body }
     }
 }

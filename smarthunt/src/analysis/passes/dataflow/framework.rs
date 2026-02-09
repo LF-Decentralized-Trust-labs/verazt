@@ -1,7 +1,8 @@
 //! Core Data Flow Analysis Framework
 //!
-//! This module provides the generic infrastructure for implementing data flow analyses
-//! using the worklist algorithm with lattice-based abstract interpretation.
+//! This module provides the generic infrastructure for implementing data flow
+//! analyses using the worklist algorithm with lattice-based abstract
+//! interpretation.
 
 use crate::analysis::passes::ir::{BasicBlockId, ControlFlowGraph};
 use solidity::ir::Stmt;
@@ -40,8 +41,8 @@ pub enum AnalysisDirection {
 
 /// Trait for data flow facts (lattice elements).
 ///
-/// A data flow fact represents information about program state at a program point.
-/// Facts must form a lattice with bottom, top, meet, and partial order.
+/// A data flow fact represents information about program state at a program
+/// point. Facts must form a lattice with bottom, top, meet, and partial order.
 pub trait DataFlowFact: Clone + Eq + Debug + Send + Sync {
     /// Bottom element (initial state, no information).
     fn bottom() -> Self;
@@ -102,18 +103,8 @@ pub struct DataFlowSolver<F: DataFlowFact, T: TransferFunction<F>> {
 
 impl<F: DataFlowFact, T: TransferFunction<F>> DataFlowSolver<F, T> {
     /// Create a new data flow solver.
-    pub fn new(
-        direction: AnalysisDirection,
-        transfer: T,
-        cfg: Arc<ControlFlowGraph>,
-    ) -> Self {
-        Self {
-            direction,
-            transfer,
-            cfg,
-            max_iterations: 1000,
-            _phantom: std::marker::PhantomData,
-        }
+    pub fn new(direction: AnalysisDirection, transfer: T, cfg: Arc<ControlFlowGraph>) -> Self {
+        Self { direction, transfer, cfg, max_iterations: 1000, _phantom: std::marker::PhantomData }
     }
 
     /// Set maximum number of iterations.
@@ -166,8 +157,9 @@ impl<F: DataFlowFact, T: TransferFunction<F>> DataFlowSolver<F, T> {
                 return Err(DataFlowError::FixpointNotReached(self.max_iterations));
             }
 
-            let block = self.cfg.blocks.get(&block_id)
-                .ok_or_else(|| DataFlowError::InvalidCfg(format!("Block {:?} not found", block_id)))?;
+            let block = self.cfg.blocks.get(&block_id).ok_or_else(|| {
+                DataFlowError::InvalidCfg(format!("Block {:?} not found", block_id))
+            })?;
 
             // Compute in[B] = meet(out[P]) for all predecessors P
             let new_in = if block.predecessors.is_empty() {
@@ -241,8 +233,9 @@ impl<F: DataFlowFact, T: TransferFunction<F>> DataFlowSolver<F, T> {
                 return Err(DataFlowError::FixpointNotReached(self.max_iterations));
             }
 
-            let block = self.cfg.blocks.get(&block_id)
-                .ok_or_else(|| DataFlowError::InvalidCfg(format!("Block {:?} not found", block_id)))?;
+            let block = self.cfg.blocks.get(&block_id).ok_or_else(|| {
+                DataFlowError::InvalidCfg(format!("Block {:?} not found", block_id))
+            })?;
 
             // Compute out[B] = meet(in[S]) for all successors S
             let new_out = if block.successors.is_empty() {
@@ -282,7 +275,8 @@ impl<F: DataFlowFact, T: TransferFunction<F>> DataFlowSolver<F, T> {
         Ok(out_facts)
     }
 
-    /// Transfer function for backward analysis (processes statements in reverse).
+    /// Transfer function for backward analysis (processes statements in
+    /// reverse).
     fn transfer_block_backward(&self, stmts: &[Stmt], mut fact: F) -> F {
         for stmt in stmts.iter().rev() {
             fact = self.transfer.transfer(stmt, &fact);
@@ -357,11 +351,7 @@ mod tests {
         use crate::analysis::passes::ir::ControlFlowGraph;
 
         let cfg = Arc::new(ControlFlowGraph::new("test".to_string(), BasicBlockId(0)));
-        let solver = DataFlowSolver::new(
-            AnalysisDirection::Forward,
-            TestTransfer,
-            cfg,
-        );
+        let solver = DataFlowSolver::new(AnalysisDirection::Forward, TestTransfer, cfg);
 
         assert_eq!(solver.direction, AnalysisDirection::Forward);
     }
@@ -376,11 +366,7 @@ mod tests {
         block.compute_successors();
         cfg.add_block(block);
 
-        let solver = DataFlowSolver::new(
-            AnalysisDirection::Forward,
-            TestTransfer,
-            Arc::new(cfg),
-        );
+        let solver = DataFlowSolver::new(AnalysisDirection::Forward, TestTransfer, Arc::new(cfg));
 
         let result = solver.solve();
         assert!(result.is_ok());

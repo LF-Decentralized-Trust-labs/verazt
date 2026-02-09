@@ -75,12 +75,7 @@ pub struct DataFlowSolver<L: Lattice, T: Transfer<L>> {
 impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
     /// Create a new solver
     pub fn new(direction: Direction, transfer: T) -> Self {
-        Self {
-            direction,
-            transfer,
-            max_iterations: 1000,
-            _phantom: PhantomData,
-        }
+        Self { direction, transfer, max_iterations: 1000, _phantom: PhantomData }
     }
 
     /// Set maximum iterations before giving up
@@ -119,12 +114,7 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
             iterations += 1;
 
             if iterations > self.max_iterations {
-                return DataFlowResult {
-                    block_entry,
-                    block_exit,
-                    iterations,
-                    converged: false,
-                };
+                return DataFlowResult { block_entry, block_exit, iterations, converged: false };
             }
 
             let block = match cfg.blocks.get(&block_id) {
@@ -146,7 +136,9 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
             };
 
             // Apply transfer function
-            let exit = self.transfer.transfer_block(block, entry.clone(), Direction::Forward);
+            let exit = self
+                .transfer
+                .transfer_block(block, entry.clone(), Direction::Forward);
 
             // Check for changes
             let old_exit = block_exit.get(&block_id).unwrap();
@@ -163,12 +155,7 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
             }
         }
 
-        DataFlowResult {
-            block_entry,
-            block_exit,
-            iterations,
-            converged: true,
-        }
+        DataFlowResult { block_entry, block_exit, iterations, converged: true }
     }
 
     /// Solve backward data flow analysis
@@ -188,19 +175,15 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
         }
 
         // Worklist algorithm in reverse order
-        let mut worklist: VecDeque<BasicBlockId> = cfg.reverse_postorder.iter().rev().copied().collect();
+        let mut worklist: VecDeque<BasicBlockId> =
+            cfg.reverse_postorder.iter().rev().copied().collect();
         let mut iterations = 0;
 
         while let Some(block_id) = worklist.pop_front() {
             iterations += 1;
 
             if iterations > self.max_iterations {
-                return DataFlowResult {
-                    block_entry,
-                    block_exit,
-                    iterations,
-                    converged: false,
-                };
+                return DataFlowResult { block_entry, block_exit, iterations, converged: false };
             }
 
             let block = match cfg.blocks.get(&block_id) {
@@ -222,7 +205,9 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
             };
 
             // Apply transfer function in reverse
-            let entry = self.transfer.transfer_block(block, exit.clone(), Direction::Backward);
+            let entry = self
+                .transfer
+                .transfer_block(block, exit.clone(), Direction::Backward);
 
             // Check for changes
             let old_entry = block_entry.get(&block_id).unwrap();
@@ -239,12 +224,7 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
             }
         }
 
-        DataFlowResult {
-            block_entry,
-            block_exit,
-            iterations,
-            converged: true,
-        }
+        DataFlowResult { block_entry, block_exit, iterations, converged: true }
     }
 }
 
@@ -257,7 +237,11 @@ mod tests {
     struct TestTransfer;
 
     impl Transfer<PowerSetLattice<i32>> for TestTransfer {
-        fn transfer_stmt(&self, _stmt: &Stmt, fact: &PowerSetLattice<i32>) -> PowerSetLattice<i32> {
+        fn transfer_stmt(
+            &self,
+            _stmt: &Stmt,
+            fact: &PowerSetLattice<i32>,
+        ) -> PowerSetLattice<i32> {
             // Simple test: just pass through
             fact.clone()
         }

@@ -23,49 +23,44 @@
 //! let report = manager.run(&mut context)?;
 //! ```
 
+pub mod context;
+pub mod dependency;
+pub mod executor;
+pub mod manager;
 pub mod pass;
 pub mod pass_id;
 pub mod pass_level;
 pub mod pass_representation;
-pub mod context;
-pub mod manager;
 pub mod scheduler;
-pub mod executor;
-pub mod dependency;
 
 // Analysis pass implementations
 pub mod passes;
 
 // Re-exports for convenient access
-pub use pass::{Pass, AnalysisPass, PassError, PassResult};
+pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats};
+pub use dependency::DependencyGraph;
+pub use executor::PassExecutor;
+pub use manager::{AnalysisReport, PassManager, PassManagerConfig};
+pub use pass::{AnalysisPass, Pass, PassError, PassResult};
 pub use pass_id::PassId;
 pub use pass_level::PassLevel;
 pub use pass_representation::PassRepresentation;
-pub use context::{AnalysisContext, AnalysisConfig, AnalysisStats};
-pub use manager::{PassManager, PassManagerConfig, AnalysisReport};
 pub use scheduler::PassScheduler;
-pub use executor::PassExecutor;
-pub use dependency::DependencyGraph;
 
 // Re-export concrete passes
 pub use passes::ast::{
-    SymbolTablePass, SymbolTable, FunctionId, SymbolTableExt,
-    TypeIndexPass, TypeIndex, TypeInfo, TypeIndexExt,
-    CallGraphPass, CallGraph, CallSite, CallGraphExt,
-    InheritanceGraphPass, InheritanceGraph, InheritanceGraphExt,
-    ModifierAnalysisPass, ModifierAnalysis, ModifierInfo, ModifierAnalysisExt,
+    CallGraph, CallGraphExt, CallGraphPass, CallSite, FunctionId, InheritanceGraph,
+    InheritanceGraphExt, InheritanceGraphPass, ModifierAnalysis, ModifierAnalysisExt,
+    ModifierAnalysisPass, ModifierInfo, SymbolTable, SymbolTableExt, SymbolTablePass, TypeIndex,
+    TypeIndexExt, TypeIndexPass, TypeInfo,
 };
 
 // Re-export IR passes
-pub use passes::ir::{
-    CfgPass, ControlFlowGraph, BasicBlock, BasicBlockId, Terminator,
-};
+pub use passes::ir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
 
 // Re-export data flow framework and analyses
 pub use passes::dataflow::{
-    DataFlowFact, TransferFunction, AnalysisDirection, DataFlowSolver,
-    TaintAnalysisPass, TaintMap, TaintSource, TaintSink,
-    DefUseChainPass, DefUseChain, Definition, Use,
-    LivenessAnalysisPass, LiveSet,
-    StateMutationPass, StateMutation, StateWrite, StateRead,
+    AnalysisDirection, DataFlowFact, DataFlowSolver, DefUseChain, DefUseChainPass, Definition,
+    LiveSet, LivenessAnalysisPass, StateMutation, StateMutationPass, StateRead, StateWrite,
+    TaintAnalysisPass, TaintMap, TaintSink, TaintSource, TransferFunction, Use,
 };

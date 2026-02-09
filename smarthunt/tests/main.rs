@@ -1,8 +1,7 @@
 //! Integration tests for SmartHunt.
 
 use smarthunt::{
-    Config,
-    AnalysisReport, OutputFormatter, JsonFormatter, MarkdownFormatter, SarifFormatter,
+    AnalysisReport, Config, JsonFormatter, MarkdownFormatter, OutputFormatter, SarifFormatter,
 };
 use std::time::Duration;
 

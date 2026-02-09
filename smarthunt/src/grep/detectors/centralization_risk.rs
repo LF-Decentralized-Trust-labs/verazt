@@ -1,40 +1,52 @@
-//! Centralization Risk Detector
+//! Centralization Risk Detector (GREP-based)
 //!
-//! Detects centralization risks in smart contracts.
-//!
-//! This detector finds contracts with privileged functions that give
-//! excessive control to a single address or entity, which poses security
-//! and governance risks.
+//! Detects centralization risks in smart contracts using pattern matching.
+//! Finds contracts with privileged functions that give excessive control
+//! to a single address or entity.
 
-use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use solidity::ast::{ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnitElem};
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use bugs::bug::{Bug, BugKind, RiskLevel};
+use solidity::ast::{ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnitElem};
 
-/// Detector for centralization risks.
+/// GREP-based detector for centralization risks.
 #[derive(Debug, Default)]
-pub struct CentralizationRiskDetector;
+pub struct CentralizationRiskGrepDetector;
 
-impl CentralizationRiskDetector {
+impl CentralizationRiskGrepDetector {
     pub fn new() -> Self {
         Self
     }
 
-    // Functions that indicate centralization risks
+    /// Risky function name patterns.
     const RISKY_FUNCTION_PATTERNS: &'static [&'static str] = &[
-        "pause", "unpause", "freeze", "unfreeze",
-        "setfee", "changefee", "updatefee",
-        "setowner", "changeowner", "transferownership",
-        "mint", "burn",
-        "setprice", "changeprice",
-        "setadmin", "addadmin", "removeadmin",
-        "upgrade", "setimplementation",
-        "emergencywithdraw", "drain",
-        "blacklist", "whitelist",
+        "pause",
+        "unpause",
+        "freeze",
+        "unfreeze",
+        "setfee",
+        "changefee",
+        "updatefee",
+        "setowner",
+        "changeowner",
+        "transferownership",
+        "mint",
+        "burn",
+        "setprice",
+        "changeprice",
+        "setadmin",
+        "addadmin",
+        "removeadmin",
+        "upgrade",
+        "setimplementation",
+        "emergencywithdraw",
+        "drain",
+        "blacklist",
+        "whitelist",
     ];
 
     fn is_privileged_function(&self, func: &FuncDef) -> bool {
@@ -52,16 +64,15 @@ impl CentralizationRiskDetector {
             return false;
         }
 
-        // Check if function name matches risky patterns
         let func_name = func.name.base.as_str().to_lowercase();
-        Self::RISKY_FUNCTION_PATTERNS.iter()
+        Self::RISKY_FUNCTION_PATTERNS
+            .iter()
             .any(|pattern| func_name.contains(pattern))
     }
 
     fn check_contract(&self, contract: &ContractDef, bugs: &mut Vec<Bug>) {
         let mut privileged_functions = Vec::new();
 
-        // Collect privileged functions
         for elem in &contract.body {
             if let ContractElem::Func(func) = elem {
                 if self.is_privileged_function(func) {
@@ -70,7 +81,7 @@ impl CentralizationRiskDetector {
             }
         }
 
-        // Report if there are multiple privileged functions (indicates centralization)
+        // Report if there are multiple privileged functions
         if privileged_functions.len() >= 3 {
             for func in &privileged_functions {
                 let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
@@ -89,7 +100,7 @@ impl CentralizationRiskDetector {
     }
 }
 
-impl Pass for CentralizationRiskDetector {
+impl Pass for CentralizationRiskGrepDetector {
     fn id(&self) -> PassId {
         PassId::CentralizationRisk
     }
@@ -115,7 +126,7 @@ impl Pass for CentralizationRiskDetector {
     }
 }
 
-impl BugDetectionPass for CentralizationRiskDetector {
+impl BugDetectionPass for CentralizationRiskGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -157,7 +168,7 @@ impl BugDetectionPass for CentralizationRiskDetector {
 
     fn references(&self) -> Vec<&'static str> {
         vec![
-            "https://consensys.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/"
+            "https://consensys.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/",
         ]
     }
 }
@@ -167,8 +178,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_centralization_risk_detector() {
-        let detector = CentralizationRiskDetector::new();
+    fn test_centralization_risk_grep_detector() {
+        let detector = CentralizationRiskGrepDetector::new();
         assert_eq!(detector.id(), PassId::CentralizationRisk);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }

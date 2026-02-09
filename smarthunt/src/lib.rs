@@ -57,13 +57,17 @@ pub mod config;
 
 // Re-export core analysis types for convenience
 pub use analysis::{
-    Pass, AnalysisPass, PassId, PassLevel, PassRepresentation,
-    AnalysisContext, AnalysisConfig, PassManager, PassManagerConfig,
+    AnalysisConfig, AnalysisContext, AnalysisPass, Pass, PassId, PassLevel, PassManager,
+    PassManagerConfig, PassRepresentation,
 };
 
 // Re-export from detection framework
-pub use detection::{BugDetectionPass, DetectionManager, DetectorRegistry, register_all_detectors};
+pub use detection::{
+    BugDetectionPass, DetectionManager, DetectorRegistry, register_all_detectors,
+};
 
 // Re-export output types
-pub use output::{AnalysisReport, OutputFormatter, JsonFormatter, MarkdownFormatter, SarifFormatter};
 pub use config::{Config, OutputFormat, SeverityFilter};
+pub use output::{
+    AnalysisReport, JsonFormatter, MarkdownFormatter, OutputFormatter, SarifFormatter,
+};

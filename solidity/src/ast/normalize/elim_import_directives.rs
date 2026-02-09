@@ -1,10 +1,10 @@
 //! Module to eliminate `import` directive in Solidity smart contracts.
 
-use crate::{
-    ast::{utils::*, *},
-    ast::normalize::substitution::NameSubstitutor,
-};
 use crate::ast::Name;
+use crate::{
+    ast::normalize::substitution::NameSubstitutor,
+    ast::{utils::*, *},
+};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -235,11 +235,11 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
 mod tests {
     use super::eliminate_import;
     use crate::{
-        ast::utils::syntactic_comparer::compare_source_units,
-        parser::parse_solidity_source_code_list,
         ast::normalize::{
             rename_callees, rename_defs, rename_vars, utils::configure_unit_test_env,
         },
+        ast::utils::syntactic_comparer::compare_source_units,
+        parser::parse_solidity_source_code_list,
     };
     use indoc::indoc;
 
@@ -454,13 +454,12 @@ mod tests {
                 Err(err) => panic!("Failed to parse input source unit: {}", err),
             };
 
-        let expected_sunits = match parse_solidity_source_code_list(
-            &[expected_1, expected_2, expected_3],
-            "0.8.15",
-        ) {
-            Ok(sunits) => sunits,
-            Err(err) => panic!("Failed to parse expected source unit: {}", err),
-        };
+        let expected_sunits =
+            match parse_solidity_source_code_list(&[expected_1, expected_2, expected_3], "0.8.15")
+            {
+                Ok(sunits) => sunits,
+                Err(err) => panic!("Failed to parse expected source unit: {}", err),
+            };
 
         // Need to rename variables, definitions, etc before eliminating import
         // directives.

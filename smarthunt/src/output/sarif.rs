@@ -4,8 +4,8 @@
 //! for the output of static analysis tools.
 
 use crate::output::formatter::{AnalysisReport, OutputFormatter};
-use serde::{Serialize, Deserialize};
 use bugs::bug::RiskLevel;
+use serde::{Deserialize, Serialize};
 
 /// SARIF output formatter.
 #[derive(Debug, Default)]
@@ -27,8 +27,7 @@ impl OutputFormatter for SarifFormatter {
             serde_json::to_string_pretty(&sarif)
                 .unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e))
         } else {
-            serde_json::to_string(&sarif)
-                .unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e))
+            serde_json::to_string(&sarif).unwrap_or_else(|e| format!("{{\"error\": \"{}\"}}", e))
         }
     }
 
@@ -169,25 +168,34 @@ impl From<&AnalysisReport> for SarifLog {
         for bug in &report.bugs {
             let rule_id = bug.kind.as_str().to_lowercase().replace(' ', "-");
             if !rules_map.contains_key(&rule_id) {
-                rules_map.insert(rule_id.clone(), SarifRule {
-                    id: rule_id.clone(),
-                    name: bug.name.clone(),
-                    short_description: SarifMessage {
-                        text: bug.name.clone(),
+                rules_map.insert(
+                    rule_id.clone(),
+                    SarifRule {
+                        id: rule_id.clone(),
+                        name: bug.name.clone(),
+                        short_description: SarifMessage { text: bug.name.clone() },
+                        full_description: bug
+                            .description
+                            .clone()
+                            .map(|d| SarifMessage { text: d }),
+                        help_uri: bug
+                            .swc_ids
+                            .first()
+                            .map(|id| format!("https://swcregistry.io/docs/SWC-{}", id)),
+                        default_configuration: SarifRuleConfiguration {
+                            level: risk_level_to_sarif(&bug.risk_level),
+                        },
                     },
-                    full_description: bug.description.clone().map(|d| SarifMessage { text: d }),
-                    help_uri: bug.swc_ids.first().map(|id| format!("https://swcregistry.io/docs/SWC-{}", id)),
-                    default_configuration: SarifRuleConfiguration {
-                        level: risk_level_to_sarif(&bug.risk_level),
-                    },
-                });
+                );
             }
         }
 
         let rules: Vec<_> = rules_map.into_values().collect();
 
-        let results: Vec<_> = report.bugs.iter().map(|bug| {
-            SarifResult {
+        let results: Vec<_> = report
+            .bugs
+            .iter()
+            .map(|bug| SarifResult {
                 rule_id: format!("{:?}", bug.kind).to_lowercase().replace(' ', "-"),
                 level: risk_level_to_sarif(&bug.risk_level),
                 message: SarifMessage {
@@ -195,9 +203,7 @@ impl From<&AnalysisReport> for SarifLog {
                 },
                 locations: vec![SarifLocation {
                     physical_location: SarifPhysicalLocation {
-                        artifact_location: SarifArtifactLocation {
-                            uri: "unknown".to_string(),
-                        },
+                        artifact_location: SarifArtifactLocation { uri: "unknown".to_string() },
                         region: SarifRegion {
                             start_line: bug.loc.start_line,
                             start_column: Some(bug.loc.start_col),
@@ -206,16 +212,14 @@ impl From<&AnalysisReport> for SarifLog {
                         },
                     },
                 }],
-            }
-        }).collect();
+            })
+            .collect();
 
-        let artifacts: Vec<_> = report.files_analyzed.iter().map(|f| {
-            SarifArtifact {
-                location: SarifArtifactLocation {
-                    uri: f.clone(),
-                },
-            }
-        }).collect();
+        let artifacts: Vec<_> = report
+            .files_analyzed
+            .iter()
+            .map(|f| SarifArtifact { location: SarifArtifactLocation { uri: f.clone() } })
+            .collect();
 
         SarifLog {
             schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json".to_string(),

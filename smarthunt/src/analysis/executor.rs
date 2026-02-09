@@ -3,15 +3,14 @@
 //! This module provides the executor that runs passes according to
 //! the computed schedule, supporting both sequential and parallel execution.
 
-use crate::analysis::pass_id::PassId;
-use crate::analysis::pass::{AnalysisPass, PassResult, PassError, PassExecutionInfo};
 use crate::analysis::context::AnalysisContext;
-use crate::analysis::scheduler::{ExecutionSchedule, ExecutionLevel};
+use crate::analysis::pass::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
+use crate::analysis::pass_id::PassId;
+use crate::analysis::scheduler::{ExecutionLevel, ExecutionSchedule};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 /// Configuration for the pass executor.
@@ -85,10 +84,7 @@ impl Default for PassExecutor {
 impl PassExecutor {
     /// Create a new executor with configuration.
     pub fn new(config: ExecutorConfig) -> Self {
-        Self {
-            config,
-            passes: HashMap::new(),
-        }
+        Self { config, passes: HashMap::new() }
     }
 
     /// Register a pass.
@@ -193,9 +189,10 @@ impl PassExecutor {
             return Ok(None);
         }
 
-        let pass = self.passes.get(&pass_id).ok_or_else(|| {
-            PassError::PassNotFound(pass_id.to_string())
-        })?;
+        let pass = self
+            .passes
+            .get(&pass_id)
+            .ok_or_else(|| PassError::PassNotFound(pass_id.to_string()))?;
 
         let start = Instant::now();
         let name = pass.name().to_string();
@@ -213,15 +210,13 @@ impl PassExecutor {
                     error: None,
                 }))
             }
-            Err(e) => {
-                Ok(Some(PassExecutionInfo {
-                    pass_id,
-                    name,
-                    duration: start.elapsed(),
-                    success: false,
-                    error: Some(e.to_string()),
-                }))
-            }
+            Err(e) => Ok(Some(PassExecutionInfo {
+                pass_id,
+                name,
+                duration: start.elapsed(),
+                success: false,
+                error: Some(e.to_string()),
+            })),
         }
     }
 
@@ -232,7 +227,6 @@ impl PassExecutor {
 }
 
 /// Execute passes in parallel within a level.
-#[cfg(feature = "parallel")]
 pub fn execute_level_parallel(
     passes: &[Arc<dyn AnalysisPass>],
     context: &AnalysisContext,

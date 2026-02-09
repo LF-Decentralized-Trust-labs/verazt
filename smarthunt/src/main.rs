@@ -5,23 +5,21 @@
 use clap::{Parser, Subcommand, crate_version};
 use extlib::error;
 use smarthunt::{
-    Config,
-    OutputFormat,
-    SeverityFilter,
-    DetectorRegistry,
-    register_all_detectors,
+    AnalysisConfig,
+    AnalysisContext, // Use local analysis module
     AnalysisReport,
-    OutputFormatter,
+    Config,
+    DetectorRegistry,
     JsonFormatter,
     MarkdownFormatter,
+    OutputFormat,
+    OutputFormatter,
     SarifFormatter,
-    AnalysisContext,  // Use local analysis module
-    AnalysisConfig,
+    SeverityFilter,
+    register_all_detectors,
 };
 use solidity::{
-    ast::utils::export::export_debugging_source_unit,
-    ast::SourceUnit,
-    parser::parse_input_file,
+    ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parser::parse_input_file,
 };
 use std::fs;
 use std::time::Instant;
@@ -202,18 +200,26 @@ fn show_detector(id: &str) {
 
             let swc_ids = detector.swc_ids();
             if !swc_ids.is_empty() {
-                println!("SWC IDs: {}", swc_ids.iter()
-                    .map(|id| format!("SWC-{}", id))
-                    .collect::<Vec<_>>()
-                    .join(", "));
+                println!(
+                    "SWC IDs: {}",
+                    swc_ids
+                        .iter()
+                        .map(|id| format!("SWC-{}", id))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
             }
 
             let cwe_ids = detector.cwe_ids();
             if !cwe_ids.is_empty() {
-                println!("CWE IDs: {}", cwe_ids.iter()
-                    .map(|id| format!("CWE-{}", id))
-                    .collect::<Vec<_>>()
-                    .join(", "));
+                println!(
+                    "CWE IDs: {}",
+                    cwe_ids
+                        .iter()
+                        .map(|id| format!("CWE-{}", id))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
             }
 
             let refs = detector.references();
@@ -298,11 +304,10 @@ fn run_analysis(args: Arguments) {
 
     // Load configuration
     let mut config = if let Some(config_path) = &args.config {
-        Config::from_file(std::path::Path::new(config_path))
-            .unwrap_or_else(|e| {
-                eprintln!("Failed to load config: {}", e);
-                std::process::exit(1);
-            })
+        Config::from_file(std::path::Path::new(config_path)).unwrap_or_else(|e| {
+            eprintln!("Failed to load config: {}", e);
+            std::process::exit(1);
+        })
     } else {
         Config::default()
     };
@@ -392,7 +397,10 @@ fn run_analysis(args: Arguments) {
 
     // Get enabled detectors based on config
     let enabled_detectors = if !config.detectors.enabled.is_empty() {
-        config.detectors.enabled.iter()
+        config
+            .detectors
+            .enabled
+            .iter()
             .filter_map(|name| registry.get(name))
             .collect::<Vec<_>>()
     } else {
@@ -404,8 +412,11 @@ fn run_analysis(args: Arguments) {
         use rayon::prelude::*;
 
         if args.debug {
-            eprintln!("Running {} detectors in parallel ({} threads)...",
-                enabled_detectors.len(), config.num_threads);
+            eprintln!(
+                "Running {} detectors in parallel ({} threads)...",
+                enabled_detectors.len(),
+                config.num_threads
+            );
         }
 
         // Configure rayon thread pool
@@ -455,9 +466,7 @@ fn run_analysis(args: Arguments) {
             let formatter = SarifFormatter::new(true);
             formatter.format(&report)
         }
-        OutputFormat::Text => {
-            format_text_output(&report)
-        }
+        OutputFormat::Text => format_text_output(&report),
     };
 
     // Write output
@@ -515,18 +524,10 @@ fn format_text_output(report: &AnalysisReport) -> String {
         output.push_str("---------\n\n");
 
         for (i, bug) in report.bugs.iter().enumerate() {
-            output.push_str(&format!(
-                "{}. [{}] {}\n",
-                i + 1,
-                bug.risk_level,
-                bug.name
-            ));
+            output.push_str(&format!("{}. [{}] {}\n", i + 1, bug.risk_level, bug.name));
 
-            output.push_str(&format!(
-                "   Location: {}:{}\n",
-                bug.loc.start_line,
-                bug.loc.start_col
-            ));
+            output
+                .push_str(&format!("   Location: {}:{}\n", bug.loc.start_line, bug.loc.start_col));
 
             if let Some(desc) = &bug.description {
                 output.push_str(&format!("   {}\n", desc));

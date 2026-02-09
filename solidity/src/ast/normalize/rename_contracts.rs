@@ -3,8 +3,8 @@
 //! The renaming will be done on both contract definitions and base contract
 //! information of inheritance.
 
-use crate::{ast::utils::*, ast::*};
 use crate::ast::NamingEnv;
+use crate::{ast::utils::*, ast::*};
 
 #[derive(Debug, Clone)]
 struct Renamer<'a> {
@@ -186,9 +186,9 @@ pub fn rename_contracts(
 mod tests {
     use super::rename_contracts;
     use crate::{
+        ast::normalize::{flatten_name, utils::configure_unit_test_env},
         ast::utils::syntactic_comparer::compare_source_units,
         parser::parse_solidity_source_code,
-        ast::normalize::{flatten_name, utils::configure_unit_test_env},
     };
     use indoc::indoc;
 

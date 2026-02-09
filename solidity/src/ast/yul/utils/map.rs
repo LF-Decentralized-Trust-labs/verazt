@@ -137,9 +137,9 @@ pub trait YulMap {
 /// Module containing default implementation of the mapping pattern for Yul AST.
 pub mod yul_map_default {
     use super::YulMap;
+    use crate::ast::Name;
     use crate::ast::yul::*;
     use either::Either;
-    use crate::ast::Name;
 
     //-------------------------------------------------
     // Source unit
@@ -193,8 +193,16 @@ pub mod yul_map_default {
     }
 
     pub fn map_yul_func_def<T: YulMap + ?Sized>(mapper: &mut T, func: &YulFuncDef) -> YulFuncDef {
-        let nparams = func.params.iter().map(|p| mapper.map_yul_ident(p)).collect();
-        let nreturns = func.returns.iter().map(|p| mapper.map_yul_ident(p)).collect();
+        let nparams = func
+            .params
+            .iter()
+            .map(|p| mapper.map_yul_ident(p))
+            .collect();
+        let nreturns = func
+            .returns
+            .iter()
+            .map(|p| mapper.map_yul_ident(p))
+            .collect();
         let nbody = mapper.map_yul_block(&func.body);
         YulFuncDef { params: nparams, returns: nreturns, body: nbody, ..func.clone() }
     }
@@ -221,8 +229,15 @@ pub mod yul_map_default {
         }
     }
 
-    pub fn map_yul_assign_stmt<T: YulMap + ?Sized>(mapper: &mut T, stmt: &YulAssignStmt) -> YulAssignStmt {
-        let nvars = stmt.vars.iter().map(|id| mapper.map_yul_ident(id)).collect();
+    pub fn map_yul_assign_stmt<T: YulMap + ?Sized>(
+        mapper: &mut T,
+        stmt: &YulAssignStmt,
+    ) -> YulAssignStmt {
+        let nvars = stmt
+            .vars
+            .iter()
+            .map(|id| mapper.map_yul_ident(id))
+            .collect();
         let nvalue = mapper.map_yul_expr(&stmt.value);
         YulAssignStmt::new(nvars, nvalue)
     }
@@ -241,7 +256,10 @@ pub mod yul_map_default {
         YulForStmt::new(npre, ncond, npost, nblock)
     }
 
-    pub fn map_yul_switch_stmt<T: YulMap + ?Sized>(mapper: &mut T, stmt: &YulSwitchStmt) -> YulSwitchStmt {
+    pub fn map_yul_switch_stmt<T: YulMap + ?Sized>(
+        mapper: &mut T,
+        stmt: &YulSwitchStmt,
+    ) -> YulSwitchStmt {
         let nexpr = mapper.map_yul_expr(&stmt.expr);
         let nvalues = stmt
             .values
@@ -255,7 +273,10 @@ pub mod yul_map_default {
         YulSwitchStmt::new(nexpr, nvalues, ndefault)
     }
 
-    pub fn map_yul_switch_value<T: YulMap + ?Sized>(mapper: &mut T, case: &YulSwitchValue) -> YulSwitchValue {
+    pub fn map_yul_switch_value<T: YulMap + ?Sized>(
+        mapper: &mut T,
+        case: &YulSwitchValue,
+    ) -> YulSwitchValue {
         let nliteral = mapper.map_yul_lit(&case.literal);
         let nbody = mapper.map_yul_block(&case.body);
         YulSwitchValue::new(nliteral, nbody)
@@ -272,7 +293,11 @@ pub mod yul_map_default {
     pub fn map_yul_var_decl<T: YulMap + ?Sized>(mapper: &mut T, vdecl: &YulVarDecl) -> YulVarDecl {
         // Map the assigned value first.
         let nvalue = vdecl.value.as_ref().map(|expr| mapper.map_yul_expr(expr));
-        let nvdecl = vdecl.vars.iter().map(|id| mapper.map_yul_ident(id)).collect();
+        let nvdecl = vdecl
+            .vars
+            .iter()
+            .map(|id| mapper.map_yul_ident(id))
+            .collect();
         YulVarDecl::new(nvdecl, nvalue)
     }
 
@@ -290,13 +315,23 @@ pub mod yul_map_default {
         }
     }
 
-    pub fn map_yul_call_expr<T: YulMap + ?Sized>(mapper: &mut T, expr: &YulCallExpr) -> YulCallExpr {
+    pub fn map_yul_call_expr<T: YulMap + ?Sized>(
+        mapper: &mut T,
+        expr: &YulCallExpr,
+    ) -> YulCallExpr {
         let ncallee = mapper.map_yul_ident(&expr.callee);
-        let nargs = expr.args.iter().map(|arg| mapper.map_yul_expr(arg)).collect();
+        let nargs = expr
+            .args
+            .iter()
+            .map(|arg| mapper.map_yul_expr(arg))
+            .collect();
         YulCallExpr::new(ncallee, nargs)
     }
 
-    pub fn map_yul_member_expr<T: YulMap + ?Sized>(mapper: &mut T, expr: &YulMemberExpr) -> YulMemberExpr {
+    pub fn map_yul_member_expr<T: YulMap + ?Sized>(
+        mapper: &mut T,
+        expr: &YulMemberExpr,
+    ) -> YulMemberExpr {
         let nbase = mapper.map_yul_name(&expr.base);
         let nmember = mapper.map_yul_name(&expr.member);
         YulMemberExpr { base: nbase, member: nmember, ..expr.clone() }

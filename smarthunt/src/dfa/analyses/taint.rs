@@ -5,16 +5,16 @@ use std::collections::HashSet;
 /// Taint sources specific to Solidity
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TaintSource {
-    MsgSender,           // msg.sender
-    MsgValue,            // msg.value
-    MsgData,             // msg.data
-    TxOrigin,            // tx.origin
-    BlockTimestamp,      // block.timestamp
-    BlockNumber,         // block.number
-    ExternalCallResult,  // Result of external call
-    CallDataLoad,        // Direct calldata access
-    FunctionParameter,   // Function input parameter
-    StorageRead,         // Value read from storage
+    MsgSender,          // msg.sender
+    MsgValue,           // msg.value
+    MsgData,            // msg.data
+    TxOrigin,           // tx.origin
+    BlockTimestamp,     // block.timestamp
+    BlockNumber,        // block.number
+    ExternalCallResult, // Result of external call
+    CallDataLoad,       // Direct calldata access
+    FunctionParameter,  // Function input parameter
+    StorageRead,        // Value read from storage
 }
 
 /// Taint sinks (sensitive operations)

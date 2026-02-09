@@ -6,4 +6,6 @@
 pub mod ast;
 
 // Re-export common passes
-pub use ast::{SymbolTablePass, TypeIndexPass, InheritanceGraphPass, CallGraphPass, ModifierAnalysisPass};
+pub use ast::{
+    CallGraphPass, InheritanceGraphPass, ModifierAnalysisPass, SymbolTablePass, TypeIndexPass,
+};

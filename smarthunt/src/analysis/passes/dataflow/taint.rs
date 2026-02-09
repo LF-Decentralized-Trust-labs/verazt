@@ -2,13 +2,12 @@
 //!
 //! Tracks untrusted data from sources to sinks for security analysis.
 
+use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use solidity::ast::Loc;
-
 
 /// Taint source (untrusted data origin).
 #[derive(Debug, Clone, PartialEq, Eq)]

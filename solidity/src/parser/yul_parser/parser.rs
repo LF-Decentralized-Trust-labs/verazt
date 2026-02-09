@@ -1,5 +1,6 @@
 //! Module for parsing Yul intermediate code.
 
+use crate::ast::{Loc, Name};
 use crate::{
     ast::yul::*,
     parser::yul_parser::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
@@ -7,7 +8,6 @@ use crate::{
 use Either::{Left, Right};
 use either::Either;
 use extlib::{error::Result, fail};
-use crate::ast::{Loc, Name};
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 use regex::Regex;

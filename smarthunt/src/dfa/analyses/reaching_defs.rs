@@ -27,5 +27,6 @@ impl Transfer<ReachingDefsLattice> for ReachingDefsTransfer {
     }
 }
 
-/// Reaching definitions analysis pass (to be integrated with analysis framework)
+/// Reaching definitions analysis pass (to be integrated with analysis
+/// framework)
 pub struct ReachingDefsPass;

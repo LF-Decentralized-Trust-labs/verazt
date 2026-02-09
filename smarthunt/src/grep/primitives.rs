@@ -10,10 +10,7 @@ pub struct IdentPattern {
 
 impl IdentPattern {
     pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            capture_as: None,
-        }
+        Self { name: name.into(), capture_as: None }
     }
 
     pub fn capture(mut self, name: impl Into<String>) -> Self {
@@ -30,11 +27,7 @@ impl Pattern for IdentPattern {
                 if let Some(key) = &self.capture_as {
                     captures.insert(key.clone(), CapturedNode::Ident(id.clone()));
                 }
-                return Some(Match {
-                    loc: id.loc,
-                    captures,
-                    context: ctx.clone(),
-                });
+                return Some(Match { loc: id.loc, captures, context: ctx.clone() });
             }
         }
         None
@@ -62,11 +55,7 @@ pub struct MemberAccessPattern {
 
 impl MemberAccessPattern {
     pub fn new(object: Box<dyn Pattern>, member: impl Into<String>) -> Self {
-        Self {
-            object,
-            member: member.into(),
-            capture_object_as: None,
-        }
+        Self { object, member: member.into(), capture_object_as: None }
     }
 
     pub fn capture_object(mut self, name: impl Into<String>) -> Self {
@@ -84,11 +73,7 @@ impl Pattern for MemberAccessPattern {
                     if let Some(key) = &self.capture_object_as {
                         captures.insert(key.clone(), CapturedNode::Expr(m.base.clone()));
                     }
-                    return Some(Match {
-                        loc: m.loc,
-                        captures,
-                        context: ctx.clone(),
-                    });
+                    return Some(Match { loc: m.loc, captures, context: ctx.clone() });
                 }
             }
         }
@@ -116,10 +101,7 @@ pub struct CallPattern {
 
 impl CallPattern {
     pub fn new(callee: Box<dyn Pattern>) -> Self {
-        Self {
-            callee,
-            capture_as: None,
-        }
+        Self { callee, capture_as: None }
     }
 
     pub fn capture(mut self, name: impl Into<String>) -> Self {
@@ -136,11 +118,7 @@ impl Pattern for CallPattern {
                 if let Some(key) = &self.capture_as {
                     captures.insert(key.clone(), CapturedNode::Expr(Box::new(expr.clone())));
                 }
-                return Some(Match {
-                    loc: call.loc,
-                    captures,
-                    context: ctx.clone(),
-                });
+                return Some(Match { loc: call.loc, captures, context: ctx.clone() });
             }
         }
         None
@@ -187,11 +165,7 @@ impl Pattern for AnyExpr {
         if let Some(key) = &self.capture_as {
             captures.insert(key.clone(), CapturedNode::Expr(Box::new(expr.clone())));
         }
-        Some(Match {
-            loc: expr.loc(),
-            captures,
-            context: ctx.clone(),
-        })
+        Some(Match { loc: expr.loc(), captures, context: ctx.clone() })
     }
 
     fn match_stmt(&self, _stmt: &Stmt, _ctx: &MatchContext) -> Option<Match> {
@@ -239,11 +213,7 @@ impl Pattern for AnyStmt {
         if let Some(key) = &self.capture_as {
             captures.insert(key.clone(), CapturedNode::Stmt(Box::new(stmt.clone())));
         }
-        Some(Match {
-            loc: stmt.loc(),
-            captures,
-            context: ctx.clone(),
-        })
+        Some(Match { loc: stmt.loc(), captures, context: ctx.clone() })
     }
 
     fn name(&self) -> &str {

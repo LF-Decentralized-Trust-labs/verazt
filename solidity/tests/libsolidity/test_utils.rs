@@ -2,8 +2,8 @@
 use extlib::{error::Result, fail};
 use regex::Regex;
 use solidity::{
-    ast::SourceUnit, ast::utils::export::export_source_unit, parser::parse_input_file,
-    ast::normalize,
+    ast::SourceUnit, ast::normalize, ast::utils::export::export_source_unit,
+    parser::parse_input_file,
 };
 use std::{
     ffi::OsStr,
@@ -250,8 +250,7 @@ fn test_compiling_solidity_file(
         for file in exported_files {
             // Compile the normalized Solidity file by Solc again
             info!("- Test compilation: {file}");
-            if let Err(err) = parse_input_file(&file, Some(normalized_dir), &[], Some(solc_ver))
-            {
+            if let Err(err) = parse_input_file(&file, Some(normalized_dir), &[], Some(solc_ver)) {
                 panic!("Failed to compile: {file}\n\nError: {err}");
             }
         }

@@ -1,6 +1,6 @@
+use crate::ast::{DataLoc, Loc};
 use crate::ir::*;
 use extlib::string::StringExt;
-use crate::ast::{DataLoc, Loc};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

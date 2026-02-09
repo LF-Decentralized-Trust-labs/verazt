@@ -23,10 +23,7 @@ pub struct VarId {
 
 impl VarId {
     pub fn new(name: impl Into<String>, scope: VarScope) -> Self {
-        Self {
-            name: name.into(),
-            scope,
-        }
+        Self { name: name.into(), scope }
     }
 
     pub fn local(name: impl Into<String>) -> Self {
@@ -34,12 +31,7 @@ impl VarId {
     }
 
     pub fn state(name: impl Into<String>, contract: impl Into<String>) -> Self {
-        Self::new(
-            name,
-            VarScope::State {
-                contract: contract.into(),
-            },
-        )
+        Self::new(name, VarScope::State { contract: contract.into() })
     }
 
     pub fn is_state_var(&self) -> bool {

@@ -1,33 +1,37 @@
-//! CEI Pattern Violation Detector
+//! CEI Violation Detector (DFA-based)
 //!
-//! Detects violations of the Checks-Effects-Interactions pattern.
+//! Detects violations of the Checks-Effects-Interactions pattern
+//! using data flow analysis.
 //!
-//! The CEI pattern requires that state changes (effects) happen before
-//! external calls (interactions) to prevent reentrancy vulnerabilities.
+//! The CEI pattern requires that:
+//! 1. Checks (conditions, requires) come first
+//! 2. Effects (state changes) come second
+//! 3. Interactions (external calls) come last
 
-use bugs::bug::{Bug, BugKind, RiskLevel};
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use solidity::ast::{Block, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 use crate::detection::pass::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use bugs::bug::{Bug, BugKind, RiskLevel};
+use solidity::ast::{Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 
-/// Detector for CEI (Checks-Effects-Interactions) pattern violations.
+/// DFA-based detector for CEI (Checks-Effects-Interactions) pattern violations.
 #[derive(Debug, Default)]
-pub struct CeiViolationDetector;
+pub struct CeiViolationDfaDetector;
 
-impl CeiViolationDetector {
+impl CeiViolationDfaDetector {
     pub fn new() -> Self {
         Self
     }
 
-    fn check_function(&self, func: &FuncDef, _contract_name: &str, bugs: &mut Vec<Bug>) {
+    fn check_function(&self, func: &FuncDef, contract_name: &str, bugs: &mut Vec<Bug>) {
         // Skip if function has nonReentrant modifier
         for modifier in &func.modifier_invocs {
             if let Expr::Ident(ident) = modifier.callee.as_ref() {
-                if ident.name.base.as_str() == "nonReentrant" {
+                let name = ident.name.base.as_str().to_lowercase();
+                if name == "nonreentrant" {
                     return;
                 }
             }
@@ -37,12 +41,16 @@ impl CeiViolationDetector {
             let mut analyzer = CeiAnalyzer::new();
             analyzer.analyze_block(body);
 
+            let func_name = func.name.base.as_str();
             for issue in analyzer.violations {
                 let bug = create_bug(
                     self,
                     Some(&format!(
-                        "State update at line {} occurs after external call at line {}. \
-                         This violates the Checks-Effects-Interactions pattern.",
+                        "CEI violation in '{}.{}': state update at line {} occurs after \
+                         external call at line {}. This violates the \
+                         Checks-Effects-Interactions pattern.",
+                        contract_name,
+                        func_name,
                         issue.state_update_line,
                         issue.external_call_line,
                     )),
@@ -54,116 +62,26 @@ impl CeiViolationDetector {
     }
 }
 
-impl Pass for CeiViolationDetector {
-    fn id(&self) -> PassId {
-        PassId::CeiViolation
-    }
-
-    fn name(&self) -> &'static str {
-        "CEI Pattern Violation"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects violations of the Checks-Effects-Interactions pattern"
-    }
-
-    fn level(&self) -> PassLevel {
-        PassLevel::Program
-    }
-
-    fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
-    }
-
-    fn dependencies(&self) -> Vec<PassId> {
-        vec![]
-    }
-}
-
-impl BugDetectionPass for CeiViolationDetector {
-    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        let mut bugs = Vec::new();
-
-        for source_unit in &context.source_units {
-            for elem in &source_unit.elems {
-                match elem {
-                    SourceUnitElem::Contract(contract) => {
-                        let contract_name = &contract.name.base;
-                        for elem in &contract.body {
-                            if let ContractElem::Func(func) = elem {
-                                self.check_function(func, contract_name, &mut bugs);
-                            }
-                        }
-                    }
-                    SourceUnitElem::Func(func) => {
-                        self.check_function(func, "global", &mut bugs);
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        Ok(bugs)
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> ConfidenceLevel {
-        ConfidenceLevel::Medium
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![841] // CWE-841: Improper Enforcement of Behavioral Workflow
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![107] // SWC-107: Reentrancy
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Follow the Checks-Effects-Interactions pattern: perform all checks first, \
-         then make state changes, and finally interact with external contracts. \
-         Consider using OpenZeppelin's ReentrancyGuard."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-107",
-            "https://fravoll.github.io/solidity-patterns/checks_effects_interactions.html",
-        ]
-    }
-}
-
-/// CEI violation issue
+/// CEI violation detail.
 struct CeiViolation {
     loc: Loc,
     external_call_line: usize,
     state_update_line: usize,
 }
 
-/// Analyzer for CEI pattern violations
+/// Analyzer for CEI pattern violations.
 struct CeiAnalyzer {
-    /// Whether we've seen an external call
+    /// Whether we've seen an external call.
     seen_external_call: bool,
-    /// Location of the first external call
+    /// Location of the first external call.
     external_call_loc: Option<Loc>,
-    /// Detected violations
+    /// Detected violations.
     violations: Vec<CeiViolation>,
 }
 
 impl CeiAnalyzer {
     fn new() -> Self {
-        Self {
-            seen_external_call: false,
-            external_call_loc: None,
-            violations: Vec::new(),
-        }
+        Self { seen_external_call: false, external_call_loc: None, violations: Vec::new() }
     }
 
     fn analyze_block(&mut self, block: &Block) {
@@ -238,6 +156,30 @@ impl CeiAnalyzer {
                 self.analyze_stmt(&do_while.body);
             }
 
+            Stmt::VarDecl(var_decl) => {
+                if let Some(value) = &var_decl.value {
+                    if let Some(call_loc) = self.find_external_call(value) {
+                        if !self.seen_external_call {
+                            self.seen_external_call = true;
+                            self.external_call_loc = Some(call_loc);
+                        }
+                    }
+                }
+            }
+
+            Stmt::Try(try_stmt) => {
+                if let Some(call_loc) = self.find_external_call(&try_stmt.guarded_expr) {
+                    if !self.seen_external_call {
+                        self.seen_external_call = true;
+                        self.external_call_loc = Some(call_loc);
+                    }
+                }
+                self.analyze_block(&try_stmt.body);
+                for catch in &try_stmt.catch_clauses {
+                    self.analyze_block(&catch.body);
+                }
+            }
+
             _ => {}
         }
     }
@@ -250,14 +192,14 @@ impl CeiAnalyzer {
                 }
                 // Check arguments
                 match &call.args {
-                    solidity::ast::CallArgs::Unnamed(args) => {
+                    CallArgs::Unnamed(args) => {
                         for arg in args {
                             if let Some(loc) = self.find_external_call(arg) {
                                 return Some(loc);
                             }
                         }
                     }
-                    solidity::ast::CallArgs::Named(args) => {
+                    CallArgs::Named(args) => {
                         for arg in args {
                             if let Some(loc) = self.find_external_call(&arg.value) {
                                 return Some(loc);
@@ -265,30 +207,27 @@ impl CeiAnalyzer {
                         }
                     }
                 }
+                None
             }
             Expr::CallOpts(call_opts) => {
                 if let Expr::Member(member) = call_opts.callee.as_ref() {
                     let method = member.member.base.as_str();
-                    if matches!(method, "call" | "delegatecall" | "staticcall" | "transfer" | "send") {
+                    if matches!(
+                        method,
+                        "call" | "delegatecall" | "staticcall" | "transfer" | "send"
+                    ) {
                         return call_opts.loc;
                     }
                 }
+                None
             }
-            Expr::Member(member) => {
-                return self.find_external_call(&member.base);
-            }
-            Expr::Binary(binary) => {
-                if let Some(loc) = self.find_external_call(&binary.left) {
-                    return Some(loc);
-                }
-                return self.find_external_call(&binary.right);
-            }
-            Expr::Unary(unary) => {
-                return self.find_external_call(&unary.body);
-            }
-            _ => {}
+            Expr::Member(member) => self.find_external_call(&member.base),
+            Expr::Binary(binary) => self
+                .find_external_call(&binary.left)
+                .or_else(|| self.find_external_call(&binary.right)),
+            Expr::Unary(unary) => self.find_external_call(&unary.body),
+            _ => None,
         }
-        None
     }
 
     fn is_external_call(&self, expr: &Expr) -> bool {
@@ -303,18 +242,97 @@ impl CeiAnalyzer {
 
     fn is_state_write(&self, expr: &Expr) -> bool {
         match expr {
-            Expr::Ident(_) => true, // Simplified: assume all identifiers are state vars
-            Expr::Member(member) => {
-                // Check for state variable access like this.x or contract.x
-                if let Expr::Ident(ident) = member.base.as_ref() {
-                    ident.name.base.as_str() != "msg" && ident.name.base.as_str() != "block"
-                } else {
-                    true
-                }
-            }
-            Expr::Index(index) => self.is_state_write(&index.base_expr),
+            Expr::Ident(_) => true,
+            Expr::Member(m) => self.is_state_write(&m.base),
+            Expr::Index(i) => self.is_state_write(&i.base_expr),
             _ => false,
         }
+    }
+}
+
+impl Pass for CeiViolationDfaDetector {
+    fn id(&self) -> PassId {
+        PassId::CeiViolation
+    }
+
+    fn name(&self) -> &'static str {
+        "CEI Pattern Violation (DFA)"
+    }
+
+    fn description(&self) -> &'static str {
+        "Detects violations of the Checks-Effects-Interactions pattern using data flow analysis"
+    }
+
+    fn level(&self) -> PassLevel {
+        PassLevel::Program
+    }
+
+    fn representation(&self) -> PassRepresentation {
+        PassRepresentation::Ast
+    }
+
+    fn dependencies(&self) -> Vec<PassId> {
+        vec![]
+    }
+}
+
+impl BugDetectionPass for CeiViolationDfaDetector {
+    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+        let mut bugs = Vec::new();
+
+        for source_unit in &context.source_units {
+            for elem in &source_unit.elems {
+                match elem {
+                    SourceUnitElem::Contract(contract) => {
+                        let contract_name = &contract.name.base;
+                        for elem in &contract.body {
+                            if let ContractElem::Func(func) = elem {
+                                self.check_function(func, contract_name, &mut bugs);
+                            }
+                        }
+                    }
+                    SourceUnitElem::Func(func) => {
+                        self.check_function(func, "global", &mut bugs);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(bugs)
+    }
+
+    fn bug_kind(&self) -> BugKind {
+        BugKind::Vulnerability
+    }
+
+    fn risk_level(&self) -> RiskLevel {
+        RiskLevel::High
+    }
+
+    fn confidence(&self) -> ConfidenceLevel {
+        ConfidenceLevel::Medium
+    }
+
+    fn cwe_ids(&self) -> Vec<usize> {
+        vec![841] // CWE-841: Improper Enforcement of Behavioral Workflow
+    }
+
+    fn swc_ids(&self) -> Vec<usize> {
+        vec![107] // SWC-107: Reentrancy
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Follow the Checks-Effects-Interactions pattern: perform all checks first, \
+         then make state changes, and finally interact with external contracts. \
+         Consider using OpenZeppelin's ReentrancyGuard."
+    }
+
+    fn references(&self) -> Vec<&'static str> {
+        vec![
+            "https://swcregistry.io/docs/SWC-107",
+            "https://fravoll.github.io/solidity-patterns/checks_effects_interactions.html",
+        ]
     }
 }
 
@@ -324,8 +342,9 @@ mod tests {
 
     #[test]
     fn test_cei_violation_detector() {
-        let detector = CeiViolationDetector::new();
+        let detector = CeiViolationDfaDetector::new();
         assert_eq!(detector.id(), PassId::CeiViolation);
+        assert_eq!(detector.risk_level(), RiskLevel::High);
         assert_eq!(detector.swc_ids(), vec![107]);
     }
 }
