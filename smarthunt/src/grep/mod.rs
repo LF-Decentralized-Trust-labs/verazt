@@ -12,7 +12,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use smarthunt::astmatch::{PatternBuilder as P, PatternMatcher, MatchContext};
+//! use smarthunt::grep::{PatternBuilder as P, PatternMatcher, MatchContext};
 //!
 //! // Create a pattern to match tx.origin == address
 //! let pattern = P::binary_eq(P::tx_origin(), P::any());

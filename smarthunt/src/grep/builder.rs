@@ -1,6 +1,6 @@
-use crate::astmatch::composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
-use crate::astmatch::core::{Match, Pattern};
-use crate::astmatch::primitives::{
+use crate::grep::composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
+use crate::grep::core::{Match, Pattern};
+use crate::grep::primitives::{
     AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern,
 };
 use solidity::ast::BinOp;
@@ -109,7 +109,7 @@ impl BinaryPattern {
 }
 
 impl Pattern for BinaryPattern {
-    fn match_expr(&self, expr: &solidity::ast::Expr, ctx: &crate::astmatch::core::MatchContext) -> Option<Match> {
+    fn match_expr(&self, expr: &solidity::ast::Expr, ctx: &crate::grep::core::MatchContext) -> Option<Match> {
         if let solidity::ast::Expr::Binary(b) = expr {
             if b.operator == self.op {
                 let left_match = self.left.match_expr(&b.left, ctx)?;
@@ -129,7 +129,7 @@ impl Pattern for BinaryPattern {
         None
     }
 
-    fn match_stmt(&self, _stmt: &solidity::ast::Stmt, _ctx: &crate::astmatch::core::MatchContext) -> Option<Match> {
+    fn match_stmt(&self, _stmt: &solidity::ast::Stmt, _ctx: &crate::grep::core::MatchContext) -> Option<Match> {
         None
     }
 

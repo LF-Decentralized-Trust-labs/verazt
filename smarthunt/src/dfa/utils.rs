@@ -1,4 +1,4 @@
-use crate::irdfa::var::VarId;
+use crate::dfa::var::VarId;
 use solidity::ir::{AtomicExpr, CalleeExpr, Expr, Stmt};
 
 /// Collect variables that are used (read) in a statement

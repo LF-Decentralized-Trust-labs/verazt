@@ -11,8 +11,8 @@
 //! # Example
 //!
 //! ```ignore
-//! use smarthunt::irdfa::{ControlFlowGraph, DataFlowSolver, Direction};
-//! use smarthunt::irdfa::lattice::PowerSetLattice;
+//! use smarthunt::dfa::{ControlFlowGraph, DataFlowSolver, Direction};
+//! use smarthunt::dfa::lattice::PowerSetLattice;
 //!
 //! // Create a CFG from IR
 //! let cfg = ControlFlowGraph::new("my_function".to_string(), entry_block);

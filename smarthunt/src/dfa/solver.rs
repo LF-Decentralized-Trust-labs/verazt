@@ -1,5 +1,5 @@
-use crate::irdfa::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph};
-use crate::irdfa::lattice::Lattice;
+use crate::dfa::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph};
+use crate::dfa::lattice::Lattice;
 use solidity::ir::Stmt;
 use std::collections::{HashMap, VecDeque};
 use std::marker::PhantomData;
@@ -251,8 +251,8 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::irdfa::cfg::Terminator;
-    use crate::irdfa::lattice::PowerSetLattice;
+    use crate::dfa::cfg::Terminator;
+    use crate::dfa::lattice::PowerSetLattice;
 
     struct TestTransfer;
 

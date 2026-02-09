@@ -1,4 +1,4 @@
-use crate::irdfa::var::VarId;
+use crate::dfa::var::VarId;
 use solidity::ir::{Expr, Stmt};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -128,7 +128,7 @@ impl BasicBlock {
 
         // Also collect uses from terminator condition
         if let Terminator::Branch { condition, .. } = &self.terminator {
-            let uses = crate::irdfa::utils::get_vars_in_expr(condition);
+            let uses = crate::dfa::utils::get_vars_in_expr(condition);
             for var in uses {
                 if !local_defs.contains(&var) {
                     self.upward_exposed.insert(var.clone());
@@ -284,11 +284,11 @@ impl ControlFlowGraph {
 
 /// Collect variables used in a statement
 fn collect_used_vars(stmt: &Stmt) -> Vec<VarId> {
-    crate::irdfa::utils::collect_used_vars(stmt)
+    crate::dfa::utils::collect_used_vars(stmt)
 }
 
 /// Collect variables defined in a statement
 fn collect_defined_vars(stmt: &Stmt) -> Vec<VarId> {
-    crate::irdfa::utils::collect_defined_vars(stmt)
+    crate::dfa::utils::collect_defined_vars(stmt)
 }
 

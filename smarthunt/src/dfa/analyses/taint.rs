@@ -1,4 +1,4 @@
-use crate::irdfa::var::VarId;
+use crate::dfa::var::VarId;
 use solidity::ast::Loc;
 use std::collections::HashSet;
 

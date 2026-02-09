@@ -1,6 +1,6 @@
-use crate::irdfa::analyses::reaching_defs::Definition;
-use crate::irdfa::cfg::BasicBlockId;
-use crate::irdfa::var::VarId;
+use crate::dfa::analyses::reaching_defs::Definition;
+use crate::dfa::cfg::BasicBlockId;
+use crate::dfa::var::VarId;
 use solidity::ast::Loc;
 use std::collections::{HashMap, HashSet};
 

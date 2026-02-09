@@ -1,4 +1,4 @@
-use crate::astmatch::core::{CapturedNode, Match, MatchContext, Pattern};
+use crate::grep::core::{CapturedNode, Match, MatchContext, Pattern};
 use solidity::ast::{Expr, Stmt};
 use std::collections::HashMap;
 

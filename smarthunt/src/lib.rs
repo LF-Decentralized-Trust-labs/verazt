@@ -7,11 +7,11 @@
 //!
 //! SmartHunt uses a pass-based architecture with a built-in analysis framework:
 //!
-//! - `irdfa`: IR Data Flow Analysis framework (standalone)
+//! - `dfa`: IR Data Flow Analysis framework (standalone)
 //!   - Generic lattice framework for abstract domains
 //!   - Worklist-based solver for forward/backward analysis
 //!   - Built-in analyses (reaching definitions, liveness, taint, etc.)
-//! - `astmatch`: AST Pattern Matching framework (standalone)
+//! - `grep`: AST Pattern Matching framework (standalone)
 //!   - Declarative pattern definitions with captures
 //!   - Composable pattern combinators
 //!   - Multi-pattern single-pass matching
@@ -38,10 +38,10 @@
 //! ```
 
 // IR Data Flow Analysis framework (standalone)
-pub mod irdfa;
+pub mod dfa;
 
 // AST Pattern Matching framework (standalone)
-pub mod astmatch;
+pub mod grep;
 
 // Analysis framework (migrated from solidity crate)
 pub mod analysis;

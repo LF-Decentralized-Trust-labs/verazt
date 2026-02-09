@@ -1,6 +1,6 @@
-use crate::irdfa::lattice::PowerSetLattice;
-use crate::irdfa::solver::Transfer;
-use crate::irdfa::var::VarId;
+use crate::dfa::lattice::PowerSetLattice;
+use crate::dfa::solver::Transfer;
+use crate::dfa::var::VarId;
 use solidity::ir::Stmt;
 
 /// Live variables lattice (set of live variables)
