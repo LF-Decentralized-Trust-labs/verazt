@@ -33,8 +33,9 @@ pub mod pass_level;
 pub mod pass_representation;
 pub mod scheduler;
 
-// Analysis pass implementations
-pub mod passes;
+// Analysis domains
+pub mod ast;
+pub mod ir;
 
 // Re-exports for convenient access
 pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats};
@@ -48,7 +49,7 @@ pub use pass_representation::PassRepresentation;
 pub use scheduler::PassScheduler;
 
 // Re-export concrete passes
-pub use passes::ast::{
+pub use ast::{
     CallGraph, CallGraphExt, CallGraphPass, CallSite, FunctionId, InheritanceGraph,
     InheritanceGraphExt, InheritanceGraphPass, ModifierAnalysis, ModifierAnalysisExt,
     ModifierAnalysisPass, ModifierInfo, SymbolTable, SymbolTableExt, SymbolTablePass, TypeIndex,
@@ -56,4 +57,4 @@ pub use passes::ast::{
 };
 
 // Re-export IR passes
-pub use passes::ir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
+pub use ir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};

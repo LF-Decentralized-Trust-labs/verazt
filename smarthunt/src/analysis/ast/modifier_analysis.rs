@@ -7,7 +7,7 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::passes::ast::symbol_table::FunctionId;
+use crate::analysis::ast::symbol_table::FunctionId;
 use solidity::ast::{
     ContractDef, ContractElem, FuncDef, FuncKind, Name, SourceUnit, SourceUnitElem,
 };
