@@ -32,7 +32,6 @@
 //! let bugs = manager.run(&mut context);
 //! ```
 
-pub mod detectors;
 pub mod manager;
 pub mod pass;
 pub mod registry;
