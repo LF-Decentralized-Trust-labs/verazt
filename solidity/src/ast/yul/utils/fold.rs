@@ -132,8 +132,8 @@ pub trait YulFold<T> {
 
 /// Module containing default implementation of the folding pattern for Yul AST.
 pub mod yul_fold_default {
-    use either::Either;
     use crate::ast::Name;
+    use either::Either;
 
     use super::YulFold;
     use crate::ast::yul::*;
@@ -154,7 +154,11 @@ pub mod yul_fold_default {
     // Object
     //-------------------------------------------------
 
-    pub fn fold_yul_object<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, object: &YulObject) -> T {
+    pub fn fold_yul_object<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        object: &YulObject,
+    ) -> T {
         let res = folder.fold_yul_code(acc, &object.code);
         object.children.iter().fold(res, |acc2, child| match child {
             Either::Left(obj) => folder.fold_yul_object(acc2, obj),
@@ -181,7 +185,11 @@ pub mod yul_fold_default {
             .fold(acc, |acc2, stmt| folder.fold_yul_stmt(acc2, stmt))
     }
 
-    pub fn fold_yul_func_def<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, func: &YulFuncDef) -> T {
+    pub fn fold_yul_func_def<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        func: &YulFuncDef,
+    ) -> T {
         let res = func
             .params
             .iter()
@@ -217,7 +225,11 @@ pub mod yul_fold_default {
         }
     }
 
-    pub fn fold_yul_assign_stmt<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, stmt: &YulAssignStmt) -> T {
+    pub fn fold_yul_assign_stmt<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        stmt: &YulAssignStmt,
+    ) -> T {
         let res = stmt
             .vars
             .iter()
@@ -231,14 +243,22 @@ pub mod yul_fold_default {
         folder.fold_yul_block(res, &stmt.body)
     }
 
-    pub fn fold_yul_for_stmt<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, stmt: &YulForStmt) -> T {
+    pub fn fold_yul_for_stmt<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        stmt: &YulForStmt,
+    ) -> T {
         let res = folder.fold_yul_block(acc, &stmt.pre_loop);
         let res = folder.fold_yul_expr(res, &stmt.condition);
         let res = folder.fold_yul_block(res, &stmt.post_loop);
         folder.fold_yul_block(res, &stmt.body)
     }
 
-    pub fn fold_yul_switch_stmt<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, stmt: &YulSwitchStmt) -> T {
+    pub fn fold_yul_switch_stmt<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        stmt: &YulSwitchStmt,
+    ) -> T {
         let res = folder.fold_yul_expr(acc, &stmt.expr);
 
         let res = stmt
@@ -252,7 +272,11 @@ pub mod yul_fold_default {
         }
     }
 
-    pub fn fold_yul_switch_value<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, case: &YulSwitchValue) -> T {
+    pub fn fold_yul_switch_value<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        case: &YulSwitchValue,
+    ) -> T {
         let res = folder.fold_yul_lit(acc, &case.literal);
         folder.fold_yul_block(res, &case.body)
     }
@@ -265,7 +289,11 @@ pub mod yul_fold_default {
         folder.fold_yul_block(acc, &case.body)
     }
 
-    pub fn fold_yul_var_decl<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, vdecl: &YulVarDecl) -> T {
+    pub fn fold_yul_var_decl<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        vdecl: &YulVarDecl,
+    ) -> T {
         // Fold the assigned value first.
         let res = match &vdecl.value {
             Some(expr) => folder.fold_yul_expr(acc, expr),
@@ -291,14 +319,22 @@ pub mod yul_fold_default {
         }
     }
 
-    pub fn fold_yul_call_expr<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, expr: &YulCallExpr) -> T {
+    pub fn fold_yul_call_expr<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        expr: &YulCallExpr,
+    ) -> T {
         let res = folder.fold_yul_ident(acc, &expr.callee);
         expr.args
             .iter()
             .fold(res, |acc2, arg| folder.fold_yul_expr(acc2, arg))
     }
 
-    pub fn fold_yul_member_expr<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, expr: &YulMemberExpr) -> T {
+    pub fn fold_yul_member_expr<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        expr: &YulMemberExpr,
+    ) -> T {
         let res = folder.fold_yul_name(acc, &expr.base);
         folder.fold_yul_name(res, &expr.member)
     }
@@ -307,7 +343,11 @@ pub mod yul_fold_default {
     // Identifier.
     //-------------------------------------------------
 
-    pub fn fold_yul_ident<T, F: YulFold<T> + ?Sized>(folder: &F, acc: T, ident: &YulIdentifier) -> T {
+    pub fn fold_yul_ident<T, F: YulFold<T> + ?Sized>(
+        folder: &F,
+        acc: T,
+        ident: &YulIdentifier,
+    ) -> T {
         let res = folder.fold_yul_name(acc, &ident.name);
         folder.fold_yul_type(res, &ident.typ)
     }

@@ -1,6 +1,6 @@
 use crate::ast::*;
-use extlib::{error::Result, fail};
 use crate::ast::{Loc, Name};
+use extlib::{error::Result, fail};
 use std::{
     fmt::{self, Display},
     ops::Deref,

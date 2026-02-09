@@ -1,7 +1,7 @@
 //! Module to eliminate named arguments in Solidity smart contracts.
 
-use crate::ast::{utils::*, *};
 use crate::ast::Name;
+use crate::ast::{utils::*, *};
 use std::collections::HashMap;
 
 //-------------------------------------------------
@@ -200,8 +200,8 @@ pub fn eliminate_named_args(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
 mod tests {
     use super::eliminate_named_args;
     use crate::{
-        ast::utils::syntactic_comparer::compare_source_units,
-        parser::parse_solidity_source_code, ast::normalize::utils::configure_unit_test_env,
+        ast::normalize::utils::configure_unit_test_env,
+        ast::utils::syntactic_comparer::compare_source_units, parser::parse_solidity_source_code,
     };
     use indoc::indoc;
 

@@ -20,6 +20,7 @@ pub mod unroll_unary_tuple;
 #[macro_use]
 pub mod utils;
 
+use crate::ast::NamingEnv;
 pub use elim_func_modifier::eliminate_modifier_invocs;
 pub use elim_import_directives::eliminate_import;
 pub use elim_named_args::eliminate_named_args;
@@ -27,7 +28,6 @@ pub use elim_using_directives::eliminate_using_directives;
 pub use flatten_expr::flatten_expr;
 pub use flatten_name_index::flatten_name;
 pub use merge_pragmas::merge_pragmas;
-use crate::ast::NamingEnv;
 pub use rename_callees::rename_callees;
 pub use rename_contracts::rename_contracts;
 pub use rename_defs::rename_defs;

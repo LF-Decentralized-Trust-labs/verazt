@@ -1,8 +1,8 @@
 //! Module to check similarity of 2 AST.
 
 use crate::ast::*;
-use extlib::error::Result;
 use crate::ast::{DataLoc, Name, NamePath};
+use extlib::error::Result;
 
 //-------------------------------------------------
 // Trait for comparison
@@ -494,11 +494,11 @@ pub trait Compare<'a> {
 pub mod default {
     use super::Compare;
     use crate::ast::*;
+    use crate::ast::{DataLoc, Name};
     use extlib::{
         error::{Report, Result},
         fail,
     };
-    use crate::ast::{DataLoc, Name};
     use std::fmt::Display;
 
     //-------------------------------------------------

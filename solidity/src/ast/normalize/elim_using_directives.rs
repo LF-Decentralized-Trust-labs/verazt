@@ -3,8 +3,8 @@
 //! Prerequisite: Assuming that all contract and library names are already
 //! renamed to resolve all ambiguities.
 
-use crate::ast::{utils::*, *};
 use crate::ast::Name;
+use crate::ast::{utils::*, *};
 use std::{collections::HashMap, ops::Deref};
 
 /// Data structure modelling a function implementation that is used for target
@@ -296,9 +296,9 @@ pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit
 #[cfg(test)]
 mod tests {
     use crate::{
+        ast::normalize::{eliminate_using_directives, utils::configure_unit_test_env},
         ast::utils::syntactic_comparer::compare_source_units,
         parser::parse_solidity_source_code,
-        ast::normalize::{eliminate_using_directives, utils::configure_unit_test_env},
     };
     use indoc::indoc;
 

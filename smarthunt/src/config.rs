@@ -29,10 +29,7 @@ pub struct DetectorConfig {
 
 impl Default for DetectorConfig {
     fn default() -> Self {
-        Self {
-            enabled: vec![],
-            disabled: vec![],
-        }
+        Self { enabled: vec![], disabled: vec![] }
     }
 }
 

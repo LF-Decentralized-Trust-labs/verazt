@@ -52,11 +52,7 @@ pub struct BugsBySeverity {
 
 impl AnalysisReport {
     /// Create a new analysis report.
-    pub fn new(
-        bugs: Vec<Bug>,
-        files_analyzed: Vec<String>,
-        duration: Duration,
-    ) -> Self {
+    pub fn new(bugs: Vec<Bug>, files_analyzed: Vec<String>, duration: Duration) -> Self {
         let mut stats = AnalysisStats::default();
 
         // Count bugs by severity
@@ -110,9 +106,5 @@ pub trait OutputFormatter {
 
 /// Format a location for display.
 pub fn format_location(bug: &Bug) -> String {
-    format!(
-        "<unknown>:{}:{}",
-        bug.loc.start_line,
-        bug.loc.start_col,
-    )
+    format!("<unknown>:{}:{}", bug.loc.start_line, bug.loc.start_col,)
 }

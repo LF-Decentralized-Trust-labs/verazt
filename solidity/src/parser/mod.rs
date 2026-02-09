@@ -5,14 +5,14 @@ pub mod yul_parser;
 
 pub use json_ast_parser::ast_parser;
 
+use self::json_ast_parser::{AstParser, JsonAst};
 use crate::{
-    ast::{self, SourceUnit, utils::export},
     ast::utils::version::{
         check_range_constraint, check_version_constraint, find_compatible_solc_versions,
         find_pragma_solidity_versions,
     },
+    ast::{self, SourceUnit, utils::export},
 };
-use self::json_ast_parser::{AstParser, JsonAst};
 use extlib::{error::Result, fail};
 use node_semver::Version;
 use regex::Regex;

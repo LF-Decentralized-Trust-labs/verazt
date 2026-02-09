@@ -209,10 +209,7 @@ impl PassId {
 
     /// Check if this is a hybrid pass (uses both AST and IR).
     pub fn is_hybrid(&self) -> bool {
-        matches!(
-            self,
-            PassId::AccessControl | PassId::StateConsistency
-        )
+        matches!(self, PassId::AccessControl | PassId::StateConsistency)
     }
 }
 

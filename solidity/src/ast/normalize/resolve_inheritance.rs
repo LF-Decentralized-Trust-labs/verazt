@@ -3,8 +3,8 @@
 //! This module will perform naming resolution for all inheritance and
 //! interfaces.
 
-use crate::{ast::utils::*, ast::*};
 use crate::ast::Name;
+use crate::{ast::utils::*, ast::*};
 use std::collections::HashMap;
 
 //-------------------------------------------------
@@ -381,12 +381,12 @@ pub fn resolve_inheritance(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
 mod tests {
     use super::*;
     use crate::{
-        ast::utils::syntactic_comparer::compare_source_units,
-        parser::parse_solidity_source_code,
         ast::normalize::{
             flatten_name, rename_callees, rename_contracts, rename_defs,
             utils::configure_unit_test_env,
         },
+        ast::utils::syntactic_comparer::compare_source_units,
+        parser::parse_solidity_source_code,
     };
     use indoc::indoc;
 

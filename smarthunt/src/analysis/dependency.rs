@@ -3,8 +3,8 @@
 //! This module provides a dependency graph implementation for
 //! computing pass execution order.
 
-use crate::analysis::pass_id::PassId;
 use crate::analysis::pass::{PassError, PassResult};
+use crate::analysis::pass_id::PassId;
 use std::collections::{HashMap, HashSet};
 
 /// Dependency graph for passes.
@@ -191,11 +191,13 @@ mod tests {
 
         assert!(graph.passes.contains(&PassId::TypeIndex));
         assert!(graph.passes.contains(&PassId::SymbolTable));
-        assert!(graph
-            .dependencies
-            .get(&PassId::TypeIndex)
-            .unwrap()
-            .contains(&PassId::SymbolTable));
+        assert!(
+            graph
+                .dependencies
+                .get(&PassId::TypeIndex)
+                .unwrap()
+                .contains(&PassId::SymbolTable)
+        );
     }
 
     #[test]
@@ -208,7 +210,10 @@ mod tests {
         let sorted = graph.topological_sort().unwrap();
 
         // SymbolTable must come before TypeIndex and CallGraph
-        let st_pos = sorted.iter().position(|&p| p == PassId::SymbolTable).unwrap();
+        let st_pos = sorted
+            .iter()
+            .position(|&p| p == PassId::SymbolTable)
+            .unwrap();
         let ti_pos = sorted.iter().position(|&p| p == PassId::TypeIndex).unwrap();
         let cg_pos = sorted.iter().position(|&p| p == PassId::CallGraph).unwrap();
 

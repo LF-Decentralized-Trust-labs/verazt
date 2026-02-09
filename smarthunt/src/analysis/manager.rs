@@ -3,11 +3,11 @@
 //! The central orchestrator for the pass-based analysis framework.
 //! It coordinates pass registration, scheduling, and execution.
 
-use crate::analysis::pass_id::PassId;
-use crate::analysis::pass::{AnalysisPass, PassResult, PassError, PassExecutionInfo};
 use crate::analysis::context::AnalysisContext;
+use crate::analysis::executor::{ExecutorConfig, PassExecutor};
+use crate::analysis::pass::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
+use crate::analysis::pass_id::PassId;
 use crate::analysis::scheduler::PassScheduler;
-use crate::analysis::executor::{PassExecutor, ExecutorConfig};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -195,15 +195,12 @@ impl PassManager {
     }
 
     /// Run a specific pass and its dependencies.
-    pub fn run_pass(
-        &mut self,
-        pass_id: PassId,
-        context: &mut AnalysisContext,
-    ) -> PassResult<()> {
+    pub fn run_pass(&mut self, pass_id: PassId, context: &mut AnalysisContext) -> PassResult<()> {
         // Get the pass
-        let pass = self.passes.get(&pass_id).ok_or_else(|| {
-            PassError::PassNotFound(pass_id.to_string())
-        })?;
+        let pass = self
+            .passes
+            .get(&pass_id)
+            .ok_or_else(|| PassError::PassNotFound(pass_id.to_string()))?;
 
         // Check if already completed
         if context.is_pass_completed(pass_id) {
@@ -265,10 +262,10 @@ impl PassManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analysis::pass::{Pass};
+    use crate::analysis::context::AnalysisConfig;
+    use crate::analysis::pass::Pass;
     use crate::analysis::pass_level::PassLevel;
     use crate::analysis::pass_representation::PassRepresentation;
-    use crate::analysis::context::AnalysisConfig;
 
     // Mock analysis pass for testing
     struct MockAnalysisPass {
@@ -319,10 +316,7 @@ mod tests {
     fn test_pass_registration() {
         let mut manager = PassManager::new(PassManagerConfig::default());
 
-        let pass = MockAnalysisPass {
-            id: PassId::SymbolTable,
-            deps: vec![],
-        };
+        let pass = MockAnalysisPass { id: PassId::SymbolTable, deps: vec![] };
 
         manager.register_analysis_pass(Box::new(pass));
         assert_eq!(manager.pass_count(), 1);
@@ -333,14 +327,8 @@ mod tests {
     fn test_run_passes() {
         let mut manager = PassManager::new(PassManagerConfig::default());
 
-        let pass1 = MockAnalysisPass {
-            id: PassId::SymbolTable,
-            deps: vec![],
-        };
-        let pass2 = MockAnalysisPass {
-            id: PassId::TypeIndex,
-            deps: vec![PassId::SymbolTable],
-        };
+        let pass1 = MockAnalysisPass { id: PassId::SymbolTable, deps: vec![] };
+        let pass2 = MockAnalysisPass { id: PassId::TypeIndex, deps: vec![PassId::SymbolTable] };
 
         manager.register_analysis_pass(Box::new(pass1));
         manager.register_analysis_pass(Box::new(pass2));

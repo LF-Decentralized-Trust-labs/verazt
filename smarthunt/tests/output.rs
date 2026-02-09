@@ -1,6 +1,8 @@
 //! Unit tests for output formatters.
 
-use smarthunt::output::{AnalysisReport, OutputFormatter, JsonFormatter, MarkdownFormatter, SarifFormatter};
+use smarthunt::output::{
+    AnalysisReport, JsonFormatter, MarkdownFormatter, OutputFormatter, SarifFormatter,
+};
 use std::time::Duration;
 
 #[test]
@@ -29,7 +31,7 @@ fn test_json_formatter_compact() {
     let report = AnalysisReport::new(vec![], vec![], Duration::from_millis(100));
     let formatter = JsonFormatter::new(false);
     let output = formatter.format(&report);
-    
+
     // Compact JSON should not have newlines
     assert!(!output.contains("  "), "Compact JSON should not have indentation");
 }
@@ -39,15 +41,19 @@ fn test_json_formatter_pretty() {
     let report = AnalysisReport::new(vec![], vec![], Duration::from_millis(100));
     let formatter = JsonFormatter::new(true);
     let output = formatter.format(&report);
-    
+
     // Pretty JSON should have newlines
     assert!(output.contains("\n"), "Pretty JSON should have newlines");
 }
 
 #[test]
 fn test_report_stats() {
-    let report = AnalysisReport::new(vec![], vec!["file1.sol".to_string(), "file2.sol".to_string()], Duration::from_secs(5));
-    
+    let report = AnalysisReport::new(
+        vec![],
+        vec!["file1.sol".to_string(), "file2.sol".to_string()],
+        Duration::from_secs(5),
+    );
+
     assert_eq!(report.files_analyzed.len(), 2);
     assert_eq!(report.duration.as_secs(), 5);
     assert_eq!(report.stats.bugs_by_severity.critical, 0);

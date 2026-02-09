@@ -1,8 +1,8 @@
 //! JSON output formatter.
 
 use crate::output::formatter::{AnalysisReport, OutputFormatter};
-use serde::{Serialize, Deserialize};
 use bugs::bug::Bug;
+use serde::{Deserialize, Serialize};
 
 /// JSON output formatter.
 #[derive(Debug, Default)]

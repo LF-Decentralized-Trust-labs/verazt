@@ -6,12 +6,14 @@
 //! - **Pass Infrastructure**: Traits and types for defining analysis passes
 //! - **Pass Manager**: Central orchestrator for scheduling and executing passes
 //! - **Analysis Context**: Storage for AST, IR, and analysis artifacts
-//! - **Parallel Execution**: Support for running independent passes concurrently
+//! - **Parallel Execution**: Support for running independent passes
+//!   concurrently
 //!
 //! # Architecture
 //!
 //! The analysis framework operates on two representations:
-//! - **AST**: High-level source structure for pattern matching and semantic analysis
+//! - **AST**: High-level source structure for pattern matching and semantic
+//!   analysis
 //! - **IR**: Low-level normalized form for data flow and control flow analysis
 //!
 //! Passes can operate on either representation or both (hybrid passes).
@@ -33,34 +35,34 @@
 //! manager.run(&mut context)?;
 //! ```
 
+pub mod context;
+pub mod dependency;
+pub mod executor;
+pub mod manager;
 pub mod pass;
 pub mod pass_id;
 pub mod pass_level;
 pub mod pass_representation;
-pub mod context;
-pub mod manager;
-pub mod scheduler;
-pub mod executor;
-pub mod dependency;
 pub mod passes;
+pub mod scheduler;
 
 // Re-exports for convenient access
-pub use pass::{Pass, AnalysisPass, PassError, PassResult};
+pub use context::{AnalysisConfig, AnalysisContext};
+pub use dependency::DependencyGraph;
+pub use executor::PassExecutor;
+pub use manager::{AnalysisReport, PassManager, PassManagerConfig};
+pub use pass::{AnalysisPass, Pass, PassError, PassResult};
 pub use pass_id::PassId;
 pub use pass_level::PassLevel;
 pub use pass_representation::PassRepresentation;
-pub use context::{AnalysisContext, AnalysisConfig};
-pub use manager::{PassManager, PassManagerConfig, AnalysisReport};
 pub use scheduler::PassScheduler;
-pub use executor::PassExecutor;
-pub use dependency::DependencyGraph;
 
 // Re-export passes
 pub use passes::ast::{
-    SymbolTablePass, TypeIndexPass, InheritanceGraphPass, CallGraphPass, ModifierAnalysisPass,
-    symbol_table::{SymbolTable, FunctionId, SymbolTableExt},
-    type_index::{TypeIndex, TypeInfo, TypeIndexExt},
+    CallGraphPass, InheritanceGraphPass, ModifierAnalysisPass, SymbolTablePass, TypeIndexPass,
+    call_graph::{CallGraph, CallGraphExt, CallSite},
     inheritance_graph::{InheritanceGraph, InheritanceGraphExt},
-    call_graph::{CallGraph, CallSite, CallGraphExt},
-    modifier_analysis::{ModifierAnalysis, ModifierInfo, ModifierAnalysisExt},
+    modifier_analysis::{ModifierAnalysis, ModifierAnalysisExt, ModifierInfo},
+    symbol_table::{FunctionId, SymbolTable, SymbolTableExt},
+    type_index::{TypeIndex, TypeIndexExt, TypeInfo},
 };

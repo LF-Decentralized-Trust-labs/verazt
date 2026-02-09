@@ -3,10 +3,10 @@
 //! This module provides the pass scheduler that computes execution order
 //! based on dependencies and representation requirements.
 
+use crate::analysis::dependency::DependencyGraph;
+use crate::analysis::pass::{Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::pass::{Pass, PassResult};
-use crate::analysis::dependency::DependencyGraph;
 use std::collections::{HashMap, HashSet};
 
 /// Execution level containing passes grouped by representation.
@@ -118,9 +118,7 @@ impl PassScheduler {
 
     /// Check if any registered pass requires IR.
     pub fn needs_ir(&self) -> bool {
-        self.representations
-            .values()
-            .any(|rep| rep.requires_ir())
+        self.representations.values().any(|rep| rep.requires_ir())
     }
 
     /// Compute the execution schedule.
@@ -158,11 +156,7 @@ impl PassScheduler {
             }
         }
 
-        Ok(ExecutionSchedule {
-            levels,
-            needs_ir,
-            ir_generation_level,
-        })
+        Ok(ExecutionSchedule { levels, needs_ir, ir_generation_level })
     }
 
     /// Get passes that can be executed given current completion state.
@@ -171,7 +165,9 @@ impl PassScheduler {
             .iter()
             .filter(|&pass_id| {
                 !completed.contains(pass_id)
-                    && self.dependency_graph.dependencies_satisfied(pass_id, completed)
+                    && self
+                        .dependency_graph
+                        .dependencies_satisfied(pass_id, completed)
             })
             .copied()
             .collect()
@@ -199,7 +195,6 @@ impl PassScheduler {
 mod tests {
     use super::*;
     use crate::analysis::pass_level::PassLevel;
-
 
     // Mock pass for testing
     struct MockPass {

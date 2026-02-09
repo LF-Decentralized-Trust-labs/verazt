@@ -161,7 +161,12 @@ impl Display for YulIRAssignStmt {
 //-------------------------------------------------------------------------
 
 impl YulIRForStmt {
-    pub fn new(pre_loop: YulIRBlock, condition: YulIRExpr, post_loop: YulIRBlock, body: YulIRBlock) -> YulIRForStmt {
+    pub fn new(
+        pre_loop: YulIRBlock,
+        condition: YulIRExpr,
+        post_loop: YulIRBlock,
+        body: YulIRBlock,
+    ) -> YulIRForStmt {
         YulIRForStmt { pre_loop, condition, post_loop, body }
     }
 }

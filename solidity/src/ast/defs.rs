@@ -1,6 +1,6 @@
-use crate::{ast::*, ast::utils::version};
-use extlib::{error::Result, fail, string::StringExt};
 use crate::ast::{DataLoc, Loc, Name};
+use crate::{ast::utils::version, ast::*};
+use extlib::{error::Result, fail, string::StringExt};
 use node_semver::Range;
 use std::fmt::{self, Display};
 

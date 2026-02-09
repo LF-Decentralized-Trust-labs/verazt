@@ -6,7 +6,6 @@ pub mod ast;
 
 pub mod ir;
 
+pub mod analysis;
 pub mod codegen;
 pub mod parser;
-pub mod analysis;
-

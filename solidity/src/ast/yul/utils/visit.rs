@@ -133,7 +133,8 @@ pub trait YulVisit {
 // Default visiting pattern for Yul AST
 //------------------------------------------------------------------
 
-/// Module containing default implementation of the visiting pattern for Yul AST.
+/// Module containing default implementation of the visiting pattern for Yul
+/// AST.
 pub mod yul_visit_default {
     use either::Either;
 
@@ -144,7 +145,10 @@ pub mod yul_visit_default {
     // Source unit
     //-------------------------------------------------
 
-    pub fn visit_yul_source_unit<T: YulVisit + ?Sized>(visitor: &mut T, source_unit: &YulSourceUnit) {
+    pub fn visit_yul_source_unit<T: YulVisit + ?Sized>(
+        visitor: &mut T,
+        source_unit: &YulSourceUnit,
+    ) {
         visitor.visit_yul_object(&source_unit.main_object)
     }
 
@@ -174,7 +178,10 @@ pub mod yul_visit_default {
     }
 
     pub fn visit_yul_block<T: YulVisit + ?Sized>(visitor: &mut T, block: &YulBlock) {
-        block.body.iter().for_each(|stmt| visitor.visit_yul_stmt(stmt))
+        block
+            .body
+            .iter()
+            .for_each(|stmt| visitor.visit_yul_stmt(stmt))
     }
 
     pub fn visit_yul_func_def<T: YulVisit + ?Sized>(visitor: &mut T, func: &YulFuncDef) {
@@ -242,7 +249,10 @@ pub mod yul_visit_default {
         visitor.visit_yul_block(&case.body)
     }
 
-    pub fn visit_yul_switch_default<T: YulVisit + ?Sized>(visitor: &mut T, case: &YulSwitchDefault) {
+    pub fn visit_yul_switch_default<T: YulVisit + ?Sized>(
+        visitor: &mut T,
+        case: &YulSwitchDefault,
+    ) {
         visitor.visit_yul_block(&case.body)
     }
 

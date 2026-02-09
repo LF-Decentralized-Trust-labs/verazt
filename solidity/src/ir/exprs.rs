@@ -1,5 +1,5 @@
-use crate::ir::*;
 use crate::ast::Loc;
+use crate::ir::*;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

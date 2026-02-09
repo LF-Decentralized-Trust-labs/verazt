@@ -2,10 +2,10 @@
 //!
 //! This module defines the core traits for passes in the analysis framework.
 
+use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
 use std::fmt::{self, Display};
 use thiserror::Error;
 
@@ -67,7 +67,8 @@ pub trait Pass: Send + Sync {
     /// Get the list of passes that must run before this one.
     fn dependencies(&self) -> Vec<PassId>;
 
-    /// Get the list of passes that this pass invalidates (for future transformation passes).
+    /// Get the list of passes that this pass invalidates (for future
+    /// transformation passes).
     fn invalidates(&self) -> Vec<PassId> {
         vec![]
     }
@@ -114,11 +115,7 @@ pub struct PassExecutionInfo {
 impl Display for PassExecutionInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.success {
-            write!(
-                f,
-                "Pass {} ({}) completed in {:?}",
-                self.name, self.pass_id, self.duration
-            )
+            write!(f, "Pass {} ({}) completed in {:?}", self.name, self.pass_id, self.duration)
         } else {
             write!(
                 f,
