@@ -1,10 +1,10 @@
 [workspace]
 members = [
-  "bugs",
+  "crates/bugs",
 
-  "smarthunt",
-  "smartproof",
-  "solidity",
+  "crates/smarthunt",
+  "crates/smartproof",
+  "crates/solidity",
 ]
 
 [workspace.package]
