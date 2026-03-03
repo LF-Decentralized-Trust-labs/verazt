@@ -28,3 +28,4 @@ solidity = { path = "../solidity" }
 
 [dev-dependencies]
 tempfile = "3.14"
+smartbench = { path = "../smartbench" }

@@ -3,7 +3,8 @@
 //! This module provides the pipeline orchestration framework for SmartHunt.
 //! It coordinates the two-phase execution:
 //!
-//! 1. **Analysis Phase**: Run required analysis passes (parallel by dependency level)
+//! 1. **Analysis Phase**: Run required analysis passes (parallel by dependency
+//!    level)
 //! 2. **Detection Phase**: Run enabled detectors (fully parallel)
 //!
 //! # Detector Categories

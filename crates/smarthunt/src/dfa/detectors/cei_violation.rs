@@ -14,7 +14,7 @@ use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 
 /// DFA-based detector for CEI (Checks-Effects-Interactions) pattern violations.
@@ -304,6 +304,10 @@ impl BugDetectionPass for CeiViolationDfaDetector {
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability
+    }
+
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::Reentrancy
     }
 
     fn risk_level(&self) -> RiskLevel {

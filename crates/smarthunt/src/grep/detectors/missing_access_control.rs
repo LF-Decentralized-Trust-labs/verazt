@@ -9,7 +9,7 @@ use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{
     Block, ContractDef, ContractElem, Expr, FuncDef, FuncVis, Loc, SourceUnitElem, Stmt,
 };
@@ -270,6 +270,10 @@ impl BugDetectionPass for MissingAccessControlGrepDetector {
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability
+    }
+
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::AccessControl
     }
 
     fn risk_level(&self) -> RiskLevel {

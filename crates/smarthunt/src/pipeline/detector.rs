@@ -5,7 +5,7 @@
 
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::Loc;
 
 /// Confidence level for a detection.
@@ -93,6 +93,9 @@ pub trait BugDetectionPass: Pass {
     /// The category of bug this detector finds.
     fn bug_kind(&self) -> BugKind;
 
+    /// The vulnerability category of bugs found by this detector.
+    fn bug_category(&self) -> BugCategory;
+
     /// The risk level of bugs found by this detector.
     fn risk_level(&self) -> RiskLevel;
 
@@ -131,6 +134,7 @@ pub fn create_bug(detector: &dyn BugDetectionPass, description: Option<&str>, lo
         description,
         loc,
         detector.bug_kind(),
+        detector.bug_category(),
         detector.risk_level(),
         detector.cwe_ids(),
         detector.swc_ids(),
@@ -149,6 +153,7 @@ pub fn create_bug_with_details(
         description,
         loc,
         detector.bug_kind(),
+        detector.bug_category(),
         detector.risk_level(),
         detector.cwe_ids(),
         detector.swc_ids(),

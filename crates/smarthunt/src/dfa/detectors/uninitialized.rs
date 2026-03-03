@@ -13,7 +13,7 @@ use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{
     ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnitElem, Stmt, Type, VarMut,
 };
@@ -192,6 +192,10 @@ impl BugDetectionPass for UninitializedDfaDetector {
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Vulnerability
+    }
+
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::Other
     }
 
     fn risk_level(&self) -> RiskLevel {

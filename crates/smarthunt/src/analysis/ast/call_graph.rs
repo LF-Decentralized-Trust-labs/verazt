@@ -2,12 +2,12 @@
 //!
 //! This pass builds a call graph for function call relationships.
 
+use crate::analysis::ast::symbol_table::FunctionId;
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::analysis::ast::symbol_table::FunctionId;
 use solidity::ast::{
     Block, CallArgs, ContractDef, ContractElem, Expr, FuncDef, FuncKind, Name, SourceUnit,
     SourceUnitElem, Stmt,

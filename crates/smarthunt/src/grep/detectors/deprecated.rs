@@ -7,9 +7,9 @@ use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use crate::grep::{MatchContext, PatternBuilder, PatternMatcher};
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 
 /// Known deprecated function names in Solidity.
 #[allow(dead_code)]
@@ -104,6 +104,10 @@ impl BugDetectionPass for DeprecatedGrepDetector {
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Refactoring
+    }
+
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::CodeQuality
     }
 
     fn risk_level(&self) -> RiskLevel {
