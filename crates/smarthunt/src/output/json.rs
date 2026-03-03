@@ -122,7 +122,7 @@ impl From<&Bug> for JsonFinding {
             title: bug.name.clone(),
             description: bug.description.clone().unwrap_or_default(),
             severity: bug.risk_level.as_str().to_string(),
-            category: bug.kind.as_str().to_string(),
+            category: bug.category.as_str().to_string(),
             location: JsonLocation {
                 file: None,
                 start_line: Some(bug.loc.start_line),

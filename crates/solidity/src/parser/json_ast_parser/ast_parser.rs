@@ -12,7 +12,7 @@ use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use regex::Regex;
 use rust_decimal::Decimal;
-use serde::Value;
+use serde_json::Value;
 use std::{fs, ops::Deref, path::Path, str::FromStr};
 
 //------------------------------------------------------------------
@@ -74,7 +74,7 @@ impl AstParser {
 
     pub fn parse_solidity_json(&mut self) -> Result<Vec<SourceUnit>> {
         let node: Value = match &self.solidity_json {
-            Some(content) => serde::from_str(content)?,
+            Some(content) => serde_json::from_str(content)?,
             None => fail!("Input JSON AST not found!"),
         };
         let sources_node = node

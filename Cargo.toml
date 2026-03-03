@@ -2,6 +2,7 @@
 members = [
   "crates/bugs",
 
+  "crates/smartbench",
   "crates/smarthunt",
   "crates/smartproof",
   "crates/solidity",

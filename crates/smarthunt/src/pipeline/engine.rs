@@ -2,7 +2,8 @@
 //!
 //! The main orchestrator for SmartHunt's two-phase execution:
 //!
-//! 1. **Analysis Phase**: Run required analysis passes in parallel by dependency level
+//! 1. **Analysis Phase**: Run required analysis passes in parallel by
+//!    dependency level
 //! 2. **Detection Phase**: Run all enabled detectors fully in parallel
 
 use crate::analysis::context::AnalysisContext;
@@ -33,12 +34,7 @@ pub struct PipelineConfig {
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self {
-            parallel: true,
-            num_threads: 0,
-            enabled: vec![],
-            disabled: vec![],
-        }
+        Self { parallel: true, num_threads: 0, enabled: vec![], disabled: vec![] }
     }
 }
 
@@ -247,10 +243,7 @@ impl PipelineEngine {
         enabled_detectors: &[&dyn BugDetectionPass],
         context: &AnalysisContext,
     ) -> (Vec<Bug>, Vec<DetectorStats>) {
-        log::info!(
-            "Detection phase: {} detectors",
-            enabled_detectors.len()
-        );
+        log::info!("Detection phase: {} detectors", enabled_detectors.len());
 
         if self.config.parallel && enabled_detectors.len() > 1 {
             self.run_detectors_parallel(enabled_detectors, context)
@@ -308,10 +301,7 @@ fn run_single_detector(
     context: &AnalysisContext,
 ) -> (Vec<Bug>, DetectorStats) {
     let start = Instant::now();
-    let mut stat = DetectorStats {
-        name: detector.name().to_string(),
-        ..Default::default()
-    };
+    let mut stat = DetectorStats { name: detector.name().to_string(), ..Default::default() };
 
     match detector.detect(context) {
         Ok(bugs) => {
@@ -384,10 +374,8 @@ mod tests {
 
     #[test]
     fn test_pipeline_engine_with_empty_registry() {
-        let engine = PipelineEngine::with_registry(
-            DetectorRegistry::new(),
-            PipelineConfig::default(),
-        );
+        let engine =
+            PipelineEngine::with_registry(DetectorRegistry::new(), PipelineConfig::default());
         assert!(engine.registry().is_empty());
     }
 

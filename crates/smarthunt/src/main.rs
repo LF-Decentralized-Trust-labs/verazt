@@ -5,20 +5,9 @@
 use clap::{Parser, Subcommand, crate_version};
 use extlib::error;
 use smarthunt::{
-    AnalysisConfig,
-    AnalysisContext,
-    AnalysisReport,
-    Config,
-    DetectorRegistry,
-    JsonFormatter,
-    MarkdownFormatter,
-    OutputFormat,
-    OutputFormatter,
-    PipelineConfig,
-    PipelineEngine,
-    SarifFormatter,
-    SeverityFilter,
-    register_all_detectors,
+    AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, JsonFormatter,
+    MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig, PipelineEngine,
+    SarifFormatter, SeverityFilter, register_all_detectors,
 };
 use solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parser::parse_input_file,
@@ -401,7 +390,11 @@ fn run_analysis(args: Arguments) {
     if args.debug {
         eprintln!(
             "Running pipeline ({} threads)...",
-            if config.num_threads > 1 { config.num_threads } else { 1 }
+            if config.num_threads > 1 {
+                config.num_threads
+            } else {
+                1
+            }
         );
     }
 

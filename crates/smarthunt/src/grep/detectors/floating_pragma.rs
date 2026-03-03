@@ -9,7 +9,7 @@ use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
-use bugs::bug::{Bug, BugKind, RiskLevel};
+use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{PragmaKind, SourceUnitElem};
 
 /// GREP-based detector for floating pragma.
@@ -80,6 +80,10 @@ impl BugDetectionPass for FloatingPragmaGrepDetector {
 
     fn bug_kind(&self) -> BugKind {
         BugKind::Refactoring
+    }
+
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::CodeQuality
     }
 
     fn risk_level(&self) -> RiskLevel {

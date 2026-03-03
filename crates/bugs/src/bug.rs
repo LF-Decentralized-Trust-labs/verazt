@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use solidity::ast::Loc;
 
 //-------------------------------------------------------------------------
@@ -6,32 +7,122 @@ use solidity::ast::Loc;
 
 use std::fmt::{self, Display};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bug {
     pub name: String,
     pub description: Option<String>,
     pub loc: Loc,
     pub kind: BugKind,
+    pub category: BugCategory,
     pub risk_level: RiskLevel,
     pub cwe_ids: Vec<usize>, // Related CWE: https://cwe.mitre.org/index.html
     pub swc_ids: Vec<usize>, // Related SWC: https://swcregistry.io/
 }
 
 // FIXME: find a better name
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BugKind {
     Optimization,
     Refactoring,
     Vulnerability,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum RiskLevel {
     No,
     Low,
     Medium,
     High,
     Critical,
+}
+
+/// Classification of bugs by vulnerability category, aligned with the
+/// SmartBugs dataset categories.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum BugCategory {
+    Reentrancy,
+    Arithmetic,
+    AccessControl,
+    UncheckedLowLevelCalls,
+    DenialOfService,
+    BadRandomness,
+    FrontRunning,
+    TimeManipulation,
+    ShortAddresses,
+    CodeQuality,
+    Other,
+}
+
+//-------------------------------------------------------------------------
+// Implementation for BugCategory
+//-------------------------------------------------------------------------
+
+impl BugCategory {
+    /// Parse from dataset annotation name (e.g., "REENTRANCY",
+    /// "UNCHECKED_LL_CALLS").
+    pub fn from_annotation(name: &str) -> Option<BugCategory> {
+        // Normalize: trim, uppercase, strip leading/trailing whitespace
+        let normalized = name.trim().to_uppercase();
+        // Handle "OTHER - ..." style annotations
+        let key = if normalized.starts_with("OTHER") {
+            "OTHER"
+        } else {
+            normalized.as_str()
+        };
+        match key {
+            "REENTRANCY" => Some(BugCategory::Reentrancy),
+            "ARITHMETIC" => Some(BugCategory::Arithmetic),
+            "ACCESS_CONTROL" => Some(BugCategory::AccessControl),
+            "UNCHECKED_LL_CALLS" => Some(BugCategory::UncheckedLowLevelCalls),
+            "DENIAL_OF_SERVICE" => Some(BugCategory::DenialOfService),
+            "BAD_RANDOMNESS" => Some(BugCategory::BadRandomness),
+            "FRONT_RUNNING" => Some(BugCategory::FrontRunning),
+            "TIME_MANIPULATION" => Some(BugCategory::TimeManipulation),
+            "SHORT_ADDRESSES" => Some(BugCategory::ShortAddresses),
+            "OTHER" => Some(BugCategory::Other),
+            _ => None,
+        }
+    }
+
+    /// Convert to dataset annotation name.
+    pub fn to_annotation(&self) -> &'static str {
+        match self {
+            BugCategory::Reentrancy => "REENTRANCY",
+            BugCategory::Arithmetic => "ARITHMETIC",
+            BugCategory::AccessControl => "ACCESS_CONTROL",
+            BugCategory::UncheckedLowLevelCalls => "UNCHECKED_LL_CALLS",
+            BugCategory::DenialOfService => "DENIAL_OF_SERVICE",
+            BugCategory::BadRandomness => "BAD_RANDOMNESS",
+            BugCategory::FrontRunning => "FRONT_RUNNING",
+            BugCategory::TimeManipulation => "TIME_MANIPULATION",
+            BugCategory::ShortAddresses => "SHORT_ADDRESSES",
+            BugCategory::CodeQuality => "CODE_QUALITY",
+            BugCategory::Other => "OTHER",
+        }
+    }
+
+    /// Get a human-readable display name.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BugCategory::Reentrancy => "Reentrancy",
+            BugCategory::Arithmetic => "Arithmetic",
+            BugCategory::AccessControl => "Access Control",
+            BugCategory::UncheckedLowLevelCalls => "Unchecked Low Level Calls",
+            BugCategory::DenialOfService => "Denial of Service",
+            BugCategory::BadRandomness => "Bad Randomness",
+            BugCategory::FrontRunning => "Front Running",
+            BugCategory::TimeManipulation => "Time Manipulation",
+            BugCategory::ShortAddresses => "Short Addresses",
+            BugCategory::CodeQuality => "Code Quality",
+            BugCategory::Other => "Other",
+        }
+    }
+}
+
+impl Display for BugCategory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 //-------------------------------------------------------------------------
@@ -44,6 +135,7 @@ impl Bug {
         description: Option<&str>,
         loc: Loc,
         kind: BugKind,
+        category: BugCategory,
         risk_level: RiskLevel,
         cwe_ids: Vec<usize>,
         swc_ids: Vec<usize>,
@@ -53,6 +145,7 @@ impl Bug {
             description: description.map(|s| s.to_string()),
             loc,
             kind,
+            category,
             risk_level,
             swc_ids,
             cwe_ids,
@@ -69,6 +162,7 @@ impl Display for Bug {
             writeln!(f, "Description: No description provided")?;
         }
         writeln!(f, "Kind: {}", self.kind)?;
+        writeln!(f, "Category: {}", self.category)?;
         writeln!(f, "Risk Level: {}", self.risk_level)?;
         if !self.cwe_ids.is_empty() {
             writeln!(f, "Related CWE IDs: {:?}", self.cwe_ids)?;
@@ -119,5 +213,124 @@ impl RiskLevel {
 impl Display for RiskLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+//-------------------------------------------------------------------------
+// Tests
+//-------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bug_category_from_annotation() {
+        assert_eq!(BugCategory::from_annotation("REENTRANCY"), Some(BugCategory::Reentrancy));
+        assert_eq!(
+            BugCategory::from_annotation("ACCESS_CONTROL"),
+            Some(BugCategory::AccessControl)
+        );
+        assert_eq!(
+            BugCategory::from_annotation("UNCHECKED_LL_CALLS"),
+            Some(BugCategory::UncheckedLowLevelCalls)
+        );
+        assert_eq!(BugCategory::from_annotation("ARITHMETIC"), Some(BugCategory::Arithmetic));
+        assert_eq!(
+            BugCategory::from_annotation("BAD_RANDOMNESS"),
+            Some(BugCategory::BadRandomness)
+        );
+        assert_eq!(
+            BugCategory::from_annotation("DENIAL_OF_SERVICE"),
+            Some(BugCategory::DenialOfService)
+        );
+        assert_eq!(BugCategory::from_annotation("FRONT_RUNNING"), Some(BugCategory::FrontRunning));
+        assert_eq!(
+            BugCategory::from_annotation("TIME_MANIPULATION"),
+            Some(BugCategory::TimeManipulation)
+        );
+        assert_eq!(
+            BugCategory::from_annotation("SHORT_ADDRESSES"),
+            Some(BugCategory::ShortAddresses)
+        );
+        assert_eq!(BugCategory::from_annotation("OTHER"), Some(BugCategory::Other));
+        assert_eq!(
+            BugCategory::from_annotation("OTHER - uninitialized storage"),
+            Some(BugCategory::Other)
+        );
+        assert_eq!(BugCategory::from_annotation("UNKNOWN"), None);
+    }
+
+    #[test]
+    fn test_bug_category_round_trip() {
+        let categories = [
+            BugCategory::Reentrancy,
+            BugCategory::Arithmetic,
+            BugCategory::AccessControl,
+            BugCategory::UncheckedLowLevelCalls,
+            BugCategory::DenialOfService,
+            BugCategory::BadRandomness,
+            BugCategory::FrontRunning,
+            BugCategory::TimeManipulation,
+            BugCategory::ShortAddresses,
+            BugCategory::Other,
+        ];
+        for cat in &categories {
+            let annotation = cat.to_annotation();
+            let parsed = BugCategory::from_annotation(annotation);
+            assert_eq!(parsed, Some(*cat), "Round-trip failed for {:?}", cat);
+        }
+    }
+
+    #[test]
+    fn test_bug_category_serde() {
+        let cat = BugCategory::Reentrancy;
+        let json = serde_json::to_string(&cat).unwrap();
+        let parsed: BugCategory = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, cat);
+    }
+
+    #[test]
+    fn test_bug_serde() {
+        let bug = Bug::new(
+            "Test Bug",
+            Some("A test bug"),
+            Loc::new(1, 1, 1, 10),
+            BugKind::Vulnerability,
+            BugCategory::Reentrancy,
+            RiskLevel::High,
+            vec![841],
+            vec![107],
+        );
+        let json = serde_json::to_string(&bug).unwrap();
+        let parsed: Bug = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.name, "Test Bug");
+        assert_eq!(parsed.category, BugCategory::Reentrancy);
+        assert_eq!(parsed.risk_level, RiskLevel::High);
+    }
+
+    #[test]
+    fn test_risk_level_display() {
+        assert_eq!(RiskLevel::No.as_str(), "Informational");
+        assert_eq!(RiskLevel::Low.as_str(), "Low");
+        assert_eq!(RiskLevel::Medium.as_str(), "Medium");
+        assert_eq!(RiskLevel::High.as_str(), "High");
+        assert_eq!(RiskLevel::Critical.as_str(), "Critical");
+    }
+
+    #[test]
+    fn test_bug_kind_display() {
+        assert_eq!(BugKind::Optimization.as_str(), "Optimization");
+        assert_eq!(BugKind::Refactoring.as_str(), "Refactoring");
+        assert_eq!(BugKind::Vulnerability.as_str(), "Vulnerability");
+    }
+
+    #[test]
+    fn test_bug_category_display() {
+        assert_eq!(format!("{}", BugCategory::Reentrancy), "Reentrancy");
+        assert_eq!(
+            format!("{}", BugCategory::UncheckedLowLevelCalls),
+            "Unchecked Low Level Calls"
+        );
     }
 }
