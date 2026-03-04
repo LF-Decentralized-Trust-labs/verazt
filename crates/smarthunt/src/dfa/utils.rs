@@ -1,5 +1,5 @@
 use crate::dfa::var::VarId;
-use solidity::ir::{AtomicExpr, CalleeExpr, Expr, Stmt};
+use cir::{Expr, Stmt};
 
 /// Collect variables that are used (read) in a statement
 pub fn collect_used_vars(stmt: &Stmt) -> Vec<VarId> {
@@ -9,30 +9,45 @@ pub fn collect_used_vars(stmt: &Stmt) -> Vec<VarId> {
         Stmt::Expr(e) => {
             collect_used_vars_expr(&e.expr, &mut vars);
         }
-        Stmt::VarDecl(v) => {
-            if let Some(value) = &v.value {
-                collect_used_vars_expr(value, &mut vars);
+        Stmt::LocalVar(v) => {
+            if let Some(init) = &v.init {
+                collect_used_vars_expr(init, &mut vars);
             }
-            for decl_opt in &v.vars {
-                if let Some(decl) = decl_opt {
-                    if let Some(value) = &decl.value {
-                        collect_used_vars_expr(value, &mut vars);
-                    }
-                }
-            }
+        }
+        Stmt::Assign(a) => {
+            // RHS is always used
+            collect_used_vars_expr(&a.rhs, &mut vars);
+            // LHS may involve used variables (e.g. a[i] = v  uses i)
+            collect_lhs_used_vars(&a.lhs, &mut vars);
+        }
+        Stmt::AugAssign(a) => {
+            // Both sides are used (x += y  reads x and y)
+            collect_used_vars_expr(&a.lhs, &mut vars);
+            collect_used_vars_expr(&a.rhs, &mut vars);
         }
         Stmt::If(i) => {
-            collect_used_vars_expr(&i.condition, &mut vars);
+            collect_used_vars_expr(&i.cond, &mut vars);
         }
         Stmt::Return(r) => {
-            if let Some(expr) = &r.expr {
-                collect_used_vars_expr(expr, &mut vars);
+            if let Some(value) = &r.value {
+                collect_used_vars_expr(value, &mut vars);
             }
         }
-        Stmt::Loop(l) => {
-            if let Some(condition) = &l.condition {
-                collect_used_vars_expr(condition, &mut vars);
+        Stmt::While(w) => {
+            collect_used_vars_expr(&w.cond, &mut vars);
+        }
+        Stmt::For(f) => {
+            if let Some(cond) = &f.cond {
+                collect_used_vars_expr(cond, &mut vars);
             }
+        }
+        Stmt::Revert(r) => {
+            for arg in &r.args {
+                collect_used_vars_expr(arg, &mut vars);
+            }
+        }
+        Stmt::Assert(a) => {
+            collect_used_vars_expr(&a.cond, &mut vars);
         }
         _ => {}
     }
@@ -45,26 +60,21 @@ pub fn collect_defined_vars(stmt: &Stmt) -> Vec<VarId> {
     let mut vars = Vec::new();
 
     match stmt {
-        Stmt::VarDecl(v) => {
-            // A variable declaration defines a new variable
+        Stmt::LocalVar(v) => {
             for decl_opt in &v.vars {
                 if let Some(decl) = decl_opt {
                     vars.push(VarId::local(&decl.name));
                 }
             }
         }
-        Stmt::Expr(e) => {
-            // Check if this is an assignment expression
-            if let Expr::Call(call) = &e.expr {
-                if let CalleeExpr::BuiltIn(name) = &call.callee {
-                    if name == "=" || name.ends_with("=") {
-                        if let Some(lhs) = call.args.first() {
-                            if let AtomicExpr::Var(v) = lhs {
-                                vars.push(VarId::local(&v.name));
-                            }
-                        }
-                    }
-                }
+        Stmt::Assign(a) => {
+            if let Expr::Var(v) = &a.lhs {
+                vars.push(VarId::local(&v.name));
+            }
+        }
+        Stmt::AugAssign(a) => {
+            if let Expr::Var(v) = &a.lhs {
+                vars.push(VarId::local(&v.name));
             }
         }
         _ => {}
@@ -73,10 +83,29 @@ pub fn collect_defined_vars(stmt: &Stmt) -> Vec<VarId> {
     vars
 }
 
-fn collect_used_vars_atomic(expr: &AtomicExpr, vars: &mut Vec<VarId>) {
-    match expr {
-        AtomicExpr::Var(v) => vars.push(VarId::local(&v.name)),
-        _ => {}
+/// Collect used variables from the LHS of an assignment.
+/// For a simple variable, we don't count the variable itself as "used"
+/// (it's being defined). But for complex LHS like `a[i]` or `a.f`,
+/// any index expressions or base objects are "used".
+fn collect_lhs_used_vars(lhs: &Expr, vars: &mut Vec<VarId>) {
+    match lhs {
+        Expr::Var(_) => {
+            // Simple variable assignment: LHS variable is defined, not used
+        }
+        Expr::IndexAccess(i) => {
+            // a[idx] = ...: the base and index are used
+            collect_used_vars_expr(&i.base, vars);
+            if let Some(idx) = &i.index {
+                collect_used_vars_expr(idx, vars);
+            }
+        }
+        Expr::FieldAccess(f) => {
+            // a.field = ...: the base is used
+            collect_used_vars_expr(&f.base, vars);
+        }
+        _ => {
+            collect_used_vars_expr(lhs, vars);
+        }
     }
 }
 
@@ -86,61 +115,51 @@ fn collect_used_vars_expr(expr: &Expr, vars: &mut Vec<VarId>) {
         Expr::Var(v) => {
             vars.push(VarId::local(&v.name));
         }
-        Expr::Member(m) => {
-            collect_used_vars_expr(&m.base, vars);
+        Expr::Lit(_) => {}
+        Expr::BinOp(b) => {
+            collect_used_vars_expr(&b.lhs, vars);
+            collect_used_vars_expr(&b.rhs, vars);
         }
-        Expr::Index(i) => {
-            vars.push(VarId::local(&i.base.name));
+        Expr::UnOp(u) => {
+            collect_used_vars_expr(&u.operand, vars);
+        }
+        Expr::FunctionCall(c) => {
+            collect_used_vars_expr(&c.callee, vars);
+            for arg in &c.args {
+                collect_used_vars_expr(arg, vars);
+            }
+        }
+        Expr::FieldAccess(f) => {
+            collect_used_vars_expr(&f.base, vars);
+        }
+        Expr::IndexAccess(i) => {
+            collect_used_vars_expr(&i.base, vars);
             if let Some(idx) = &i.index {
-                collect_used_vars_atomic(idx, vars);
-            }
-        }
-        Expr::Call(c) => {
-            // Check for assignment: LHS might NOT be used if simple assignment
-            let mut is_simple_assignment = false;
-            if let CalleeExpr::BuiltIn(name) = &c.callee {
-                if name == "=" {
-                    is_simple_assignment = true;
-                }
-            }
-
-            if is_simple_assignment {
-                // Skip first arg (LHS)
-                for arg in c.args.iter().skip(1) {
-                    collect_used_vars_atomic(arg, vars);
-                }
-            } else {
-                // Callee might be Expr? No, CalleeExpr.
-                match &c.callee {
-                    CalleeExpr::MemberExpr(m) => {
-                        collect_used_vars_expr(&Expr::Member(m.clone()), vars)
-                    }
-                    _ => {}
-                }
-                for arg in &c.args {
-                    collect_used_vars_atomic(arg, vars);
-                }
+                collect_used_vars_expr(idx, vars);
             }
         }
         Expr::Tuple(t) => {
             for elem in &t.elems {
                 if let Some(e) = elem {
-                    collect_used_vars_atomic(e, vars);
+                    collect_used_vars_expr(e, vars);
                 }
             }
         }
-        Expr::InlineArray(a) => {
-            for elem in &a.elems {
-                collect_used_vars_atomic(elem, vars);
-            }
+        Expr::Ternary(t) => {
+            collect_used_vars_expr(&t.cond, vars);
+            collect_used_vars_expr(&t.then_expr, vars);
+            collect_used_vars_expr(&t.else_expr, vars);
         }
-        // Conditional, New, TypeName, Lit do not introduce variable uses
-        // Wait, Conditional does!
-        // Expr::Conditional(c) isMISSING from my draft above? match cases must be exhaustive or
-        // default In default (or explicit), handle Conditional
-        // solidity::ir::exprs.rs: ConditionalExpr { cond, true_br, false_br } - they are
-        // AtomicExpr? Let's check ir/exprs.rs again for ConditionalExpr.
-        _ => {}
+        Expr::TypeCast(tc) => {
+            collect_used_vars_expr(&tc.expr, vars);
+        }
+        Expr::Old(inner) => {
+            collect_used_vars_expr(inner, vars);
+        }
+        Expr::Forall { body, .. } | Expr::Exists { body, .. } => {
+            collect_used_vars_expr(body, vars);
+        }
+        Expr::Result(_) | Expr::Dialect(_) => {}
     }
 }
 
