@@ -1,6 +1,6 @@
 use crate::dfa::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph};
 use crate::dfa::lattice::Lattice;
-use solidity::ir::Stmt;
+use cir::Stmt;
 use std::collections::{HashMap, VecDeque};
 use std::marker::PhantomData;
 

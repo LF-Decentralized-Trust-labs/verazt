@@ -1,14 +1,13 @@
-use crate::ast::{DataLoc, Loc};
-use crate::ir::*;
+//! Literal values in CIR.
+
+use crate::loc::Span;
+use crate::types::Type;
 use num_bigint::BigInt;
 use num_traits::One;
 use rust_decimal::Decimal;
 use std::fmt::{self, Display};
 
-//-------------------------------------------------------------------------
-// Data structures representing all literals
-//-------------------------------------------------------------------------
-
+/// A literal value.
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Lit {
     Bool(BoolLit),
@@ -21,31 +20,31 @@ pub enum Lit {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct BoolLit {
     pub value: bool,
-    pub loc: Option<Loc>,
+    pub span: Option<Span>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct NumLit {
     pub value: Num,
-    pub loc: Option<Loc>,
+    pub span: Option<Span>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct StringLit {
     pub value: String,
-    pub loc: Option<Loc>,
+    pub span: Option<Span>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct HexLit {
     pub value: String,
-    pub loc: Option<Loc>,
+    pub span: Option<Span>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct UnicodeLit {
     pub value: String,
-    pub loc: Option<Loc>,
+    pub span: Option<Span>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -58,7 +57,6 @@ pub enum Num {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct IntNum {
     pub value: BigInt,
-    // REVIEW: should be restricted to [`IntType`]?
     pub typ: Type,
 }
 
@@ -74,32 +72,30 @@ pub struct HexNum {
     pub typ: Type,
 }
 
-//-------------------------------------------------------------------------
-// Implementations for Literals
-//-------------------------------------------------------------------------
+// ─── Implementations ───────────────────────────────────────────────
 
 impl Lit {
-    pub fn one(loc: Option<Loc>) -> Self {
-        Lit::from(NumLit::new(Num::one(), loc))
+    pub fn one(span: Option<Span>) -> Self {
+        Lit::from(NumLit::new(Num::one(), span))
     }
 
     pub fn typ(&self) -> Type {
         match self {
             Lit::Bool(_) => Type::Bool,
             Lit::Num(n) => n.typ(),
-            Lit::String(s) => s.typ(),
-            Lit::Hex(h) => h.typ(),
-            Lit::Unicode(u) => u.typ(),
+            Lit::String(_) => Type::String,
+            Lit::Hex(_) => Type::Bytes,
+            Lit::Unicode(_) => Type::String,
         }
     }
 
-    pub fn loc(&self) -> Option<Loc> {
+    pub fn span(&self) -> Option<Span> {
         match self {
-            Lit::Bool(b) => b.loc,
-            Lit::Num(n) => n.loc,
-            Lit::String(s) => s.loc,
-            Lit::Hex(h) => h.loc,
-            Lit::Unicode(u) => u.loc,
+            Lit::Bool(b) => b.span,
+            Lit::Num(n) => n.span,
+            Lit::String(s) => s.span,
+            Lit::Hex(h) => h.span,
+            Lit::Unicode(u) => u.span,
         }
     }
 }
@@ -109,25 +105,21 @@ impl From<BoolLit> for Lit {
         Lit::Bool(lit)
     }
 }
-
 impl From<NumLit> for Lit {
     fn from(lit: NumLit) -> Lit {
         Lit::Num(lit)
     }
 }
-
 impl From<StringLit> for Lit {
     fn from(lit: StringLit) -> Lit {
         Lit::String(lit)
     }
 }
-
 impl From<HexLit> for Lit {
     fn from(lit: HexLit) -> Lit {
         Lit::Hex(lit)
     }
 }
-
 impl From<UnicodeLit> for Lit {
     fn from(lit: UnicodeLit) -> Lit {
         Lit::Unicode(lit)
@@ -140,19 +132,17 @@ impl Display for Lit {
             Lit::Bool(b) => write!(f, "{b}"),
             Lit::Num(n) => write!(f, "{n}"),
             Lit::String(s) => write!(f, "{s}"),
-            Lit::Hex(s) => write!(f, "{s}"),
-            Lit::Unicode(s) => write!(f, "{s}"),
+            Lit::Hex(h) => write!(f, "{h}"),
+            Lit::Unicode(u) => write!(f, "{u}"),
         }
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for Boolean literals
-//-------------------------------------------------------------------------
+// ─── BoolLit ───────────────────────────────────────────────────────
 
 impl BoolLit {
-    pub fn new(value: bool, loc: Option<Loc>) -> Self {
-        BoolLit { value, loc }
+    pub fn new(value: bool, span: Option<Span>) -> Self {
+        BoolLit { value, span }
     }
 }
 
@@ -162,36 +152,11 @@ impl Display for BoolLit {
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for Hex literals
-//-------------------------------------------------------------------------
-
-impl HexLit {
-    pub fn new(value: String, loc: Option<Loc>) -> Self {
-        HexLit { value, loc }
-    }
-
-    pub fn typ(&self) -> Type {
-        // REVIEW: temporarily set data location to Memory.
-        //
-        // what is the correct data location of string literal?
-        StringType::new(DataLoc::Memory, false).into()
-    }
-}
-
-impl Display for HexLit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "hex\"{}\"", self.value)
-    }
-}
-
-//-------------------------------------------------------------------------
-// Implementations for Num literals
-//-------------------------------------------------------------------------
+// ─── NumLit ────────────────────────────────────────────────────────
 
 impl NumLit {
-    pub fn new(value: Num, loc: Option<Loc>) -> Self {
-        NumLit { value, loc }
+    pub fn new(value: Num, span: Option<Span>) -> Self {
+        NumLit { value, span }
     }
 
     pub fn typ(&self) -> Type {
@@ -205,9 +170,7 @@ impl Display for NumLit {
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for Num
-//-------------------------------------------------------------------------
+// ─── Num ───────────────────────────────────────────────────────────
 
 impl Num {
     pub fn typ(&self) -> Type {
@@ -228,13 +191,11 @@ impl From<IntNum> for Num {
         Num::Int(n)
     }
 }
-
 impl From<FixedNum> for Num {
     fn from(n: FixedNum) -> Self {
         Num::Fixed(n)
     }
 }
-
 impl From<HexNum> for Num {
     fn from(n: HexNum) -> Self {
         Num::Hex(n)
@@ -251,9 +212,7 @@ impl Display for Num {
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for IntNum
-//-------------------------------------------------------------------------
+// ─── IntNum ────────────────────────────────────────────────────────
 
 impl IntNum {
     pub fn new(value: BigInt, typ: Type) -> Self {
@@ -261,8 +220,7 @@ impl IntNum {
     }
 
     pub fn one() -> Self {
-        let uint_type = Type::Int(IntType::new(None, false));
-        Self::new(One::one(), uint_type)
+        Self::new(One::one(), Type::I256)
     }
 }
 
@@ -272,9 +230,7 @@ impl Display for IntNum {
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for FixedNum
-//-------------------------------------------------------------------------
+// ─── FixedNum ──────────────────────────────────────────────────────
 
 impl FixedNum {
     pub fn new(value: Decimal, typ: Type) -> Self {
@@ -288,9 +244,7 @@ impl Display for FixedNum {
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for HexNum
-//-------------------------------------------------------------------------
+// ─── HexNum ────────────────────────────────────────────────────────
 
 impl HexNum {
     pub fn new(value: String, typ: Type) -> Self {
@@ -304,20 +258,11 @@ impl Display for HexNum {
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for String literal
-//-------------------------------------------------------------------------
+// ─── StringLit ─────────────────────────────────────────────────────
 
 impl StringLit {
-    pub fn new(value: String, loc: Option<Loc>) -> Self {
-        StringLit { value, loc }
-    }
-
-    pub fn typ(&self) -> Type {
-        // REVIEW: temporarily set data location to Memory.
-        //
-        // what is the correct data location of string literal?
-        StringType::new(DataLoc::Memory, false).into()
+    pub fn new(value: String, span: Option<Span>) -> Self {
+        StringLit { value, span }
     }
 }
 
@@ -327,20 +272,25 @@ impl Display for StringLit {
     }
 }
 
-//-------------------------------------------------------------------------
-// Implementations for Unicode literal
-//-------------------------------------------------------------------------
+// ─── HexLit ────────────────────────────────────────────────────────
+
+impl HexLit {
+    pub fn new(value: String, span: Option<Span>) -> Self {
+        HexLit { value, span }
+    }
+}
+
+impl Display for HexLit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "hex\"{}\"", self.value)
+    }
+}
+
+// ─── UnicodeLit ────────────────────────────────────────────────────
 
 impl UnicodeLit {
-    pub fn new(value: String, loc: Option<Loc>) -> Self {
-        UnicodeLit { value, loc }
-    }
-
-    pub fn typ(&self) -> Type {
-        // REVIEW: temporarily set data location to Memory.
-        //
-        // what is the correct data location of string literal?
-        StringType::new(DataLoc::Memory, false).into()
+    pub fn new(value: String, span: Option<Span>) -> Self {
+        UnicodeLit { value, span }
     }
 }
 

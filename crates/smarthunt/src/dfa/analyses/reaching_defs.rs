@@ -2,8 +2,8 @@ use crate::dfa::cfg::BasicBlockId;
 use crate::dfa::lattice::PowerSetLattice;
 use crate::dfa::solver::Transfer;
 use crate::dfa::var::VarId;
+use cir::Stmt;
 use solidity::ast::Loc;
-use solidity::ir::Stmt;
 
 /// A definition point
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]

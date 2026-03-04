@@ -1,5 +1,5 @@
 use crate::dfa::var::VarId;
-use solidity::ir::{Expr, Stmt};
+use cir::{Expr, Stmt};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
