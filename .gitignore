@@ -53,3 +53,8 @@ mermaid-init.js
 
 # HTML files
 *.html
+
+# Documentation files
+*.doc
+*.docx
+*.pdf
