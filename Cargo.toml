@@ -7,6 +7,7 @@ members = [
   "crates/smarthunt",
   "crates/smartproof",
   "crates/solidity",
+  "crates/vyper",
 ]
 exclude = [
   "examples",
