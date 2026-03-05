@@ -10,6 +10,8 @@ use crate::analysis::context::AnalysisContext;
 use crate::analysis::manager::{PassManager, PassManagerConfig};
 use crate::analysis::pass::AnalysisPass;
 use crate::analysis::pass_id::PassId;
+use crate::analysis::pass_representation::PassRepresentation;
+use crate::config::InputLanguage;
 use crate::pipeline::detector::BugDetectionPass;
 use crate::pipeline::registry::{DetectorRegistry, register_all_detectors};
 use bugs::bug::Bug;
@@ -121,8 +123,8 @@ impl PipelineEngine {
     pub fn run(&self, context: &mut AnalysisContext) -> PipelineResult {
         let start = Instant::now();
 
-        // Step 1: Resolve which detectors to run
-        let enabled_detectors = self.resolve_detectors();
+        // Step 1: Resolve which detectors to run (language-aware)
+        let enabled_detectors = self.resolve_detectors_for_language(context.input_language);
 
         // Step 2: Phase 1 - Analysis
         let analysis_start = Instant::now();
@@ -150,6 +152,28 @@ impl PipelineEngine {
         self.registry
             .all()
             .filter(|d| self.is_detector_enabled(*d))
+            .collect()
+    }
+
+    /// Resolve which detectors should run, taking into account the input
+    /// language. AST-only (GREP) detectors are skipped for Vyper because
+    /// they operate on Solidity AST types.
+    fn resolve_detectors_for_language(
+        &self,
+        language: InputLanguage,
+    ) -> Vec<&dyn BugDetectionPass> {
+        self.resolve_detectors()
+            .into_iter()
+            .filter(|d| {
+                if language == InputLanguage::Vyper {
+                    // Only keep detectors that operate on IR or hybrid;
+                    // skip pure AST (GREP) detectors since they target
+                    // Solidity AST types.
+                    d.representation() != PassRepresentation::Ast
+                } else {
+                    true
+                }
+            })
             .collect()
     }
 
@@ -196,6 +220,10 @@ impl PipelineEngine {
             return Ok(());
         }
 
+        // For Vyper, skip AST-level analysis passes entirely since
+        // we don't have Solidity AST source units.
+        let is_vyper = context.input_language == InputLanguage::Vyper;
+
         log::info!("Analysis phase: {} passes required", required.len());
 
         // Build a PassManager with only the required passes
@@ -211,6 +239,11 @@ impl PipelineEngine {
         // Create and register only the required analysis passes
         // (including transitive dependencies via the pass's own dependencies())
         for &pass_id in &required {
+            // Skip AST-level passes for Vyper (no Solidity source units)
+            if is_vyper && !pass_id.requires_ir() && !pass_id.is_hybrid() {
+                log::debug!("Skipping AST pass {:?} for Vyper input", pass_id);
+                continue;
+            }
             if let Some(pass) = create_analysis_pass(pass_id) {
                 pass_manager.register_analysis_pass(pass);
             }

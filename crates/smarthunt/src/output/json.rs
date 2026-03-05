@@ -50,6 +50,9 @@ pub struct JsonReport {
     /// Analysis duration in milliseconds
     pub duration_ms: u64,
 
+    /// Source language (solidity or vyper)
+    pub source_language: String,
+
     /// Files analyzed
     pub files_analyzed: Vec<String>,
 
@@ -101,6 +104,7 @@ impl From<&AnalysisReport> for JsonReport {
             version: report.version.clone(),
             timestamp: report.timestamp.to_rfc3339(),
             duration_ms: report.duration.as_millis() as u64,
+            source_language: report.source_language.clone(),
             files_analyzed: report.files_analyzed.clone(),
             summary: JsonSummary {
                 total: report.bugs.len(),

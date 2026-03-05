@@ -20,6 +20,9 @@ pub struct AnalysisReport {
     /// Analysis timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
 
+    /// Source language ("solidity" or "vyper")
+    pub source_language: String,
+
     /// Statistics
     pub stats: AnalysisStats,
 }
@@ -53,6 +56,16 @@ pub struct BugsBySeverity {
 impl AnalysisReport {
     /// Create a new analysis report.
     pub fn new(bugs: Vec<Bug>, files_analyzed: Vec<String>, duration: Duration) -> Self {
+        Self::with_language(bugs, files_analyzed, duration, "solidity")
+    }
+
+    /// Create a new analysis report with a specific source language.
+    pub fn with_language(
+        bugs: Vec<Bug>,
+        files_analyzed: Vec<String>,
+        duration: Duration,
+        source_language: &str,
+    ) -> Self {
         let mut stats = AnalysisStats::default();
 
         // Count bugs by severity
@@ -72,6 +85,7 @@ impl AnalysisReport {
             duration,
             version: env!("CARGO_PKG_VERSION").to_string(),
             timestamp: chrono::Utc::now(),
+            source_language: source_language.to_string(),
             stats,
         }
     }

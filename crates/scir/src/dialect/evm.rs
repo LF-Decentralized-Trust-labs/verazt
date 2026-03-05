@@ -66,7 +66,6 @@ pub enum EvmExpr {
     InlineAsm { asm_text: String },
 
     // ── Vyper-specific expressions ─────────────────────────────
-
     /// `convert(x, T)` — Vyper's explicit type cast builtin.
     Convert { expr: Box<Expr>, to: Type },
     /// `slice(x, start, len)` — byte slice.

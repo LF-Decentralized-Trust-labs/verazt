@@ -12,6 +12,7 @@ use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
+use crate::config::InputLanguage;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{
@@ -177,6 +178,12 @@ impl Pass for UninitializedDfaDetector {
 
 impl BugDetectionPass for UninitializedDfaDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+        // Vyper initializes all variables to zero by default, so
+        // uninitialized-storage warnings are not applicable.
+        if context.input_language == InputLanguage::Vyper {
+            return Ok(vec![]);
+        }
+
         let mut bugs = Vec::new();
 
         for source_unit in &context.source_units {

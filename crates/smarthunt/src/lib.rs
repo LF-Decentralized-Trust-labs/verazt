@@ -66,7 +66,7 @@ pub use pipeline::{
 };
 
 // Re-export output types
-pub use config::{Config, OutputFormat, SeverityFilter};
+pub use config::{Config, InputLanguage, OutputFormat, SeverityFilter};
 pub use output::{
     AnalysisReport, JsonFormatter, MarkdownFormatter, OutputFormatter, SarifFormatter,
 };

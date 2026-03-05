@@ -45,7 +45,7 @@ fn main() {
 
     for file in &args.input_files {
         // Parse
-        let source_unit = match parse_input_file(file) {
+        let source_unit = match parse_input_file(file, None) {
             Ok(su) => su,
             Err(err) => {
                 eprintln!("Error parsing {file}: {err}");

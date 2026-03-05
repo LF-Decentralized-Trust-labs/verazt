@@ -18,11 +18,13 @@ use std::fmt::{self, Display};
 /// Move-specific types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MoveType {
-    /// `!move.resource<T>` — struct type with key ability (lives in global storage).
+    /// `!move.resource<T>` — struct type with key ability (lives in global
+    /// storage).
     Resource(Box<Type>),
     /// `!move.signer` — signer capability passed to entry functions.
     Signer,
-    /// `!move.type_tag` — phantom type tag (used in forall quantifiers in specs).
+    /// `!move.type_tag` — phantom type tag (used in forall quantifiers in
+    /// specs).
     TypeTag,
 }
 
@@ -127,7 +129,8 @@ impl Display for MoveStmt {
 /// Move-specific member declarations inside a module/contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MoveMemberDecl {
-    /// `move.struct_def` — struct declaration with abilities as `#move.abilities` attribute.
+    /// `move.struct_def` — struct declaration with abilities as
+    /// `#move.abilities` attribute.
     StructDef {
         name: String,
         type_params: Vec<MoveTypeParam>,
@@ -177,8 +180,7 @@ impl Display for MoveMemberDecl {
                 write!(f, "}}")
             }
             MoveMemberDecl::SpecFun { name, params, ret, body } => {
-                let ps: Vec<_> =
-                    params.iter().map(|(n, t)| format!("{n}: {t}")).collect();
+                let ps: Vec<_> = params.iter().map(|(n, t)| format!("{n}: {t}")).collect();
                 write!(f, "spec fun {name}({}): {ret}", ps.join(", "))?;
                 match body {
                     Some(e) => write!(f, " {{ {e} }}"),
