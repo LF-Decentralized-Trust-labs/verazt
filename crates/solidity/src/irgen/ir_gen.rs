@@ -2,8 +2,8 @@
 
 use crate::ast;
 use crate::ast::Loc;
-use cir::dialect::evm::*;
-use cir::*;
+use scir::dialect::evm::*;
+use scir::*;
 use extlib::{error::Result, fail};
 use log::trace;
 

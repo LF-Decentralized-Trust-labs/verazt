@@ -1,7 +1,7 @@
 [workspace]
 members = [
   "crates/bugs",
-  "crates/cir",
+  "crates/scir",
 
   "crates/smartbench",
   "crates/smarthunt",

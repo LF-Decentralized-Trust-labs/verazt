@@ -1,5 +1,5 @@
 use crate::dfa::var::VarId;
-use cir::{Expr, Stmt};
+use scir::{Expr, Stmt};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 

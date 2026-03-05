@@ -51,7 +51,7 @@ pub enum EvmExpr {
     /// `evm.block_number()` — `block.number`
     BlockNumber,
     /// `evm.inline_asm` — opaque inline assembly with conservative
-    /// attributes (`#cir.call_risk = {reentrancy: true}`, alias = TOP).
+    /// attributes (`#scir.call_risk = {reentrancy: true}`, alias = TOP).
     InlineAsm { asm_text: String },
 }
 

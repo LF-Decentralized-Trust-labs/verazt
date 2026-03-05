@@ -9,7 +9,7 @@ use std::path::Path;
 pub fn export_module(module: &Module, output_dir: &Path) -> Result<String> {
     let content = format!("{module}");
     let name = module.name().unwrap_or_else(|| "module".to_string());
-    let filename = format!("{name}.cir");
+    let filename = format!("{name}.scir");
     let path = output_dir.join(&filename);
     fs::create_dir_all(output_dir)?;
     fs::write(&path, &content)?;

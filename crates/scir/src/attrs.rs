@@ -1,6 +1,6 @@
 //! Attribute system for CIR nodes.
 //!
-//! Attributes carry metadata on any IR node. The `#cir.*` namespace is
+//! Attributes carry metadata on any IR node. The `#scir.*` namespace is
 //! reserved for standard CIR annotations; dialect namespaces (`evm`, `move`,
 //! etc.) are used for chain-specific metadata.
 
@@ -9,7 +9,7 @@ use std::fmt::{self, Display};
 /// An attribute attached to an IR node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attr {
-    pub namespace: String, // e.g. "cir", "evm", "move", "anchor"
+    pub namespace: String, // e.g. "scir", "evm", "move", "anchor"
     pub key: String,
     pub value: AttrValue,
 }
@@ -29,8 +29,8 @@ impl Attr {
     }
 
     /// Create a standard CIR attribute.
-    pub fn cir(key: &str, value: AttrValue) -> Self {
-        Self::new("cir", key, value)
+    pub fn scir(key: &str, value: AttrValue) -> Self {
+        Self::new("scir", key, value)
     }
 
     /// Create an EVM dialect attribute.
@@ -60,8 +60,8 @@ impl Display for AttrValue {
     }
 }
 
-/// Standard `#cir.*` attribute keys.
-pub mod cir_attrs {
+/// Standard `#scir.*` attribute keys.
+pub mod scir_attrs {
     pub const VISIBILITY: &str = "visibility"; // "public" | "internal"
     pub const CALL_RISK: &str = "call_risk"; // reentrancy, delegate_storage
     pub const TAINT: &str = "taint";
