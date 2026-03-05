@@ -23,6 +23,12 @@ pub enum EvmType {
     AddressPayable,
     /// `!evm.slot` — a storage slot reference.
     Slot,
+    /// Vyper's bounded dynamic array — `DynArray[T, N]`.
+    DynArray { elem: Box<Type>, max_len: u64 },
+    /// Vyper's bounded byte string — `Bytes[N]`.
+    BoundedBytes(u64),
+    /// Vyper's bounded string — `String[N]`.
+    BoundedString(u64),
 }
 
 impl Display for EvmType {
@@ -31,6 +37,11 @@ impl Display for EvmType {
             EvmType::Address => write!(f, "address"),
             EvmType::AddressPayable => write!(f, "address payable"),
             EvmType::Slot => write!(f, "!evm.slot"),
+            EvmType::DynArray { elem, max_len } => {
+                write!(f, "DynArray[{elem}, {max_len}]")
+            }
+            EvmType::BoundedBytes(n) => write!(f, "Bytes[{n}]"),
+            EvmType::BoundedString(n) => write!(f, "String[{n}]"),
         }
     }
 }
@@ -40,7 +51,7 @@ impl Display for EvmType {
 // ═══════════════════════════════════════════════════════════════════
 
 /// EVM-specific expressions.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EvmExpr {
     /// `evm.msg_sender()` — `msg.sender`
     MsgSender,
@@ -51,8 +62,36 @@ pub enum EvmExpr {
     /// `evm.block_number()` — `block.number`
     BlockNumber,
     /// `evm.inline_asm` — opaque inline assembly with conservative
-    /// attributes (`#cir.call_risk = {reentrancy: true}`, alias = TOP).
+    /// attributes (`#scir.call_risk = {reentrancy: true}`, alias = TOP).
     InlineAsm { asm_text: String },
+
+    // ── Vyper-specific expressions ─────────────────────────────
+
+    /// `convert(x, T)` — Vyper's explicit type cast builtin.
+    Convert { expr: Box<Expr>, to: Type },
+    /// `slice(x, start, len)` — byte slice.
+    Slice {
+        expr: Box<Expr>,
+        start: Box<Expr>,
+        length: Box<Expr>,
+    },
+    /// `len(x)` — length of DynArray or Bytes.
+    Len(Box<Expr>),
+    /// `raw_call(target, data, value?, gas?)` — low-level call.
+    RawCall {
+        target: Box<Expr>,
+        data: Box<Expr>,
+        value: Option<Box<Expr>>,
+        gas: Option<Box<Expr>>,
+    },
+    /// `send(target, value)` — Vyper's send() builtin.
+    Send { target: Box<Expr>, value: Box<Expr> },
+    /// `self.balance` — contract's own balance.
+    SelfBalance,
+    /// `empty(T)` — zero value of type T.
+    Empty(Type),
+    /// `concat(a, b, ...)` — byte/string concatenation.
+    Concat(Vec<Expr>),
 }
 
 impl Display for EvmExpr {
@@ -63,6 +102,30 @@ impl Display for EvmExpr {
             EvmExpr::Timestamp => write!(f, "evm.timestamp()"),
             EvmExpr::BlockNumber => write!(f, "evm.block_number()"),
             EvmExpr::InlineAsm { asm_text } => write!(f, "evm.inline_asm({asm_text})"),
+            EvmExpr::Convert { expr, to } => write!(f, "evm.convert({expr}, {to})"),
+            EvmExpr::Slice { expr, start, length } => {
+                write!(f, "evm.slice({expr}, {start}, {length})")
+            }
+            EvmExpr::Len(e) => write!(f, "evm.len({e})"),
+            EvmExpr::RawCall { target, data, value, gas } => {
+                write!(f, "evm.raw_call({target}, {data}")?;
+                if let Some(v) = value {
+                    write!(f, ", value={v}")?;
+                }
+                if let Some(g) = gas {
+                    write!(f, ", gas={g}")?;
+                }
+                write!(f, ")")
+            }
+            EvmExpr::Send { target, value } => {
+                write!(f, "evm.send({target}, {value})")
+            }
+            EvmExpr::SelfBalance => write!(f, "evm.self_balance()"),
+            EvmExpr::Empty(ty) => write!(f, "evm.empty({ty})"),
+            EvmExpr::Concat(exprs) => {
+                let es: Vec<_> = exprs.iter().map(|e| e.to_string()).collect();
+                write!(f, "evm.concat({})", es.join(", "))
+            }
         }
     }
 }

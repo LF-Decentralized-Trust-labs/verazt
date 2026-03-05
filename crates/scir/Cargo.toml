@@ -1,5 +1,5 @@
 [package]
-name = "cir"
+name = "scir"
 version.workspace = true
 authors.workspace = true
 license.workspace = true

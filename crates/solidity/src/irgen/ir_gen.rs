@@ -2,10 +2,10 @@
 
 use crate::ast;
 use crate::ast::Loc;
-use cir::dialect::evm::*;
-use cir::*;
 use extlib::{error::Result, fail};
 use log::trace;
+use scir::dialect::evm::*;
+use scir::*;
 
 /// Convert AST source location to CIR span.
 fn loc_to_span(loc: Option<Loc>) -> Option<Span> {

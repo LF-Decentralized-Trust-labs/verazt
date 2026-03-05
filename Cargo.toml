@@ -1,12 +1,15 @@
 [workspace]
 members = [
   "crates/bugs",
-  "crates/cir",
+  "crates/scir",
 
   "crates/smartbench",
   "crates/smarthunt",
   "crates/smartproof",
   "crates/solidity",
+]
+exclude = [
+  "examples",
 ]
 
 [workspace.package]

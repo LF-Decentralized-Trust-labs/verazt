@@ -1,5 +1,5 @@
 use crate::dfa::var::VarId;
-use cir::{Expr, Stmt};
+use scir::{Expr, Stmt};
 
 /// Collect variables that are used (read) in a statement
 pub fn collect_used_vars(stmt: &Stmt) -> Vec<VarId> {

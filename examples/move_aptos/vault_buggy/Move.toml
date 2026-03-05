@@ -1,0 +1,9 @@
+[package]
+name = "VaultBuggy"
+version = "1.0.0"
+
+[addresses]
+vault = "_"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev = "main" }
