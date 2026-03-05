@@ -4,6 +4,14 @@
 
 use std::path::Path;
 
+/// The input source language.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum InputLanguage {
+    #[default]
+    Solidity,
+    Vyper,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {
     Text,

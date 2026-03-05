@@ -70,13 +70,15 @@ pub enum AnchorExpr {
         accounts: Vec<Expr>,
         data: Box<Expr>,
     },
-    /// `anchor.system_transfer(from, to, lamports)` — system program transfer CPI.
+    /// `anchor.system_transfer(from, to, lamports)` — system program transfer
+    /// CPI.
     SystemTransfer {
         from: Box<Expr>,
         to: Box<Expr>,
         lamports: Box<Expr>,
     },
-    /// `anchor.token_transfer(from, to, authority, amount)` — SPL token transfer CPI.
+    /// `anchor.token_transfer(from, to, authority, amount)` — SPL token
+    /// transfer CPI.
     TokenTransfer {
         from: Box<Expr>,
         to: Box<Expr>,
@@ -105,18 +107,11 @@ impl Display for AnchorExpr {
                 write!(f, "anchor.system_transfer({from}, {to}, {lamports})")
             }
             AnchorExpr::TokenTransfer { from, to, authority, amount } => {
-                write!(
-                    f,
-                    "anchor.token_transfer({from}, {to}, {authority}, {amount})"
-                )
+                write!(f, "anchor.token_transfer({from}, {to}, {authority}, {amount})")
             }
             AnchorExpr::FindProgramAddress { seeds, program_id } => {
                 let ss: Vec<_> = seeds.iter().map(|s| s.to_string()).collect();
-                write!(
-                    f,
-                    "anchor.find_program_address([{}], {program_id})",
-                    ss.join(", ")
-                )
+                write!(f, "anchor.find_program_address([{}], {program_id})", ss.join(", "))
             }
         }
     }
@@ -141,8 +136,7 @@ impl Display for AnchorStmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AnchorStmt::EmitEvent { event, fields, .. } => {
-                let fs: Vec<_> =
-                    fields.iter().map(|(k, v)| format!("{k}: {v}")).collect();
+                let fs: Vec<_> = fields.iter().map(|(k, v)| format!("{k}: {v}")).collect();
                 write!(f, "emit!({event} {{ {} }});", fs.join(", "))
             }
         }
@@ -161,7 +155,8 @@ pub enum AnchorMemberDecl {
         name: String,
         accounts: Vec<AnchorAccountField>,
     },
-    /// `anchor.account_struct` — `#[account]` data struct (serialized to account data).
+    /// `anchor.account_struct` — `#[account]` data struct (serialized to
+    /// account data).
     AccountStruct {
         name: String,
         discriminator_size: u8,

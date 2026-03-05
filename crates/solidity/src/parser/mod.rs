@@ -69,28 +69,28 @@ fn save_to_temporary_files(source_code_list: &[(&str, &str)]) -> Result<Vec<Stri
     Ok(output_files)
 }
 
-fn get_installed_solc_vers() -> String {
+fn get_installed_solc_vers() -> Result<String> {
     let cmd_args = " versions".to_string();
     let cmd_output = Command::new(SOLC_SELECT)
         .args(cmd_args.split_whitespace())
         .output();
 
     match cmd_output {
-        Ok(output) => String::from_utf8(output.stdout).unwrap_or_else(|_| "".to_string()),
-        Err(err) => panic!("Error when running {SOLC_SELECT}: {err}"),
+        Ok(output) => Ok(String::from_utf8(output.stdout).unwrap_or_else(|_| "".to_string())),
+        Err(err) => fail!("Error when running {SOLC_SELECT}: {err}"),
     }
 }
 
-pub fn configure_solc_compiler(solc_ver: &Version) {
+pub fn configure_solc_compiler(solc_ver: &Version) -> Result<()> {
     // Check settings of solc-select
-    let installed_solcs = get_installed_solc_vers();
+    let installed_solcs = get_installed_solc_vers()?;
     let solc_ver_regex = Regex::new(r"(\d+\.\d+\.\d+)").expect("Version regex should be valid");
 
     for mat in solc_ver_regex.find_iter(&installed_solcs) {
         if let Ok(ver) = Version::parse(mat.as_str())
             && ver.eq(solc_ver)
         {
-            return;
+            return Ok(());
         }
     }
 
@@ -99,9 +99,15 @@ pub fn configure_solc_compiler(solc_ver: &Version) {
     let cmd_output = Command::new(SOLC_SELECT)
         .args(cmd_args.split_whitespace())
         .output();
-    if cmd_output.is_err() {
-        panic!("Failed to install Solc: {solc_ver}");
+    match cmd_output {
+        Ok(output) if !output.status.success() => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            fail!("Failed to install Solc {solc_ver}: {stderr}");
+        }
+        Err(err) => fail!("Failed to install Solc {solc_ver}: {err}"),
+        _ => {}
     }
+    Ok(())
 }
 
 /// Parse input file to source units in AST format.
@@ -133,8 +139,7 @@ pub fn parse_input_file(
         }
     }
 
-    let compatible_solc_vers = find_compatible_solc_versions(&pragma_solc_ver)
-        .unwrap_or_else(|_| panic!("Failed to find Solc version in source code!"));
+    let compatible_solc_vers = find_compatible_solc_versions(&pragma_solc_ver)?;
 
     // Configure suitable Solc version
     let input_solc_range = match solc_ver {
@@ -164,7 +169,7 @@ pub fn parse_input_file(
     let mut compilation_errors = vec![];
     for solc_ver in &best_solc_vers {
         debug!("Compiling input contract using Solc: {solc_ver}");
-        configure_solc_compiler(solc_ver);
+        configure_solc_compiler(solc_ver)?;
 
         // Prepare compilation command.
         let mut args = input_file.to_string();

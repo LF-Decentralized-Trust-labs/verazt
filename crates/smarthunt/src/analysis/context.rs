@@ -4,6 +4,7 @@
 //! supporting both AST and IR representations.
 
 use crate::analysis::pass_id::PassId;
+use crate::config::InputLanguage;
 use scir;
 use solidity::ast::SourceUnit;
 use std::any::Any;
@@ -26,6 +27,9 @@ pub struct AnalysisConfig {
     /// Enable verbose logging.
     pub verbose: bool,
 
+    /// The input source language.
+    pub input_language: InputLanguage,
+
     /// Additional configuration options.
     pub options: HashMap<String, String>,
 }
@@ -38,6 +42,7 @@ impl AnalysisConfig {
             max_workers: 0, // 0 = auto-detect
             enable_ir: false,
             verbose: false,
+            input_language: InputLanguage::default(),
             options: HashMap::new(),
         }
     }
@@ -96,6 +101,9 @@ pub struct AnalysisContext {
     /// Generated IR units (optional).
     pub ir_units: Option<Vec<scir::Module>>,
 
+    /// The input source language.
+    pub input_language: InputLanguage,
+
     // ========================================
     // Analysis Artifacts (Dynamic Storage)
     // ========================================
@@ -125,9 +133,11 @@ pub struct AnalysisContext {
 impl AnalysisContext {
     /// Create a new analysis context.
     pub fn new(source_units: Vec<SourceUnit>, config: AnalysisConfig) -> Self {
+        let input_language = config.input_language;
         Self {
             source_units,
             ir_units: None,
+            input_language,
             artifacts: HashMap::new(),
             completed_passes: HashSet::new(),
             pass_order: Vec::new(),
@@ -293,6 +303,7 @@ impl Clone for AnalysisContext {
         Self {
             source_units: self.source_units.clone(),
             ir_units: self.ir_units.clone(),
+            input_language: self.input_language,
             artifacts: self.artifacts.clone(),
             completed_passes: self.completed_passes.clone(),
             pass_order: self.pass_order.clone(),

@@ -58,6 +58,33 @@ fn init_solc_version_groups() -> Vec<Vec<Version>> {
     solc_groups
 }
 
+/// Query the official Solidity binary index and return all known versions.
+/// Falls back to the hardcoded list if the network is unavailable.
+fn fetch_available_solc_versions() -> Vec<Version> {
+    let platform = if cfg!(target_os = "macos") {
+        "macosx-amd64"
+    } else if cfg!(target_os = "windows") {
+        "windows-amd64"
+    } else {
+        "linux-amd64"
+    };
+    let url = format!("https://binaries.soliditylang.org/{platform}/list.json");
+    if let Ok(resp) = ureq::get(&url).call() {
+        if let Ok(json) = resp.into_json::<serde_json::Value>() {
+            let mut versions: Vec<Version> = json["releases"]
+                .as_object()
+                .unwrap_or(&serde_json::Map::new())
+                .keys()
+                .filter_map(|k| Version::parse(k).ok())
+                .collect();
+            versions.sort_by(|a, b| b.cmp(a));
+            return versions;
+        }
+    }
+    // Fallback: hardcoded list
+    init_solc_version_groups().into_iter().flatten().collect()
+}
+
 /// Check if a version satisfies a semantic version constraints.
 pub fn check_version_constraint(version: &Version, constraint: &str) -> bool {
     match Range::parse(constraint) {
@@ -90,7 +117,7 @@ pub fn find_pragma_solidity_versions(input_file: &str) -> Result<Vec<String>> {
 /// If no Solidity pragma versions are specified in the smart contract, return
 /// the latest Solc.
 pub fn find_compatible_solc_versions(solc_ver: &Option<String>) -> Result<Vec<Version>> {
-    // Enumerate all available Solc version groups
+    // Enumerate all available Solc version groups (hardcoded)
     let mut solc_groups = init_solc_version_groups();
 
     // Sort Solc versions by interleaving over their groups
@@ -130,10 +157,29 @@ pub fn find_compatible_solc_versions(solc_ver: &Option<String>) -> Result<Vec<Ve
                 .collect();
 
             if !solc_versions.is_empty() {
-                Ok(solc_versions)
-            } else {
-                fail!("No Solidity version satisfying constraint: {}!", constraint)
+                return Ok(solc_versions);
             }
+
+            // Hardcoded list failed — try fetching from the official index
+            let fetched = fetch_available_solc_versions();
+            let fetched_versions: Vec<Version> =
+                fetched.into_iter().filter(|v| range.satisfies(v)).collect();
+
+            if !fetched_versions.is_empty() {
+                return Ok(fetched_versions);
+            }
+
+            fail!("No Solidity version satisfying constraint: {}!", constraint)
         }
     }
+}
+
+/// Return versions from the official Solidity index satisfying `pragma`.
+/// Versions are sorted newest-first.
+pub fn find_installable_solc_versions(pragma: &str) -> Result<Vec<Version>> {
+    let range = Range::parse(pragma)
+        .map_err(|e| extlib::error::create_error(format!("Invalid pragma '{pragma}': {e}")))?;
+    let all = fetch_available_solc_versions();
+    let filtered: Vec<Version> = all.into_iter().filter(|v| range.satisfies(v)).collect();
+    Ok(filtered)
 }

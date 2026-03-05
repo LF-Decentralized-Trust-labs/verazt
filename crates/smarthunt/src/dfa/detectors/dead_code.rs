@@ -13,6 +13,7 @@ use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
+use crate::config::InputLanguage;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{Block, ContractElem, FuncDef, Loc, SourceUnitElem, Stmt};
@@ -154,6 +155,13 @@ impl Pass for DeadCodeDfaDetector {
 
 impl BugDetectionPass for DeadCodeDfaDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+        // Dead-code detection operates on Solidity AST; skip for Vyper
+        // input (Vyper's `pass` statement and different AST structure
+        // could produce false positives).
+        if context.input_language == InputLanguage::Vyper {
+            return Ok(vec![]);
+        }
+
         let mut bugs = Vec::new();
 
         for source_unit in &context.source_units {

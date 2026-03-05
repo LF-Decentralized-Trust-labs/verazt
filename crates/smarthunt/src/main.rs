@@ -5,9 +5,9 @@
 use clap::{Parser, Subcommand, crate_version};
 use extlib::error;
 use smarthunt::{
-    AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, JsonFormatter,
-    MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig, PipelineEngine,
-    SarifFormatter, SeverityFilter, register_all_detectors,
+    AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
+    JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
+    PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
 };
 use solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parser::parse_input_file,
@@ -45,6 +45,15 @@ pub struct Arguments {
     #[arg(long, default_value = None)]
     pub solc_version: Option<String>,
 
+    /// Input language: solidity, vyper.
+    /// Auto-detected from file extension if not specified.
+    #[arg(long, default_value = None)]
+    pub language: Option<String>,
+
+    /// Configure Vyper compiler version (e.g. "^0.3.9").
+    #[arg(long, default_value = None)]
+    pub vyper_version: Option<String>,
+
     /// Print input program.
     #[arg(long, visible_alias = "pip", default_value_t = false)]
     pub print_input_program: bool,
@@ -72,6 +81,11 @@ pub struct Arguments {
     /// Minimum severity to report: info, low, medium, high, critical
     #[arg(long, default_value = "info")]
     pub min_severity: String,
+
+    /// Automatically install the required compiler version if none is
+    /// available. Skips the interactive prompt.
+    #[arg(long, default_value_t = false)]
+    pub install_compiler: bool,
 
     /// Enable parallel analysis
     #[arg(long, default_value_t = false)]
@@ -332,10 +346,15 @@ fn run_analysis(args: Arguments) {
 
     // Parse input files
     let solc_ver = args.solc_version.as_deref();
+    let vyper_ver = args.vyper_version.as_deref();
     let base_path = args.base_path.as_deref();
     let include_paths: &[String] = &args.include_path;
 
+    // Detect input language
+    let input_language = detect_language(&args.input_files, args.language.as_deref());
+
     let mut all_source_units: Vec<SourceUnit> = Vec::new();
+    let mut ir_units: Vec<scir::Module> = Vec::new();
     let mut files_analyzed: Vec<String> = Vec::new();
 
     for file in &args.input_files {
@@ -343,41 +362,82 @@ fn run_analysis(args: Arguments) {
             eprintln!("Compiling: {}", file);
         }
 
-        let source_units = match parse_input_file(file, base_path, include_paths, solc_ver) {
-            Ok(source_units) => source_units,
-            Err(err) => {
-                eprintln!("Error compiling {}: {}", file, err);
-                continue;
-            }
-        };
+        match input_language {
+            InputLanguage::Solidity => {
+                let source_units = match parse_input_file(file, base_path, include_paths, solc_ver)
+                {
+                    Ok(source_units) => source_units,
+                    Err(err) => {
+                        // Try auto-install recovery
+                        match try_install_and_compile_solidity(
+                            file,
+                            base_path,
+                            include_paths,
+                            solc_ver,
+                            args.install_compiler,
+                        ) {
+                            Some(units) => units,
+                            None => {
+                                eprintln!("Error compiling {}: {}", file, err);
+                                continue;
+                            }
+                        }
+                    }
+                };
 
-        if args.print_input_program {
-            println!("Source units after parsing:");
-        }
-
-        for source_unit in &source_units {
-            if args.print_input_program {
-                source_unit.print_highlighted_code();
-                println!();
-            }
-            if args.debug {
-                if let Err(err) = export_debugging_source_unit(source_unit, "parsed") {
-                    eprintln!("Warning: {}", err);
+                if args.print_input_program {
+                    println!("Source units after parsing:");
                 }
+
+                for source_unit in &source_units {
+                    if args.print_input_program {
+                        source_unit.print_highlighted_code();
+                        println!();
+                    }
+                    if args.debug {
+                        if let Err(err) = export_debugging_source_unit(source_unit, "parsed") {
+                            eprintln!("Warning: {}", err);
+                        }
+                    }
+                }
+
+                all_source_units.extend(source_units);
             }
+            InputLanguage::Vyper => match vyper::compile_file(file, vyper_ver) {
+                Ok(module) => {
+                    ir_units.push(module);
+                }
+                Err(err) => {
+                    // Try auto-install recovery
+                    match try_install_and_compile_vyper(file, vyper_ver, args.install_compiler) {
+                        Some(module) => {
+                            ir_units.push(module);
+                        }
+                        None => {
+                            eprintln!("Error compiling {}: {}", file, err);
+                            continue;
+                        }
+                    }
+                }
+            },
         }
 
         files_analyzed.push(file.clone());
-        all_source_units.extend(source_units);
     }
 
-    if all_source_units.is_empty() {
+    if files_analyzed.is_empty() {
         eprintln!("No source files were successfully compiled.");
         std::process::exit(1);
     }
 
     // Create analysis context
-    let mut context = AnalysisContext::new(all_source_units, AnalysisConfig::default());
+    let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
+    let mut context = AnalysisContext::new(all_source_units, analysis_config);
+
+    // For Vyper, inject IR modules directly
+    if !ir_units.is_empty() {
+        context.set_ir_units(ir_units);
+    }
 
     // Create and run the pipeline
     let engine = PipelineEngine::new(PipelineConfig {
@@ -401,7 +461,16 @@ fn run_analysis(args: Arguments) {
     let result = engine.run(&mut context);
 
     // Create report
-    let report = AnalysisReport::new(result.bugs, files_analyzed, result.total_duration);
+    let lang_str = match input_language {
+        InputLanguage::Vyper => "vyper",
+        InputLanguage::Solidity => "solidity",
+    };
+    let report = AnalysisReport::with_language(
+        result.bugs,
+        files_analyzed,
+        result.total_duration,
+        lang_str,
+    );
 
     // Format output
     let output = match config.output_format {
@@ -489,4 +558,170 @@ fn format_text_output(report: &AnalysisReport) -> String {
     }
 
     output
+}
+
+/// Detect the input language from CLI override or file extensions.
+///
+/// All input files must share the same detected language.
+fn detect_language(files: &[String], override_lang: Option<&str>) -> InputLanguage {
+    if let Some(lang) = override_lang {
+        return match lang.to_lowercase().as_str() {
+            "vyper" | "vy" => InputLanguage::Vyper,
+            _ => InputLanguage::Solidity,
+        };
+    }
+
+    // Infer from first file extension
+    if let Some(first) = files.first() {
+        if first.ends_with(".vy") {
+            return InputLanguage::Vyper;
+        }
+    }
+
+    InputLanguage::Solidity
+}
+
+// ============================================================================
+// Compiler auto-install helpers
+// ============================================================================
+
+/// Read a yes/no answer from stderr/stdin. Returns true for "y" or "Y".
+fn prompt_yes_no(msg: &str) -> bool {
+    use std::io::{self, Write};
+    eprint!("{msg}");
+    io::stderr().flush().ok();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).ok();
+    matches!(input.trim(), "y" | "Y")
+}
+
+/// Returns true if `tool` is found in PATH (tries `tool --version`).
+fn is_tool_installed(tool: &str) -> bool {
+    std::process::Command::new(tool)
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Install a pip package via `pip3` or `pip`, whichever is available.
+/// Returns true if installation succeeded.
+fn install_pip_package(package: &str) -> bool {
+    for pip in &["pip3", "pip"] {
+        if let Ok(status) = std::process::Command::new(pip)
+            .args(["install", package])
+            .status()
+        {
+            if status.success() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Ensure `tool` (a pip-installable `pip_package`) is present in PATH.
+/// Prompts the user before installing, or installs silently when `auto` is
+/// true. Returns true if the tool is (now) available.
+fn ensure_select_installed(tool: &str, pip_package: &str, auto: bool) -> bool {
+    if is_tool_installed(tool) {
+        return true;
+    }
+
+    if auto {
+        eprintln!("'{tool}' is not installed. Installing via pip...");
+    } else {
+        eprintln!("'{tool}' is not installed.");
+        if !prompt_yes_no(&format!("Install {tool} via pip now? [y/N] ")) {
+            eprintln!("Cannot proceed without {tool}.");
+            return false;
+        }
+    }
+
+    if install_pip_package(pip_package) {
+        eprintln!("{tool} installed successfully.");
+        true
+    } else {
+        eprintln!("Failed to install {tool} via pip. Please install it manually:");
+        eprintln!("  pip install {pip_package}");
+        false
+    }
+}
+
+/// Try to install a compatible Vyper compiler and re-compile the file.
+fn try_install_and_compile_vyper(
+    file: &str,
+    vyper_ver: Option<&str>,
+    auto: bool,
+) -> Option<scir::Module> {
+    // Step 0: Ensure vyper-select itself is present.
+    if !ensure_select_installed("vyper-select", "vyper-select", auto) {
+        return None;
+    }
+
+    let pragma = vyper::extract_pragma(file).ok()??;
+
+    let candidates = vyper::find_installable_versions(&pragma).ok()?;
+    if candidates.is_empty() {
+        eprintln!("No published Vyper version satisfies pragma '{pragma}'.");
+        return None;
+    }
+    let best = &candidates[0];
+
+    if !auto {
+        eprintln!("No installed Vyper version satisfies pragma '{pragma}'.");
+        eprintln!("The latest compatible version is {best}.");
+        if !prompt_yes_no(&format!("Install Vyper {best} now? [y/N] ")) {
+            return None;
+        }
+    }
+
+    eprintln!("Installing Vyper {best}...");
+    if let Err(e) = vyper::install_version(best) {
+        eprintln!("Failed to install Vyper {best}: {e}");
+        return None;
+    }
+    eprintln!("Vyper {best} installed successfully.");
+
+    vyper::compile_file(file, vyper_ver).ok()
+}
+
+/// Try to install a compatible solc compiler and re-compile the file.
+fn try_install_and_compile_solidity(
+    file: &str,
+    base_path: Option<&str>,
+    include_paths: &[String],
+    solc_ver: Option<&str>,
+    auto: bool,
+) -> Option<Vec<SourceUnit>> {
+    // Step 0: Ensure solc-select itself is present.
+    if !ensure_select_installed("solc-select", "solc-select", auto) {
+        return None;
+    }
+
+    let pragma = solidity::extract_pragma(file).ok()??;
+
+    let candidates = solidity::find_installable_versions(&pragma).ok()?;
+    if candidates.is_empty() {
+        eprintln!("No published solc version satisfies pragma '{pragma}'.");
+        return None;
+    }
+    let best = &candidates[0];
+
+    if !auto {
+        eprintln!("No installed solc version satisfies pragma '{pragma}'.");
+        eprintln!("The latest compatible version is {best}.");
+        if !prompt_yes_no(&format!("Install solc {best} now? [y/N] ")) {
+            return None;
+        }
+    }
+
+    eprintln!("Installing solc {best}...");
+    if let Err(e) = solidity::install_version(best) {
+        eprintln!("Failed to install solc {best}: {e}");
+        return None;
+    }
+    eprintln!("solc {best} installed successfully.");
+
+    parse_input_file(file, base_path, include_paths, solc_ver).ok()
 }
