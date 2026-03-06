@@ -66,7 +66,7 @@ impl BinaryRunner {
         Self { binary_path }
     }
 
-    /// Parse JSON output from smarthunt into DetectedBugs.
+    /// Parse JSON output from analyze into DetectedBugs.
     fn parse_json_output(stdout: &str, file_path: &Path) -> Result<Vec<DetectedBug>, String> {
         let json: serde_json::Value =
             serde_json::from_str(stdout).map_err(|e| format!("JSON parse error: {}", e))?;
@@ -360,14 +360,14 @@ mod tests {
 
     #[test]
     fn test_create_runner_binary() {
-        let config = ToolConfig::Binary { path: PathBuf::from("/usr/bin/smarthunt") };
+        let config = ToolConfig::Binary { path: PathBuf::from("/usr/bin/verazt") };
         let _runner = create_runner(&config);
     }
 
     #[test]
     fn test_create_runner_docker() {
         let config = ToolConfig::Docker {
-            image: "smarthunt:latest".to_string(),
+            image: "analyze:latest".to_string(),
             timeout_secs: Some(300),
             memory_limit: Some("4g".to_string()),
             cpus: Some(2.0),
