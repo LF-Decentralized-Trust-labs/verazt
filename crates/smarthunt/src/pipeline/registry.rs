@@ -120,6 +120,20 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     registry.register(Box::new(TimestampDependenceGrepDetector::new()));
     registry.register(Box::new(TxOriginGrepDetector::new()));
     registry.register(Box::new(VisibilityGrepDetector::new()));
+
+    // ── Tier 2: SCIR structural detectors ─────────────────────────
+    registry.register(Box::new(ScirMissingAccessControlDetector::new()));
+    registry.register(Box::new(ScirMissingModifiesDetector::new()));
+    registry.register(Box::new(ScirUncheckedArithmeticDetector::new()));
+    // Dialect-specific SCIR detectors:
+    registry.register(Box::new(ScirTxOriginAuthDetector::new()));        // evm
+    registry.register(Box::new(ScirAcquiresMismatchDetector::new()));    // move
+    registry.register(Box::new(ScirMissingPdaConstraintDetector::new())); // anchor
+
+    // ── Tier 3: ANIR dataflow detectors ───────────────────────────
+    registry.register(Box::new(AnirReentrancyDetector::new()));
+    registry.register(Box::new(AnirAccessControlDetector::new()));
+    registry.register(Box::new(AnirArithmeticDetector::new()));
 }
 
 #[cfg(test)]

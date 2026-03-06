@@ -131,6 +131,46 @@ pub enum PassId {
     CeiViolation,
     /// Centralization risk detection
     CentralizationRisk,
+
+    // ========================================
+    // SCIR Structural Passes (PassRepresentation::Ir)
+    // ========================================
+    /// Public function writes storage without any auth guard (SCIR tree pattern)
+    ScirMissingAccessControl,
+    /// Public storage-writing function has no @modifies annotation
+    ScirMissingModifies,
+    /// BinOp with OverflowSemantics::Wrapping on a non-constant operand
+    ScirUncheckedArithmetic,
+    /// EVM: tx.origin used for authentication instead of msg.sender
+    ScirTxOriginAuth,
+    /// Move: move.borrow_global<T> called on type not in #move.acquires
+    ScirAcquiresMismatch,
+    /// Anchor: account loaded without #anchor.constraint="seeds=[...]"
+    ScirMissingPdaConstraint,
+
+    // ========================================
+    // ANIR Generation (PassRepresentation::Ir — needs SCIR)
+    // ========================================
+    /// Run Pass 2a: SCIR → AnirModule
+    AnirGeneration,
+
+    // ========================================
+    // ANIR Analysis Passes (PassRepresentation::Air)
+    // ========================================
+    /// Taint propagation through SSA def-use chains
+    AnirTaintPropagation,
+    /// Interprocedural reentrancy detection via ICFG pattern
+    AnirReentrancy,
+    /// Access control: taint-flow path to storage write lacks SignerArg guard
+    AnirAccessControl,
+    /// Arithmetic overflow on tainted operands with Wrapping semantics
+    AnirArithmetic,
+    /// Storage alias collision (proxy storage, delegatecall layout clash)
+    AnirStorageAliasing,
+    /// Resource linearity violation (Move, Tezos)
+    AnirResourceLinearity,
+    /// Anchor PDA validation check
+    AnirPdaValidation,
 }
 
 impl PassId {
@@ -187,6 +227,23 @@ impl PassId {
             PassId::Reentrancy => "reentrancy",
             PassId::CeiViolation => "cei-violation",
             PassId::CentralizationRisk => "centralization-risk",
+            // SCIR Structural
+            PassId::ScirMissingAccessControl => "scir-missing-access-control",
+            PassId::ScirMissingModifies => "scir-missing-modifies",
+            PassId::ScirUncheckedArithmetic => "scir-unchecked-arithmetic",
+            PassId::ScirTxOriginAuth => "scir-tx-origin-auth",
+            PassId::ScirAcquiresMismatch => "scir-acquires-mismatch",
+            PassId::ScirMissingPdaConstraint => "scir-missing-pda-constraint",
+            // ANIR Generation
+            PassId::AnirGeneration => "anir-generation",
+            // ANIR Analysis
+            PassId::AnirTaintPropagation => "anir-taint-propagation",
+            PassId::AnirReentrancy => "anir-reentrancy",
+            PassId::AnirAccessControl => "anir-access-control",
+            PassId::AnirArithmetic => "anir-arithmetic",
+            PassId::AnirStorageAliasing => "anir-storage-aliasing",
+            PassId::AnirResourceLinearity => "anir-resource-linearity",
+            PassId::AnirPdaValidation => "anir-pda-validation",
         }
     }
 
@@ -204,6 +261,29 @@ impl PassId {
                 | PassId::LivenessAnalysis
                 | PassId::TaintAnalysis
                 | PassId::IrStateMutation
+                // SCIR structural passes operate on SCIR (which is "IR")
+                | PassId::ScirMissingAccessControl
+                | PassId::ScirMissingModifies
+                | PassId::ScirUncheckedArithmetic
+                | PassId::ScirTxOriginAuth
+                | PassId::ScirAcquiresMismatch
+                | PassId::ScirMissingPdaConstraint
+                // ANIR generation needs SCIR
+                | PassId::AnirGeneration
+        )
+    }
+
+    /// Check if this is an AIR-based pass (requires ANIR generation).
+    pub fn requires_air(&self) -> bool {
+        matches!(
+            self,
+            PassId::AnirTaintPropagation
+                | PassId::AnirReentrancy
+                | PassId::AnirAccessControl
+                | PassId::AnirArithmetic
+                | PassId::AnirStorageAliasing
+                | PassId::AnirResourceLinearity
+                | PassId::AnirPdaValidation
         )
     }
 
@@ -265,6 +345,23 @@ impl From<&str> for PassId {
             "reentrancy" => PassId::Reentrancy,
             "cei-violation" => PassId::CeiViolation,
             "centralization-risk" => PassId::CentralizationRisk,
+            // SCIR Structural
+            "scir-missing-access-control" => PassId::ScirMissingAccessControl,
+            "scir-missing-modifies" => PassId::ScirMissingModifies,
+            "scir-unchecked-arithmetic" => PassId::ScirUncheckedArithmetic,
+            "scir-tx-origin-auth" => PassId::ScirTxOriginAuth,
+            "scir-acquires-mismatch" => PassId::ScirAcquiresMismatch,
+            "scir-missing-pda-constraint" => PassId::ScirMissingPdaConstraint,
+            // ANIR Generation
+            "anir-generation" => PassId::AnirGeneration,
+            // ANIR Analysis
+            "anir-taint-propagation" => PassId::AnirTaintPropagation,
+            "anir-reentrancy" => PassId::AnirReentrancy,
+            "anir-access-control" => PassId::AnirAccessControl,
+            "anir-arithmetic" => PassId::AnirArithmetic,
+            "anir-storage-aliasing" => PassId::AnirStorageAliasing,
+            "anir-resource-linearity" => PassId::AnirResourceLinearity,
+            "anir-pda-validation" => PassId::AnirPdaValidation,
             _ => panic!("Unknown pass ID: {}", s),
         }
     }
@@ -291,6 +388,20 @@ mod tests {
         assert!(!PassId::SymbolTable.requires_ir());
         assert!(PassId::IrCfg.requires_ir());
         assert!(PassId::TaintAnalysis.requires_ir());
+        // SCIR structural passes require IR
+        assert!(PassId::ScirMissingAccessControl.requires_ir());
+        assert!(PassId::ScirUncheckedArithmetic.requires_ir());
+        assert!(PassId::AnirGeneration.requires_ir());
+    }
+
+    #[test]
+    fn test_requires_air() {
+        assert!(!PassId::SymbolTable.requires_air());
+        assert!(!PassId::ScirMissingAccessControl.requires_air());
+        assert!(PassId::AnirTaintPropagation.requires_air());
+        assert!(PassId::AnirReentrancy.requires_air());
+        assert!(PassId::AnirAccessControl.requires_air());
+        assert!(PassId::AnirArithmetic.requires_air());
     }
 
     #[test]
@@ -298,5 +409,13 @@ mod tests {
         assert!(!PassId::SymbolTable.is_hybrid());
         assert!(!PassId::IrCfg.is_hybrid());
         assert!(PassId::AccessControl.is_hybrid());
+    }
+
+    #[test]
+    fn test_scir_anir_roundtrip() {
+        assert_eq!(PassId::from("scir-missing-access-control"), PassId::ScirMissingAccessControl);
+        assert_eq!(PassId::from("anir-generation"), PassId::AnirGeneration);
+        assert_eq!(PassId::from("anir-taint-propagation"), PassId::AnirTaintPropagation);
+        assert_eq!(PassId::AnirPdaValidation.as_str(), "anir-pda-validation");
     }
 }
