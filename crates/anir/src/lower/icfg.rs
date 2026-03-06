@@ -14,17 +14,15 @@ pub fn build_icfg(module: &mut AnirModule) {
     // Phase 1: Add TxnEntry/TxnExit for each public function
     for func in &module.functions {
         if func.is_public {
-            let entry_id = module.icfg.add_node(ICFGNode::TxnEntry {
-                func: func.id.clone(),
-            });
-            let exit_ok_id = module.icfg.add_node(ICFGNode::TxnExit {
-                func: func.id.clone(),
-                reverted: false,
-            });
-            let exit_rev_id = module.icfg.add_node(ICFGNode::TxnExit {
-                func: func.id.clone(),
-                reverted: true,
-            });
+            let entry_id = module
+                .icfg
+                .add_node(ICFGNode::TxnEntry { func: func.id.clone() });
+            let exit_ok_id = module
+                .icfg
+                .add_node(ICFGNode::TxnExit { func: func.id.clone(), reverted: false });
+            let exit_rev_id = module
+                .icfg
+                .add_node(ICFGNode::TxnExit { func: func.id.clone(), reverted: true });
 
             // Add CFG edges from entry to exit
             module
@@ -66,14 +64,12 @@ pub fn build_icfg(module: &mut AnirModule) {
                             let ext_node_id = module
                                 .icfg
                                 .add_node(ICFGNode::ExternalCallNode { op: op.id });
-                            let reentry_id = module.icfg.add_node(ICFGNode::ReentryPoint {
-                                func: func.id.clone(),
-                            });
-                            module.icfg.add_edge(
-                                ext_node_id,
-                                reentry_id,
-                                EdgeKind::ReentryEdge,
-                            );
+                            let reentry_id = module
+                                .icfg
+                                .add_node(ICFGNode::ReentryPoint { func: func.id.clone() });
+                            module
+                                .icfg
+                                .add_edge(ext_node_id, reentry_id, EdgeKind::ReentryEdge);
                             summary.reentrancy_safe = false;
                         } else {
                             module.icfg.add_node(ICFGNode::CallSite { op: op.id });
@@ -86,25 +82,21 @@ pub fn build_icfg(module: &mut AnirModule) {
                         // Track in call graph
                         match &call_op.callee {
                             crate::interfaces::CallTarget::Static(name) => {
-                                module.call_graph.add_static_edge(
-                                    func.id.clone(),
-                                    FunctionId(name.clone()),
-                                );
+                                module
+                                    .call_graph
+                                    .add_static_edge(func.id.clone(), FunctionId(name.clone()));
                             }
                             crate::interfaces::CallTarget::Dynamic => {
-                                module.call_graph.add_dynamic_edge(
-                                    op.id,
-                                    FunctionId("<dynamic>".to_string()),
-                                );
+                                module
+                                    .call_graph
+                                    .add_dynamic_edge(op.id, FunctionId("<dynamic>".to_string()));
                             }
                         }
                     }
 
                     OpKind::TaintSrc(taint_src) => {
                         // Seed the taint graph
-                        module
-                            .taint_graph
-                            .seed(op.id, taint_src.taint_label());
+                        module.taint_graph.seed(op.id, taint_src.taint_label());
                     }
 
                     OpKind::TaintSnk(taint_snk) => {

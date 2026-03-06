@@ -9,8 +9,6 @@
 //! **cross-chain by construction**: the same rule fires for Solidity, Vyper,
 //! Move, and Anchor contracts without any per-dialect branch.
 
-
-
 /// Helper function to check if a SCIR `FunctionDecl` has public visibility.
 pub fn is_public_function(func: &scir::FunctionDecl) -> bool {
     func.attrs.iter().any(|a| {
@@ -43,7 +41,8 @@ pub fn storage_names(contract: &scir::ContractDecl) -> Vec<String> {
         .collect()
 }
 
-/// Recursively check if any statement writes to storage (assign to a storage name).
+/// Recursively check if any statement writes to storage (assign to a storage
+/// name).
 pub fn has_storage_write(stmts: &[scir::Stmt], storage_vars: &[String]) -> bool {
     for stmt in stmts {
         match stmt {
@@ -99,10 +98,7 @@ pub fn expr_references_storage(expr: &scir::Expr, storage_vars: &[String]) -> bo
 }
 
 /// Check if a function body contains an Assert before the first storage write.
-pub fn has_assert_before_storage_write(
-    stmts: &[scir::Stmt],
-    storage_vars: &[String],
-) -> bool {
+pub fn has_assert_before_storage_write(stmts: &[scir::Stmt], storage_vars: &[String]) -> bool {
     for stmt in stmts {
         match stmt {
             scir::Stmt::Assert(_) => return true,

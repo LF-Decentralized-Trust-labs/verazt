@@ -68,11 +68,7 @@ pub enum Terminator {
 
 impl BasicBlock {
     pub fn new(id: BlockId) -> Self {
-        BasicBlock {
-            id,
-            ops: Vec::new(),
-            term: Terminator::Unreachable,
-        }
+        BasicBlock { id, ops: Vec::new(), term: Terminator::Unreachable }
     }
 }
 
@@ -150,10 +146,7 @@ pub struct ICFG {
 
 impl ICFG {
     pub fn new() -> Self {
-        ICFG {
-            nodes: Vec::new(),
-            edges: Vec::new(),
-        }
+        ICFG { nodes: Vec::new(), edges: Vec::new() }
     }
 
     /// Add a node and return its ID.
@@ -204,11 +197,7 @@ pub struct AnirFunction {
 
 impl AnirFunction {
     pub fn new(id: FunctionId, is_public: bool) -> Self {
-        AnirFunction {
-            id,
-            blocks: Vec::new(),
-            is_public,
-        }
+        AnirFunction { id, blocks: Vec::new(), is_public }
     }
 }
 

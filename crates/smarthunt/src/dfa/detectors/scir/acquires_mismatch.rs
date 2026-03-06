@@ -4,11 +4,11 @@
 //! function's `#move.acquires` attribute.
 
 use crate::analysis::context::AnalysisContext;
-use crate::analysis::scir::structural;
 use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
+use crate::analysis::scir::structural;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::Loc;
@@ -64,8 +64,7 @@ impl BugDetectionPass for ScirAcquiresMismatchDetector {
                         if let scir::MemberDecl::Function(func) = member {
                             // Get #move.acquires attribute
                             let acquires_attr = func.attrs.iter().find(|a| {
-                                a.namespace == "move"
-                                    && a.key == scir::attrs::move_attrs::ACQUIRES
+                                a.namespace == "move" && a.key == scir::attrs::move_attrs::ACQUIRES
                             });
 
                             let declared_acquires: Vec<String> = match acquires_attr {

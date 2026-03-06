@@ -23,21 +23,21 @@ pub struct AliasGroup {
 
 impl AliasMap {
     pub fn new() -> Self {
-        AliasMap {
-            groups: HashMap::new(),
-        }
+        AliasMap { groups: HashMap::new() }
     }
 
     /// Register a storage operation in the alias map.
-    pub fn register(&mut self, group_id: AliasGroupId, op_id: OpId, is_write: bool, key: Option<OpRef>) {
+    pub fn register(
+        &mut self,
+        group_id: AliasGroupId,
+        op_id: OpId,
+        is_write: bool,
+        key: Option<OpRef>,
+    ) {
         let group = self
             .groups
             .entry(group_id.clone())
-            .or_insert_with(|| AliasGroup {
-                id: group_id,
-                reads: Vec::new(),
-                writes: Vec::new(),
-            });
+            .or_insert_with(|| AliasGroup { id: group_id, reads: Vec::new(), writes: Vec::new() });
         if is_write {
             group.writes.push((op_id, key));
         } else {
@@ -72,7 +72,12 @@ impl Display for AliasMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "AliasMap ({} groups):", self.groups.len())?;
         for (id, group) in &self.groups {
-            writeln!(f, "  group {id}: {} reads, {} writes", group.reads.len(), group.writes.len())?;
+            writeln!(
+                f,
+                "  group {id}: {} reads, {} writes",
+                group.reads.len(),
+                group.writes.len()
+            )?;
         }
         Ok(())
     }

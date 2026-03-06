@@ -46,9 +46,8 @@ impl Pass for AnirArithmeticPass {
 
 impl AnalysisPass for AnirArithmeticPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let taint_map: &HashMap<OpId, TaintLabel> = ctx
-            .get_artifact("anir.taint_map")
-            .unwrap_or_else(|| {
+        let taint_map: &HashMap<OpId, TaintLabel> =
+            ctx.get_artifact("anir.taint_map").unwrap_or_else(|| {
                 static EMPTY: std::sync::LazyLock<HashMap<OpId, TaintLabel>> =
                     std::sync::LazyLock::new(HashMap::new);
                 &EMPTY

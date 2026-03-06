@@ -3,9 +3,7 @@
 //! Every dialect construct that reaches ANIR implements at least one of:
 //! `StorageOp`, `CallOp`, `TaintSource`, or `TaintSink`.
 
-use crate::ops::{
-    CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp,
-};
+use crate::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -86,10 +84,7 @@ pub struct CallRisk {
 
 impl Default for CallRisk {
     fn default() -> Self {
-        CallRisk {
-            reentrancy: false,
-            value_transfer: false,
-        }
+        CallRisk { reentrancy: false, value_transfer: false }
     }
 }
 

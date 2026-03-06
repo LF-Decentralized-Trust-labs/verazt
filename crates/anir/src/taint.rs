@@ -31,11 +31,7 @@ pub struct TaintSinkEntry {
 
 impl TaintGraph {
     pub fn new() -> Self {
-        TaintGraph {
-            seeds: Vec::new(),
-            propagation: Vec::new(),
-            sinks: Vec::new(),
-        }
+        TaintGraph { seeds: Vec::new(), propagation: Vec::new(), sinks: Vec::new() }
     }
 
     /// Add a taint seed.

@@ -9,9 +9,7 @@ use crate::interfaces::{
     AliasGroupId, CallRisk, CallTarget, SinkCategory, StorageIndex, StorageRef, TaintLabel,
 };
 use crate::lower::LowerError;
-use crate::ops::{
-    CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp,
-};
+use crate::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
 use scir::Attr;
 
 /// Lower dialect ops in all basic blocks.
@@ -34,7 +32,8 @@ pub fn lower_dialect_ops(
                     op.kind = lowered;
                 }
                 // Opaque ops that couldn't be lowered remain as-is
-                // (they represent expressions/calls not yet matched to interfaces)
+                // (they represent expressions/calls not yet matched to
+                // interfaces)
             }
         }
     }
@@ -111,10 +110,7 @@ fn try_lower_evm(description: &str) -> Option<OpKind> {
     if description.contains("evm.raw_call(") || description.contains("evm.send(") {
         return Some(OpKind::Call(CallDialectOp {
             callee: CallTarget::Dynamic,
-            call_risk: CallRisk {
-                reentrancy: true,
-                value_transfer: true,
-            },
+            call_risk: CallRisk { reentrancy: true, value_transfer: true },
             args: vec![],
             dialect_name: "evm".to_string(),
             op_name: "external_call".to_string(),
@@ -146,10 +142,7 @@ fn try_lower_move(description: &str) -> Option<OpKind> {
         // Extract the type name from the description
         let base = extract_type_from_borrow(description);
         return Some(OpKind::Storage(StorageDialectOp {
-            storage_ref: StorageRef {
-                base: base.clone(),
-                indices: vec![StorageIndex::Wildcard],
-            },
+            storage_ref: StorageRef { base: base.clone(), indices: vec![StorageIndex::Wildcard] },
             is_write: true,
             alias_group_id: AliasGroupId(format!("{base}[*]")),
             key_operand: None,
@@ -162,10 +155,7 @@ fn try_lower_move(description: &str) -> Option<OpKind> {
     if description.contains("move.borrow_global<") {
         let base = extract_type_from_borrow(description);
         return Some(OpKind::Storage(StorageDialectOp {
-            storage_ref: StorageRef {
-                base: base.clone(),
-                indices: vec![StorageIndex::Wildcard],
-            },
+            storage_ref: StorageRef { base: base.clone(), indices: vec![StorageIndex::Wildcard] },
             is_write: false,
             alias_group_id: AliasGroupId(format!("{base}[*]")),
             key_operand: None,
@@ -236,10 +226,7 @@ fn try_lower_anchor(description: &str) -> Option<OpKind> {
     if description.contains("anchor.cpi(") {
         return Some(OpKind::Call(CallDialectOp {
             callee: CallTarget::Dynamic,
-            call_risk: CallRisk {
-                reentrancy: true,
-                value_transfer: false,
-            },
+            call_risk: CallRisk { reentrancy: true, value_transfer: false },
             args: vec![],
             dialect_name: "anchor".to_string(),
             op_name: "cpi".to_string(),

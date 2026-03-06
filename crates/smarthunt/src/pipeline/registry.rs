@@ -126,8 +126,8 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     registry.register(Box::new(ScirMissingModifiesDetector::new()));
     registry.register(Box::new(ScirUncheckedArithmeticDetector::new()));
     // Dialect-specific SCIR detectors:
-    registry.register(Box::new(ScirTxOriginAuthDetector::new()));        // evm
-    registry.register(Box::new(ScirAcquiresMismatchDetector::new()));    // move
+    registry.register(Box::new(ScirTxOriginAuthDetector::new())); // evm
+    registry.register(Box::new(ScirAcquiresMismatchDetector::new())); // move
     registry.register(Box::new(ScirMissingPdaConstraintDetector::new())); // anchor
 
     // ── Tier 3: ANIR dataflow detectors ───────────────────────────

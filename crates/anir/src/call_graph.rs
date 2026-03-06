@@ -15,10 +15,7 @@ pub struct CallGraph {
 
 impl CallGraph {
     pub fn new() -> Self {
-        CallGraph {
-            static_edges: Vec::new(),
-            dynamic_edges: Vec::new(),
-        }
+        CallGraph { static_edges: Vec::new(), dynamic_edges: Vec::new() }
     }
 
     /// Add a static call edge.

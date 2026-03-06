@@ -135,7 +135,8 @@ pub enum PassId {
     // ========================================
     // SCIR Structural Passes (PassRepresentation::Ir)
     // ========================================
-    /// Public function writes storage without any auth guard (SCIR tree pattern)
+    /// Public function writes storage without any auth guard (SCIR tree
+    /// pattern)
     ScirMissingAccessControl,
     /// Public storage-writing function has no @modifies annotation
     ScirMissingModifies,

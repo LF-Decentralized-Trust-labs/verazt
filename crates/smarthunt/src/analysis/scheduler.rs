@@ -146,7 +146,7 @@ impl PassScheduler {
                 match self.representations.get(&pass_id) {
                     Some(PassRepresentation::Ast) => level.ast_passes.push(pass_id),
                     Some(PassRepresentation::Ir) => level.ir_passes.push(pass_id),
-                    Some(PassRepresentation::Air) => level.ir_passes.push(pass_id), // AIR passes schedule after IR
+                    Some(PassRepresentation::Air) => level.ir_passes.push(pass_id), /* AIR passes schedule after IR */
                     Some(PassRepresentation::Hybrid) => level.hybrid_passes.push(pass_id),
                     None => level.ast_passes.push(pass_id), // Default to AST
                 }

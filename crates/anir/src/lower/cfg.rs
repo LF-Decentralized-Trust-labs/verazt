@@ -16,11 +16,7 @@ struct CfgBuilder {
 
 impl CfgBuilder {
     fn new() -> Self {
-        CfgBuilder {
-            blocks: Vec::new(),
-            next_block_id: 0,
-            next_op_id: 0,
-        }
+        CfgBuilder { blocks: Vec::new(), next_block_id: 0, next_op_id: 0 }
     }
 
     fn new_block(&mut self) -> BlockId {
@@ -59,10 +55,8 @@ pub fn build_cfg(stmts: &[Stmt], params: &[Param]) -> Vec<BasicBlock> {
     // Create parameter ops
     for (i, param) in params.iter().enumerate() {
         let op_id = builder.new_op_id();
-        let op = Op::new(op_id, OpKind::Param { index: i }).with_result(
-            SsaName::new(&param.name, 0),
-            param.ty.clone(),
-        );
+        let op = Op::new(op_id, OpKind::Param { index: i })
+            .with_result(SsaName::new(&param.name, 0), param.ty.clone());
         builder.append_op(entry, op);
     }
 
@@ -103,8 +97,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
                 OpKind::Const(scir::Lit::Bool(scir::BoolLit::new(false, None)))
             };
 
-            let op = Op::new(op_id, kind)
-                .with_result(SsaName::new(&name, 0), ty);
+            let op = Op::new(op_id, kind).with_result(SsaName::new(&name, 0), ty);
             if let Some(span) = local_var.span {
                 let op = op.with_span(span);
                 builder.append_op(current, op);
@@ -209,11 +202,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             let cond_ref = lower_expr(builder, header, &while_stmt.cond);
             builder.set_terminator(
                 header,
-                Terminator::Branch {
-                    cond: cond_ref,
-                    then_bb: body_block,
-                    else_bb: after_block,
-                },
+                Terminator::Branch { cond: cond_ref, then_bb: body_block, else_bb: after_block },
             );
 
             // Body
@@ -318,12 +307,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             // Dialect statements are retained as opaque ops.
             // They will be lowered in Step 4.
             let op_id = builder.new_op_id();
-            let op = Op::new(
-                op_id,
-                OpKind::Opaque {
-                    description: format!("{stmt}"),
-                },
-            );
+            let op = Op::new(op_id, OpKind::Opaque { description: format!("{stmt}") });
             builder.append_op(current, op);
             current
         }
@@ -357,19 +341,11 @@ fn lower_expr_to_opkind(builder: &mut CfgBuilder, block: BlockId, expr: &Expr) -
         Expr::BinOp(binop) => {
             let lhs = lower_expr(builder, block, &binop.lhs);
             let rhs = lower_expr(builder, block, &binop.rhs);
-            OpKind::BinOp {
-                op: binop.op,
-                lhs,
-                rhs,
-                overflow: binop.overflow,
-            }
+            OpKind::BinOp { op: binop.op, lhs, rhs, overflow: binop.overflow }
         }
         Expr::UnOp(unop) => {
             let operand = lower_expr(builder, block, &unop.operand);
-            OpKind::UnOp {
-                op: unop.op,
-                operand,
-            }
+            OpKind::UnOp { op: unop.op, operand }
         }
         Expr::FunctionCall(call) => {
             // Function calls are treated as opaque until Step 4
@@ -378,25 +354,17 @@ fn lower_expr_to_opkind(builder: &mut CfgBuilder, block: BlockId, expr: &Expr) -
                 .iter()
                 .map(|a| lower_expr(builder, block, a))
                 .collect();
-            OpKind::Opaque {
-                description: format!("{expr}"),
-            }
+            OpKind::Opaque { description: format!("{expr}") }
         }
         Expr::IndexAccess(_) | Expr::FieldAccess(_) => {
             // These may become storage ops in Step 4
-            OpKind::Opaque {
-                description: format!("{expr}"),
-            }
+            OpKind::Opaque { description: format!("{expr}") }
         }
         Expr::Dialect(_) => {
             // Dialect expressions are retained for Step 4 lowering
-            OpKind::Opaque {
-                description: format!("{expr}"),
-            }
+            OpKind::Opaque { description: format!("{expr}") }
         }
-        _ => OpKind::Opaque {
-            description: format!("{expr}"),
-        },
+        _ => OpKind::Opaque { description: format!("{expr}") },
     }
 }
 

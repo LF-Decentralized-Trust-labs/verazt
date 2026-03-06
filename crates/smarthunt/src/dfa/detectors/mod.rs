@@ -10,17 +10,10 @@ pub mod unchecked_call;
 pub mod uninitialized;
 
 // SCIR structural detectors
-pub mod scir_missing_access_control;
-pub mod scir_missing_modifies;
-pub mod scir_unchecked_arithmetic;
-pub mod scir_tx_origin_auth;
-pub mod scir_acquires_mismatch;
-pub mod scir_missing_pda_constraint;
+pub mod scir;
 
 // ANIR dataflow detectors
-pub mod anir_reentrancy;
-pub mod anir_access_control;
-pub mod anir_arithmetic;
+pub mod anir;
 
 pub use cei_violation::CeiViolationDfaDetector;
 pub use dead_code::DeadCodeDfaDetector;
@@ -29,14 +22,10 @@ pub use unchecked_call::UncheckedCallDfaDetector;
 pub use uninitialized::UninitializedDfaDetector;
 
 // SCIR structural re-exports
-pub use scir_missing_access_control::ScirMissingAccessControlDetector;
-pub use scir_missing_modifies::ScirMissingModifiesDetector;
-pub use scir_unchecked_arithmetic::ScirUncheckedArithmeticDetector;
-pub use scir_tx_origin_auth::ScirTxOriginAuthDetector;
-pub use scir_acquires_mismatch::ScirAcquiresMismatchDetector;
-pub use scir_missing_pda_constraint::ScirMissingPdaConstraintDetector;
+pub use scir::{
+    ScirAcquiresMismatchDetector, ScirMissingAccessControlDetector, ScirMissingModifiesDetector,
+    ScirMissingPdaConstraintDetector, ScirTxOriginAuthDetector, ScirUncheckedArithmeticDetector,
+};
 
 // ANIR dataflow re-exports
-pub use anir_reentrancy::AnirReentrancyDetector;
-pub use anir_access_control::AnirAccessControlDetector;
-pub use anir_arithmetic::AnirArithmeticDetector;
+pub use anir::{AnirAccessControlDetector, AnirArithmeticDetector, AnirReentrancyDetector};

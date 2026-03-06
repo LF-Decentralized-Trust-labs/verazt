@@ -287,7 +287,8 @@ impl PipelineEngine {
     /// Run SCIR structural analysis passes.
     ///
     /// These passes operate on `scir::Module` and detect issues visible in the
-    /// SCIR tree structure (missing annotations, wrong overflow semantics, etc.).
+    /// SCIR tree structure (missing annotations, wrong overflow semantics,
+    /// etc.).
     fn run_scir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
         log::info!("SCIR structural phase");
         // SCIR structural passes store their findings as artifacts.
@@ -304,7 +305,8 @@ impl PipelineEngine {
     /// Run ANIR generation and dataflow analysis passes.
     ///
     /// Dependency order:
-    ///   AnirGeneration → AnirTaintPropagation → {AnirReentrancy, AnirAccessControl, AnirArithmetic, ...}
+    ///   AnirGeneration → AnirTaintPropagation → {AnirReentrancy,
+    /// AnirAccessControl, AnirArithmetic, ...}
     fn run_air_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
         log::info!("ANIR dataflow phase");
         // ANIR passes are also registered as analysis passes with the
@@ -438,8 +440,8 @@ fn run_single_detector(
 ///
 /// This factory function maps PassIds to their concrete implementations.
 fn create_analysis_pass(pass_id: PassId) -> Option<Box<dyn AnalysisPass>> {
-    use crate::analysis::ast::*;
     use crate::analysis::anir::CfgPass;
+    use crate::analysis::ast::*;
 
     match pass_id {
         // AST Foundation Passes
@@ -455,20 +457,14 @@ fn create_analysis_pass(pass_id: PassId) -> Option<Box<dyn AnalysisPass>> {
         PassId::IrCfg => Some(Box::new(CfgPass::new())),
 
         // ANIR Generation
-        PassId::AnirGeneration => {
-            Some(Box::new(crate::analysis::anir::AnirGenerationPass))
-        }
+        PassId::AnirGeneration => Some(Box::new(crate::analysis::anir::AnirGenerationPass)),
 
         // ANIR Analysis Passes
         PassId::AnirTaintPropagation => {
             Some(Box::new(crate::analysis::anir::AnirTaintPropagationPass))
         }
-        PassId::AnirAccessControl => {
-            Some(Box::new(crate::analysis::anir::AnirAccessControlPass))
-        }
-        PassId::AnirArithmetic => {
-            Some(Box::new(crate::analysis::anir::AnirArithmeticPass))
-        }
+        PassId::AnirAccessControl => Some(Box::new(crate::analysis::anir::AnirAccessControlPass)),
+        PassId::AnirArithmetic => Some(Box::new(crate::analysis::anir::AnirArithmeticPass)),
 
         // Not yet implemented or not an analysis pass
         _ => {

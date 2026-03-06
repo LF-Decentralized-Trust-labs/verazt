@@ -3,11 +3,11 @@
 //! This module orchestrates the five-step transformation from
 //! ContractIR (SCIR) into ANIR.
 
-pub mod modifier_expand;
 pub mod cfg;
-pub mod ssa;
 pub mod dialect_lower;
 pub mod icfg;
+pub mod modifier_expand;
+pub mod ssa;
 
 use crate::module::AnirModule;
 use thiserror::Error;
@@ -75,14 +75,10 @@ pub fn lower_module(cir: &scir::Module) -> Result<AnirModule, LowerError> {
                             && matches!(&a.value, scir::AttrValue::String(s) if s == "public" || s == "external")
                     });
 
-                    let func_id = FunctionId(format!(
-                        "{}.{}",
-                        contract.name, func_decl.name
-                    ));
+                    let func_id = FunctionId(format!("{}.{}", contract.name, func_decl.name));
 
                     // Step 2: CFG construction
-                    let mut blocks =
-                        cfg::build_cfg(&expanded_body, &func_decl.params);
+                    let mut blocks = cfg::build_cfg(&expanded_body, &func_decl.params);
 
                     // Step 3: SSA renaming
                     ssa::rename_to_ssa(&mut blocks);

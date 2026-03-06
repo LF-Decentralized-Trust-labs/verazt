@@ -54,10 +54,7 @@ impl Display for SsaName {
 
 impl SsaName {
     pub fn new(base: &str, version: u32) -> Self {
-        SsaName {
-            base: base.to_string(),
-            version,
-        }
+        SsaName { base: base.to_string(), version }
     }
 }
 
@@ -77,13 +74,7 @@ pub struct Op {
 
 impl Op {
     pub fn new(id: OpId, kind: OpKind) -> Self {
-        Op {
-            id,
-            kind,
-            result: None,
-            attrs: vec![],
-            span: None,
-        }
+        Op { id, kind, result: None, attrs: vec![], span: None }
     }
 
     pub fn with_result(mut self, name: SsaName, ty: Type) -> Self {
@@ -168,8 +159,7 @@ impl Display for OpKind {
             }
             OpKind::UnOp { op, operand } => write!(f, "unop {op} {operand}"),
             OpKind::Phi(args) => {
-                let parts: Vec<_> =
-                    args.iter().map(|(bb, r)| format!("{bb}: {r}")).collect();
+                let parts: Vec<_> = args.iter().map(|(bb, r)| format!("{bb}: {r}")).collect();
                 write!(f, "phi [{}]", parts.join(", "))
             }
             OpKind::Assert { cond } => write!(f, "assert {cond}"),
@@ -210,11 +200,7 @@ pub struct StorageDialectOp {
 impl Display for StorageDialectOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let rw = if self.is_write { "write" } else { "read" };
-        write!(
-            f,
-            "{}.{} [{rw}] {}",
-            self.dialect_name, self.op_name, self.storage_ref
-        )
+        write!(f, "{}.{} [{rw}] {}", self.dialect_name, self.op_name, self.storage_ref)
     }
 }
 

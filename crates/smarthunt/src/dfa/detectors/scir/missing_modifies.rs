@@ -1,38 +1,39 @@
-//! SCIR Missing Access Control Detector
+//! SCIR Missing Modifies Detector
 //!
-//! Detects public functions that write to storage without any auth guard.
+//! Detects public functions that write to storage but lack a `@modifies`
+//! annotation.
 
 use crate::analysis::context::AnalysisContext;
-use crate::analysis::scir::structural;
 use crate::analysis::pass::Pass;
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
+use crate::analysis::scir::structural;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::Loc;
 
-/// SCIR structural detector for missing access control.
+/// SCIR structural detector for missing @modifies annotation.
 #[derive(Debug, Default)]
-pub struct ScirMissingAccessControlDetector;
+pub struct ScirMissingModifiesDetector;
 
-impl ScirMissingAccessControlDetector {
+impl ScirMissingModifiesDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for ScirMissingAccessControlDetector {
+impl Pass for ScirMissingModifiesDetector {
     fn id(&self) -> PassId {
-        PassId::ScirMissingAccessControl
+        PassId::ScirMissingModifies
     }
 
     fn name(&self) -> &'static str {
-        "SCIR Missing Access Control"
+        "SCIR Missing Modifies"
     }
 
     fn description(&self) -> &'static str {
-        "Public function writes storage without any auth guard (SCIR tree pattern)"
+        "Public storage-writing function has no @modifies annotation"
     }
 
     fn level(&self) -> PassLevel {
@@ -48,7 +49,7 @@ impl Pass for ScirMissingAccessControlDetector {
     }
 }
 
-impl BugDetectionPass for ScirMissingAccessControlDetector {
+impl BugDetectionPass for ScirMissingModifiesDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -75,19 +76,15 @@ impl BugDetectionPass for ScirMissingAccessControlDetector {
                                     continue;
                                 }
 
-                                // Check for @requires spec or Assert before write
-                                let has_spec_guard = func
-                                    .spec
-                                    .as_ref()
-                                    .is_some_and(|s| !s.requires.is_empty());
+                                // Check for @modifies annotation
+                                let has_modifies =
+                                    func.spec.as_ref().is_some_and(|s| !s.modifies.is_empty());
 
-                                let has_assert_guard = structural::has_assert_before_storage_write(body, &storage_vars);
-
-                                if !has_spec_guard && !has_assert_guard {
+                                if !has_modifies {
                                     bugs.push(Bug::new(
                                         self.name(),
                                         Some(&format!(
-                                            "Public function '{}.{}' writes storage without access control",
+                                            "Public function '{}.{}' writes storage but lacks @modifies annotation",
                                             contract.name, func.name
                                         )),
                                         Loc::new(0, 0, 0, 0),
@@ -109,15 +106,15 @@ impl BugDetectionPass for ScirMissingAccessControlDetector {
     }
 
     fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
+        BugKind::Refactoring
     }
 
     fn bug_category(&self) -> BugCategory {
-        BugCategory::AccessControl
+        BugCategory::CodeQuality
     }
 
     fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
+        RiskLevel::Low
     }
 
     fn confidence(&self) -> ConfidenceLevel {
@@ -125,10 +122,10 @@ impl BugDetectionPass for ScirMissingAccessControlDetector {
     }
 
     fn cwe_ids(&self) -> Vec<usize> {
-        vec![284]
+        vec![]
     }
 
     fn swc_ids(&self) -> Vec<usize> {
-        vec![105]
+        vec![]
     }
 }

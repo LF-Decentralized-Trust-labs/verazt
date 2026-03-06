@@ -15,10 +15,7 @@ pub struct PDG {
 
 impl PDG {
     pub fn new() -> Self {
-        PDG {
-            data_edges: Vec::new(),
-            control_edges: Vec::new(),
-        }
+        PDG { data_edges: Vec::new(), control_edges: Vec::new() }
     }
 
     /// Add a data dependency edge (def → use).

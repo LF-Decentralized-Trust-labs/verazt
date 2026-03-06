@@ -45,9 +45,8 @@ impl Pass for AnirAccessControlPass {
 
 impl AnalysisPass for AnirAccessControlPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let _taint_map: &HashMap<OpId, TaintLabel> = ctx
-            .get_artifact("anir.taint_map")
-            .unwrap_or_else(|| {
+        let _taint_map: &HashMap<OpId, TaintLabel> =
+            ctx.get_artifact("anir.taint_map").unwrap_or_else(|| {
                 // Should not happen if dependencies are satisfied
                 static EMPTY: std::sync::LazyLock<HashMap<OpId, TaintLabel>> =
                     std::sync::LazyLock::new(HashMap::new);
