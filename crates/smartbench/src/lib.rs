@@ -1,4 +1,4 @@
-//! SmartBench - Benchmark smarthunt against the SmartBugs-curated dataset.
+//! SmartBench - Benchmark analyze against the SmartBugs-curated dataset.
 //!
 //! This crate provides tools for:
 //! - Parsing ground-truth annotations from Solidity files

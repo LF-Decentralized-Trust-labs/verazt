@@ -1,0 +1,11 @@
+[package]
+name = "verify"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+
+[dependencies]
+clap = { version = "4.1.1", features = ["cargo"] }
+clap-verbosity-flag = "2.0.1"

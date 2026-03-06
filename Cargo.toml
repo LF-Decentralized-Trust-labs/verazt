@@ -4,9 +4,10 @@ members = [
   "crates/bugs",
   "crates/scir",
 
+  "crates/cli",
   "crates/smartbench",
-  "crates/smarthunt",
-  "crates/smartproof",
+  "crates/analyze",
+  "crates/verify",
   "crates/solidity",
   "crates/vyper",
 ]

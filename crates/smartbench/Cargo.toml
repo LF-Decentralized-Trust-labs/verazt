@@ -17,5 +17,5 @@ regex = "1"
 walkdir = "2"
 tempfile = "3.14"
 bugs = { path = "../bugs" }
-smarthunt = { path = "../smarthunt" }
+analyze = { path = "../analyze" }
 solidity = { path = "../solidity" }
