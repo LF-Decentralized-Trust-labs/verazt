@@ -16,6 +16,9 @@ pub enum PassRepresentation {
     /// Operates on IR only (requires IR generation)
     Ir,
 
+    /// Operates on ANIR (requires ANIR generation)
+    Air,
+
     /// Operates on both AST and IR
     Hybrid,
 }
@@ -26,13 +29,22 @@ impl PassRepresentation {
         match self {
             PassRepresentation::Ast => "AST",
             PassRepresentation::Ir => "IR",
+            PassRepresentation::Air => "AIR",
             PassRepresentation::Hybrid => "Hybrid",
         }
     }
 
     /// Check if this representation requires IR.
     pub fn requires_ir(&self) -> bool {
-        matches!(self, PassRepresentation::Ir | PassRepresentation::Hybrid)
+        matches!(
+            self,
+            PassRepresentation::Ir | PassRepresentation::Air | PassRepresentation::Hybrid
+        )
+    }
+
+    /// Check if this representation requires ANIR.
+    pub fn requires_air(&self) -> bool {
+        matches!(self, PassRepresentation::Air)
     }
 
     /// Check if this representation uses AST.
@@ -55,13 +67,23 @@ mod tests {
     fn test_requires_ir() {
         assert!(!PassRepresentation::Ast.requires_ir());
         assert!(PassRepresentation::Ir.requires_ir());
+        assert!(PassRepresentation::Air.requires_ir());
         assert!(PassRepresentation::Hybrid.requires_ir());
+    }
+
+    #[test]
+    fn test_requires_air() {
+        assert!(!PassRepresentation::Ast.requires_air());
+        assert!(!PassRepresentation::Ir.requires_air());
+        assert!(PassRepresentation::Air.requires_air());
+        assert!(!PassRepresentation::Hybrid.requires_air());
     }
 
     #[test]
     fn test_uses_ast() {
         assert!(PassRepresentation::Ast.uses_ast());
         assert!(!PassRepresentation::Ir.uses_ast());
+        assert!(!PassRepresentation::Air.uses_ast());
         assert!(PassRepresentation::Hybrid.uses_ast());
     }
 }

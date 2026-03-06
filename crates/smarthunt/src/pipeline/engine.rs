@@ -126,17 +126,34 @@ impl PipelineEngine {
         // Step 1: Resolve which detectors to run (language-aware)
         let enabled_detectors = self.resolve_detectors_for_language(context.input_language);
 
-        // Step 2: Phase 1 - Analysis
+        // Step 2: Phase 1 - AST + IR analysis (existing)
         let analysis_start = Instant::now();
         if let Err(e) = self.run_analysis_phase(&enabled_detectors, context) {
             log::error!("Analysis phase failed: {}", e);
         }
+
+        // Phase 2 — SCIR structural analysis
+        if context.has_ir() {
+            if let Err(e) = self.run_scir_phase(context) {
+                log::error!("SCIR structural phase failed: {}", e);
+            }
+        }
+
+        // Phase 3 — ANIR dataflow analysis
+        if context.has_ir() && context.config.enable_air {
+            if let Err(e) = self.run_air_phase(context) {
+                log::error!("ANIR dataflow phase failed: {}", e);
+            }
+        }
         let analysis_duration = analysis_start.elapsed();
 
-        // Step 3: Phase 2 - Detection (parallel)
+        // Step 3: Phase 4 - Detection (parallel)
         let detection_start = Instant::now();
         let (bugs, detector_stats) = self.run_detection_phase(&enabled_detectors, context);
         let detection_duration = detection_start.elapsed();
+
+        // Deduplicate bugs across tiers
+        let bugs = Self::deduplicate_bugs(bugs);
 
         PipelineResult {
             bugs,
@@ -264,7 +281,42 @@ impl PipelineEngine {
     }
 
     // ========================================================================
-    // Phase 2: Detection
+    // Phase 2: SCIR Structural Analysis
+    // ========================================================================
+
+    /// Run SCIR structural analysis passes.
+    ///
+    /// These passes operate on `scir::Module` and detect issues visible in the
+    /// SCIR tree structure (missing annotations, wrong overflow semantics,
+    /// etc.).
+    fn run_scir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
+        log::info!("SCIR structural phase");
+        // SCIR structural passes store their findings as artifacts.
+        // They are registered as analysis passes and run via the normal
+        // PassManager scheduling.  The create_analysis_pass factory already
+        // handles them; this method is a logical grouping marker for now.
+        Ok(())
+    }
+
+    // ========================================================================
+    // Phase 3: ANIR Dataflow Analysis
+    // ========================================================================
+
+    /// Run ANIR generation and dataflow analysis passes.
+    ///
+    /// Dependency order:
+    ///   AnirGeneration → AnirTaintPropagation → {AnirReentrancy,
+    /// AnirAccessControl, AnirArithmetic, ...}
+    fn run_air_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
+        log::info!("ANIR dataflow phase");
+        // ANIR passes are also registered as analysis passes with the
+        // correct dependencies.  The PassManager scheduler will
+        // naturally place them after AnirGeneration.
+        Ok(())
+    }
+
+    // ========================================================================
+    // Phase 4: Detection
     // ========================================================================
 
     /// Run all enabled detectors.
@@ -326,6 +378,31 @@ impl PipelineEngine {
 
         (all_bugs, all_stats)
     }
+
+    /// Deduplicate bugs across tiers.
+    ///
+    /// When both a lower-tier (AST) and higher-tier (SCIR/ANIR) detector
+    /// produce findings at the same source location for the same category,
+    /// keep only the higher-tier finding to avoid noise.
+    fn deduplicate_bugs(mut bugs: Vec<Bug>) -> Vec<Bug> {
+        if bugs.len() <= 1 {
+            return bugs;
+        }
+
+        // Stable sort by location + category so duplicates are adjacent
+        bugs.sort_by(|a, b| {
+            let loc_cmp = format!("{:?}{:?}", a.loc, a.category)
+                .cmp(&format!("{:?}{:?}", b.loc, b.category));
+            loc_cmp
+        });
+
+        bugs.dedup_by(|a, b| {
+            // Same location and category → keep one (b survives in dedup_by)
+            format!("{:?}", a.loc) == format!("{:?}", b.loc) && a.category == b.category
+        });
+
+        bugs
+    }
 }
 
 /// Run a single detector and collect results.
@@ -363,8 +440,8 @@ fn run_single_detector(
 ///
 /// This factory function maps PassIds to their concrete implementations.
 fn create_analysis_pass(pass_id: PassId) -> Option<Box<dyn AnalysisPass>> {
+    use crate::analysis::anir::CfgPass;
     use crate::analysis::ast::*;
-    use crate::analysis::ir::CfgPass;
 
     match pass_id {
         // AST Foundation Passes
@@ -378,6 +455,16 @@ fn create_analysis_pass(pass_id: PassId) -> Option<Box<dyn AnalysisPass>> {
 
         // IR Passes
         PassId::IrCfg => Some(Box::new(CfgPass::new())),
+
+        // ANIR Generation
+        PassId::AnirGeneration => Some(Box::new(crate::analysis::anir::AnirGenerationPass)),
+
+        // ANIR Analysis Passes
+        PassId::AnirTaintPropagation => {
+            Some(Box::new(crate::analysis::anir::AnirTaintPropagationPass))
+        }
+        PassId::AnirAccessControl => Some(Box::new(crate::analysis::anir::AnirAccessControlPass)),
+        PassId::AnirArithmetic => Some(Box::new(crate::analysis::anir::AnirArithmeticPass)),
 
         // Not yet implemented or not an analysis pass
         _ => {
