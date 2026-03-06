@@ -36,7 +36,7 @@
 //! ```
 
 // CLI entry module
-pub mod cli_entry;
+pub mod cli;
 
 // IR Data Flow Analysis framework (standalone)
 pub mod dfa;

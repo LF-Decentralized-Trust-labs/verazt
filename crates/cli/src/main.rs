@@ -30,12 +30,12 @@ fn main() {
         Commands::Analyze { args } => {
             let mut all_args = vec!["verazt analyze".to_string()];
             all_args.extend(args);
-            analyze::cli_entry::run(all_args);
+            analyze::cli::run(all_args);
         }
         Commands::Verify { args } => {
             let mut all_args = vec!["verazt verify".to_string()];
             all_args.extend(args);
-            verify::cli_entry::run(all_args);
+            verify::cli::run(all_args);
         }
     }
 }

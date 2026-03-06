@@ -56,3 +56,11 @@ pub struct Arguments {
     #[command(flatten)]
     pub verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::ErrorLevel>,
 }
+
+pub fn run<I, T>(_args_iter: I)
+where
+    I: IntoIterator<Item = T>,
+    T: Into<std::ffi::OsString> + Clone,
+{
+    println!("verify run not implemented yet");
+}
