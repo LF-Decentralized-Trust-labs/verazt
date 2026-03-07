@@ -81,4 +81,8 @@ impl BugDetectionPass for AnirArithmeticDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![101]
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Validate inputs and use checked math to prevent underflow or overflow"
+    }
 }

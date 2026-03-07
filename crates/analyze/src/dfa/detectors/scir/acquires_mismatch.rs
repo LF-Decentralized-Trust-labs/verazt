@@ -59,17 +59,17 @@ impl BugDetectionPass for ScirAcquiresMismatchDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let scir::Decl::Contract(contract) = decl {
+                if let scavir::sir::Decl::Contract(contract) = decl {
                     for member in &contract.members {
-                        if let scir::MemberDecl::Function(func) = member {
+                        if let scavir::sir::MemberDecl::Function(func) = member {
                             // Get #move.acquires attribute
                             let acquires_attr = func.attrs.iter().find(|a| {
-                                a.namespace == "move" && a.key == scir::attrs::move_attrs::ACQUIRES
+                                a.namespace == "move" && a.key == scavir::sir::attrs::move_attrs::ACQUIRES
                             });
 
                             let declared_acquires: Vec<String> = match acquires_attr {
                                 Some(attr) => match &attr.value {
-                                    scir::AttrValue::String(s) => {
+                                    scavir::sir::AttrValue::String(s) => {
                                         s.split(',').map(|t| t.trim().to_string()).collect()
                                     }
                                     _ => vec![],
@@ -80,12 +80,12 @@ impl BugDetectionPass for ScirAcquiresMismatchDetector {
                             if let Some(body) = &func.body {
                                 // Walk body for borrow_global / borrow_global_mut
                                 structural::walk_dialect_exprs(body, &mut |dexpr| {
-                                    if let scir::DialectExpr::Move(me) = dexpr {
+                                    if let scavir::sir::DialectExpr::Move(me) = dexpr {
                                         let borrowed_ty = match me {
-                                            scir::dialect::move_lang::MoveExpr::BorrowGlobal { ty, .. } => {
+                                            scavir::sir::dialect::move_lang::MoveExpr::BorrowGlobal { ty, .. } => {
                                                 Some(ty.to_string())
                                             }
-                                            scir::dialect::move_lang::MoveExpr::BorrowGlobalMut { ty, .. } => {
+                                            scavir::sir::dialect::move_lang::MoveExpr::BorrowGlobalMut { ty, .. } => {
                                                 Some(ty.to_string())
                                             }
                                             _ => None,
@@ -141,5 +141,9 @@ impl BugDetectionPass for ScirAcquiresMismatchDetector {
 
     fn swc_ids(&self) -> Vec<usize> {
         vec![]
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Ensure the @acquires annotation matches the lock actually acquired"
     }
 }

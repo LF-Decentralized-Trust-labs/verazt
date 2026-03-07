@@ -1,7 +1,7 @@
 use crate::dfa::lattice::PowerSetLattice;
 use crate::dfa::solver::Transfer;
 use crate::dfa::var::VarId;
-use scir::Stmt;
+use scavir::sir::Stmt;
 
 /// Live variables lattice (set of live variables)
 pub type LiveVarsLattice = PowerSetLattice<VarId>;

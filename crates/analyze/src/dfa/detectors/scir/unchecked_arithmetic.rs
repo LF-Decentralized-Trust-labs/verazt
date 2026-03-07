@@ -10,7 +10,7 @@ use crate::analysis::pass_representation::PassRepresentation;
 use crate::analysis::scir::structural;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use scir::{BinOp, BinOpExpr, Expr, OverflowSemantics};
+use scavir::sir::{BinOp, BinOpExpr, Expr, OverflowSemantics};
 use solidity::ast::Loc;
 
 /// SCIR structural detector for unchecked arithmetic.
@@ -63,9 +63,9 @@ impl BugDetectionPass for ScirUncheckedArithmeticDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let scir::Decl::Contract(contract) = decl {
+                if let scavir::sir::Decl::Contract(contract) = decl {
                     for member in &contract.members {
-                        if let scir::MemberDecl::Function(func) = member {
+                        if let scavir::sir::MemberDecl::Function(func) = member {
                             if let Some(body) = &func.body {
                                 structural::walk_binops(body, &mut |binop: &BinOpExpr| {
                                     // Only flag arithmetic ops with Wrapping semantics
@@ -129,5 +129,9 @@ impl BugDetectionPass for ScirUncheckedArithmeticDetector {
 
     fn swc_ids(&self) -> Vec<usize> {
         vec![101]
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Use checked arithmetic or SafeMath to prevent overflow/underflow"
     }
 }

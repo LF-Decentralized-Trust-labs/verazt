@@ -42,7 +42,7 @@ impl AnalysisPass for AnirGenerationPass {
         let scir_modules = ctx.ir_units().clone();
         let anir_modules = scir_modules
             .iter()
-            .map(|m| anir::lower::lower_module(m))
+            .map(|m| scavir::air::lower::lower_module(m))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| PassError::ExecutionFailed(self.name().to_string(), e.to_string()))?;
         ctx.set_air_units(anir_modules);

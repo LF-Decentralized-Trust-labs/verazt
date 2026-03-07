@@ -7,8 +7,8 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use anir::interfaces::TaintLabel;
-use anir::ops::OpId;
+use scavir::air::interfaces::TaintLabel;
+use scavir::air::ops::OpId;
 use std::collections::HashMap;
 
 /// Artifact stored in context after taint propagation.

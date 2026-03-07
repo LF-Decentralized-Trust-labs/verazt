@@ -4,8 +4,8 @@ use crate::ast;
 use crate::ast::Loc;
 use common::{error::Result, fail};
 use log::trace;
-use scir::dialect::evm::*;
-use scir::*;
+use scavir::sir::dialect::evm::*;
+use scavir::sir::*;
 
 /// Convert AST source location to CIR span.
 fn loc_to_span(loc: Option<Loc>) -> Option<Span> {

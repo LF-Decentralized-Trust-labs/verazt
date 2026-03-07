@@ -59,14 +59,14 @@ impl BugDetectionPass for ScirMissingModifiesDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let scir::Decl::Contract(contract) = decl {
+                if let scavir::sir::Decl::Contract(contract) = decl {
                     let storage_vars = structural::storage_names(contract);
                     if storage_vars.is_empty() {
                         continue;
                     }
 
                     for member in &contract.members {
-                        if let scir::MemberDecl::Function(func) = member {
+                        if let scavir::sir::MemberDecl::Function(func) = member {
                             if !structural::is_public_function(func) {
                                 continue;
                             }
@@ -127,5 +127,9 @@ impl BugDetectionPass for ScirMissingModifiesDetector {
 
     fn swc_ids(&self) -> Vec<usize> {
         vec![]
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Add @modifies annotation to indicate storage writes"
     }
 }

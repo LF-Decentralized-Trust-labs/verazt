@@ -5,8 +5,7 @@
 
 use crate::analysis::pass_id::PassId;
 use crate::config::InputLanguage;
-use anir;
-use scir;
+
 use solidity::ast::SourceUnit;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
@@ -104,10 +103,10 @@ pub struct AnalysisContext {
     pub source_units: Vec<SourceUnit>,
 
     /// Generated IR units (optional).
-    pub ir_units: Option<Vec<scir::Module>>,
+    pub ir_units: Option<Vec<scavir::sir::Module>>,
 
     /// Generated ANIR units (optional).
-    pub anir_units: Option<Vec<anir::AnirModule>>,
+    pub anir_units: Option<Vec<scavir::air::AnirModule>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -156,7 +155,7 @@ impl AnalysisContext {
     }
 
     /// Create context with IR units.
-    pub fn with_ir(mut self, ir_units: Vec<scir::Module>) -> Self {
+    pub fn with_ir(mut self, ir_units: Vec<scavir::sir::Module>) -> Self {
         self.ir_units = Some(ir_units);
         self
     }
@@ -171,12 +170,12 @@ impl AnalysisContext {
     }
 
     /// Get IR units (panics if not available).
-    pub fn ir_units(&self) -> &Vec<scir::Module> {
+    pub fn ir_units(&self) -> &Vec<scavir::sir::Module> {
         self.ir_units.as_ref().expect("IR not generated")
     }
 
     /// Set IR units.
-    pub fn set_ir_units(&mut self, ir_units: Vec<scir::Module>) {
+    pub fn set_ir_units(&mut self, ir_units: Vec<scavir::sir::Module>) {
         self.ir_units = Some(ir_units);
     }
 
@@ -190,12 +189,12 @@ impl AnalysisContext {
     }
 
     /// Get ANIR units (panics if not available).
-    pub fn anir_units(&self) -> &Vec<anir::AnirModule> {
+    pub fn anir_units(&self) -> &Vec<scavir::air::AnirModule> {
         self.anir_units.as_ref().expect("ANIR not generated")
     }
 
     /// Set ANIR units.
-    pub fn set_air_units(&mut self, units: Vec<anir::AnirModule>) {
+    pub fn set_air_units(&mut self, units: Vec<scavir::air::AnirModule>) {
         self.anir_units = Some(units);
     }
 

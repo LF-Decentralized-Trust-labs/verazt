@@ -81,4 +81,8 @@ impl BugDetectionPass for AnirAccessControlDetector {
     fn swc_ids(&self) -> Vec<usize> {
         vec![105]
     }
+
+    fn recommendation(&self) -> &'static str {
+        "Ensure access controls properly authenticate the caller before state changes"
+    }
 }

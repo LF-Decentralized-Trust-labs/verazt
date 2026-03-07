@@ -16,7 +16,7 @@ path = "src/main.rs"
 [dependencies]
 backtrace = { workspace = true }
 bat = { workspace = true }
-scir = { workspace = true }
+scavir = { workspace = true }
 clap = { workspace = true }
 clap-verbosity-flag = { workspace = true }
 codespan-reporting = { workspace = true }
