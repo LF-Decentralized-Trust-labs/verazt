@@ -14,36 +14,36 @@ name = "soljc"
 path = "src/main.rs"
 
 [dependencies]
-backtrace = "0.3"
-bat = "0.23"
-scir = { path = "../scir" }
-clap = { version = "4.1.1", features = ["cargo"] }
-clap-verbosity-flag = "2.0.1"
-codespan-reporting = "0.12.0"
-color-eyre = "0.6"
-either = "1.8"
-env_logger = "0.11.8"
-exec_time = "0.1.4"
-extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
-indoc = "2.0.5"
-itertools = "0.10.5"
-lazy_static = "1.4.0"
-log = "0.4"
+backtrace = { workspace = true }
+bat = { workspace = true }
+scir = { workspace = true }
+clap = { workspace = true }
+clap-verbosity-flag = { workspace = true }
+codespan-reporting = { workspace = true }
+color-eyre = { workspace = true }
+either = { workspace = true }
+env_logger = { workspace = true }
+exec_time = { workspace = true }
+extlib = { workspace = true }
+indoc = { workspace = true }
+itertools = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
 
-node-semver = "2.0"
-num-bigint = "0.4"
-num-integer = "0.1"
-num-traits = "0.2"
-pest = "2.5"
-pest_derive = "2.5"
-petgraph = "0.6"
-rayon = { version = "1.8", optional = true }
-regex = "1.5"
-remain = "0.2"
-rust_decimal = "1.27"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tempfile = "3.3.0"
-ureq = { version = "2", features = ["json"] }
-thiserror = "1.0"
-time-graph = { version = "0.3.0", features = ["table"] }
+node-semver = { workspace = true }
+num-bigint = { workspace = true }
+num-integer = { workspace = true }
+num-traits = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
+petgraph = { workspace = true }
+rayon = { workspace = true, optional = true }
+regex = { workspace = true }
+remain = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+ureq = { workspace = true }
+thiserror = { workspace = true }
+time-graph = { workspace = true }

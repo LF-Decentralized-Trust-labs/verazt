@@ -6,6 +6,6 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-scir = { path = "../scir" }
-indexmap = "2"
-thiserror = "2.0"
+scir = { workspace = true }
+indexmap = { workspace = true }
+thiserror = { workspace = true }

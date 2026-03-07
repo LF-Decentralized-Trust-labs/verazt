@@ -6,10 +6,10 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-bat = "0.23"
-color-eyre = "0.6"
-extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
-num-bigint = "0.4"
-num-traits = "0.2"
-rust_decimal = "1.27"
-serde = { version = "1.0", features = ["derive"] }
+bat = { workspace = true }
+color-eyre = { workspace = true }
+extlib = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
