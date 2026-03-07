@@ -9,7 +9,7 @@ use crate::ast::loc::Loc;
 use crate::ast::source_unit::*;
 use crate::ast::stmts::*;
 use crate::ast::types::{IntType, Type, UIntType};
-use extlib::{error::Result, fail};
+use common::{error::Result, fail};
 use serde_json::Value;
 
 /// The Vyper JSON AST parser.
@@ -20,7 +20,7 @@ impl AstParser {
     /// SourceUnit.
     pub fn parse(json_str: &str, file_path: &str) -> Result<SourceUnit> {
         let root: Value = serde_json::from_str(json_str)
-            .map_err(|e| extlib::error::create_error(format!("Failed to parse JSON: {e}")))?;
+            .map_err(|e| common::error::create_error(format!("Failed to parse JSON: {e}")))?;
 
         // The vyper compiler outputs either:
         //   { "ast": { "ast_type": "Module", ... } }
@@ -1474,14 +1474,14 @@ impl AstParser {
         node.get("ast_type")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
-            .ok_or_else(|| extlib::error::create_error("Missing 'ast_type' field"))
+            .ok_or_else(|| common::error::create_error("Missing 'ast_type' field"))
     }
 
     fn get_str(node: &Value, field: &str) -> Result<String> {
         node.get(field)
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
-            .ok_or_else(|| extlib::error::create_error(format!("Missing '{field}' field")))
+            .ok_or_else(|| common::error::create_error(format!("Missing '{field}' field")))
     }
 
     fn parse_loc(node: &Value) -> Option<Loc> {

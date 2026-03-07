@@ -1,7 +1,7 @@
 //! Module handling Yul statements.
 
 use super::*;
-use extlib::string::StringExt;
+use common::string::StringExt;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

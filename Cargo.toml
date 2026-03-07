@@ -10,6 +10,7 @@ members = [
   "crates/verify",
   "crates/solidity",
   "crates/vyper",
+  "crates/common",
 ]
 exclude = [
   "examples",
@@ -20,3 +21,50 @@ version = "0.0.1"
 authors = ["Ta Quang Trung"]
 license = "Apache License 2.0"
 edition = "2024"
+
+[workspace.dependencies]
+analyze = { path = "crates/analyze" }
+anir = { path = "crates/anir" }
+bugs = { path = "crates/bugs" }
+cli = { path = "crates/cli" }
+scir = { path = "crates/scir" }
+smartbench = { path = "crates/smartbench" }
+solidity = { path = "crates/solidity" }
+verify = { path = "crates/verify" }
+vyper = { path = "crates/vyper" }
+
+backtrace = "0.3"
+bat = "0.23"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.1.1", features = ["cargo", "derive"] }
+clap-verbosity-flag = "2.0.1"
+codespan-reporting = "0.12.0"
+color-eyre = "0.6"
+either = "1.8"
+env_logger = "0.11.8"
+exec_time = "0.1.4"
+common = { path = "crates/common" }
+indexmap = "2"
+indoc = "2.0.5"
+itertools = "0.10.5"
+lazy_static = "1.4.0"
+log = "0.4"
+node-semver = "2.0"
+num-bigint = "0.4"
+num-integer = "0.1"
+num-traits = "0.2"
+pest = "2.5"
+pest_derive = "2.5"
+petgraph = "0.6"
+rayon = "1.10"
+regex = "1.5"
+remain = "0.2"
+rust_decimal = "1.27"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.14"
+thiserror = "2.0"
+time-graph = { version = "0.3.0", features = ["table"] }
+toml = "0.8"
+ureq = { version = "2", features = ["json"] }
+walkdir = "2"

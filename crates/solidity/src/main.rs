@@ -1,7 +1,7 @@
 //! Compiler for compiling Solidity AST in JSON format.
 
 use clap::{Parser, crate_version};
-use extlib::error;
+use common::error;
 use solidity::{
     ast::SourceUnit, ast::normalize, ast::utils::export::export_debugging_source_unit,
     parser::parse_input_file,

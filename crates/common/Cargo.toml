@@ -1,11 +1,9 @@
 [package]
-name = "anir"
+name = "common"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
 [dependencies]
-scir = { workspace = true }
-indexmap = { workspace = true }
-thiserror = { workspace = true }
+color-eyre = { workspace = true }

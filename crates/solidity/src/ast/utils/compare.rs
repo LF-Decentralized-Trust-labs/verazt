@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use crate::ast::{DataLoc, Name, NamePath};
-use extlib::error::Result;
+use common::error::Result;
 
 //-------------------------------------------------
 // Trait for comparison
@@ -495,7 +495,7 @@ pub mod default {
     use super::Compare;
     use crate::ast::*;
     use crate::ast::{DataLoc, Name};
-    use extlib::{
+    use common::{
         error::{Report, Result},
         fail,
     };

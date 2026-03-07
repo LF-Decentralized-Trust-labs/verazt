@@ -6,7 +6,7 @@ use crate::parser::yul_parser;
 use crate::{ast::*, parser::type_parser::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
-use extlib::{error, fail};
+use common::{error, fail};
 use itertools::izip;
 use lazy_static::lazy_static;
 use num_bigint::BigInt;

@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use color_eyre::eyre::{ContextCompat, Result};
-use extlib::fail;
+use common::fail;
 use std::{
     ffi::OsStr,
     fs::File,

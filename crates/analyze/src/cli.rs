@@ -3,7 +3,7 @@
 //! This is the main entry point for the Analyze tool.
 
 use clap::{Parser, Subcommand, crate_version};
-use extlib::error;
+use common::error;
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,

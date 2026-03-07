@@ -1,7 +1,7 @@
 //! Module handling Soldity versions.
 
 use crate::parser::version_parser::version_parser;
-use extlib::{error::Result, fail};
+use common::{error::Result, fail};
 use node_semver::{Range, Version};
 use std::fs;
 
@@ -178,7 +178,7 @@ pub fn find_compatible_solc_versions(solc_ver: &Option<String>) -> Result<Vec<Ve
 /// Versions are sorted newest-first.
 pub fn find_installable_solc_versions(pragma: &str) -> Result<Vec<Version>> {
     let range = Range::parse(pragma)
-        .map_err(|e| extlib::error::create_error(format!("Invalid pragma '{pragma}': {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Invalid pragma '{pragma}': {e}")))?;
     let all = fetch_available_solc_versions();
     let filtered: Vec<Version> = all.into_iter().filter(|v| range.satisfies(v)).collect();
     Ok(filtered)

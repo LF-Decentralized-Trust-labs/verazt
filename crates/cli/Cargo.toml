@@ -10,9 +10,9 @@ name = "verazt"
 path = "src/main.rs"
 
 [dependencies]
-analyze = { path = "../analyze" }
-verify = { path = "../verify" }
-extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
+analyze = { workspace = true }
+verify = { workspace = true }
+common = { workspace = true }
 
-clap = { version = "4.1.1", features = ["derive", "cargo"] }
+clap = { workspace = true }
 

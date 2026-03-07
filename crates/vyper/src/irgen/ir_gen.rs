@@ -2,7 +2,7 @@
 
 use crate::ast;
 use crate::ast::Loc;
-use extlib::error::Result;
+use common::error::Result;
 use scir::dialect::evm::*;
 use scir::*;
 

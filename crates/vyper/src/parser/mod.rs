@@ -5,7 +5,7 @@ pub mod json_ast_parser;
 pub use json_ast_parser::AstParser;
 
 use crate::ast::source_unit::SourceUnit;
-use extlib::{error::Result, fail};
+use common::{error::Result, fail};
 use node_semver::{Range, Version};
 use regex::Regex;
 use std::io::Write;
@@ -120,11 +120,11 @@ pub fn find_compatible_vyper_versions(pragma_ver: &Option<String>) -> Result<Vec
 pub fn find_installable_vyper_versions(pragma: &str) -> Result<Vec<Version>> {
     let response: serde_json::Value = ureq::get("https://pypi.org/pypi/vyper/json")
         .call()
-        .map_err(|e| extlib::error::create_error(format!("Failed to query PyPI: {e}")))?
+        .map_err(|e| common::error::create_error(format!("Failed to query PyPI: {e}")))?
         .into_json()
-        .map_err(|e| extlib::error::create_error(format!("Failed to parse PyPI response: {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Failed to parse PyPI response: {e}")))?;
     let range = Range::parse(pragma)
-        .map_err(|e| extlib::error::create_error(format!("Invalid pragma '{pragma}': {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Invalid pragma '{pragma}': {e}")))?;
     let mut versions: Vec<Version> = response["releases"]
         .as_object()
         .unwrap_or(&serde_json::Map::new())
@@ -173,7 +173,7 @@ pub fn parse_input_file(input_file: &str, vyper_ver: Option<&str>) -> Result<Sou
 
     // Read source code to check version pragma
     let source_code = std::fs::read_to_string(input_file)
-        .map_err(|e| extlib::error::create_error(format!("Failed to read input file: {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Failed to read input file: {e}")))?;
 
     let pragma = extract_version_pragma(&source_code);
     if let Some(ref ver) = pragma {
@@ -203,12 +203,12 @@ pub fn parse_input_file(input_file: &str, vyper_ver: Option<&str>) -> Result<Sou
 pub fn parse_vyper_source_code(source_code: &str, vyper_ver: Option<&str>) -> Result<SourceUnit> {
     // Write source code to a temporary file
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| extlib::error::create_error(format!("Failed to create temp dir: {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Failed to create temp dir: {e}")))?;
     let temp_file = temp_dir.path().join("temp_contract.vy");
     let mut file = std::fs::File::create(&temp_file)
-        .map_err(|e| extlib::error::create_error(format!("Failed to create temp file: {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Failed to create temp file: {e}")))?;
     file.write_all(source_code.as_bytes())
-        .map_err(|e| extlib::error::create_error(format!("Failed to write temp file: {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Failed to write temp file: {e}")))?;
 
     let temp_path = temp_file.to_string_lossy().to_string();
 
@@ -264,7 +264,7 @@ fn invoke_vyper_compiler(input_file: &str) -> Result<String> {
         .args(["-f", "ast", input_file])
         .output()
         .map_err(|e| {
-            extlib::error::create_error(format!(
+            common::error::create_error(format!(
                 "Failed to run `{VYPER}`. Is Vyper installed? Error: {e}"
             ))
         })?;
@@ -275,7 +275,7 @@ fn invoke_vyper_compiler(input_file: &str) -> Result<String> {
     }
 
     let json_str = String::from_utf8(output.stdout)
-        .map_err(|e| extlib::error::create_error(format!("Invalid UTF-8 in vyper output: {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Invalid UTF-8 in vyper output: {e}")))?;
 
     if json_str.trim().is_empty() {
         fail!("Vyper compiler returned empty output for {input_file}");
