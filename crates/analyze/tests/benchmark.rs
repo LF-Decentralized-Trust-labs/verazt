@@ -1,16 +1,95 @@
 //! Integration tests: benchmark analyze against the SmartBugs-curated
 //! dataset (https://github.com/smartbugs/smartbugs-curated).
 //!
-//! These tests use `smartbench` as a dev-dependency to run analyze
+//! These tests use annotations from the `bugs` crate to run analyze
 //! and compare its findings with the ground truth.
 
 use std::path::{Path, PathBuf};
+use std::collections::{HashMap, HashSet};
 
 use bugs::bug::BugCategory;
 use analyze::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
-use smartbench::runner::DetectedBug;
-use smartbench::{generate_report, match_file, scan_dataset};
+use bugs::datasets::smartbugs::{scan_dataset, AnnotatedBug};
 use solidity::parser::parse_input_file;
+
+/// Represents a bug detected by the local analyzer.
+#[derive(Debug, Clone)]
+struct DetectedBug {
+    pub name: String,
+    pub category: BugCategory,
+    pub start_line: usize,
+    pub severity: String,
+}
+
+/// Represents the matching outcome for a single file.
+#[derive(Debug, Default)]
+struct MatchResult {
+    pub true_positives: Vec<MatchedBug>,
+    pub false_positives: Vec<DetectedBug>,
+    pub false_negatives: Vec<AnnotatedBug>,
+}
+
+#[derive(Debug)]
+struct MatchedBug {
+    #[allow(dead_code)]
+    pub annotation: AnnotatedBug,
+    #[allow(dead_code)]
+    pub detection: DetectedBug,
+}
+
+/// Matches detected bugs against ground truth annotations.
+/// 
+/// A detection is considered a True Positive if it matches the exact line and category.
+/// In SmartBugs, the annotation is placed one line above the bug.
+fn match_file(
+    _file_path: &Path,
+    annotations: &[AnnotatedBug],
+    detections: &[DetectedBug],
+) -> MatchResult {
+    let mut result = MatchResult::default();
+    let mut matched_detections = HashSet::new();
+    let mut matched_annotations = HashSet::new();
+
+    // Find true positives
+    for (ann_idx, ann) in annotations.iter().enumerate() {
+        for (det_idx, det) in detections.iter().enumerate() {
+            if matched_detections.contains(&det_idx) {
+                continue;
+            }
+
+            // Check if categories match and line numbers are close (exact or contiguous)
+            // Note: `bug_line` is the vulnerable code line (annotation line + 1).
+            let line_match = det.start_line == ann.bug_line;
+            let category_match = det.category == ann.category;
+
+            if line_match && category_match {
+                result.true_positives.push(MatchedBug {
+                    annotation: ann.clone(),
+                    detection: det.clone(),
+                });
+                matched_detections.insert(det_idx);
+                matched_annotations.insert(ann_idx);
+                break; // One annotation matched by one detection
+            }
+        }
+    }
+
+    // Unmatched annotations are false negatives
+    for (ann_idx, ann) in annotations.iter().enumerate() {
+        if !matched_annotations.contains(&ann_idx) {
+            result.false_negatives.push(ann.clone());
+        }
+    }
+
+    // Unmatched detections are false positives
+    for (det_idx, det) in detections.iter().enumerate() {
+        if !matched_detections.contains(&det_idx) {
+            result.false_positives.push(det.clone());
+        }
+    }
+
+    result
+}
 
 /// Run analyze on a single .sol file and return DetectedBugs.
 fn run_analyze_on_file(file_path: &Path) -> Vec<DetectedBug> {
@@ -62,15 +141,12 @@ fn test_reentrancy_detection_accuracy() {
 
     assert!(!reentrancy_annotations.is_empty(), "Should find REENTRANCY annotations");
 
-    // We don't enforce a minimum recall here since the tool is still being
-    // developed, but we verify the pipeline runs without panicking.
     let mut total_tp = 0;
     let mut total_fn = 0;
     let mut total_fp = 0;
 
     // Group annotations by file
-    let mut annotations_by_file =
-        std::collections::HashMap::<std::path::PathBuf, Vec<smartbench::AnnotatedBug>>::new();
+    let mut annotations_by_file = HashMap::<PathBuf, Vec<AnnotatedBug>>::new();
     for ann in &reentrancy_annotations {
         annotations_by_file
             .entry(ann.file_path.clone())
@@ -87,10 +163,6 @@ fn test_reentrancy_detection_accuracy() {
     }
 
     println!("Reentrancy benchmark: TP={} FN={} FP={}", total_tp, total_fn, total_fp);
-
-    // Basic sanity: the pipeline should produce some results (TP + FP > 0 or
-    // handle gracefully) We don't assert a minimum since this depends on
-    // the parser+detector capabilities.
 }
 
 /// Test annotation parsing on the entire dataset.
@@ -106,10 +178,8 @@ fn test_dataset_annotation_parsing() {
     assert!(!annotations.is_empty(), "Should find annotations in the full dataset");
 
     // Verify we find annotations from different categories
-    let categories: std::collections::HashSet<_> =
-        annotations.iter().map(|a| a.category).collect();
+    let categories: HashSet<_> = annotations.iter().map(|a| a.category).collect();
 
-    // The dataset should have at least a few categories
     assert!(
         categories.len() >= 3,
         "Should find annotations from at least 3 categories, found {:?}",
@@ -135,8 +205,7 @@ fn test_all_categories_detection() {
     let annotations = scan_dataset(dataset_dir);
 
     // Group annotations by file
-    let mut annotations_by_file =
-        std::collections::HashMap::<std::path::PathBuf, Vec<smartbench::AnnotatedBug>>::new();
+    let mut annotations_by_file = HashMap::<PathBuf, Vec<AnnotatedBug>>::new();
     for ann in &annotations {
         annotations_by_file
             .entry(ann.file_path.clone())
@@ -144,29 +213,37 @@ fn test_all_categories_detection() {
             .push(ann.clone());
     }
 
-    let mut match_results = Vec::new();
-    let files_with_errors = 0;
+    let mut total_tp = 0;
+    let mut total_fn = 0;
+    let mut total_fp = 0;
 
     // Run on a small sample (first 10 files with annotations) to keep test fast
     let files: Vec<_> = annotations_by_file.keys().take(10).cloned().collect();
     for file_path in &files {
         let detections = run_analyze_on_file(file_path);
-        if detections.is_empty() {
-            // Could be a parse error or no findings
-        }
         let file_annotations = annotations_by_file.get(file_path).unwrap();
         let result = match_file(file_path, file_annotations, &detections);
-        match_results.push(result);
+        
+        total_tp += result.true_positives.len();
+        total_fn += result.false_negatives.len();
+        total_fp += result.false_positives.len();
     }
 
-    let report = generate_report(&match_results, files_with_errors);
+    let precision = if total_tp + total_fp > 0 {
+        total_tp as f64 / (total_tp + total_fp) as f64
+    } else {
+        0.0
+    };
+    let recall = if total_tp + total_fn > 0 {
+        total_tp as f64 / (total_tp + total_fn) as f64
+    } else {
+        0.0
+    };
 
     println!(
         "Full benchmark (sample): TP={} FN={} FP={} Precision={:.1}% Recall={:.1}%",
-        report.true_positives,
-        report.false_negatives,
-        report.false_positives,
-        report.precision * 100.0,
-        report.recall * 100.0,
+        total_tp, total_fn, total_fp,
+        precision * 100.0,
+        recall * 100.0,
     );
 }

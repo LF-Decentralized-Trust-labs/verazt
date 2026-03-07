@@ -286,7 +286,7 @@ impl PipelineEngine {
 
     /// Run SCIR structural analysis passes.
     ///
-    /// These passes operate on `scir::Module` and detect issues visible in the
+    /// These passes operate on `scavir::sir::Module` and detect issues visible in the
     /// SCIR tree structure (missing annotations, wrong overflow semantics,
     /// etc.).
     fn run_scir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {

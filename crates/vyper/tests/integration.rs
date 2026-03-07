@@ -8,7 +8,7 @@ use vyper::irgen;
 use vyper::parser;
 
 /// Helper: run the full pipeline from JSON AST string.
-fn compile_json(json: &str, path: &str) -> scir::Module {
+fn compile_json(json: &str, path: &str) -> scavir::sir::Module {
     let su = parser::parse_from_json(json, path).expect("parse_from_json failed");
     let norm = normalize::run_passes(&su);
     irgen::lower_source_unit(&norm).expect("lower_source_unit failed")
@@ -328,14 +328,14 @@ fn test_full_pipeline_token_contract() {
         module
             .attrs
             .iter()
-            .any(|a| a.key == scir::attrs::scir_attrs::SOURCE_LANG
-                && a.value == scir::AttrValue::String("vyper".to_string()))
+            .any(|a| a.key == scavir::sir::attrs::scir_attrs::SOURCE_LANG
+                && a.value == scavir::sir::AttrValue::String("vyper".to_string()))
     );
 
     // Should have exactly one contract decl
     assert_eq!(module.decls.len(), 1);
     let contract = match &module.decls[0] {
-        scir::Decl::Contract(c) => c,
+        scavir::sir::Decl::Contract(c) => c,
         _ => panic!("Expected Contract decl"),
     };
     assert_eq!(contract.name, "token");
@@ -344,11 +344,11 @@ fn test_full_pipeline_token_contract() {
     assert_eq!(contract.members.len(), 4);
 
     // Check storage vars
-    let storage_members: Vec<&scir::StorageDecl> = contract
+    let storage_members: Vec<&scavir::sir::StorageDecl> = contract
         .members
         .iter()
         .filter_map(|m| match m {
-            scir::MemberDecl::Storage(s) => Some(s),
+            scavir::sir::MemberDecl::Storage(s) => Some(s),
             _ => None,
         })
         .collect();
@@ -357,26 +357,26 @@ fn test_full_pipeline_token_contract() {
     assert_eq!(storage_members[1].name, "balanceOf");
 
     // Check totalSupply type is uint256 (I256)
-    assert_eq!(storage_members[0].ty, scir::Type::I256);
+    assert_eq!(storage_members[0].ty, scavir::sir::Type::I256);
 
     // Check balanceOf type is Map(Address, I256)
     match &storage_members[1].ty {
-        scir::Type::Map(k, v) => {
+        scavir::sir::Type::Map(k, v) => {
             assert_eq!(
                 **k,
-                scir::Type::Dialect(scir::DialectType::Evm(scir::dialect::evm::EvmType::Address))
+                scavir::sir::Type::Dialect(scavir::sir::DialectType::Evm(scavir::sir::dialect::evm::EvmType::Address))
             );
-            assert_eq!(**v, scir::Type::I256);
+            assert_eq!(**v, scavir::sir::Type::I256);
         }
         other => panic!("Expected Map type, got: {other:?}"),
     }
 
     // Check functions
-    let func_members: Vec<&scir::FunctionDecl> = contract
+    let func_members: Vec<&scavir::sir::FunctionDecl> = contract
         .members
         .iter()
         .filter_map(|m| match m {
-            scir::MemberDecl::Function(f) => Some(f),
+            scavir::sir::MemberDecl::Function(f) => Some(f),
             _ => None,
         })
         .collect();
@@ -392,14 +392,14 @@ fn test_full_pipeline_token_contract() {
         init_fn
             .attrs
             .iter()
-            .any(|a| a.key == scir::attrs::evm_attrs::IS_CONSTRUCTOR)
+            .any(|a| a.key == scavir::sir::attrs::evm_attrs::IS_CONSTRUCTOR)
     );
     assert!(
         init_fn
             .attrs
             .iter()
-            .any(|a| a.key == scir::attrs::scir_attrs::VISIBILITY
-                && a.value == scir::AttrValue::String("public".to_string()))
+            .any(|a| a.key == scavir::sir::attrs::scir_attrs::VISIBILITY
+                && a.value == scavir::sir::AttrValue::String("public".to_string()))
     );
 
     // transfer function (normalized: prefixed with contract name)
@@ -414,16 +414,16 @@ fn test_full_pipeline_token_contract() {
         transfer_fn
             .attrs
             .iter()
-            .any(|a| a.key == scir::attrs::scir_attrs::VISIBILITY
-                && a.value == scir::AttrValue::String("public".to_string()))
+            .any(|a| a.key == scavir::sir::attrs::scir_attrs::VISIBILITY
+                && a.value == scavir::sir::AttrValue::String("public".to_string()))
     );
 
     // transfer body should have 3 stmts: assert + 2 aug_assign
     let body = transfer_fn.body.as_ref().expect("should have body");
     assert_eq!(body.len(), 3);
-    assert!(matches!(body[0], scir::Stmt::Assert(_)));
-    assert!(matches!(body[1], scir::Stmt::AugAssign(_)));
-    assert!(matches!(body[2], scir::Stmt::AugAssign(_)));
+    assert!(matches!(body[0], scavir::sir::Stmt::Assert(_)));
+    assert!(matches!(body[1], scavir::sir::Stmt::AugAssign(_)));
+    assert!(matches!(body[2], scavir::sir::Stmt::AugAssign(_)));
 }
 
 #[test]
@@ -434,7 +434,7 @@ fn test_full_pipeline_vault_contract() {
     assert_eq!(module.decls.len(), 1);
 
     let contract = match &module.decls[0] {
-        scir::Decl::Contract(c) => c,
+        scavir::sir::Decl::Contract(c) => c,
         _ => panic!("Expected Contract decl"),
     };
     assert_eq!(contract.name, "vault");
@@ -444,8 +444,8 @@ fn test_full_pipeline_vault_contract() {
 
     // EventDef
     match &contract.members[0] {
-        scir::MemberDecl::Dialect(scir::DialectMemberDecl::Evm(
-            scir::dialect::evm::EvmMemberDecl::EventDef { name, params, indexed, anonymous },
+        scavir::sir::MemberDecl::Dialect(scavir::sir::DialectMemberDecl::Evm(
+            scavir::sir::dialect::evm::EvmMemberDecl::EventDef { name, params, indexed, anonymous },
         )) => {
             assert_eq!(name, "Deposit");
             assert_eq!(params.len(), 2);
@@ -460,7 +460,7 @@ fn test_full_pipeline_vault_contract() {
 
     // Storage
     match &contract.members[1] {
-        scir::MemberDecl::Storage(s) => {
+        scavir::sir::MemberDecl::Storage(s) => {
             assert_eq!(s.name, "balances");
         }
         other => panic!("Expected Storage, got: {other:?}"),
@@ -468,7 +468,7 @@ fn test_full_pipeline_vault_contract() {
 
     // deposit function
     match &contract.members[2] {
-        scir::MemberDecl::Function(f) => {
+        scavir::sir::MemberDecl::Function(f) => {
             assert_eq!(f.name, "vault__deposit");
             assert_eq!(f.params.len(), 0);
 
@@ -476,44 +476,44 @@ fn test_full_pipeline_vault_contract() {
             assert!(
                 f.attrs
                     .iter()
-                    .any(|a| a.key == scir::attrs::scir_attrs::VISIBILITY
-                        && a.value == scir::AttrValue::String("public".to_string()))
+                    .any(|a| a.key == scavir::sir::attrs::scir_attrs::VISIBILITY
+                        && a.value == scavir::sir::AttrValue::String("public".to_string()))
             );
             assert!(
                 f.attrs
                     .iter()
-                    .any(|a| a.key == scir::attrs::evm_attrs::PAYABLE)
+                    .any(|a| a.key == scavir::sir::attrs::evm_attrs::PAYABLE)
             );
             assert!(
                 f.attrs
                     .iter()
-                    .any(|a| a.key == scir::attrs::evm_attrs::NONREENTRANT)
+                    .any(|a| a.key == scavir::sir::attrs::evm_attrs::NONREENTRANT)
             );
 
             // Body: 2 stmts (AugAssign, EmitEvent)
             let body = f.body.as_ref().expect("body");
             assert_eq!(body.len(), 2);
-            assert!(matches!(body[0], scir::Stmt::AugAssign(_)));
+            assert!(matches!(body[0], scavir::sir::Stmt::AugAssign(_)));
 
             // EmitEvent
             match &body[1] {
-                scir::Stmt::Dialect(scir::DialectStmt::Evm(
-                    scir::dialect::evm::EvmStmt::EmitEvent { event, args, .. },
+                scavir::sir::Stmt::Dialect(scavir::sir::DialectStmt::Evm(
+                    scavir::sir::dialect::evm::EvmStmt::EmitEvent { event, args, .. },
                 )) => {
                     assert_eq!(event, "Deposit");
                     assert_eq!(args.len(), 2);
                     // First arg should be msg.sender → EvmExpr::MsgSender
                     assert!(matches!(
                         &args[0],
-                        scir::Expr::Dialect(scir::DialectExpr::Evm(
-                            scir::dialect::evm::EvmExpr::MsgSender
+                        scavir::sir::Expr::Dialect(scavir::sir::DialectExpr::Evm(
+                            scavir::sir::dialect::evm::EvmExpr::MsgSender
                         ))
                     ));
                     // Second arg should be msg.value → EvmExpr::MsgValue
                     assert!(matches!(
                         &args[1],
-                        scir::Expr::Dialect(scir::DialectExpr::Evm(
-                            scir::dialect::evm::EvmExpr::MsgValue
+                        scavir::sir::Expr::Dialect(scavir::sir::DialectExpr::Evm(
+                            scavir::sir::dialect::evm::EvmExpr::MsgValue
                         ))
                     ));
                 }
@@ -545,7 +545,7 @@ fn test_empty_module() {
     assert_eq!(module.id, "empty.vy");
     assert_eq!(module.decls.len(), 1);
     match &module.decls[0] {
-        scir::Decl::Contract(c) => {
+        scavir::sir::Decl::Contract(c) => {
             assert_eq!(c.name, "empty");
             assert!(c.members.is_empty());
         }
@@ -590,18 +590,18 @@ fn test_normalization_applied() {
     assert_eq!(module.decls.len(), 1);
 
     let contract = match &module.decls[0] {
-        scir::Decl::Contract(c) => c,
+        scavir::sir::Decl::Contract(c) => c,
         _ => panic!("Expected Contract"),
     };
     assert_eq!(contract.members.len(), 1);
 
     match &contract.members[0] {
-        scir::MemberDecl::Function(f) => {
+        scavir::sir::MemberDecl::Function(f) => {
             assert_eq!(f.name, "norm_test__foo");
             let body = f.body.as_ref().unwrap();
             assert_eq!(body.len(), 2); // local var + return
-            assert!(matches!(body[0], scir::Stmt::LocalVar(_)));
-            assert!(matches!(body[1], scir::Stmt::Return(_)));
+            assert!(matches!(body[0], scavir::sir::Stmt::LocalVar(_)));
+            assert!(matches!(body[1], scavir::sir::Stmt::Return(_)));
         }
         _ => panic!("Expected Function"),
     }
@@ -663,27 +663,27 @@ fn test_if_statement_lowering() {
     }"#;
     let module = compile_json(json, "check.vy");
     let contract = match &module.decls[0] {
-        scir::Decl::Contract(c) => c,
+        scavir::sir::Decl::Contract(c) => c,
         _ => panic!("Expected Contract"),
     };
 
     let func = match &contract.members[0] {
-        scir::MemberDecl::Function(f) => f,
+        scavir::sir::MemberDecl::Function(f) => f,
         _ => panic!("Expected Function"),
     };
     assert_eq!(func.name, "check__check");
     assert_eq!(func.returns.len(), 1);
-    assert_eq!(func.returns[0], scir::Type::Bool);
+    assert_eq!(func.returns[0], scavir::sir::Type::Bool);
 
     let body = func.body.as_ref().unwrap();
     assert_eq!(body.len(), 1);
     match &body[0] {
-        scir::Stmt::If(if_stmt) => {
+        scavir::sir::Stmt::If(if_stmt) => {
             assert_eq!(if_stmt.then_body.len(), 1);
-            assert!(matches!(if_stmt.then_body[0], scir::Stmt::Return(_)));
+            assert!(matches!(if_stmt.then_body[0], scavir::sir::Stmt::Return(_)));
             let else_body = if_stmt.else_body.as_ref().expect("else_body");
             assert_eq!(else_body.len(), 1);
-            assert!(matches!(else_body[0], scir::Stmt::Return(_)));
+            assert!(matches!(else_body[0], scavir::sir::Stmt::Return(_)));
         }
         _ => panic!("Expected If statement"),
     }
@@ -727,16 +727,16 @@ fn test_for_range_lowering() {
     }"#;
     let module = compile_json(json, "loop.vy");
     let contract = match &module.decls[0] {
-        scir::Decl::Contract(c) => c,
+        scavir::sir::Decl::Contract(c) => c,
         _ => panic!("Expected Contract"),
     };
 
     let func = match &contract.members[0] {
-        scir::MemberDecl::Function(f) => f,
+        scavir::sir::MemberDecl::Function(f) => f,
         _ => panic!("Expected Function"),
     };
 
     let body = func.body.as_ref().unwrap();
     assert_eq!(body.len(), 1);
-    assert!(matches!(body[0], scir::Stmt::For(_)));
+    assert!(matches!(body[0], scavir::sir::Stmt::For(_)));
 }

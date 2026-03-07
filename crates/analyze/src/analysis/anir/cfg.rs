@@ -9,7 +9,7 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use scir::{Expr, Stmt};
+use scavir::sir::{Expr, Stmt};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -181,7 +181,7 @@ impl CfgPass {
     }
 
     /// Build CFG for a single IR function.
-    fn _build_cfg_for_function(&self, _func: &scir::FunctionDecl) -> PassResult<ControlFlowGraph> {
+    fn _build_cfg_for_function(&self, _func: &scavir::sir::FunctionDecl) -> PassResult<ControlFlowGraph> {
         // For now, create a simple single-block CFG
         // TODO: Implement full CFG construction from IR statements
 
@@ -254,7 +254,7 @@ impl AnalysisPass for CfgPass {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scir::{BoolLit, Lit};
+    use scavir::sir::{BoolLit, Lit};
 
     #[test]
     fn test_basic_block_creation() {

@@ -57,11 +57,11 @@ impl BugDetectionPass for ScirMissingPdaConstraintDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let scir::Decl::Contract(contract) = decl {
+                if let scavir::sir::Decl::Contract(contract) = decl {
                     // Find AccountsContext declarations
                     for member in &contract.members {
-                        if let scir::MemberDecl::Dialect(scir::DialectMemberDecl::Anchor(
-                            scir::dialect::anchor::AnchorMemberDecl::AccountsContext {
+                        if let scavir::sir::MemberDecl::Dialect(scavir::sir::DialectMemberDecl::Anchor(
+                            scavir::sir::dialect::anchor::AnchorMemberDecl::AccountsContext {
                                 name: ctx_name,
                                 accounts,
                             },
@@ -72,7 +72,7 @@ impl BugDetectionPass for ScirMissingPdaConstraintDetector {
                                 // (Account<T>) without seeds constraint
                                 let is_account_type = matches!(
                                     account.ty,
-                                    scir::dialect::anchor::AnchorType::Account(_)
+                                    scavir::sir::dialect::anchor::AnchorType::Account(_)
                                 );
 
                                 if is_account_type {
@@ -129,5 +129,9 @@ impl BugDetectionPass for ScirMissingPdaConstraintDetector {
 
     fn swc_ids(&self) -> Vec<usize> {
         vec![]
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Ensure PDA constraint is enforced on the account"
     }
 }

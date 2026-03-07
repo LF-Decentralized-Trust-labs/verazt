@@ -1,11 +1,9 @@
 [workspace]
 members = [
-  "crates/anir",
+  "crates/scavir",
   "crates/bugs",
-  "crates/scir",
 
   "crates/cli",
-  "crates/smartbench",
   "crates/analyze",
   "crates/verify",
   "crates/solidity",
@@ -24,11 +22,9 @@ edition = "2024"
 
 [workspace.dependencies]
 analyze = { path = "crates/analyze" }
-anir = { path = "crates/anir" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
-scir = { path = "crates/scir" }
-smartbench = { path = "crates/smartbench" }
+scavir = { path = "crates/scavir" }
 solidity = { path = "crates/solidity" }
 verify = { path = "crates/verify" }
 vyper = { path = "crates/vyper" }

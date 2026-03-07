@@ -21,11 +21,10 @@ toml = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
 
-anir = { workspace = true }
+scavir = { workspace = true }
 solidity = { workspace = true }
-scir = { workspace = true }
 vyper = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-smartbench = { workspace = true }
+bugs = { workspace = true }

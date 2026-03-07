@@ -8,8 +8,8 @@ use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use anir::cfg::ICFGNode;
-use anir::ops::OpId;
+use scavir::air::cfg::ICFGNode;
+use scavir::air::ops::OpId;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::Loc;
 
@@ -138,5 +138,9 @@ impl BugDetectionPass for AnirReentrancyDetector {
 
     fn swc_ids(&self) -> Vec<usize> {
         vec![107]
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Ensure all state changes happen before calling external contracts (Checks-Effects-Interactions pattern)"
     }
 }

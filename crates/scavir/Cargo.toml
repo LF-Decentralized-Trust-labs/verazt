@@ -1,0 +1,20 @@
+[package]
+name = "scavir"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Dependencies from anir
+indexmap = { workspace = true }
+thiserror = { workspace = true }
+
+# Dependencies from scir
+bat = { workspace = true }
+color-eyre = { workspace = true }
+common = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
