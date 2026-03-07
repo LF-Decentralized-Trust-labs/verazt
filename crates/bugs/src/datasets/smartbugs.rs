@@ -6,7 +6,7 @@
 //! vulnerable_code_line;
 //! ```
 
-use bugs::bug::BugCategory;
+use crate::bug::BugCategory;
 use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -4,7 +4,6 @@ members = [
   "crates/bugs",
 
   "crates/cli",
-  "crates/smartbench",
   "crates/analyze",
   "crates/verify",
   "crates/solidity",
@@ -26,7 +25,6 @@ analyze = { path = "crates/analyze" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
 scavir = { path = "crates/scavir" }
-smartbench = { path = "crates/smartbench" }
 solidity = { path = "crates/solidity" }
 verify = { path = "crates/verify" }
 vyper = { path = "crates/vyper" }

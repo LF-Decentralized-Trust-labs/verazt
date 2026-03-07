@@ -27,4 +27,4 @@ vyper = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-smartbench = { workspace = true }
+bugs = { workspace = true }
