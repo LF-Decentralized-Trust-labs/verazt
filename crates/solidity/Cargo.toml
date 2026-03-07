@@ -24,7 +24,7 @@ color-eyre = { workspace = true }
 either = { workspace = true }
 env_logger = { workspace = true }
 exec_time = { workspace = true }
-extlib = { workspace = true }
+common = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }

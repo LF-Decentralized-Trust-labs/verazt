@@ -8,7 +8,7 @@
 
 use crate::ast::{Name, NamingEnv};
 use crate::{ast::utils::*, ast::*};
-use extlib::{error::Result, fail};
+use common::{error::Result, fail};
 
 //-------------------------------------------------
 // Checking function call type compatibility

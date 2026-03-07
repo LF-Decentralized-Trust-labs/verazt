@@ -7,7 +7,7 @@ use crate::loc::Span;
 use crate::spec::FuncSpec;
 use crate::stmts::Stmt;
 use crate::types::Type;
-use extlib::string::StringExt;
+use common::string::StringExt;
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════

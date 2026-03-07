@@ -6,7 +6,7 @@ pub mod parser;
 
 pub use scir;
 
-use extlib::error::Result;
+use common::error::Result;
 
 /// Compile a Vyper source file into a SCIR module.
 ///
@@ -41,7 +41,7 @@ pub fn parse_json(json_str: &str, file_path: &str) -> Result<ast::SourceUnit> {
 /// Reads the file and returns the pragma if found, or `None` if absent.
 pub fn extract_pragma(file: &str) -> Result<Option<String>> {
     let source = std::fs::read_to_string(file)
-        .map_err(|e| extlib::error::create_error(format!("Failed to read {file}: {e}")))?;
+        .map_err(|e| common::error::create_error(format!("Failed to read {file}: {e}")))?;
     Ok(parser::extract_version_pragma(&source))
 }
 

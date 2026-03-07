@@ -1,7 +1,7 @@
 //! CLI binary for compiling Vyper sources into SCIR.
 
 use clap::{Parser, crate_version};
-use extlib::error;
+use common::error;
 use vyper::{ast::normalize, parser::parse_input_file};
 
 #[derive(Parser, Debug)]

@@ -1,7 +1,7 @@
 use crate::ast::Loc;
 use crate::ast::yul as yast;
 use crate::ast::*;
-use extlib::string::StringExt;
+use common::string::StringExt;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

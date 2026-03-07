@@ -12,7 +12,7 @@ path = "src/main.rs"
 [dependencies]
 analyze = { workspace = true }
 verify = { workspace = true }
-extlib = { workspace = true }
+common = { workspace = true }
 
 clap = { workspace = true }
 

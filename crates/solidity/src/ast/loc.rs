@@ -1,4 +1,4 @@
-use extlib::error::{Result, create_error};
+use common::error::{Result, create_error};
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 

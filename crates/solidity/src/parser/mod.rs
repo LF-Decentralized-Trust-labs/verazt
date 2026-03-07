@@ -13,7 +13,7 @@ use crate::{
     },
     ast::{self, SourceUnit, utils::export},
 };
-use extlib::{error::Result, fail};
+use common::{error::Result, fail};
 use node_semver::Version;
 use regex::Regex;
 use std::{fs::File, io::Write, path::Path, process::Command};

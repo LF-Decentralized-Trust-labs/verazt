@@ -4,7 +4,7 @@ use crate::dialect::DialectStmt;
 use crate::exprs::{BinOp, Expr};
 use crate::loc::Span;
 use crate::types::Type;
-use extlib::string::StringExt;
+use common::string::StringExt;
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════

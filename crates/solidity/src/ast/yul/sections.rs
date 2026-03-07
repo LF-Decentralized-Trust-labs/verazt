@@ -2,7 +2,7 @@
 
 use super::{YulBlock, YulHexLit, YulStringLit};
 use either::Either::{self, Left, Right};
-use extlib::string::StringExt;
+use common::string::StringExt;
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

@@ -10,6 +10,7 @@ members = [
   "crates/verify",
   "crates/solidity",
   "crates/vyper",
+  "crates/common",
 ]
 exclude = [
   "examples",
@@ -42,7 +43,7 @@ color-eyre = "0.6"
 either = "1.8"
 env_logger = "0.11.8"
 exec_time = "0.1.4"
-extlib = { git = "https://github.com/taquangtrung/rust-extlib", rev = "c38c7bd" }
+common = { path = "crates/common" }
 indexmap = "2"
 indoc = "2.0.5"
 itertools = "0.10.5"

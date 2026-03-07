@@ -10,7 +10,7 @@ pub mod analysis;
 pub mod irgen;
 pub mod parser;
 
-use extlib::error::Result;
+use common::error::Result;
 
 /// Extract the pragma version string from a `.sol` file.
 ///
