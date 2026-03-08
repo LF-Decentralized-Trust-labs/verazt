@@ -403,29 +403,29 @@ impl BugDetectionPass for ReentrancyAstDetector {
     }
 }
 
-/// ANIR-based reentrancy detector.
+/// AIR-based reentrancy detector.
 ///
 /// Pattern: StorageOp read → ExternalCallNode → StorageOp write
 /// (same alias group).
 #[derive(Debug, Default)]
-pub struct AnirReentrancyDetector;
+pub struct AIRReentrancyDetector;
 
-impl AnirReentrancyDetector {
+impl AIRReentrancyDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for AnirReentrancyDetector {
+impl Pass for AIRReentrancyDetector {
     fn id(&self) -> PassId {
         // This is a detection pass; it uses the Reentrancy PassId
-        // and supersedes the AST-based reentrancy detector when ANIR
+        // and supersedes the AST-based reentrancy detector when AIR
         // is available.
-        PassId::AnirReentrancy
+        PassId::AIRReentrancy
     }
 
     fn name(&self) -> &'static str {
-        "ANIR Reentrancy"
+        "AIR Reentrancy"
     }
 
     fn description(&self) -> &'static str {
@@ -441,11 +441,11 @@ impl Pass for AnirReentrancyDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AnirTaintPropagation]
+        vec![PassId::AIRTaintPropagation]
     }
 }
 
-impl BugDetectionPass for AnirReentrancyDetector {
+impl BugDetectionPass for AIRReentrancyDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -453,7 +453,7 @@ impl BugDetectionPass for AnirReentrancyDetector {
             return Ok(bugs);
         }
 
-        for module in context.anir_units() {
+        for module in context.AIR_units() {
             // Find external call nodes
             let external_calls: Vec<&OpId> = module
                 .icfg

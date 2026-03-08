@@ -1,7 +1,7 @@
-//! Pass 2a: SIR → ANIR lowering.
+//! Pass 2a: SIR → AIR lowering.
 //!
 //! This module orchestrates the five-step transformation from
-//! SIR (SIR) into ANIR.
+//! SIR (SIR) into AIR.
 
 pub mod cfg;
 pub mod dialect_lower;
@@ -9,10 +9,10 @@ pub mod icfg;
 pub mod modifier_expand;
 pub mod ssa;
 
-use crate::air::module::AnirModule;
+use crate::air::module::AIRModule;
 use thiserror::Error;
 
-/// Errors that can occur during SIR → ANIR lowering.
+/// Errors that can occur during SIR → AIR lowering.
 #[derive(Debug, Error)]
 pub enum LowerError {
     #[error("Untagged dialect op after Step 4: {0}")]
@@ -31,7 +31,7 @@ pub enum LowerError {
     IcfgError(String),
 }
 
-/// Lower a SIR Module into an AnirModule.
+/// Lower a SIR Module into an AIRModule.
 ///
 /// This runs the five-step Pass 2a transformation:
 ///   1. EVM Modifier Expansion (EVM only)
@@ -39,10 +39,10 @@ pub enum LowerError {
 ///   3. SSA Renaming
 ///   4. Dialect Lowering
 ///   5. ICFG + Alias + Taint init
-pub fn lower_module(cir: &crate::sir::Module) -> Result<AnirModule, LowerError> {
-    use crate::air::cfg::{AnirFunction, FunctionId};
+pub fn lower_module(cir: &crate::sir::Module) -> Result<AIRModule, LowerError> {
+    use crate::air::cfg::{AIRFunction, FunctionId};
 
-    let mut anir_module = AnirModule::new(cir.id.clone());
+    let mut AIR_module = AIRModule::new(cir.id.clone());
 
     // Iterate over each contract declaration
     for decl in &cir.decls {
@@ -86,17 +86,17 @@ pub fn lower_module(cir: &crate::sir::Module) -> Result<AnirModule, LowerError> 
                     // Step 4: Dialect lowering
                     dialect_lower::lower_dialect_ops(&mut blocks, &cir.attrs)?;
 
-                    let mut anir_func = AnirFunction::new(func_id, is_public);
-                    anir_func.blocks = blocks;
-                    anir_module.functions.push(anir_func);
+                    let mut AIR_func = AIRFunction::new(func_id, is_public);
+                    AIR_func.blocks = blocks;
+                    AIR_module.functions.push(AIR_func);
                 }
-                _ => { /* StorageDecl, TypeAlias, etc. — not lowered to ANIR functions */ }
+                _ => { /* StorageDecl, TypeAlias, etc. — not lowered to AIR functions */ }
             }
         }
     }
 
     // Step 5: ICFG, alias sets, and taint graph initialization
-    icfg::build_icfg(&mut anir_module);
+    icfg::build_icfg(&mut AIR_module);
 
-    Ok(anir_module)
+    Ok(AIR_module)
 }

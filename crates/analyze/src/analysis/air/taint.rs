@@ -1,4 +1,4 @@
-//! ANIR Taint Propagation Pass
+//! AIR Taint Propagation Pass
 //!
 //! Iterative forward dataflow over SSA def-use edges to propagate taint labels.
 
@@ -15,15 +15,15 @@ use std::collections::HashMap;
 pub type TaintMap = HashMap<OpId, TaintLabel>;
 
 /// Taint propagation analysis pass.
-pub struct AnirTaintPropagationPass;
+pub struct AIRTaintPropagationPass;
 
-impl Pass for AnirTaintPropagationPass {
+impl Pass for AIRTaintPropagationPass {
     fn id(&self) -> PassId {
-        PassId::AnirTaintPropagation
+        PassId::AIRTaintPropagation
     }
 
     fn name(&self) -> &'static str {
-        "anir-taint-propagation"
+        "AIR-taint-propagation"
     }
 
     fn description(&self) -> &'static str {
@@ -39,15 +39,15 @@ impl Pass for AnirTaintPropagationPass {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AnirGeneration]
+        vec![PassId::AIRGeneration]
     }
 }
 
-impl AnalysisPass for AnirTaintPropagationPass {
+impl AnalysisPass for AIRTaintPropagationPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut taint_map: TaintMap = HashMap::new();
 
-        for module in ctx.anir_units() {
+        for module in ctx.AIR_units() {
             // Initialize from taint seeds
             for seed in &module.taint_graph.seeds {
                 let existing = taint_map.entry(seed.op).or_insert(TaintLabel::Clean);
@@ -68,8 +68,8 @@ impl AnalysisPass for AnirTaintPropagationPass {
                 for func in &module.summaries {
                     // Walk ops via the ICFG nodes — for each StmtNode op,
                     // propagate taint through operands.
-                    // Note: in the ANIR representation, ops are stored in
-                    // BasicBlocks within AnirFunction.  We iterate over the
+                    // Note: in the AIR representation, ops are stored in
+                    // BasicBlocks within AIRFunction.  We iterate over the
                     // icfg nodes to identify ops.
                     let _ = func; // summaries are used for reading
                 }
@@ -88,7 +88,7 @@ impl AnalysisPass for AnirTaintPropagationPass {
             }
         }
 
-        ctx.store_artifact("anir.taint_map", taint_map);
+        ctx.store_artifact("AIR.taint_map", taint_map);
         ctx.mark_pass_completed(self.id());
         Ok(())
     }

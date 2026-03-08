@@ -1,20 +1,20 @@
-//! AnirModule — the top-level ANIR container.
+//! AIRModule — the top-level AIR container.
 
 use crate::air::alias::AliasMap;
 use crate::air::call_graph::CallGraph;
-use crate::air::cfg::{AnirFunction, ICFG};
+use crate::air::cfg::{AIRFunction, ICFG};
 use crate::air::pdg::PDG;
 use crate::air::summary::FunctionSummary;
 use crate::air::taint::TaintGraph;
 use std::fmt::{self, Display};
 
-/// The top-level ANIR module — one per SIR Module.
+/// The top-level AIR module — one per SIR Module.
 #[derive(Debug, Clone)]
-pub struct AnirModule {
+pub struct AIRModule {
     /// Identifier of the source module.
     pub source_module_id: String,
     /// All lowered functions.
-    pub functions: Vec<AnirFunction>,
+    pub functions: Vec<AIRFunction>,
     /// The interprocedural control flow graph.
     pub icfg: ICFG,
     /// The call graph.
@@ -29,9 +29,9 @@ pub struct AnirModule {
     pub summaries: Vec<FunctionSummary>,
 }
 
-impl AnirModule {
+impl AIRModule {
     pub fn new(source_module_id: String) -> Self {
-        AnirModule {
+        AIRModule {
             source_module_id,
             functions: Vec::new(),
             icfg: ICFG::new(),
@@ -44,9 +44,9 @@ impl AnirModule {
     }
 }
 
-impl Display for AnirModule {
+impl Display for AIRModule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "AnirModule: {}", self.source_module_id)?;
+        writeln!(f, "AIRModule: {}", self.source_module_id)?;
         writeln!(f, "  functions: {}", self.functions.len())?;
         writeln!(f, "  {}", self.icfg)?;
         writeln!(f, "  {}", self.call_graph)?;

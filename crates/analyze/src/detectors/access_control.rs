@@ -1,6 +1,6 @@
-//! ANIR Access Control Detector
+//! AIR Access Control Detector
 //!
-//! Harvests findings from the `AnirAccessControlPass` analysis artifact.
+//! Harvests findings from the `AIRAccessControlPass` analysis artifact.
 
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
@@ -10,25 +10,25 @@ use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 
-/// ANIR-based access control detector.
+/// AIR-based access control detector.
 ///
-/// Harvests pre-computed findings from the `AnirAccessControlPass`.
+/// Harvests pre-computed findings from the `AIRAccessControlPass`.
 #[derive(Debug, Default)]
-pub struct AnirAccessControlDetector;
+pub struct AIRAccessControlDetector;
 
-impl AnirAccessControlDetector {
+impl AIRAccessControlDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for AnirAccessControlDetector {
+impl Pass for AIRAccessControlDetector {
     fn id(&self) -> PassId {
-        PassId::AnirAccessControl
+        PassId::AIRAccessControl
     }
 
     fn name(&self) -> &'static str {
-        "ANIR Access Control"
+        "AIR Access Control"
     }
 
     fn description(&self) -> &'static str {
@@ -44,14 +44,14 @@ impl Pass for AnirAccessControlDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AnirAccessControl]
+        vec![PassId::AIRAccessControl]
     }
 }
 
-impl BugDetectionPass for AnirAccessControlDetector {
+impl BugDetectionPass for AIRAccessControlDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        // Findings are pre-computed by AnirAccessControlPass
-        if let Some(findings) = context.get_artifact::<Vec<Bug>>("anir.access_control_findings") {
+        // Findings are pre-computed by AIRAccessControlPass
+        if let Some(findings) = context.get_artifact::<Vec<Bug>>("AIR.access_control_findings") {
             Ok(findings.clone())
         } else {
             Ok(vec![])

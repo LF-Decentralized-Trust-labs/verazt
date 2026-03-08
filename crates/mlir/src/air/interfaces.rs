@@ -1,6 +1,6 @@
-//! Interface traits for ANIR ops.
+//! Interface traits for AIR ops.
 //!
-//! Every dialect construct that reaches ANIR implements at least one of:
+//! Every dialect construct that reaches AIR implements at least one of:
 //! `StorageOp`, `CallOp`, `TaintSource`, or `TaintSink`.
 
 use crate::air::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
@@ -265,7 +265,7 @@ impl OpKind {
         }
     }
 
-    /// Returns true if this op implements at least one ANIR interface.
+    /// Returns true if this op implements at least one AIR interface.
     pub fn has_interface(&self) -> bool {
         matches!(
             self,

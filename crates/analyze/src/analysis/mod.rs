@@ -34,7 +34,7 @@ pub mod pass_representation;
 pub mod scheduler;
 
 // Analysis domains
-pub mod anir;
+pub mod air;
 pub mod ast;
 pub mod sir;
 
@@ -60,7 +60,7 @@ pub use ast::{
 // Re-export SIR/CFG passes
 pub use sir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
 
-// Re-export ANIR passes
-pub use anir::{
-    AnirAccessControlPass, AnirArithmeticPass, AnirGenerationPass, AnirTaintPropagationPass,
+// Re-export AIR passes
+pub use air::{
+    AIRAccessControlPass, AIRArithmeticPass, AIRGenerationPass, AIRTaintPropagationPass,
 };

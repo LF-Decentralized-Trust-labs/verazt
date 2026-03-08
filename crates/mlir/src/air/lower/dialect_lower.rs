@@ -1,6 +1,6 @@
 //! Step 4: Dialect Lowering
 //!
-//! Each dialect construct in SIR is lowered to ANIR ops that implement
+//! Each dialect construct in SIR is lowered to AIR ops that implement
 //! at least one of the four interfaces: StorageOp, CallOp, TaintSource,
 //! TaintSink.
 
@@ -15,7 +15,7 @@ use crate::sir::Attr;
 /// Lower dialect ops in all basic blocks.
 ///
 /// After this step, every retained dialect op implements at least one
-/// ANIR interface. Untagged dialect ops cause `LowerError::UntaggedDialectOp`.
+/// AIR interface. Untagged dialect ops cause `LowerError::UntaggedDialectOp`.
 pub fn lower_dialect_ops(
     blocks: &mut [BasicBlock],
     module_attrs: &[Attr],
@@ -53,7 +53,7 @@ fn detect_dialect(attrs: &[Attr]) -> String {
     String::new()
 }
 
-/// Try to lower an opaque op description into a typed ANIR op.
+/// Try to lower an opaque op description into a typed AIR op.
 fn try_lower_opaque(description: &str, dialect: &str) -> Option<OpKind> {
     // EVM dialect lowering
     if dialect.contains("evm") || description.starts_with("evm.") {

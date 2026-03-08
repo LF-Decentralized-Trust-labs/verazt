@@ -1,4 +1,4 @@
-//! SSA Ops for ANIR.
+//! SSA Ops for AIR.
 //!
 //! Each SIR statement/expression lowers to one or more `Op` values.
 
@@ -62,7 +62,7 @@ impl SsaName {
 // Op
 // ═══════════════════════════════════════════════════════════════════
 
-/// An SSA operation (value node) in ANIR.
+/// An SSA operation (value node) in AIR.
 #[derive(Debug, Clone)]
 pub struct Op {
     pub id: OpId,

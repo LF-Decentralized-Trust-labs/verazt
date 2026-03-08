@@ -1,6 +1,6 @@
-//! ANIR Arithmetic Detector
+//! AIR Arithmetic Detector
 //!
-//! Harvests findings from the `AnirArithmeticPass` analysis artifact.
+//! Harvests findings from the `AIRArithmeticPass` analysis artifact.
 
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
@@ -10,29 +10,29 @@ use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 
-/// ANIR-based arithmetic overflow detector.
+/// AIR-based arithmetic overflow detector.
 ///
-/// Harvests pre-computed findings from the `AnirArithmeticPass`.
+/// Harvests pre-computed findings from the `AIRArithmeticPass`.
 #[derive(Debug, Default)]
-pub struct AnirArithmeticDetector;
+pub struct AIRArithmeticDetector;
 
-impl AnirArithmeticDetector {
+impl AIRArithmeticDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for AnirArithmeticDetector {
+impl Pass for AIRArithmeticDetector {
     fn id(&self) -> PassId {
-        PassId::AnirArithmetic
+        PassId::AIRArithmetic
     }
 
     fn name(&self) -> &'static str {
-        "ANIR Arithmetic"
+        "AIR Arithmetic"
     }
 
     fn description(&self) -> &'static str {
-        "Tainted-operand overflow detection via ANIR dataflow"
+        "Tainted-operand overflow detection via AIR dataflow"
     }
 
     fn level(&self) -> PassLevel {
@@ -44,14 +44,14 @@ impl Pass for AnirArithmeticDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AnirArithmetic]
+        vec![PassId::AIRArithmetic]
     }
 }
 
-impl BugDetectionPass for AnirArithmeticDetector {
+impl BugDetectionPass for AIRArithmeticDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        // Findings are pre-computed by AnirArithmeticPass
-        if let Some(findings) = context.get_artifact::<Vec<Bug>>("anir.arithmetic_findings") {
+        // Findings are pre-computed by AIRArithmeticPass
+        if let Some(findings) = context.get_artifact::<Vec<Bug>>("AIR.arithmetic_findings") {
             Ok(findings.clone())
         } else {
             Ok(vec![])

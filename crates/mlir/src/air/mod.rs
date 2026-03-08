@@ -1,7 +1,7 @@
-//! ANIR — Analysis-oriented Normalized IR
+//! AIR — Analysis-oriented Normalized IR
 //!
-//! ANIR is a graph-structured, SSA-form IR optimised for static dataflow
-//! analysis. Its key invariant: every dialect construct that reaches ANIR
+//! AIR is a graph-structured, SSA-form IR optimised for static dataflow
+//! analysis. Its key invariant: every dialect construct that reaches AIR
 //! implements at least one of `StorageOp`, `CallOp`, `TaintSource`, or
 //! `TaintSink`.
 

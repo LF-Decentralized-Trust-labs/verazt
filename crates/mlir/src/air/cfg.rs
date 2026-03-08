@@ -1,4 +1,4 @@
-//! CFG and ICFG data structures for ANIR.
+//! CFG and ICFG data structures for AIR.
 
 use crate::air::ops::{Op, OpId, OpRef};
 use std::fmt::{self, Display};
@@ -184,24 +184,24 @@ impl Display for ICFG {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// AnirFunction — per-function CFG container
+// AIRFunction — per-function CFG container
 // ═══════════════════════════════════════════════════════════════════
 
-/// A function in ANIR form with SSA-renamed basic blocks.
+/// A function in AIR form with SSA-renamed basic blocks.
 #[derive(Debug, Clone)]
-pub struct AnirFunction {
+pub struct AIRFunction {
     pub id: FunctionId,
     pub blocks: Vec<BasicBlock>,
     pub is_public: bool,
 }
 
-impl AnirFunction {
+impl AIRFunction {
     pub fn new(id: FunctionId, is_public: bool) -> Self {
-        AnirFunction { id, blocks: Vec::new(), is_public }
+        AIRFunction { id, blocks: Vec::new(), is_public }
     }
 }
 
-impl Display for AnirFunction {
+impl Display for AIRFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let vis = if self.is_public { "public " } else { "" };
         writeln!(f, "{vis}function {} {{", self.id)?;

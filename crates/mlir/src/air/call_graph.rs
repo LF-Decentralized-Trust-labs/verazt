@@ -1,4 +1,4 @@
-//! Call graph for ANIR.
+//! Call graph for AIR.
 
 use crate::air::cfg::FunctionId;
 use crate::air::ops::OpId;

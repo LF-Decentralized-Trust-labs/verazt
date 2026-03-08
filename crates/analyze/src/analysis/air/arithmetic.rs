@@ -1,4 +1,4 @@
-//! ANIR Arithmetic Analysis Pass
+//! AIR Arithmetic Analysis Pass
 //!
 //! Detects integer overflow/underflow on BinOp nodes where:
 //! - `overflow = OverflowSemantics::Wrapping`
@@ -15,16 +15,16 @@ use mlir::air::ops::OpId;
 use solidity::ast::Loc;
 use std::collections::HashMap;
 
-/// ANIR arithmetic overflow detection pass.
-pub struct AnirArithmeticPass;
+/// AIR arithmetic overflow detection pass.
+pub struct AIRArithmeticPass;
 
-impl Pass for AnirArithmeticPass {
+impl Pass for AIRArithmeticPass {
     fn id(&self) -> PassId {
-        PassId::AnirArithmetic
+        PassId::AIRArithmetic
     }
 
     fn name(&self) -> &'static str {
-        "anir-arithmetic"
+        "AIR-arithmetic"
     }
 
     fn description(&self) -> &'static str {
@@ -40,14 +40,14 @@ impl Pass for AnirArithmeticPass {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AnirTaintPropagation]
+        vec![PassId::AIRTaintPropagation]
     }
 }
 
-impl AnalysisPass for AnirArithmeticPass {
+impl AnalysisPass for AIRArithmeticPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let taint_map: &HashMap<OpId, TaintLabel> =
-            ctx.get_artifact("anir.taint_map").unwrap_or_else(|| {
+            ctx.get_artifact("AIR.taint_map").unwrap_or_else(|| {
                 static EMPTY: std::sync::LazyLock<HashMap<OpId, TaintLabel>> =
                     std::sync::LazyLock::new(HashMap::new);
                 &EMPTY
@@ -55,7 +55,7 @@ impl AnalysisPass for AnirArithmeticPass {
 
         let mut bugs = Vec::new();
 
-        for module in ctx.anir_units() {
+        for module in ctx.AIR_units() {
             // Walk all ICFG nodes looking for BinOp with Wrapping semantics
             // where operands are tainted
             for node in &module.icfg.nodes {
@@ -78,7 +78,7 @@ impl AnalysisPass for AnirArithmeticPass {
                 if let Some(label) = taint_map.get(&sink_entry.op) {
                     if *label >= TaintLabel::StorageLoaded {
                         bugs.push(Bug::new(
-                            "ANIR Arithmetic Overflow",
+                            "AIR Arithmetic Overflow",
                             Some(&format!(
                                 "Wrapping arithmetic on tainted operand (label: {:?}) at op {:?}",
                                 label, sink_entry.op
@@ -95,7 +95,7 @@ impl AnalysisPass for AnirArithmeticPass {
             }
         }
 
-        ctx.store_artifact("anir.arithmetic_findings", bugs);
+        ctx.store_artifact("AIR.arithmetic_findings", bugs);
         ctx.mark_pass_completed(self.id());
         Ok(())
     }

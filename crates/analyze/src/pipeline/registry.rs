@@ -130,10 +130,10 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     registry.register(Box::new(SirAcquiresMismatchDetector::new())); // move
     registry.register(Box::new(SirMissingPdaConstraintDetector::new())); // anchor
 
-    // ── Tier 3: ANIR dataflow detectors ───────────────────────────
-    registry.register(Box::new(AnirReentrancyDetector::new()));
-    registry.register(Box::new(AnirAccessControlDetector::new()));
-    registry.register(Box::new(AnirArithmeticDetector::new()));
+    // ── Tier 3: AIR dataflow detectors ───────────────────────────
+    registry.register(Box::new(AIRReentrancyDetector::new()));
+    registry.register(Box::new(AIRAccessControlDetector::new()));
+    registry.register(Box::new(AIRArithmeticDetector::new()));
 }
 
 #[cfg(test)]

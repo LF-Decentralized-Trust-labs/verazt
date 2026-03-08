@@ -1,4 +1,4 @@
-//! Program Dependence Graph (PDG) for ANIR.
+//! Program Dependence Graph (PDG) for AIR.
 
 use crate::air::cfg::BlockId;
 use crate::air::ops::OpId;

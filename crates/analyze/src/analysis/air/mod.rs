@@ -4,14 +4,14 @@
 //! code. IR provides a lower-level, more structured view suitable for control
 //! flow and data flow analysis.
 
-// ANIR generation and analysis passes
+// AIR generation and analysis passes
 pub mod access_control;
 pub mod arithmetic;
 pub mod generation;
 pub mod taint;
 
-// Re-export ANIR passes
-pub use access_control::AnirAccessControlPass;
-pub use arithmetic::AnirArithmeticPass;
-pub use generation::AnirGenerationPass;
-pub use taint::AnirTaintPropagationPass;
+// Re-export AIR passes
+pub use access_control::AIRAccessControlPass;
+pub use arithmetic::AIRArithmeticPass;
+pub use generation::AIRGenerationPass;
+pub use taint::AIRTaintPropagationPass;

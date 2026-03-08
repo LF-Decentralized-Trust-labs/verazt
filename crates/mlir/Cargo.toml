@@ -6,7 +6,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-# Dependencies from anir
+# Dependencies from AIR
 indexmap = { workspace = true }
 thiserror = { workspace = true }
 

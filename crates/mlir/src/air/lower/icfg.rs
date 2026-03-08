@@ -5,12 +5,12 @@
 
 use crate::air::cfg::{EdgeKind, FunctionId, ICFGNode};
 use crate::air::interfaces::{CallOp, StorageOp, TaintLabel, TaintSource};
-use crate::air::module::AnirModule;
+use crate::air::module::AIRModule;
 use crate::air::ops::OpKind;
 use crate::air::summary::FunctionSummary;
 
 /// Build the ICFG, alias sets, and taint graph for the module.
-pub fn build_icfg(module: &mut AnirModule) {
+pub fn build_icfg(module: &mut AIRModule) {
     // Phase 1: Add TxnEntry/TxnExit for each public function
     for func in &module.functions {
         if func.is_public {

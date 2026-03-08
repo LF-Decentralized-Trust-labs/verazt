@@ -1,7 +1,7 @@
 //! Bug Detectors
 //!
 //! All detectors are grouped by bug category. Each file may contain multiple
-//! detector variants (AST / SIR / ANIR) that target the same vulnerability
+//! detector variants (AST / SIR / AIR) that target the same vulnerability
 //! class.
 
 // AST-based detectors (formerly "DFA" but perform manual AST walks)
@@ -32,7 +32,7 @@ pub mod sir_missing_access_control;
 pub mod tx_origin_auth;
 pub mod unchecked_arithmetic;
 
-// ANIR dataflow detectors
+// AIR dataflow detectors
 pub mod access_control;
 pub mod arithmetic;
 
@@ -42,7 +42,7 @@ pub mod arithmetic;
 pub use cei_violation::CeiViolationAstDetector;
 pub use dead_code::DeadCodeAstDetector;
 pub use reentrancy::ReentrancyAstDetector;
-pub use reentrancy::AnirReentrancyDetector;
+pub use reentrancy::AIRReentrancyDetector;
 pub use unchecked_call::UncheckedCallAstDetector;
 pub use uninitialized::UninitializedAstDetector;
 
@@ -67,6 +67,6 @@ pub use sir_missing_access_control::SirMissingAccessControlDetector;
 pub use tx_origin_auth::SirTxOriginAuthDetector;
 pub use unchecked_arithmetic::SirUncheckedArithmeticDetector;
 
-// ANIR dataflow detectors
-pub use access_control::AnirAccessControlDetector;
-pub use arithmetic::AnirArithmeticDetector;
+// AIR dataflow detectors
+pub use access_control::AIRAccessControlDetector;
+pub use arithmetic::AIRArithmeticDetector;

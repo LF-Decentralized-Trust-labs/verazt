@@ -1,4 +1,4 @@
-//! ANIR Access Control Pass
+//! AIR Access Control Pass
 //!
 //! Checks that every public function performing a storage write has an access
 //! guard using a SignerArg-labelled value before the first write.
@@ -14,16 +14,16 @@ use mlir::air::ops::OpId;
 use solidity::ast::Loc;
 use std::collections::HashMap;
 
-/// ANIR-based access control analysis pass.
-pub struct AnirAccessControlPass;
+/// AIR-based access control analysis pass.
+pub struct AIRAccessControlPass;
 
-impl Pass for AnirAccessControlPass {
+impl Pass for AIRAccessControlPass {
     fn id(&self) -> PassId {
-        PassId::AnirAccessControl
+        PassId::AIRAccessControl
     }
 
     fn name(&self) -> &'static str {
-        "anir-access-control"
+        "AIR-access-control"
     }
 
     fn description(&self) -> &'static str {
@@ -39,14 +39,14 @@ impl Pass for AnirAccessControlPass {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AnirTaintPropagation]
+        vec![PassId::AIRTaintPropagation]
     }
 }
 
-impl AnalysisPass for AnirAccessControlPass {
+impl AnalysisPass for AIRAccessControlPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let _taint_map: &HashMap<OpId, TaintLabel> =
-            ctx.get_artifact("anir.taint_map").unwrap_or_else(|| {
+            ctx.get_artifact("AIR.taint_map").unwrap_or_else(|| {
                 // Should not happen if dependencies are satisfied
                 static EMPTY: std::sync::LazyLock<HashMap<OpId, TaintLabel>> =
                     std::sync::LazyLock::new(HashMap::new);
@@ -55,10 +55,10 @@ impl AnalysisPass for AnirAccessControlPass {
 
         let mut bugs = Vec::new();
 
-        for module in ctx.anir_units() {
+        for module in ctx.AIR_units() {
             for summary in &module.summaries {
                 // Check if the function is public by looking at its name
-                // (in the ANIR summary, we can check the function attributes)
+                // (in the AIR summary, we can check the function attributes)
                 // For now, check if the function has storage writes
                 if summary.modifies.is_empty() {
                     continue;
@@ -72,7 +72,7 @@ impl AnalysisPass for AnirAccessControlPass {
 
                 if !has_signer_guard && !summary.reentrancy_safe {
                     bugs.push(Bug::new(
-                        "ANIR Missing Access Control",
+                        "AIR Missing Access Control",
                         Some(&format!(
                             "Function '{}' writes to storage without a signer/auth guard",
                             summary.func_id.0
@@ -88,7 +88,7 @@ impl AnalysisPass for AnirAccessControlPass {
             }
         }
 
-        ctx.store_artifact("anir.access_control_findings", bugs);
+        ctx.store_artifact("AIR.access_control_findings", bugs);
         ctx.mark_pass_completed(self.id());
         Ok(())
     }
