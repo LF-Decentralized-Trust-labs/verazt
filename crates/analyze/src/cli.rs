@@ -2,13 +2,13 @@
 //!
 //! This is the main entry point for the Analyze tool.
 
-use clap::{Parser, Subcommand, crate_version};
-use common::error;
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
     PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
 };
+use clap::{Parser, Subcommand, crate_version};
+use common::error;
 use solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parser::parse_input_file,
 };
@@ -358,7 +358,7 @@ fn run_analysis(args: Arguments) {
     let input_language = detect_language(&args.input_files, args.language.as_deref());
 
     let mut all_source_units: Vec<SourceUnit> = Vec::new();
-    let mut ir_units: Vec<scavir::sir::Module> = Vec::new();
+    let mut ir_units: Vec<mlir::sir::Module> = Vec::new();
     let mut files_analyzed: Vec<String> = Vec::new();
 
     for file in &args.input_files {
@@ -657,7 +657,7 @@ fn try_install_and_compile_vyper(
     file: &str,
     vyper_ver: Option<&str>,
     auto: bool,
-) -> Option<scavir::sir::Module> {
+) -> Option<mlir::sir::Module> {
     // Step 0: Ensure vyper-select itself is present.
     if !ensure_select_installed("vyper-select", "vyper-select", auto) {
         return None;

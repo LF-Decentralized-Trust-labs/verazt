@@ -94,7 +94,7 @@ pub struct AnalysisContext {
     pub source_units: Vec<SourceUnit>,
 
     /// Generated IR units (optional).
-    pub ir_units: Option<Vec<scavir::sir::Module>>,
+    pub ir_units: Option<Vec<mlir::sir::Module>>,
 
     // ========================================
     // Analysis Artifacts (Dynamic Storage)
@@ -137,7 +137,7 @@ impl AnalysisContext {
     }
 
     /// Create context with IR units.
-    pub fn with_ir(mut self, ir_units: Vec<scavir::sir::Module>) -> Self {
+    pub fn with_ir(mut self, ir_units: Vec<mlir::sir::Module>) -> Self {
         self.ir_units = Some(ir_units);
         self
     }
@@ -152,12 +152,12 @@ impl AnalysisContext {
     }
 
     /// Get IR units (panics if not available).
-    pub fn ir_units(&self) -> &Vec<scavir::sir::Module> {
+    pub fn ir_units(&self) -> &Vec<mlir::sir::Module> {
         self.ir_units.as_ref().expect("IR not generated")
     }
 
     /// Set IR units.
-    pub fn set_ir_units(&mut self, ir_units: Vec<scavir::sir::Module>) {
+    pub fn set_ir_units(&mut self, ir_units: Vec<mlir::sir::Module>) {
         self.ir_units = Some(ir_units);
     }
 

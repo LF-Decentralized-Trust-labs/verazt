@@ -26,7 +26,8 @@ fn test_detectors_have_valid_metadata() {
         // Check recommendation is non-empty
         assert!(
             !detector.recommendation().is_empty(),
-            "Detector recommendation should not be empty for {}", detector.id()
+            "Detector recommendation should not be empty for {}",
+            detector.id()
         );
     }
 }

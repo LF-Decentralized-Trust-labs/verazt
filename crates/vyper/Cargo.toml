@@ -10,7 +10,7 @@ name = "vypc"
 path = "src/main.rs"
 
 [dependencies]
-scavir = { workspace = true }
+mlir = { workspace = true }
 common = { workspace = true }
 clap = { workspace = true }
 clap-verbosity-flag = { workspace = true }

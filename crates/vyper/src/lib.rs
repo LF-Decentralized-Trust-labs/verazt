@@ -1,32 +1,32 @@
-//! Vyper smart contract compiler: parses `.vy` sources into SCIR.
+//! Vyper smart contract compiler: parses `.vy` sources into SIR.
 
 pub mod ast;
 pub mod irgen;
 pub mod parser;
 
-pub use scavir::sir;
+pub use mlir::sir;
 
 use common::error::Result;
 
-/// Compile a Vyper source file into a SCIR module.
+/// Compile a Vyper source file into a SIR module.
 ///
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
-pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<scavir::sir::Module> {
+pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<mlir::sir::Module> {
     let source_unit = parser::parse_input_file(input_file, vyper_ver)?;
     let normalized = ast::normalize::run_passes(&source_unit);
     irgen::lower_source_unit(&normalized)
 }
 
-/// Compile Vyper source code (string) into a SCIR module.
+/// Compile Vyper source code (string) into a SIR module.
 ///
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
-pub fn compile_source(source_code: &str, vyper_ver: Option<&str>) -> Result<scavir::sir::Module> {
+pub fn compile_source(source_code: &str, vyper_ver: Option<&str>) -> Result<mlir::sir::Module> {
     let source_unit = parser::parse_vyper_source_code(source_code, vyper_ver)?;
     let normalized = ast::normalize::run_passes(&source_unit);
     irgen::lower_source_unit(&normalized)
 }
 
-/// Parse a Vyper source file into the internal AST (without SCIR lowering).
+/// Parse a Vyper source file into the internal AST (without SIR lowering).
 pub fn parse_file(input_file: &str, vyper_ver: Option<&str>) -> Result<ast::SourceUnit> {
     parser::parse_input_file(input_file, vyper_ver)
 }

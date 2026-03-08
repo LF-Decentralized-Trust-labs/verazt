@@ -34,9 +34,9 @@ pub mod pass_representation;
 pub mod scheduler;
 
 // Analysis domains
-pub mod anir;
+pub mod air;
 pub mod ast;
-pub mod scir;
+pub mod sir;
 
 // Re-exports for convenient access
 pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats};
@@ -57,10 +57,10 @@ pub use ast::{
     TypeIndexExt, TypeIndexPass, TypeInfo,
 };
 
-// Re-export IR passes
-pub use anir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
+// Re-export SIR/CFG passes
+pub use sir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
 
-// Re-export ANIR passes
-pub use anir::{
-    AnirAccessControlPass, AnirArithmeticPass, AnirGenerationPass, AnirTaintPropagationPass,
+// Re-export AIR passes
+pub use air::{
+    AIRAccessControlPass, AIRArithmeticPass, AIRGenerationPass, AIRTaintPropagationPass,
 };

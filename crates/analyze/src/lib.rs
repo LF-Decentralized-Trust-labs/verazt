@@ -15,10 +15,10 @@
 //!   - `PipelineEngine`: Two-phase orchestrator (analysis → detection)
 //!   - `BugDetectionPass`: Trait for vulnerability detectors
 //!   - `DetectorRegistry`: Manages detector registration and discovery
-//! - `dfa`: IR Data Flow Analysis framework
+//! - `absint`: Abstract Interpretation framework
 //!   - Generic lattice framework for abstract domains
-//!   - Worklist-based solver for forward/backward analysis
-//!   - DFA-based bug detectors
+//!   - Worklist-based fixpoint solver for forward/backward analysis
+//!   - Abstract-interpretation-based bug detectors
 //! - `grep`: AST Pattern Matching framework
 //!   - Declarative pattern definitions with captures
 //!   - Composable pattern combinators
@@ -38,14 +38,17 @@
 // CLI entry module
 pub mod cli;
 
-// IR Data Flow Analysis framework (standalone)
-pub mod dfa;
+// Abstract Interpretation framework (standalone)
+pub mod absint;
 
 // AST Pattern Matching framework (standalone)
 pub mod grep;
 
 // Analysis framework
 pub mod analysis;
+
+// Bug detectors (grouped by bug category)
+pub mod detectors;
 
 // Pipeline orchestration framework
 pub mod pipeline;

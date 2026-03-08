@@ -99,16 +99,16 @@ impl DetectorRegistry {
 
 /// Register all built-in detectors.
 pub fn register_all_detectors(registry: &mut DetectorRegistry) {
-    // DFA-based detectors (data flow analysis on IR)
-    use crate::dfa::detectors::*;
-    registry.register(Box::new(CeiViolationDfaDetector::new()));
-    registry.register(Box::new(DeadCodeDfaDetector::new()));
-    registry.register(Box::new(ReentrancyDfaDetector::new()));
-    registry.register(Box::new(UncheckedCallDfaDetector::new()));
-    registry.register(Box::new(UninitializedDfaDetector::new()));
+    use crate::detectors::*;
+
+    // ── Tier 1: AST-based detectors ──────────────────────────────
+    registry.register(Box::new(CeiViolationAstDetector::new()));
+    registry.register(Box::new(DeadCodeAstDetector::new()));
+    registry.register(Box::new(ReentrancyAstDetector::new()));
+    registry.register(Box::new(UncheckedCallAstDetector::new()));
+    registry.register(Box::new(UninitializedAstDetector::new()));
 
     // GREP-based detectors (declarative AST pattern matching)
-    use crate::grep::detectors::*;
     registry.register(Box::new(CentralizationRiskGrepDetector::new()));
     registry.register(Box::new(ConstantStateVarGrepDetector::new()));
     registry.register(Box::new(DelegatecallGrepDetector::new()));
@@ -121,19 +121,19 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     registry.register(Box::new(TxOriginGrepDetector::new()));
     registry.register(Box::new(VisibilityGrepDetector::new()));
 
-    // ── Tier 2: SCIR structural detectors ─────────────────────────
-    registry.register(Box::new(ScirMissingAccessControlDetector::new()));
-    registry.register(Box::new(ScirMissingModifiesDetector::new()));
-    registry.register(Box::new(ScirUncheckedArithmeticDetector::new()));
-    // Dialect-specific SCIR detectors:
-    registry.register(Box::new(ScirTxOriginAuthDetector::new())); // evm
-    registry.register(Box::new(ScirAcquiresMismatchDetector::new())); // move
-    registry.register(Box::new(ScirMissingPdaConstraintDetector::new())); // anchor
+    // ── Tier 2: SIR structural detectors ─────────────────────────
+    registry.register(Box::new(SirMissingAccessControlDetector::new()));
+    registry.register(Box::new(SirMissingModifiesDetector::new()));
+    registry.register(Box::new(SirUncheckedArithmeticDetector::new()));
+    // Dialect-specific SIR detectors:
+    registry.register(Box::new(SirTxOriginAuthDetector::new())); // evm
+    registry.register(Box::new(SirAcquiresMismatchDetector::new())); // move
+    registry.register(Box::new(SirMissingPdaConstraintDetector::new())); // anchor
 
-    // ── Tier 3: ANIR dataflow detectors ───────────────────────────
-    registry.register(Box::new(AnirReentrancyDetector::new()));
-    registry.register(Box::new(AnirAccessControlDetector::new()));
-    registry.register(Box::new(AnirArithmeticDetector::new()));
+    // ── Tier 3: AIR dataflow detectors ───────────────────────────
+    registry.register(Box::new(AIRReentrancyDetector::new()));
+    registry.register(Box::new(AIRAccessControlDetector::new()));
+    registry.register(Box::new(AIRArithmeticDetector::new()));
 }
 
 #[cfg(test)]

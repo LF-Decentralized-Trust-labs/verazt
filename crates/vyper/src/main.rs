@@ -1,4 +1,4 @@
-//! CLI binary for compiling Vyper sources into SCIR.
+//! CLI binary for compiling Vyper sources into SIR.
 
 use clap::{Parser, crate_version};
 use common::error;
@@ -9,7 +9,7 @@ use vyper::{ast::normalize, parser::parse_input_file};
     author,
     version = crate_version!(),
     term_width = 80,
-    about = "Compiler for Vyper smart contracts to SCIR.",
+    about = "Compiler for Vyper smart contracts to SIR.",
     long_about = None
 )]
 pub struct Arguments {
@@ -28,7 +28,7 @@ pub struct Arguments {
     #[arg(long, visible_alias = "pnp", default_value_t = false)]
     pub print_normalized_program: bool,
 
-    /// Print intermediate representation (SCIR).
+    /// Print intermediate representation (SIR).
     #[arg(long, visible_alias = "pir", default_value_t = false)]
     pub print_intermediate_representation: bool,
 
@@ -68,11 +68,11 @@ fn main() {
             println!();
         }
 
-        // Lower to SCIR
+        // Lower to SIR
         let module = match vyper::irgen::lower_source_unit(&normalized) {
             Ok(m) => m,
             Err(err) => {
-                eprintln!("Error lowering {file} to SCIR: {err}");
+                eprintln!("Error lowering {file} to SIR: {err}");
                 std::process::exit(1);
             }
         };

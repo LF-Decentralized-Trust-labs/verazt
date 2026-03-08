@@ -4,12 +4,12 @@
 //! These tests use annotations from the `bugs` crate to run analyze
 //! and compare its findings with the ground truth.
 
-use std::path::{Path, PathBuf};
 use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
-use bugs::bug::BugCategory;
 use analyze::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
-use bugs::datasets::smartbugs::{scan_dataset, AnnotatedBug};
+use bugs::bug::BugCategory;
+use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
 use solidity::parser::parse_input_file;
 
 /// Represents a bug detected by the local analyzer.
@@ -38,9 +38,9 @@ struct MatchedBug {
 }
 
 /// Matches detected bugs against ground truth annotations.
-/// 
-/// A detection is considered a True Positive if it matches the exact line and category.
-/// In SmartBugs, the annotation is placed one line above the bug.
+///
+/// A detection is considered a True Positive if it matches the exact line and
+/// category. In SmartBugs, the annotation is placed one line above the bug.
 fn match_file(
     _file_path: &Path,
     annotations: &[AnnotatedBug],
@@ -63,10 +63,9 @@ fn match_file(
             let category_match = det.category == ann.category;
 
             if line_match && category_match {
-                result.true_positives.push(MatchedBug {
-                    annotation: ann.clone(),
-                    detection: det.clone(),
-                });
+                result
+                    .true_positives
+                    .push(MatchedBug { annotation: ann.clone(), detection: det.clone() });
                 matched_detections.insert(det_idx);
                 matched_annotations.insert(ann_idx);
                 break; // One annotation matched by one detection
@@ -223,7 +222,7 @@ fn test_all_categories_detection() {
         let detections = run_analyze_on_file(file_path);
         let file_annotations = annotations_by_file.get(file_path).unwrap();
         let result = match_file(file_path, file_annotations, &detections);
-        
+
         total_tp += result.true_positives.len();
         total_fn += result.false_negatives.len();
         total_fp += result.false_positives.len();
@@ -242,7 +241,9 @@ fn test_all_categories_detection() {
 
     println!(
         "Full benchmark (sample): TP={} FN={} FP={} Precision={:.1}% Recall={:.1}%",
-        total_tp, total_fn, total_fp,
+        total_tp,
+        total_fn,
+        total_fp,
         precision * 100.0,
         recall * 100.0,
     );

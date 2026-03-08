@@ -24,7 +24,7 @@ pub struct AnalysisConfig {
     /// Enable IR generation (lazy by default).
     pub enable_ir: bool,
 
-    /// Enable ANIR generation (requires IR).
+    /// Enable AIR generation (requires IR).
     pub enable_air: bool,
 
     /// Enable verbose logging.
@@ -103,10 +103,10 @@ pub struct AnalysisContext {
     pub source_units: Vec<SourceUnit>,
 
     /// Generated IR units (optional).
-    pub ir_units: Option<Vec<scavir::sir::Module>>,
+    pub ir_units: Option<Vec<mlir::sir::Module>>,
 
-    /// Generated ANIR units (optional).
-    pub anir_units: Option<Vec<scavir::air::AnirModule>>,
+    /// Generated AIR units (optional).
+    pub AIR_units: Option<Vec<mlir::air::AIRModule>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -144,7 +144,7 @@ impl AnalysisContext {
         Self {
             source_units,
             ir_units: None,
-            anir_units: None,
+            AIR_units: None,
             input_language,
             artifacts: HashMap::new(),
             completed_passes: HashSet::new(),
@@ -155,7 +155,7 @@ impl AnalysisContext {
     }
 
     /// Create context with IR units.
-    pub fn with_ir(mut self, ir_units: Vec<scavir::sir::Module>) -> Self {
+    pub fn with_ir(mut self, ir_units: Vec<mlir::sir::Module>) -> Self {
         self.ir_units = Some(ir_units);
         self
     }
@@ -170,32 +170,32 @@ impl AnalysisContext {
     }
 
     /// Get IR units (panics if not available).
-    pub fn ir_units(&self) -> &Vec<scavir::sir::Module> {
+    pub fn ir_units(&self) -> &Vec<mlir::sir::Module> {
         self.ir_units.as_ref().expect("IR not generated")
     }
 
     /// Set IR units.
-    pub fn set_ir_units(&mut self, ir_units: Vec<scavir::sir::Module>) {
+    pub fn set_ir_units(&mut self, ir_units: Vec<mlir::sir::Module>) {
         self.ir_units = Some(ir_units);
     }
 
     // ========================================
-    // ANIR Management
+    // AIR Management
     // ========================================
 
-    /// Check if ANIR is available.
+    /// Check if AIR is available.
     pub fn has_air(&self) -> bool {
-        self.anir_units.is_some()
+        self.AIR_units.is_some()
     }
 
-    /// Get ANIR units (panics if not available).
-    pub fn anir_units(&self) -> &Vec<scavir::air::AnirModule> {
-        self.anir_units.as_ref().expect("ANIR not generated")
+    /// Get AIR units (panics if not available).
+    pub fn AIR_units(&self) -> &Vec<mlir::air::AIRModule> {
+        self.AIR_units.as_ref().expect("AIR not generated")
     }
 
-    /// Set ANIR units.
-    pub fn set_air_units(&mut self, units: Vec<scavir::air::AnirModule>) {
-        self.anir_units = Some(units);
+    /// Set AIR units.
+    pub fn set_air_units(&mut self, units: Vec<mlir::air::AIRModule>) {
+        self.AIR_units = Some(units);
     }
 
     // ========================================
@@ -330,7 +330,7 @@ impl Clone for AnalysisContext {
         Self {
             source_units: self.source_units.clone(),
             ir_units: self.ir_units.clone(),
-            anir_units: self.anir_units.clone(),
+            AIR_units: self.AIR_units.clone(),
             input_language: self.input_language,
             artifacts: self.artifacts.clone(),
             completed_passes: self.completed_passes.clone(),

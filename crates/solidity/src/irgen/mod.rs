@@ -1,4 +1,4 @@
-//! Module for AST to CIR generation (lowering).
+//! Module for AST to SIR generation (lowering).
 
 pub mod ir_gen;
 

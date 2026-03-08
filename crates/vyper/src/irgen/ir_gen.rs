@@ -1,17 +1,17 @@
-//! Lower the Vyper internal AST into SCIR (Smart Contract IR).
+//! Lower the Vyper internal AST into SIR.
 
 use crate::ast;
 use crate::ast::Loc;
 use common::error::Result;
-use scavir::sir::dialect::evm::*;
-use scavir::sir::*;
+use mlir::sir::dialect::evm::*;
+use mlir::sir::*;
 
-/// Convert Vyper AST source location to SCIR span.
+/// Convert Vyper AST source location to SIR span.
 fn loc_to_span(loc: Option<&Loc>) -> Option<Span> {
     loc.map(|l| Span::new(l.lineno, l.end_lineno))
 }
 
-/// Lower a Vyper source unit into a SCIR Module.
+/// Lower a Vyper source unit into a SIR Module.
 pub fn lower_source_unit(source_unit: &ast::SourceUnit) -> Result<Module> {
     let mut ir_gen = IrGen::new();
     ir_gen.lower_source_unit(source_unit)
@@ -73,8 +73,8 @@ impl IrGen {
         }
 
         let mut attrs = vec![
-            Attr::scir(attrs::scir_attrs::SOURCE_LANG, AttrValue::String("vyper".to_string())),
-            Attr::scir(attrs::scir_attrs::CHAIN_TARGET, AttrValue::String("evm".to_string())),
+            Attr::sir(attrs::sir_attrs::SOURCE_LANG, AttrValue::String("vyper".to_string())),
+            Attr::sir(attrs::sir_attrs::CHAIN_TARGET, AttrValue::String("evm".to_string())),
         ];
 
         let contract = ContractDecl {
@@ -110,8 +110,8 @@ impl IrGen {
         };
 
         if is_public {
-            attrs.push(Attr::scir(
-                attrs::scir_attrs::VISIBILITY,
+            attrs.push(Attr::sir(
+                attrs::sir_attrs::VISIBILITY,
                 AttrValue::String("public".to_string()),
             ));
         }
@@ -172,17 +172,17 @@ impl IrGen {
         // Interfaces become type references; we don't lower them as full contracts
         // for now, just skip or add a placeholder.
         // TODO: more detailed interface lowering
-        Ok(MemberDecl::TypeAlias(scavir::sir::TypeAlias {
+        Ok(MemberDecl::TypeAlias(mlir::sir::TypeAlias {
             name: _iface.name.clone(),
             ty: Type::Dialect(DialectType::Evm(EvmType::Address)),
         }))
     }
 
     fn lower_func_def(&mut self, f: &ast::FuncDef) -> Result<FunctionDecl> {
-        let params: Vec<scavir::sir::Param> = f
+        let params: Vec<mlir::sir::Param> = f
             .params
             .iter()
-            .map(|p| scavir::sir::Param::new(p.name.clone(), self.lower_type(&p.typ)))
+            .map(|p| mlir::sir::Param::new(p.name.clone(), self.lower_type(&p.typ)))
             .collect();
 
         let returns: Vec<Type> = match &f.return_type {
@@ -215,26 +215,26 @@ impl IrGen {
                 attrs.push(Attr::evm(attrs::evm_attrs::IS_CONSTRUCTOR, AttrValue::Bool(true)));
             }
             ast::FuncDecorator::External => {
-                attrs.push(Attr::scir(
-                    attrs::scir_attrs::VISIBILITY,
+                attrs.push(Attr::sir(
+                    attrs::sir_attrs::VISIBILITY,
                     AttrValue::String("public".to_string()),
                 ));
             }
             ast::FuncDecorator::Internal => {
-                attrs.push(Attr::scir(
-                    attrs::scir_attrs::VISIBILITY,
+                attrs.push(Attr::sir(
+                    attrs::sir_attrs::VISIBILITY,
                     AttrValue::String("internal".to_string()),
                 ));
             }
             ast::FuncDecorator::View => {
-                attrs.push(Attr::scir(
-                    attrs::scir_attrs::MUTABILITY,
+                attrs.push(Attr::sir(
+                    attrs::sir_attrs::MUTABILITY,
                     AttrValue::String("view".to_string()),
                 ));
             }
             ast::FuncDecorator::Pure => {
-                attrs.push(Attr::scir(
-                    attrs::scir_attrs::MUTABILITY,
+                attrs.push(Attr::sir(
+                    attrs::sir_attrs::MUTABILITY,
                     AttrValue::String("pure".to_string()),
                 ));
             }
@@ -404,7 +404,7 @@ impl IrGen {
 
                 // cond: target < stop
                 let cond = Expr::BinOp(BinOpExpr {
-                    op: scavir::sir::BinOp::Lt,
+                    op: mlir::sir::BinOp::Lt,
                     lhs: Box::new(Expr::Var(VarExpr {
                         name: target_name.clone(),
                         ty: Type::I256,
@@ -417,7 +417,7 @@ impl IrGen {
 
                 // update: target = target + 1
                 let update = Stmt::AugAssign(AugAssignStmt {
-                    op: scavir::sir::BinOp::Add,
+                    op: mlir::sir::BinOp::Add,
                     lhs: Expr::Var(VarExpr {
                         name: target_name.clone(),
                         ty: Type::I256,
@@ -452,7 +452,7 @@ impl IrGen {
 
                 // cond: idx < len(arr)
                 let cond = Expr::BinOp(BinOpExpr {
-                    op: scavir::sir::BinOp::Lt,
+                    op: mlir::sir::BinOp::Lt,
                     lhs: Box::new(Expr::Var(VarExpr {
                         name: idx_name.clone(),
                         ty: Type::I256,
@@ -467,7 +467,7 @@ impl IrGen {
 
                 // update: idx = idx + 1
                 let update = Stmt::AugAssign(AugAssignStmt {
-                    op: scavir::sir::BinOp::Add,
+                    op: mlir::sir::BinOp::Add,
                     lhs: Expr::Var(VarExpr { name: idx_name, ty: Type::I256, span: None }),
                     rhs: Expr::Lit(Lit::Num(NumLit {
                         value: Num::Int(IntNum { value: 1.into(), typ: Type::I256 }),
@@ -556,8 +556,8 @@ impl IrGen {
 
             ast::Expr::BoolOp(e) => {
                 let op = match e.op {
-                    ast::BoolOp::And => scavir::sir::BinOp::And,
-                    ast::BoolOp::Or => scavir::sir::BinOp::Or,
+                    ast::BoolOp::And => mlir::sir::BinOp::And,
+                    ast::BoolOp::Or => mlir::sir::BinOp::Or,
                 };
                 if e.values.len() >= 2 {
                     let mut result = self.lower_expr(&e.values[0])?;
@@ -597,9 +597,9 @@ impl IrGen {
                     let mut prev = self.lower_expr(&e.left)?;
                     for (op, comp) in e.ops.iter().zip(e.comparators.iter()) {
                         let rhs = self.lower_expr(comp)?;
-                        let scir_op = self.lower_cmpop(op);
+                        let sir_op = self.lower_cmpop(op);
                         parts.push(Expr::BinOp(BinOpExpr {
-                            op: scir_op,
+                            op: sir_op,
                             lhs: Box::new(prev.clone()),
                             rhs: Box::new(rhs.clone()),
                             overflow: OverflowSemantics::Checked,
@@ -610,7 +610,7 @@ impl IrGen {
                     let mut result = parts.remove(0);
                     for part in parts {
                         result = Expr::BinOp(BinOpExpr {
-                            op: scavir::sir::BinOp::And,
+                            op: mlir::sir::BinOp::And,
                             lhs: Box::new(result),
                             rhs: Box::new(part),
                             overflow: OverflowSemantics::Checked,
@@ -624,9 +624,9 @@ impl IrGen {
             ast::Expr::UnaryOp(e) => {
                 let operand = self.lower_expr(&e.operand)?;
                 let op = match e.op {
-                    ast::UnaryOp::Not => scavir::sir::UnOp::Not,
-                    ast::UnaryOp::Neg => scavir::sir::UnOp::Neg,
-                    ast::UnaryOp::Invert => scavir::sir::UnOp::BitNot,
+                    ast::UnaryOp::Not => mlir::sir::UnOp::Not,
+                    ast::UnaryOp::Neg => mlir::sir::UnOp::Neg,
+                    ast::UnaryOp::Invert => mlir::sir::UnOp::BitNot,
                 };
                 Ok(Expr::UnOp(UnOpExpr {
                     op,
@@ -645,8 +645,8 @@ impl IrGen {
             }
 
             ast::Expr::Empty(ty, _loc) => {
-                let scir_ty = self.lower_type(ty);
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Empty(scir_ty))))
+                let sir_ty = self.lower_type(ty);
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Empty(sir_ty))))
             }
 
             ast::Expr::Len(inner, _loc) => {
@@ -888,32 +888,32 @@ impl IrGen {
 
     // ─── Operator lowering ────────────────────────────────────
 
-    fn lower_binop(&self, op: &ast::BinOp) -> scavir::sir::BinOp {
+    fn lower_binop(&self, op: &ast::BinOp) -> mlir::sir::BinOp {
         match op {
-            ast::BinOp::Add => scavir::sir::BinOp::Add,
-            ast::BinOp::Sub => scavir::sir::BinOp::Sub,
-            ast::BinOp::Mul => scavir::sir::BinOp::Mul,
-            ast::BinOp::Div | ast::BinOp::FloorDiv => scavir::sir::BinOp::Div,
-            ast::BinOp::Mod => scavir::sir::BinOp::Mod,
-            ast::BinOp::Pow => scavir::sir::BinOp::Pow,
-            ast::BinOp::BitAnd => scavir::sir::BinOp::BitAnd,
-            ast::BinOp::BitOr => scavir::sir::BinOp::BitOr,
-            ast::BinOp::BitXor => scavir::sir::BinOp::BitXor,
-            ast::BinOp::Shl => scavir::sir::BinOp::Shl,
-            ast::BinOp::Shr => scavir::sir::BinOp::Shr,
+            ast::BinOp::Add => mlir::sir::BinOp::Add,
+            ast::BinOp::Sub => mlir::sir::BinOp::Sub,
+            ast::BinOp::Mul => mlir::sir::BinOp::Mul,
+            ast::BinOp::Div | ast::BinOp::FloorDiv => mlir::sir::BinOp::Div,
+            ast::BinOp::Mod => mlir::sir::BinOp::Mod,
+            ast::BinOp::Pow => mlir::sir::BinOp::Pow,
+            ast::BinOp::BitAnd => mlir::sir::BinOp::BitAnd,
+            ast::BinOp::BitOr => mlir::sir::BinOp::BitOr,
+            ast::BinOp::BitXor => mlir::sir::BinOp::BitXor,
+            ast::BinOp::Shl => mlir::sir::BinOp::Shl,
+            ast::BinOp::Shr => mlir::sir::BinOp::Shr,
         }
     }
 
-    fn lower_cmpop(&self, op: &ast::CmpOp) -> scavir::sir::BinOp {
+    fn lower_cmpop(&self, op: &ast::CmpOp) -> mlir::sir::BinOp {
         match op {
-            ast::CmpOp::Eq => scavir::sir::BinOp::Eq,
-            ast::CmpOp::NotEq => scavir::sir::BinOp::Ne,
-            ast::CmpOp::Lt => scavir::sir::BinOp::Lt,
-            ast::CmpOp::LtE => scavir::sir::BinOp::Le,
-            ast::CmpOp::Gt => scavir::sir::BinOp::Gt,
-            ast::CmpOp::GtE => scavir::sir::BinOp::Ge,
-            ast::CmpOp::In => scavir::sir::BinOp::Eq,    // approximate
-            ast::CmpOp::NotIn => scavir::sir::BinOp::Ne, // approximate
+            ast::CmpOp::Eq => mlir::sir::BinOp::Eq,
+            ast::CmpOp::NotEq => mlir::sir::BinOp::Ne,
+            ast::CmpOp::Lt => mlir::sir::BinOp::Lt,
+            ast::CmpOp::LtE => mlir::sir::BinOp::Le,
+            ast::CmpOp::Gt => mlir::sir::BinOp::Gt,
+            ast::CmpOp::GtE => mlir::sir::BinOp::Ge,
+            ast::CmpOp::In => mlir::sir::BinOp::Eq, // approximate
+            ast::CmpOp::NotIn => mlir::sir::BinOp::Ne, // approximate
         }
     }
 }
@@ -996,18 +996,18 @@ mod tests {
     #[test]
     fn test_lower_binop() {
         let ir = IrGen::new();
-        assert_eq!(ir.lower_binop(&ast::BinOp::Add), scavir::sir::BinOp::Add);
-        assert_eq!(ir.lower_binop(&ast::BinOp::Sub), scavir::sir::BinOp::Sub);
-        assert_eq!(ir.lower_binop(&ast::BinOp::Mul), scavir::sir::BinOp::Mul);
-        assert_eq!(ir.lower_binop(&ast::BinOp::Mod), scavir::sir::BinOp::Mod);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Add), mlir::sir::BinOp::Add);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Sub), mlir::sir::BinOp::Sub);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Mul), mlir::sir::BinOp::Mul);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Mod), mlir::sir::BinOp::Mod);
     }
 
     #[test]
     fn test_lower_cmpop() {
         let ir = IrGen::new();
-        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Eq), scavir::sir::BinOp::Eq);
-        assert_eq!(ir.lower_cmpop(&ast::CmpOp::GtE), scavir::sir::BinOp::Ge);
-        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Lt), scavir::sir::BinOp::Lt);
+        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Eq), mlir::sir::BinOp::Eq);
+        assert_eq!(ir.lower_cmpop(&ast::CmpOp::GtE), mlir::sir::BinOp::Ge);
+        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Lt), mlir::sir::BinOp::Lt);
     }
 
     #[test]

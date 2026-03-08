@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "crates/scavir",
+  "crates/mlir",
   "crates/bugs",
 
   "crates/cli",
@@ -24,7 +24,7 @@ edition = "2024"
 analyze = { path = "crates/analyze" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
-scavir = { path = "crates/scavir" }
+mlir = { path = "crates/mlir" }
 solidity = { path = "crates/solidity" }
 verify = { path = "crates/verify" }
 vyper = { path = "crates/vyper" }

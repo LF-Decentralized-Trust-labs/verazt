@@ -21,7 +21,7 @@ toml = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
 
-scavir = { workspace = true }
+mlir = { workspace = true }
 solidity = { workspace = true }
 vyper = { workspace = true }
 
