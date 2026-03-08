@@ -1,18 +1,18 @@
-//! IR Data Flow Analysis Framework
+//! Abstract Interpretation Framework
 //!
-//! This module provides a generic framework for performing data flow analysis
+//! This module provides a generic framework for performing abstract interpretation
 //! on Solidity IR. It includes:
 //!
 //! - **CFG**: Enhanced control flow graph with precomputed def/use sets
 //! - **Lattice**: Generic lattice framework for abstract domains
-//! - **Solver**: Worklist-based data flow solver (forward and backward)
+//! - **Solver**: Worklist-based fixpoint solver (forward and backward)
 //! - **Analyses**: Built-in analyses (reaching definitions, liveness, etc.)
 //!
 //! # Example
 //!
 //! ```ignore
-//! use analyze::dfa::{ControlFlowGraph, DataFlowSolver, Direction};
-//! use analyze::dfa::lattice::PowerSetLattice;
+//! use analyze::absint::{ControlFlowGraph, DataFlowSolver, Direction};
+//! use analyze::absint::lattice::PowerSetLattice;
 //!
 //! // Create a CFG from IR
 //! let cfg = ControlFlowGraph::new("my_function".to_string(), entry_block);

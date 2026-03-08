@@ -99,8 +99,8 @@ impl DetectorRegistry {
 
 /// Register all built-in detectors.
 pub fn register_all_detectors(registry: &mut DetectorRegistry) {
-    // DFA-based detectors (data flow analysis on IR)
-    use crate::dfa::detectors::*;
+    // Abstract-interpretation-based detectors
+    use crate::absint::detectors::*;
     registry.register(Box::new(CeiViolationDfaDetector::new()));
     registry.register(Box::new(DeadCodeDfaDetector::new()));
     registry.register(Box::new(ReentrancyDfaDetector::new()));

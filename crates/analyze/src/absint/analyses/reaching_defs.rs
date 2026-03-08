@@ -1,7 +1,7 @@
-use crate::dfa::cfg::BasicBlockId;
-use crate::dfa::lattice::PowerSetLattice;
-use crate::dfa::solver::Transfer;
-use crate::dfa::var::VarId;
+use crate::absint::cfg::BasicBlockId;
+use crate::absint::lattice::PowerSetLattice;
+use crate::absint::solver::Transfer;
+use crate::absint::var::VarId;
 use mlir::sir::Stmt;
 use solidity::ast::Loc;
 

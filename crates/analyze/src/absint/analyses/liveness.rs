@@ -1,6 +1,6 @@
-use crate::dfa::lattice::PowerSetLattice;
-use crate::dfa::solver::Transfer;
-use crate::dfa::var::VarId;
+use crate::absint::lattice::PowerSetLattice;
+use crate::absint::solver::Transfer;
+use crate::absint::var::VarId;
 use mlir::sir::Stmt;
 
 /// Live variables lattice (set of live variables)

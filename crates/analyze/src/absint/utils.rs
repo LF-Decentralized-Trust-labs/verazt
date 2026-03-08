@@ -1,4 +1,4 @@
-use crate::dfa::var::VarId;
+use crate::absint::var::VarId;
 use mlir::sir::{Expr, Stmt};
 
 /// Collect variables that are used (read) in a statement

@@ -1,5 +1,5 @@
-use crate::dfa::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph};
-use crate::dfa::lattice::Lattice;
+use crate::absint::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph};
+use crate::absint::lattice::Lattice;
 use mlir::sir::Stmt;
 use std::collections::{HashMap, VecDeque};
 use std::marker::PhantomData;
@@ -231,8 +231,8 @@ impl<L: Lattice, T: Transfer<L>> DataFlowSolver<L, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dfa::cfg::Terminator;
-    use crate::dfa::lattice::PowerSetLattice;
+    use crate::absint::cfg::Terminator;
+    use crate::absint::lattice::PowerSetLattice;
 
     struct TestTransfer;
 

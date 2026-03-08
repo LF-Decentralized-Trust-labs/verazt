@@ -1,4 +1,4 @@
-use crate::dfa::var::VarId;
+use crate::absint::var::VarId;
 use solidity::ast::Loc;
 
 /// State mutation event
