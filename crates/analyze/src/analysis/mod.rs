@@ -36,7 +36,7 @@ pub mod scheduler;
 // Analysis domains
 pub mod anir;
 pub mod ast;
-pub mod scir;
+pub mod sir;
 
 // Re-exports for convenient access
 pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats};

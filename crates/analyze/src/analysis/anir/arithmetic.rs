@@ -9,8 +9,8 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use scavir::air::interfaces::TaintLabel;
-use scavir::air::ops::OpId;
+use mlir::air::interfaces::TaintLabel;
+use mlir::air::ops::OpId;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::Loc;
 use std::collections::HashMap;
@@ -59,7 +59,7 @@ impl AnalysisPass for AnirArithmeticPass {
             // Walk all ICFG nodes looking for BinOp with Wrapping semantics
             // where operands are tainted
             for node in &module.icfg.nodes {
-                if let scavir::air::cfg::ICFGNode::StmtNode { op } = node {
+                if let mlir::air::cfg::ICFGNode::StmtNode { op } = node {
                     // Check taint of the op
                     if let Some(label) = taint_map.get(op) {
                         if *label >= TaintLabel::StorageLoaded {

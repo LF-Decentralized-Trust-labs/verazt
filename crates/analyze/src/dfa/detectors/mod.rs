@@ -9,8 +9,8 @@ pub mod reentrancy;
 pub mod unchecked_call;
 pub mod uninitialized;
 
-// SCIR structural detectors
-pub mod scir;
+// SIR structural detectors
+pub mod sir;
 
 // ANIR dataflow detectors
 pub mod anir;
@@ -21,10 +21,10 @@ pub use reentrancy::ReentrancyDfaDetector;
 pub use unchecked_call::UncheckedCallDfaDetector;
 pub use uninitialized::UninitializedDfaDetector;
 
-// SCIR structural re-exports
-pub use scir::{
-    ScirAcquiresMismatchDetector, ScirMissingAccessControlDetector, ScirMissingModifiesDetector,
-    ScirMissingPdaConstraintDetector, ScirTxOriginAuthDetector, ScirUncheckedArithmeticDetector,
+// SIR structural re-exports
+pub use sir::{
+    SirAcquiresMismatchDetector, SirMissingAccessControlDetector, SirMissingModifiesDetector,
+    SirMissingPdaConstraintDetector, SirTxOriginAuthDetector, SirUncheckedArithmeticDetector,
 };
 
 // ANIR dataflow re-exports

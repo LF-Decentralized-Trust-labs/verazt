@@ -1,13 +1,13 @@
-//! Module to transform the original Solidity AST to CIR (Contract IR).
+//! Module to transform the original Solidity AST to SIR.
 
 use crate::ast;
 use crate::ast::Loc;
 use common::{error::Result, fail};
 use log::trace;
-use scavir::sir::dialect::evm::*;
-use scavir::sir::*;
+use mlir::sir::dialect::evm::*;
+use mlir::sir::*;
 
-/// Convert AST source location to CIR span.
+/// Convert AST source location to SIR span.
 fn loc_to_span(loc: Option<Loc>) -> Option<Span> {
     loc.map(|l| Span::new(l.start_line as u32, l.end_line as u32))
 }

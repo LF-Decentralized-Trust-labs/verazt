@@ -133,26 +133,26 @@ pub enum PassId {
     CentralizationRisk,
 
     // ========================================
-    // SCIR Structural Passes (PassRepresentation::Ir)
+    // SIR Structural Passes (PassRepresentation::Ir)
     // ========================================
-    /// Public function writes storage without any auth guard (SCIR tree
+    /// Public function writes storage without any auth guard (SIR tree
     /// pattern)
-    ScirMissingAccessControl,
+    SirMissingAccessControl,
     /// Public storage-writing function has no @modifies annotation
-    ScirMissingModifies,
+    SirMissingModifies,
     /// BinOp with OverflowSemantics::Wrapping on a non-constant operand
-    ScirUncheckedArithmetic,
+    SirUncheckedArithmetic,
     /// EVM: tx.origin used for authentication instead of msg.sender
-    ScirTxOriginAuth,
+    SirTxOriginAuth,
     /// Move: move.borrow_global<T> called on type not in #move.acquires
-    ScirAcquiresMismatch,
+    SirAcquiresMismatch,
     /// Anchor: account loaded without #anchor.constraint="seeds=[...]"
-    ScirMissingPdaConstraint,
+    SirMissingPdaConstraint,
 
     // ========================================
-    // ANIR Generation (PassRepresentation::Ir — needs SCIR)
+    // ANIR Generation (PassRepresentation::Ir — needs SIR)
     // ========================================
-    /// Run Pass 2a: SCIR → AnirModule
+    /// Run Pass 2a: SIR → AnirModule
     AnirGeneration,
 
     // ========================================
@@ -228,13 +228,13 @@ impl PassId {
             PassId::Reentrancy => "reentrancy",
             PassId::CeiViolation => "cei-violation",
             PassId::CentralizationRisk => "centralization-risk",
-            // SCIR Structural
-            PassId::ScirMissingAccessControl => "scir-missing-access-control",
-            PassId::ScirMissingModifies => "scir-missing-modifies",
-            PassId::ScirUncheckedArithmetic => "scir-unchecked-arithmetic",
-            PassId::ScirTxOriginAuth => "scir-tx-origin-auth",
-            PassId::ScirAcquiresMismatch => "scir-acquires-mismatch",
-            PassId::ScirMissingPdaConstraint => "scir-missing-pda-constraint",
+            // SIR Structural
+            PassId::SirMissingAccessControl => "sir-missing-access-control",
+            PassId::SirMissingModifies => "sir-missing-modifies",
+            PassId::SirUncheckedArithmetic => "sir-unchecked-arithmetic",
+            PassId::SirTxOriginAuth => "sir-tx-origin-auth",
+            PassId::SirAcquiresMismatch => "sir-acquires-mismatch",
+            PassId::SirMissingPdaConstraint => "sir-missing-pda-constraint",
             // ANIR Generation
             PassId::AnirGeneration => "anir-generation",
             // ANIR Analysis
@@ -262,14 +262,14 @@ impl PassId {
                 | PassId::LivenessAnalysis
                 | PassId::TaintAnalysis
                 | PassId::IrStateMutation
-                // SCIR structural passes operate on SCIR (which is "IR")
-                | PassId::ScirMissingAccessControl
-                | PassId::ScirMissingModifies
-                | PassId::ScirUncheckedArithmetic
-                | PassId::ScirTxOriginAuth
-                | PassId::ScirAcquiresMismatch
-                | PassId::ScirMissingPdaConstraint
-                // ANIR generation needs SCIR
+                // SIR structural passes operate on SIR (which is "IR")
+                | PassId::SirMissingAccessControl
+                | PassId::SirMissingModifies
+                | PassId::SirUncheckedArithmetic
+                | PassId::SirTxOriginAuth
+                | PassId::SirAcquiresMismatch
+                | PassId::SirMissingPdaConstraint
+                // ANIR generation needs SIR
                 | PassId::AnirGeneration
         )
     }
@@ -346,13 +346,13 @@ impl From<&str> for PassId {
             "reentrancy" => PassId::Reentrancy,
             "cei-violation" => PassId::CeiViolation,
             "centralization-risk" => PassId::CentralizationRisk,
-            // SCIR Structural
-            "scir-missing-access-control" => PassId::ScirMissingAccessControl,
-            "scir-missing-modifies" => PassId::ScirMissingModifies,
-            "scir-unchecked-arithmetic" => PassId::ScirUncheckedArithmetic,
-            "scir-tx-origin-auth" => PassId::ScirTxOriginAuth,
-            "scir-acquires-mismatch" => PassId::ScirAcquiresMismatch,
-            "scir-missing-pda-constraint" => PassId::ScirMissingPdaConstraint,
+            // SIR Structural
+            "sir-missing-access-control" => PassId::SirMissingAccessControl,
+            "sir-missing-modifies" => PassId::SirMissingModifies,
+            "sir-unchecked-arithmetic" => PassId::SirUncheckedArithmetic,
+            "sir-tx-origin-auth" => PassId::SirTxOriginAuth,
+            "sir-acquires-mismatch" => PassId::SirAcquiresMismatch,
+            "sir-missing-pda-constraint" => PassId::SirMissingPdaConstraint,
             // ANIR Generation
             "anir-generation" => PassId::AnirGeneration,
             // ANIR Analysis
@@ -389,16 +389,16 @@ mod tests {
         assert!(!PassId::SymbolTable.requires_ir());
         assert!(PassId::IrCfg.requires_ir());
         assert!(PassId::TaintAnalysis.requires_ir());
-        // SCIR structural passes require IR
-        assert!(PassId::ScirMissingAccessControl.requires_ir());
-        assert!(PassId::ScirUncheckedArithmetic.requires_ir());
+        // SIR structural passes require IR
+        assert!(PassId::SirMissingAccessControl.requires_ir());
+        assert!(PassId::SirUncheckedArithmetic.requires_ir());
         assert!(PassId::AnirGeneration.requires_ir());
     }
 
     #[test]
     fn test_requires_air() {
         assert!(!PassId::SymbolTable.requires_air());
-        assert!(!PassId::ScirMissingAccessControl.requires_air());
+        assert!(!PassId::SirMissingAccessControl.requires_air());
         assert!(PassId::AnirTaintPropagation.requires_air());
         assert!(PassId::AnirReentrancy.requires_air());
         assert!(PassId::AnirAccessControl.requires_air());
@@ -413,8 +413,8 @@ mod tests {
     }
 
     #[test]
-    fn test_scir_anir_roundtrip() {
-        assert_eq!(PassId::from("scir-missing-access-control"), PassId::ScirMissingAccessControl);
+    fn test_sir_anir_roundtrip() {
+        assert_eq!(PassId::from("sir-missing-access-control"), PassId::SirMissingAccessControl);
         assert_eq!(PassId::from("anir-generation"), PassId::AnirGeneration);
         assert_eq!(PassId::from("anir-taint-propagation"), PassId::AnirTaintPropagation);
         assert_eq!(PassId::AnirPdaValidation.as_str(), "anir-pda-validation");

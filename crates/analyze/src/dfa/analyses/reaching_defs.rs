@@ -2,7 +2,7 @@ use crate::dfa::cfg::BasicBlockId;
 use crate::dfa::lattice::PowerSetLattice;
 use crate::dfa::solver::Transfer;
 use crate::dfa::var::VarId;
-use scavir::sir::Stmt;
+use mlir::sir::Stmt;
 use solidity::ast::Loc;
 
 /// A definition point

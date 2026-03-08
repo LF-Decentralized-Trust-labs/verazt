@@ -121,14 +121,14 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     registry.register(Box::new(TxOriginGrepDetector::new()));
     registry.register(Box::new(VisibilityGrepDetector::new()));
 
-    // ── Tier 2: SCIR structural detectors ─────────────────────────
-    registry.register(Box::new(ScirMissingAccessControlDetector::new()));
-    registry.register(Box::new(ScirMissingModifiesDetector::new()));
-    registry.register(Box::new(ScirUncheckedArithmeticDetector::new()));
-    // Dialect-specific SCIR detectors:
-    registry.register(Box::new(ScirTxOriginAuthDetector::new())); // evm
-    registry.register(Box::new(ScirAcquiresMismatchDetector::new())); // move
-    registry.register(Box::new(ScirMissingPdaConstraintDetector::new())); // anchor
+    // ── Tier 2: SIR structural detectors ─────────────────────────
+    registry.register(Box::new(SirMissingAccessControlDetector::new()));
+    registry.register(Box::new(SirMissingModifiesDetector::new()));
+    registry.register(Box::new(SirUncheckedArithmeticDetector::new()));
+    // Dialect-specific SIR detectors:
+    registry.register(Box::new(SirTxOriginAuthDetector::new())); // evm
+    registry.register(Box::new(SirAcquiresMismatchDetector::new())); // move
+    registry.register(Box::new(SirMissingPdaConstraintDetector::new())); // anchor
 
     // ── Tier 3: ANIR dataflow detectors ───────────────────────────
     registry.register(Box::new(AnirReentrancyDetector::new()));

@@ -1,7 +1,7 @@
 //! Integration tests for Vyper support in SmartHunt.
 //!
 //! These tests verify that the SmartHunt pipeline correctly handles Vyper
-//! contracts through the compile → SCIR → detection path.
+//! contracts through the compile → SIR → detection path.
 
 use analyze::{
     AnalysisConfig, AnalysisContext, AnalysisReport, InputLanguage, JsonFormatter,

@@ -132,10 +132,10 @@ impl PipelineEngine {
             log::error!("Analysis phase failed: {}", e);
         }
 
-        // Phase 2 — SCIR structural analysis
+        // Phase 2 — SIR structural analysis
         if context.has_ir() {
-            if let Err(e) = self.run_scir_phase(context) {
-                log::error!("SCIR structural phase failed: {}", e);
+            if let Err(e) = self.run_sir_phase(context) {
+                log::error!("SIR structural phase failed: {}", e);
             }
         }
 
@@ -281,17 +281,17 @@ impl PipelineEngine {
     }
 
     // ========================================================================
-    // Phase 2: SCIR Structural Analysis
+    // Phase 2: SIR Structural Analysis
     // ========================================================================
 
-    /// Run SCIR structural analysis passes.
+    /// Run SIR structural analysis passes.
     ///
-    /// These passes operate on `scavir::sir::Module` and detect issues visible in the
-    /// SCIR tree structure (missing annotations, wrong overflow semantics,
+    /// These passes operate on `mlir::sir::Module` and detect issues visible in the
+    /// SIR tree structure (missing annotations, wrong overflow semantics,
     /// etc.).
-    fn run_scir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
-        log::info!("SCIR structural phase");
-        // SCIR structural passes store their findings as artifacts.
+    fn run_sir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
+        log::info!("SIR structural phase");
+        // SIR structural passes store their findings as artifacts.
         // They are registered as analysis passes and run via the normal
         // PassManager scheduling.  The create_analysis_pass factory already
         // handles them; this method is a logical grouping marker for now.
@@ -381,7 +381,7 @@ impl PipelineEngine {
 
     /// Deduplicate bugs across tiers.
     ///
-    /// When both a lower-tier (AST) and higher-tier (SCIR/ANIR) detector
+    /// When both a lower-tier (AST) and higher-tier (SIR/ANIR) detector
     /// produce findings at the same source location for the same category,
     /// keep only the higher-tier finding to avoid noise.
     fn deduplicate_bugs(mut bugs: Vec<Bug>) -> Vec<Bug> {
