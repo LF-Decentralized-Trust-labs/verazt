@@ -99,16 +99,16 @@ impl DetectorRegistry {
 
 /// Register all built-in detectors.
 pub fn register_all_detectors(registry: &mut DetectorRegistry) {
-    // Abstract-interpretation-based detectors
-    use crate::absint::detectors::*;
-    registry.register(Box::new(CeiViolationDfaDetector::new()));
-    registry.register(Box::new(DeadCodeDfaDetector::new()));
-    registry.register(Box::new(ReentrancyDfaDetector::new()));
-    registry.register(Box::new(UncheckedCallDfaDetector::new()));
-    registry.register(Box::new(UninitializedDfaDetector::new()));
+    use crate::detectors::*;
+
+    // ── Tier 1: AST-based detectors ──────────────────────────────
+    registry.register(Box::new(CeiViolationAstDetector::new()));
+    registry.register(Box::new(DeadCodeAstDetector::new()));
+    registry.register(Box::new(ReentrancyAstDetector::new()));
+    registry.register(Box::new(UncheckedCallAstDetector::new()));
+    registry.register(Box::new(UninitializedAstDetector::new()));
 
     // GREP-based detectors (declarative AST pattern matching)
-    use crate::grep::detectors::*;
     registry.register(Box::new(CentralizationRiskGrepDetector::new()));
     registry.register(Box::new(ConstantStateVarGrepDetector::new()));
     registry.register(Box::new(DelegatecallGrepDetector::new()));

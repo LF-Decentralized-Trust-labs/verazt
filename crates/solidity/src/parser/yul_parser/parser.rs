@@ -6,8 +6,8 @@ use crate::{
     parser::yul_parser::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
 };
 use Either::{Left, Right};
-use either::Either;
 use common::{error::Result, fail};
+use either::Either;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 use regex::Regex;

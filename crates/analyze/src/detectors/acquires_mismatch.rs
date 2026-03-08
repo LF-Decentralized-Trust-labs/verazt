@@ -64,7 +64,8 @@ impl BugDetectionPass for SirAcquiresMismatchDetector {
                         if let mlir::sir::MemberDecl::Function(func) = member {
                             // Get #move.acquires attribute
                             let acquires_attr = func.attrs.iter().find(|a| {
-                                a.namespace == "move" && a.key == mlir::sir::attrs::move_attrs::ACQUIRES
+                                a.namespace == "move"
+                                    && a.key == mlir::sir::attrs::move_attrs::ACQUIRES
                             });
 
                             let declared_acquires: Vec<String> = match acquires_attr {

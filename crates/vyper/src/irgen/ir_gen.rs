@@ -912,7 +912,7 @@ impl IrGen {
             ast::CmpOp::LtE => mlir::sir::BinOp::Le,
             ast::CmpOp::Gt => mlir::sir::BinOp::Gt,
             ast::CmpOp::GtE => mlir::sir::BinOp::Ge,
-            ast::CmpOp::In => mlir::sir::BinOp::Eq,    // approximate
+            ast::CmpOp::In => mlir::sir::BinOp::Eq, // approximate
             ast::CmpOp::NotIn => mlir::sir::BinOp::Ne, // approximate
         }
     }

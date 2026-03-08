@@ -1,7 +1,7 @@
 //! Abstract Interpretation Framework
 //!
-//! This module provides a generic framework for performing abstract interpretation
-//! on Solidity IR. It includes:
+//! This module provides a generic framework for performing abstract
+//! interpretation on Solidity IR. It includes:
 //!
 //! - **CFG**: Enhanced control flow graph with precomputed def/use sets
 //! - **Lattice**: Generic lattice framework for abstract domains
@@ -30,7 +30,6 @@ pub mod utils;
 pub mod var;
 
 pub mod analyses;
-pub mod detectors;
 
 // Re-export commonly used types
 pub use cfg::{BasicBlock, BasicBlockId, ControlFlowGraph, Terminator};

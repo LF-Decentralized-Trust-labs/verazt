@@ -8,9 +8,9 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
+use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use mlir::air::interfaces::TaintLabel;
 use mlir::air::ops::OpId;
-use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::Loc;
 use std::collections::HashMap;
 

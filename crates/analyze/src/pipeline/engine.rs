@@ -286,9 +286,9 @@ impl PipelineEngine {
 
     /// Run SIR structural analysis passes.
     ///
-    /// These passes operate on `mlir::sir::Module` and detect issues visible in the
-    /// SIR tree structure (missing annotations, wrong overflow semantics,
-    /// etc.).
+    /// These passes operate on `mlir::sir::Module` and detect issues visible in
+    /// the SIR tree structure (missing annotations, wrong overflow
+    /// semantics, etc.).
     fn run_sir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
         log::info!("SIR structural phase");
         // SIR structural passes store their findings as artifacts.
@@ -440,8 +440,8 @@ fn run_single_detector(
 ///
 /// This factory function maps PassIds to their concrete implementations.
 fn create_analysis_pass(pass_id: PassId) -> Option<Box<dyn AnalysisPass>> {
-    use crate::analysis::anir::CfgPass;
     use crate::analysis::ast::*;
+    use crate::analysis::sir::CfgPass;
 
     match pass_id {
         // AST Foundation Passes

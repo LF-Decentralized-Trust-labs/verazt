@@ -1,4 +1,4 @@
-//! Unchecked Call Return Detector (DFA-based)
+//! Unchecked Call Return Detector (AST-based)
 //!
 //! Detects low-level calls whose return values are not checked using
 //! def-use analysis.
@@ -17,11 +17,11 @@ use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResul
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{Block, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 
-/// DFA-based detector for unchecked call return values.
+/// AST-based detector for unchecked call return values.
 #[derive(Debug, Default)]
-pub struct UncheckedCallDfaDetector;
+pub struct UncheckedCallAstDetector;
 
-impl UncheckedCallDfaDetector {
+impl UncheckedCallAstDetector {
     pub fn new() -> Self {
         Self
     }
@@ -130,13 +130,13 @@ impl UncheckedCallDfaDetector {
     }
 }
 
-impl Pass for UncheckedCallDfaDetector {
+impl Pass for UncheckedCallAstDetector {
     fn id(&self) -> PassId {
         PassId::UncheckedCall
     }
 
     fn name(&self) -> &'static str {
-        "Unchecked Call Return (DFA)"
+        "Unchecked Call Return (AST)"
     }
 
     fn description(&self) -> &'static str {
@@ -156,7 +156,7 @@ impl Pass for UncheckedCallDfaDetector {
     }
 }
 
-impl BugDetectionPass for UncheckedCallDfaDetector {
+impl BugDetectionPass for UncheckedCallAstDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_unchecked_call_detector() {
-        let detector = UncheckedCallDfaDetector::new();
+        let detector = UncheckedCallAstDetector::new();
         assert_eq!(detector.id(), PassId::UncheckedCall);
         assert_eq!(detector.swc_ids(), vec![104]);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);

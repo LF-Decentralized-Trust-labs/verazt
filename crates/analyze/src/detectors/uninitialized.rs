@@ -1,4 +1,4 @@
-//! Uninitialized Storage Detector (DFA-based)
+//! Uninitialized Storage Detector (AST-based)
 //!
 //! Detects uninitialized storage variables and storage pointers using
 //! data flow analysis (reaching definitions).
@@ -20,11 +20,11 @@ use solidity::ast::{
 };
 use std::collections::HashSet;
 
-/// DFA-based detector for uninitialized storage variables and pointers.
+/// AST-based detector for uninitialized storage variables and pointers.
 #[derive(Debug, Default)]
-pub struct UninitializedDfaDetector;
+pub struct UninitializedAstDetector;
 
-impl UninitializedDfaDetector {
+impl UninitializedAstDetector {
     pub fn new() -> Self {
         Self
     }
@@ -150,13 +150,13 @@ impl UninitializedDfaDetector {
     }
 }
 
-impl Pass for UninitializedDfaDetector {
+impl Pass for UninitializedAstDetector {
     fn id(&self) -> PassId {
         PassId::UninitializedStorage
     }
 
     fn name(&self) -> &'static str {
-        "Uninitialized Storage (DFA)"
+        "Uninitialized Storage (AST)"
     }
 
     fn description(&self) -> &'static str {
@@ -176,7 +176,7 @@ impl Pass for UninitializedDfaDetector {
     }
 }
 
-impl BugDetectionPass for UninitializedDfaDetector {
+impl BugDetectionPass for UninitializedAstDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Vyper initializes all variables to zero by default, so
         // uninitialized-storage warnings are not applicable.
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_uninitialized_detector() {
-        let detector = UninitializedDfaDetector::new();
+        let detector = UninitializedAstDetector::new();
         assert_eq!(detector.id(), PassId::UninitializedStorage);
         assert_eq!(detector.swc_ids(), vec![109]);
         assert_eq!(detector.risk_level(), RiskLevel::High);

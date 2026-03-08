@@ -60,12 +60,14 @@ impl BugDetectionPass for SirMissingPdaConstraintDetector {
                 if let mlir::sir::Decl::Contract(contract) = decl {
                     // Find AccountsContext declarations
                     for member in &contract.members {
-                        if let mlir::sir::MemberDecl::Dialect(mlir::sir::DialectMemberDecl::Anchor(
-                            mlir::sir::dialect::anchor::AnchorMemberDecl::AccountsContext {
-                                name: ctx_name,
-                                accounts,
-                            },
-                        )) = member
+                        if let mlir::sir::MemberDecl::Dialect(
+                            mlir::sir::DialectMemberDecl::Anchor(
+                                mlir::sir::dialect::anchor::AnchorMemberDecl::AccountsContext {
+                                    name: ctx_name,
+                                    accounts,
+                                },
+                            ),
+                        ) = member
                         {
                             for account in accounts {
                                 // Check if this is a PDA-type account

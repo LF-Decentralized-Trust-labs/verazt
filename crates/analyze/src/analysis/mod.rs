@@ -57,8 +57,8 @@ pub use ast::{
     TypeIndexExt, TypeIndexPass, TypeInfo,
 };
 
-// Re-export IR passes
-pub use anir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
+// Re-export SIR/CFG passes
+pub use sir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
 
 // Re-export ANIR passes
 pub use anir::{

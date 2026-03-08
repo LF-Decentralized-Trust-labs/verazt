@@ -181,7 +181,10 @@ impl CfgPass {
     }
 
     /// Build CFG for a single IR function.
-    fn _build_cfg_for_function(&self, _func: &mlir::sir::FunctionDecl) -> PassResult<ControlFlowGraph> {
+    fn _build_cfg_for_function(
+        &self,
+        _func: &mlir::sir::FunctionDecl,
+    ) -> PassResult<ControlFlowGraph> {
         // For now, create a simple single-block CFG
         // TODO: Implement full CFG construction from IR statements
 

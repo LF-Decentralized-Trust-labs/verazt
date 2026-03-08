@@ -1,8 +1,8 @@
 //! Module handling Yul sections (Object, Code, Data).
 
 use super::{YulBlock, YulHexLit, YulStringLit};
-use either::Either::{self, Left, Right};
 use common::string::StringExt;
+use either::Either::{self, Left, Right};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------

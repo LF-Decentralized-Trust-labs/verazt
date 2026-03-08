@@ -47,6 +47,9 @@ pub mod grep;
 // Analysis framework
 pub mod analysis;
 
+// Bug detectors (grouped by bug category)
+pub mod detectors;
+
 // Pipeline orchestration framework
 pub mod pipeline;
 

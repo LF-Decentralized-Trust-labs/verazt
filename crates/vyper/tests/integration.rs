@@ -364,7 +364,9 @@ fn test_full_pipeline_token_contract() {
         mlir::sir::Type::Map(k, v) => {
             assert_eq!(
                 **k,
-                mlir::sir::Type::Dialect(mlir::sir::DialectType::Evm(mlir::sir::dialect::evm::EvmType::Address))
+                mlir::sir::Type::Dialect(mlir::sir::DialectType::Evm(
+                    mlir::sir::dialect::evm::EvmType::Address
+                ))
             );
             assert_eq!(**v, mlir::sir::Type::I256);
         }

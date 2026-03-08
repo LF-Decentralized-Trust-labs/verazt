@@ -1,4 +1,4 @@
-//! Dead Code Detector (DFA-based)
+//! Dead Code Detector (AST-based)
 //!
 //! Detects unreachable and unused code using control flow and liveness
 //! analysis.
@@ -18,11 +18,11 @@ use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResul
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use solidity::ast::{Block, ContractElem, FuncDef, Loc, SourceUnitElem, Stmt};
 
-/// DFA-based detector for dead code.
+/// AST-based detector for dead code.
 #[derive(Debug, Default)]
-pub struct DeadCodeDfaDetector;
+pub struct DeadCodeAstDetector;
 
-impl DeadCodeDfaDetector {
+impl DeadCodeAstDetector {
     pub fn new() -> Self {
         Self
     }
@@ -127,13 +127,13 @@ impl DeadCodeDfaDetector {
     }
 }
 
-impl Pass for DeadCodeDfaDetector {
+impl Pass for DeadCodeAstDetector {
     fn id(&self) -> PassId {
         PassId::DeadCode
     }
 
     fn name(&self) -> &'static str {
-        "Dead Code (DFA)"
+        "Dead Code (AST)"
     }
 
     fn description(&self) -> &'static str {
@@ -153,7 +153,7 @@ impl Pass for DeadCodeDfaDetector {
     }
 }
 
-impl BugDetectionPass for DeadCodeDfaDetector {
+impl BugDetectionPass for DeadCodeAstDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Dead-code detection operates on Solidity AST; skip for Vyper
         // input (Vyper's `pass` statement and different AST structure
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_dead_code_detector() {
-        let detector = DeadCodeDfaDetector::new();
+        let detector = DeadCodeAstDetector::new();
         assert_eq!(detector.id(), PassId::DeadCode);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }

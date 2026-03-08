@@ -98,7 +98,10 @@ pub fn expr_references_storage(expr: &mlir::sir::Expr, storage_vars: &[String]) 
 }
 
 /// Check if a function body contains an Assert before the first storage write.
-pub fn has_assert_before_storage_write(stmts: &[mlir::sir::Stmt], storage_vars: &[String]) -> bool {
+pub fn has_assert_before_storage_write(
+    stmts: &[mlir::sir::Stmt],
+    storage_vars: &[String],
+) -> bool {
     for stmt in stmts {
         match stmt {
             mlir::sir::Stmt::Assert(_) => return true,
@@ -222,13 +225,19 @@ fn walk_binops_expr(expr: &mlir::sir::Expr, visitor: &mut dyn FnMut(&mlir::sir::
 }
 
 /// Recursively walk all dialect expressions.
-pub fn walk_dialect_exprs(stmts: &[mlir::sir::Stmt], visitor: &mut dyn FnMut(&mlir::sir::DialectExpr)) {
+pub fn walk_dialect_exprs(
+    stmts: &[mlir::sir::Stmt],
+    visitor: &mut dyn FnMut(&mlir::sir::DialectExpr),
+) {
     for stmt in stmts {
         walk_dialect_exprs_stmt(stmt, visitor);
     }
 }
 
-fn walk_dialect_exprs_stmt(stmt: &mlir::sir::Stmt, visitor: &mut dyn FnMut(&mlir::sir::DialectExpr)) {
+fn walk_dialect_exprs_stmt(
+    stmt: &mlir::sir::Stmt,
+    visitor: &mut dyn FnMut(&mlir::sir::DialectExpr),
+) {
     match stmt {
         mlir::sir::Stmt::Assign(a) => {
             walk_dialect_exprs_expr(&a.lhs, visitor);
@@ -292,7 +301,10 @@ fn walk_dialect_exprs_stmt(stmt: &mlir::sir::Stmt, visitor: &mut dyn FnMut(&mlir
     }
 }
 
-fn walk_dialect_exprs_expr(expr: &mlir::sir::Expr, visitor: &mut dyn FnMut(&mlir::sir::DialectExpr)) {
+fn walk_dialect_exprs_expr(
+    expr: &mlir::sir::Expr,
+    visitor: &mut dyn FnMut(&mlir::sir::DialectExpr),
+) {
     match expr {
         mlir::sir::Expr::Dialect(d) => visitor(d),
         mlir::sir::Expr::BinOp(b) => {

@@ -2,13 +2,13 @@
 //!
 //! This is the main entry point for the Analyze tool.
 
-use clap::{Parser, Subcommand, crate_version};
-use common::error;
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
     PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
 };
+use clap::{Parser, Subcommand, crate_version};
+use common::error;
 use solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parser::parse_input_file,
 };

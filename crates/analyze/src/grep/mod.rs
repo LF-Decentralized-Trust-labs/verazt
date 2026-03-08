@@ -32,8 +32,6 @@ pub mod core;
 pub mod matcher;
 pub mod primitives;
 
-pub mod detectors;
-
 // Re-export commonly used types
 pub use builder::{BinaryPattern, PatternBuilder, PatternExt};
 pub use composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
