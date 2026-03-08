@@ -33,9 +33,8 @@ pub mod tx_origin_auth;
 pub mod unchecked_arithmetic;
 
 // ANIR dataflow detectors
-pub mod anir_access_control;
-pub mod anir_arithmetic;
-pub mod anir_reentrancy;
+pub mod access_control;
+pub mod arithmetic;
 
 // ── Re-exports ───────────────────────────────────────────────────────────
 
@@ -43,6 +42,7 @@ pub mod anir_reentrancy;
 pub use cei_violation::CeiViolationAstDetector;
 pub use dead_code::DeadCodeAstDetector;
 pub use reentrancy::ReentrancyAstDetector;
+pub use reentrancy::AnirReentrancyDetector;
 pub use unchecked_call::UncheckedCallAstDetector;
 pub use uninitialized::UninitializedAstDetector;
 
@@ -68,6 +68,5 @@ pub use tx_origin_auth::SirTxOriginAuthDetector;
 pub use unchecked_arithmetic::SirUncheckedArithmeticDetector;
 
 // ANIR dataflow detectors
-pub use anir_access_control::AnirAccessControlDetector;
-pub use anir_arithmetic::AnirArithmeticDetector;
-pub use anir_reentrancy::AnirReentrancyDetector;
+pub use access_control::AnirAccessControlDetector;
+pub use arithmetic::AnirArithmeticDetector;
