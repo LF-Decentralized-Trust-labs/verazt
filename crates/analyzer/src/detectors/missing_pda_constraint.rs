@@ -9,7 +9,7 @@ use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 
 /// SIR structural detector for missing PDA constraint (Anchor-specific).
 #[derive(Debug, Default)]

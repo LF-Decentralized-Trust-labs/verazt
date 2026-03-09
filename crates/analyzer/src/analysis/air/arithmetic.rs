@@ -12,7 +12,7 @@ use crate::analysis::pass_representation::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use mlir::air::interfaces::TaintLabel;
 use mlir::air::ops::OpId;
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 use std::collections::HashMap;
 
 /// AIR arithmetic overflow detection pass.
@@ -55,7 +55,7 @@ impl AnalysisPass for AIRArithmeticPass {
 
         let mut bugs = Vec::new();
 
-        for module in ctx.AIR_units() {
+        for module in ctx.air_units() {
             // Walk all ICFG nodes looking for BinOp with Wrapping semantics
             // where operands are tainted
             for node in &module.icfg.nodes {

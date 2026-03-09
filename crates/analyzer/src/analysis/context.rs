@@ -6,7 +6,7 @@
 use crate::analysis::pass_id::PassId;
 use crate::config::InputLanguage;
 
-use solidity::ast::SourceUnit;
+use langs::solidity::ast::SourceUnit;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -106,7 +106,7 @@ pub struct AnalysisContext {
     pub ir_units: Option<Vec<mlir::sir::Module>>,
 
     /// Generated AIR units (optional).
-    pub AIR_units: Option<Vec<mlir::air::AIRModule>>,
+    pub air_units: Option<Vec<mlir::air::AIRModule>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -144,7 +144,7 @@ impl AnalysisContext {
         Self {
             source_units,
             ir_units: None,
-            AIR_units: None,
+            air_units: None,
             input_language,
             artifacts: HashMap::new(),
             completed_passes: HashSet::new(),
@@ -185,17 +185,17 @@ impl AnalysisContext {
 
     /// Check if AIR is available.
     pub fn has_air(&self) -> bool {
-        self.AIR_units.is_some()
+        self.air_units.is_some()
     }
 
     /// Get AIR units (panics if not available).
-    pub fn AIR_units(&self) -> &Vec<mlir::air::AIRModule> {
-        self.AIR_units.as_ref().expect("AIR not generated")
+    pub fn air_units(&self) -> &Vec<mlir::air::AIRModule> {
+        self.air_units.as_ref().expect("AIR not generated")
     }
 
     /// Set AIR units.
     pub fn set_air_units(&mut self, units: Vec<mlir::air::AIRModule>) {
-        self.AIR_units = Some(units);
+        self.air_units = Some(units);
     }
 
     // ========================================
@@ -267,12 +267,12 @@ impl AnalysisContext {
     // ========================================
 
     /// Get all contracts from source units.
-    pub fn contracts(&self) -> Vec<&solidity::ast::ContractDef> {
+    pub fn contracts(&self) -> Vec<&langs::solidity::ast::ContractDef> {
         self.source_units
             .iter()
             .flat_map(|su| su.elems.iter())
             .filter_map(|elem| {
-                if let solidity::ast::SourceUnitElem::Contract(c) = elem {
+                if let langs::solidity::ast::SourceUnitElem::Contract(c) = elem {
                     Some(c)
                 } else {
                     None
@@ -282,16 +282,16 @@ impl AnalysisContext {
     }
 
     /// Get all functions from source units.
-    pub fn functions(&self) -> Vec<&solidity::ast::FuncDef> {
+    pub fn functions(&self) -> Vec<&langs::solidity::ast::FuncDef> {
         let mut funcs = Vec::new();
 
         for su in &self.source_units {
             for elem in &su.elems {
                 match elem {
-                    solidity::ast::SourceUnitElem::Func(f) => funcs.push(f),
-                    solidity::ast::SourceUnitElem::Contract(c) => {
+                    langs::solidity::ast::SourceUnitElem::Func(f) => funcs.push(f),
+                    langs::solidity::ast::SourceUnitElem::Contract(c) => {
                         for body_elem in &c.body {
-                            if let solidity::ast::ContractElem::Func(f) = body_elem {
+                            if let langs::solidity::ast::ContractElem::Func(f) = body_elem {
                                 funcs.push(f);
                             }
                         }
@@ -330,7 +330,7 @@ impl Clone for AnalysisContext {
         Self {
             source_units: self.source_units.clone(),
             ir_units: self.ir_units.clone(),
-            AIR_units: self.AIR_units.clone(),
+            air_units: self.air_units.clone(),
             input_language: self.input_language,
             artifacts: self.artifacts.clone(),
             completed_passes: self.completed_passes.clone(),

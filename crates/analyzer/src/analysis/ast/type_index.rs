@@ -7,7 +7,7 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use solidity::ast::{
+use langs::solidity::ast::{
     ContractDef, ContractElem, EnumDef, Name, SourceUnit, SourceUnitElem, StructDef, TypeDef,
 };
 use std::collections::HashMap;

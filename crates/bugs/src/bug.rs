@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 
 //-------------------------------------------------------------------------
 // Data structures representing smart contract bugs.

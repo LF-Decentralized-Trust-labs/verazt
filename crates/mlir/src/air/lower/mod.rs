@@ -42,7 +42,7 @@ pub enum LowerError {
 pub fn lower_module(cir: &crate::sir::Module) -> Result<AIRModule, LowerError> {
     use crate::air::cfg::{AIRFunction, FunctionId};
 
-    let mut AIR_module = AIRModule::new(cir.id.clone());
+    let mut air_module = AIRModule::new(cir.id.clone());
 
     // Iterate over each contract declaration
     for decl in &cir.decls {
@@ -86,9 +86,9 @@ pub fn lower_module(cir: &crate::sir::Module) -> Result<AIRModule, LowerError> {
                     // Step 4: Dialect lowering
                     dialect_lower::lower_dialect_ops(&mut blocks, &cir.attrs)?;
 
-                    let mut AIR_func = AIRFunction::new(func_id, is_public);
-                    AIR_func.blocks = blocks;
-                    AIR_module.functions.push(AIR_func);
+                    let mut air_func = AIRFunction::new(func_id, is_public);
+                    air_func.blocks = blocks;
+                    air_module.functions.push(air_func);
                 }
                 _ => { /* StorageDecl, TypeAlias, etc. — not lowered to AIR functions */ }
             }
@@ -96,7 +96,7 @@ pub fn lower_module(cir: &crate::sir::Module) -> Result<AIRModule, LowerError> {
     }
 
     // Step 5: ICFG, alias sets, and taint graph initialization
-    icfg::build_icfg(&mut AIR_module);
+    icfg::build_icfg(&mut air_module);
 
-    Ok(AIR_module)
+    Ok(air_module)
 }

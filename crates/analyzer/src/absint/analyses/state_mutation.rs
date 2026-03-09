@@ -1,5 +1,5 @@
 use crate::absint::var::VarId;
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 
 /// State mutation event
 #[derive(Clone, Debug)]

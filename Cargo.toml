@@ -6,8 +6,7 @@ members = [
   "crates/cli",
   "crates/analyzer",
   "crates/verifier",
-  "crates/solidity",
-  "crates/vyper",
+  "crates/langs",
   "crates/common",
 ]
 exclude = [
@@ -25,9 +24,8 @@ analyzer = { path = "crates/analyzer" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
 mlir = { path = "crates/mlir" }
-solidity = { path = "crates/solidity" }
+langs = { path = "crates/langs" }
 verifier = { path = "crates/verifier" }
-vyper = { path = "crates/vyper" }
 
 backtrace = "0.3"
 bat = "0.23"

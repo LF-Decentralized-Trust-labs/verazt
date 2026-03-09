@@ -1,7 +1,7 @@
 use crate::absint::analyses::reaching_defs::Definition;
 use crate::absint::cfg::BasicBlockId;
 use crate::absint::var::VarId;
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 use std::collections::{HashMap, HashSet};
 
 /// A use point

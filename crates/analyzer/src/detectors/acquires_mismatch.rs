@@ -11,7 +11,7 @@ use crate::analysis::pass_representation::PassRepresentation;
 use crate::analysis::sir::structural;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 
 /// SIR structural detector for Move acquires mismatch.
 #[derive(Debug, Default)]

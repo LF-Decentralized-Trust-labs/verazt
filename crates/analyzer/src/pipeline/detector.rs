@@ -6,7 +6,7 @@
 use crate::analysis::context::AnalysisContext;
 use crate::analysis::pass::Pass;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 
 /// Confidence level for a detection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

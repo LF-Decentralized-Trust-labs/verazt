@@ -1,5 +1,5 @@
 use crate::grep::core::{CapturedNode, Match, MatchContext, Pattern};
-use solidity::ast::{Expr, Stmt};
+use langs::solidity::ast::{Expr, Stmt};
 use std::collections::HashMap;
 
 /// Match a specific identifier
@@ -21,7 +21,7 @@ impl IdentPattern {
 
 impl Pattern for IdentPattern {
     fn match_expr(&self, expr: &Expr, ctx: &MatchContext) -> Option<Match> {
-        if let solidity::ast::Expr::Ident(id) = expr {
+        if let langs::solidity::ast::Expr::Ident(id) = expr {
             if id.name.base == self.name {
                 let mut captures = HashMap::new();
                 if let Some(key) = &self.capture_as {
@@ -66,7 +66,7 @@ impl MemberAccessPattern {
 
 impl Pattern for MemberAccessPattern {
     fn match_expr(&self, expr: &Expr, ctx: &MatchContext) -> Option<Match> {
-        if let solidity::ast::Expr::Member(m) = expr {
+        if let langs::solidity::ast::Expr::Member(m) = expr {
             if m.member.base == self.member {
                 if let Some(obj_match) = self.object.match_expr(&m.base, ctx) {
                     let mut captures = obj_match.captures;

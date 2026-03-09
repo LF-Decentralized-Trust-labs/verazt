@@ -47,7 +47,7 @@ impl AnalysisPass for AIRTaintPropagationPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut taint_map: TaintMap = HashMap::new();
 
-        for module in ctx.AIR_units() {
+        for module in ctx.air_units() {
             // Initialize from taint seeds
             for seed in &module.taint_graph.seeds {
                 let existing = taint_map.entry(seed.op).or_insert(TaintLabel::Clean);

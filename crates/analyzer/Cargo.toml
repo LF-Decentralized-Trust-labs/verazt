@@ -22,8 +22,7 @@ thiserror = { workspace = true }
 chrono = { workspace = true }
 
 mlir = { workspace = true }
-solidity = { workspace = true }
-vyper = { workspace = true }
+langs = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

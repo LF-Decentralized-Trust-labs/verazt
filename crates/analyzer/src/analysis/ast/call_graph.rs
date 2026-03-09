@@ -8,7 +8,7 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use solidity::ast::{
+use langs::solidity::ast::{
     Block, CallArgs, ContractDef, ContractElem, Expr, FuncDef, FuncKind, Name, SourceUnit,
     SourceUnitElem, Stmt,
 };
@@ -22,7 +22,7 @@ pub struct CallSite {
     /// The called function (if resolvable).
     pub callee: Option<FunctionId>,
     /// Location in source.
-    pub loc: Option<solidity::ast::Loc>,
+    pub loc: Option<langs::solidity::ast::Loc>,
     /// Whether this is an external call.
     pub is_external: bool,
     /// Whether this is a delegate call.

@@ -9,7 +9,7 @@ use crate::{
 };
 use clap::{Parser, Subcommand, crate_version};
 use common::error;
-use solidity::{
+use langs::solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parser::parse_input_file,
 };
 use std::fs;
@@ -407,7 +407,7 @@ fn run_analysis(args: Arguments) {
 
                 all_source_units.extend(source_units);
             }
-            InputLanguage::Vyper => match vyper::compile_file(file, vyper_ver) {
+            InputLanguage::Vyper => match langs::vyper::compile_file(file, vyper_ver) {
                 Ok(module) => {
                     ir_units.push(module);
                 }
@@ -663,9 +663,9 @@ fn try_install_and_compile_vyper(
         return None;
     }
 
-    let pragma = vyper::extract_pragma(file).ok()??;
+    let pragma = langs::vyper::extract_pragma(file).ok()??;
 
-    let candidates = vyper::find_installable_versions(&pragma).ok()?;
+    let candidates = langs::vyper::find_installable_versions(&pragma).ok()?;
     if candidates.is_empty() {
         eprintln!("No published Vyper version satisfies pragma '{pragma}'.");
         return None;
@@ -681,13 +681,13 @@ fn try_install_and_compile_vyper(
     }
 
     eprintln!("Installing Vyper {best}...");
-    if let Err(e) = vyper::install_version(best) {
+    if let Err(e) = langs::vyper::install_version(best) {
         eprintln!("Failed to install Vyper {best}: {e}");
         return None;
     }
     eprintln!("Vyper {best} installed successfully.");
 
-    vyper::compile_file(file, vyper_ver).ok()
+    langs::vyper::compile_file(file, vyper_ver).ok()
 }
 
 /// Try to install a compatible solc compiler and re-compile the file.
@@ -703,9 +703,9 @@ fn try_install_and_compile_solidity(
         return None;
     }
 
-    let pragma = solidity::extract_pragma(file).ok()??;
+    let pragma = langs::solidity::extract_pragma(file).ok()??;
 
-    let candidates = solidity::find_installable_versions(&pragma).ok()?;
+    let candidates = langs::solidity::find_installable_versions(&pragma).ok()?;
     if candidates.is_empty() {
         eprintln!("No published solc version satisfies pragma '{pragma}'.");
         return None;
@@ -721,7 +721,7 @@ fn try_install_and_compile_solidity(
     }
 
     eprintln!("Installing solc {best}...");
-    if let Err(e) = solidity::install_version(best) {
+    if let Err(e) = langs::solidity::install_version(best) {
         eprintln!("Failed to install solc {best}: {e}");
         return None;
     }

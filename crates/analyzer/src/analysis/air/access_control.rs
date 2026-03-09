@@ -11,7 +11,7 @@ use crate::analysis::pass_representation::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use mlir::air::interfaces::TaintLabel;
 use mlir::air::ops::OpId;
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 use std::collections::HashMap;
 
 /// AIR-based access control analysis pass.
@@ -55,7 +55,7 @@ impl AnalysisPass for AIRAccessControlPass {
 
         let mut bugs = Vec::new();
 
-        for module in ctx.AIR_units() {
+        for module in ctx.air_units() {
             for summary in &module.summaries {
                 // Check if the function is public by looking at its name
                 // (in the AIR summary, we can check the function attributes)

@@ -40,12 +40,12 @@ impl Pass for AIRGenerationPass {
 impl AnalysisPass for AIRGenerationPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let sir_modules = ctx.ir_units().clone();
-        let AIR_modules = sir_modules
+        let air_modules = sir_modules
             .iter()
             .map(|m| mlir::air::lower::lower_module(m))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| PassError::ExecutionFailed(self.name().to_string(), e.to_string()))?;
-        ctx.set_air_units(AIR_modules);
+        ctx.set_air_units(air_modules);
         ctx.mark_pass_completed(self.id());
         Ok(())
     }

@@ -413,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sir_AIR_roundtrip() {
+    fn test_sir_air_roundtrip() {
         assert_eq!(PassId::from("sir-missing-access-control"), PassId::SirMissingAccessControl);
         assert_eq!(PassId::from("AIR-generation"), PassId::AIRGeneration);
         assert_eq!(PassId::from("AIR-taint-propagation"), PassId::AIRTaintPropagation);

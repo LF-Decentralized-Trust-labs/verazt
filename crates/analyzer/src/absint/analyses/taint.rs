@@ -1,5 +1,5 @@
 use crate::absint::var::VarId;
-use solidity::ast::Loc;
+use langs::solidity::ast::Loc;
 use std::collections::HashSet;
 
 /// Taint sources specific to Solidity

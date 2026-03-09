@@ -15,7 +15,7 @@ use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use solidity::ast::{Block, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
+use langs::solidity::ast::{Block, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 
 /// AST-based detector for unchecked call return values.
 #[derive(Debug, Default)]

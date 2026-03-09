@@ -15,7 +15,7 @@ use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use solidity::ast::{Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
+use langs::solidity::ast::{Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 use mlir::air::cfg::ICFGNode;
 use mlir::air::ops::OpId;
 
@@ -453,7 +453,7 @@ impl BugDetectionPass for AIRReentrancyDetector {
             return Ok(bugs);
         }
 
-        for module in context.AIR_units() {
+        for module in context.air_units() {
             // Find external call nodes
             let external_calls: Vec<&OpId> = module
                 .icfg
