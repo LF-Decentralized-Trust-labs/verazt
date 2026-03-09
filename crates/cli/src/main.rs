@@ -15,10 +15,10 @@ struct Cli {
 enum Commands {
     /// Analyze smart contracts for vulnerabilities
     #[command(trailing_var_arg = true, allow_hyphen_values = true)]
-    Analyze { args: Vec<String> },
+    Analyzer { args: Vec<String> },
     /// Verify smart contracts properties
     #[command(trailing_var_arg = true, allow_hyphen_values = true)]
-    Verify { args: Vec<String> },
+    Verifier { args: Vec<String> },
 }
 
 fn main() {
@@ -27,15 +27,15 @@ fn main() {
     // We insert the subcommand name back in at the front so that
     // the target module can parse it using try_parse_from.
     match cli.command {
-        Commands::Analyze { args } => {
-            let mut all_args = vec!["verazt analyze".to_string()];
+        Commands::Analyzer { args } => {
+            let mut all_args = vec!["verazt analyzer".to_string()];
             all_args.extend(args);
-            analyze::cli::run(all_args);
+            analyzer::cli::run(all_args);
         }
-        Commands::Verify { args } => {
-            let mut all_args = vec!["verazt verify".to_string()];
+        Commands::Verifier { args } => {
+            let mut all_args = vec!["verazt verifier".to_string()];
             all_args.extend(args);
-            verify::cli::run(all_args);
+            verifier::cli::run(all_args);
         }
     }
 }

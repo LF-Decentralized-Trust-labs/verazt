@@ -4,10 +4,9 @@ members = [
   "crates/bugs",
 
   "crates/cli",
-  "crates/analyze",
-  "crates/verify",
-  "crates/solidity",
-  "crates/vyper",
+  "crates/analyzer",
+  "crates/verifier",
+  "crates/langs",
   "crates/common",
 ]
 exclude = [
@@ -21,13 +20,12 @@ license = "Apache License 2.0"
 edition = "2024"
 
 [workspace.dependencies]
-analyze = { path = "crates/analyze" }
+analyzer = { path = "crates/analyzer" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
 mlir = { path = "crates/mlir" }
-solidity = { path = "crates/solidity" }
-verify = { path = "crates/verify" }
-vyper = { path = "crates/vyper" }
+langs = { path = "crates/langs" }
+verifier = { path = "crates/verifier" }
 
 backtrace = "0.3"
 bat = "0.23"
