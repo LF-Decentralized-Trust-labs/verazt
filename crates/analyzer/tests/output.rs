@@ -1,6 +1,6 @@
 //! Unit tests for output formatters.
 
-use analyze::output::{
+use analyzer::output::{
     AnalysisReport, JsonFormatter, MarkdownFormatter, OutputFormatter, SarifFormatter,
 };
 use std::time::Duration;

@@ -7,7 +7,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use analyze::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
+use analyzer::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
 use bugs::bug::BugCategory;
 use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
 use solidity::parser::parse_input_file;

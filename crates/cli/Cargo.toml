@@ -10,8 +10,8 @@ name = "verazt"
 path = "src/main.rs"
 
 [dependencies]
-analyze = { workspace = true }
-verify = { workspace = true }
+analyzer = { workspace = true }
+verifier = { workspace = true }
 common = { workspace = true }
 
 clap = { workspace = true }

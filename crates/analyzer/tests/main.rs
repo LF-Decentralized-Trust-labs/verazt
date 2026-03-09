@@ -1,6 +1,6 @@
 //! Integration tests for SmartHunt.
 
-use analyze::{
+use analyzer::{
     AnalysisReport, Config, JsonFormatter, MarkdownFormatter, OutputFormatter, SarifFormatter,
 };
 use std::time::Duration;

@@ -1,6 +1,6 @@
 //! Unit tests for detectors.
 
-use analyze::{DetectorRegistry, register_all_detectors};
+use analyzer::{DetectorRegistry, register_all_detectors};
 
 fn create_registry() -> DetectorRegistry {
     let mut registry = DetectorRegistry::new();

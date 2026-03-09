@@ -3,7 +3,7 @@
 //! These tests verify that the SmartHunt pipeline correctly handles Vyper
 //! contracts through the compile → SIR → detection path.
 
-use analyze::{
+use analyzer::{
     AnalysisConfig, AnalysisContext, AnalysisReport, InputLanguage, JsonFormatter,
     OutputFormatter, PipelineConfig, PipelineEngine,
 };
@@ -13,7 +13,7 @@ use analyze::{
 ///
 /// Skipped at runtime when the Vyper compiler is not available (CI
 /// environments, etc.).
-fn run_vyper_pipeline(vyper_file: &str) -> Option<analyze::PipelineResult> {
+fn run_vyper_pipeline(vyper_file: &str) -> Option<analyzer::PipelineResult> {
     let module = match vyper::compile_file(vyper_file, None) {
         Ok(m) => m,
         Err(e) => {
