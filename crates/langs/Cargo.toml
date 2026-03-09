@@ -9,14 +9,6 @@ edition = { workspace = true }
 default = []
 parallel = ["rayon"]
 
-[[bin]]
-name = "soljc"
-path = "src/solidity/main.rs"
-
-[[bin]]
-name = "vypc"
-path = "src/vyper/main.rs"
-
 [dependencies]
 backtrace = { workspace = true }
 bat = { workspace = true }

@@ -13,6 +13,8 @@ path = "src/main.rs"
 analyzer = { workspace = true }
 verifier = { workspace = true }
 common = { workspace = true }
+langs = { workspace = true }
+mlir = { workspace = true }
 
 clap = { workspace = true }
 
