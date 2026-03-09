@@ -1,4 +1,4 @@
-use crate::grep::core::{Match, MatchContext, Pattern};
+use crate::engines::pattern::core::{Match, MatchContext, Pattern};
 use frontend::solidity::ast::{ContractElem, Expr, SourceUnit, SourceUnitElem, Stmt};
 use std::collections::HashMap;
 

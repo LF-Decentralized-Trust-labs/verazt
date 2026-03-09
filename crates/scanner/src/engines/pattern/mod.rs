@@ -13,7 +13,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use analyze::grep::{PatternBuilder as P, PatternMatcher, MatchContext};
+//! use scanner::engines::pattern::{PatternBuilder as P, PatternMatcher, MatchContext};
 //!
 //! // Create a pattern to match tx.origin == address
 //! let pattern = P::binary_eq(P::tx_origin(), P::any());

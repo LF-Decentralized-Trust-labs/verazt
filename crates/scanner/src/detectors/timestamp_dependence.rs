@@ -8,7 +8,7 @@ use analysis::pass::Pass;
 use analysis::pass_id::PassId;
 use analysis::pass_level::PassLevel;
 use analysis::pass_representation::PassRepresentation;
-use crate::grep::{MatchContext, PatternBuilder, PatternMatcher};
+use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 

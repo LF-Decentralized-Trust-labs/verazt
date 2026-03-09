@@ -1,6 +1,6 @@
-use crate::grep::composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
-use crate::grep::core::{Match, Pattern};
-use crate::grep::primitives::{AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern};
+use crate::engines::pattern::composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
+use crate::engines::pattern::core::{Match, Pattern};
+use crate::engines::pattern::primitives::{AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern};
 use frontend::solidity::ast::BinOp;
 
 /// Builder for creating patterns fluently
@@ -116,7 +116,7 @@ impl Pattern for BinaryPattern {
     fn match_expr(
         &self,
         expr: &frontend::solidity::ast::Expr,
-        ctx: &crate::grep::core::MatchContext,
+        ctx: &crate::engines::pattern::core::MatchContext,
     ) -> Option<Match> {
         if let frontend::solidity::ast::Expr::Binary(b) = expr {
             if b.operator == self.op {
@@ -136,7 +136,7 @@ impl Pattern for BinaryPattern {
     fn match_stmt(
         &self,
         _stmt: &frontend::solidity::ast::Stmt,
-        _ctx: &crate::grep::core::MatchContext,
+        _ctx: &crate::engines::pattern::core::MatchContext,
     ) -> Option<Match> {
         None
     }

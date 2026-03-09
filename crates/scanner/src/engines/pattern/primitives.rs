@@ -1,4 +1,4 @@
-use crate::grep::core::{CapturedNode, Match, MatchContext, Pattern};
+use crate::engines::pattern::core::{CapturedNode, Match, MatchContext, Pattern};
 use frontend::solidity::ast::{Expr, Stmt};
 use std::collections::HashMap;
 

@@ -7,6 +7,9 @@
 //! - **PassManager**: Orchestrates pass registration, scheduling, and execution
 //! - **AnalysisContext**: Central storage for AST, IR, and analysis artifacts
 //! - **Dependency Resolution**: Automatic scheduling based on pass dependencies
+//! - **Abstract Interpretation**: Generic lattice framework, worklist-based
+//!   fixpoint solver, and built-in dataflow analyses (reaching defs, liveness,
+//!   taint, etc.) shared across crates.
 //!
 //! # Usage
 //!
@@ -35,6 +38,9 @@ pub mod air;
 pub mod ast;
 pub mod sir;
 
+// Abstract Interpretation framework (shared across crates)
+pub mod absint;
+
 // Re-exports for convenient access
 pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats, InputLanguage};
 pub use dependency::DependencyGraph;
@@ -60,4 +66,18 @@ pub use sir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
 // Re-export AIR passes
 pub use air::{
     AIRAccessControlPass, AIRArithmeticPass, AIRGenerationPass, AIRTaintPropagationPass,
+};
+
+// Re-export absint framework
+pub use absint::{
+    FlatLattice, Lattice, MapLattice, PowerSetLattice, ProductLattice,
+    DataFlowResult, DataFlowSolver, Direction, Transfer,
+    VarId, VarScope,
+};
+pub use absint::analyses::{
+    DefUseChainsPass, Use,
+    LiveVarsTransfer, LivenessPass,
+    Definition, ReachingDefsPass, ReachingDefsTransfer,
+    AccessKind, StateAccess, StateMutationPass,
+    TaintAnalysisPass, TaintSink, TaintSource,
 };

@@ -15,23 +15,17 @@
 //!   - `PipelineEngine`: Two-phase orchestrator (analysis → detection)
 //!   - `BugDetectionPass`: Trait for vulnerability detectors
 //!   - `DetectorRegistry`: Manages detector registration and discovery
-//! - `absint`: Abstract Interpretation framework
-//!   - Generic lattice framework for abstract domains
-//!   - Worklist-based fixpoint solver for forward/backward analysis
-//!   - Abstract-interpretation-based bug detectors
-//! - `grep`: AST Pattern Matching framework
+//! - `engines::pattern`: AST/SIR structural pattern matching engine
 //!   - Declarative pattern definitions with captures
 //!   - Composable pattern combinators
-//!   - GREP-based bug detectors
+//!   - Pattern-based bug detectors
+//! - `engines::datalog`: (future) Relational reasoning over program facts
 
 // CLI entry module
 pub mod cli;
 
-// Abstract Interpretation framework (standalone)
-pub mod absint;
-
-// AST Pattern Matching framework (standalone)
-pub mod grep;
+// Detection engines
+pub mod engines;
 
 // Bug detectors (grouped by bug category)
 pub mod detectors;
