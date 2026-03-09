@@ -1,20 +1,15 @@
 [package]
-name = "verazt"
+name = "analysis"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
-[[bin]]
-name = "verazt"
-path = "src/main.rs"
 
 [dependencies]
-scanner = { workspace = true }
-verifier = { workspace = true }
-common = { workspace = true }
+bugs = { workspace = true }
 frontend = { workspace = true }
+log = { workspace = true }
 mlir = { workspace = true }
-
-clap = { workspace = true }
-
+rayon = { workspace = true }
+thiserror = { workspace = true }
