@@ -1,13 +1,12 @@
 [workspace]
 members = [
-  "crates/mlir",
-  "crates/bugs",
-
-  "crates/cli",
   "crates/analyzer",
-  "crates/verifier",
-  "crates/langs",
+  "crates/bugs",
   "crates/common",
+  "crates/frontend",
+  "crates/mlir",
+  "crates/verazt",
+  "crates/verifier",
 ]
 exclude = [
   "examples",
@@ -24,7 +23,7 @@ analyzer = { path = "crates/analyzer" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
 mlir = { path = "crates/mlir" }
-langs = { path = "crates/langs" }
+frontend = { path = "crates/frontend" }
 verifier = { path = "crates/verifier" }
 
 backtrace = "0.3"

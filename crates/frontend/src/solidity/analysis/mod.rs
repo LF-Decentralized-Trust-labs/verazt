@@ -21,7 +21,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use langs::solidity::analysis::{PassManager, AnalysisContext, PassManagerConfig};
+//! use frontend::solidity::analysis::{PassManager, AnalysisContext, PassManagerConfig};
 //!
 //! let config = PassManagerConfig::default();
 //! let mut manager = PassManager::new(config);

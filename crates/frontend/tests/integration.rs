@@ -3,9 +3,9 @@
 //! These tests exercise the full pipeline:
 //! JSON AST string → internal AST → normalization → SIR Module
 
-use langs::vyper::ast::normalize;
-use langs::vyper::irgen;
-use langs::vyper::parser;
+use frontend::vyper::ast::normalize;
+use frontend::vyper::irgen;
+use frontend::vyper::parser;
 
 /// Helper: run the full pipeline from JSON AST string.
 fn compile_json(json: &str, path: &str) -> mlir::sir::Module {

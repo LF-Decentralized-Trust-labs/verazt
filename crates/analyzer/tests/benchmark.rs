@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use analyzer::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
 use bugs::bug::BugCategory;
 use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
-use langs::solidity::parser::parse_input_file;
+use frontend::solidity::parser::parse_input_file;
 
 /// Represents a bug detected by the local analyzer.
 #[derive(Debug, Clone)]

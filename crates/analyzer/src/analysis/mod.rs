@@ -1,6 +1,6 @@
 //! Analysis Framework for Solidity Code
 //!
-//! **Migration Note**: This module was migrated from `langs::solidity::analysis`
+//! **Migration Note**: This module was migrated from `frontend::solidity::analysis`
 //! to provide SmartHunt with a self-contained analysis infrastructure.
 //!
 //! # Architecture

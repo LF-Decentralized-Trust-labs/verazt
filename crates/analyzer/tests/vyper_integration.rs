@@ -9,12 +9,12 @@ use analyzer::{
 };
 
 /// Helper: run the full SmartHunt pipeline on a Vyper file (via
-/// `langs::vyper::compile_file`) and return the pipeline result.
+/// `frontend::vyper::compile_file`) and return the pipeline result.
 ///
 /// Skipped at runtime when the Vyper compiler is not available (CI
 /// environments, etc.).
 fn run_vyper_pipeline(vyper_file: &str) -> Option<analyzer::PipelineResult> {
-    let module = match langs::vyper::compile_file(vyper_file, None) {
+    let module = match frontend::vyper::compile_file(vyper_file, None) {
         Ok(m) => m,
         Err(e) => {
             eprintln!("Skipping Vyper test (compiler not available): {e}");

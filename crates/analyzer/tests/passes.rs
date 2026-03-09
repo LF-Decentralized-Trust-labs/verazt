@@ -1,7 +1,7 @@
 //! Unit tests for analysis passes.
 
-use langs::solidity::analysis::pass::Pass;
-use langs::solidity::analysis::pass_id::PassId;
+use frontend::solidity::analysis::pass::Pass;
+use frontend::solidity::analysis::pass_id::PassId;
 
 /// Test PassId enum variants.
 #[test]
@@ -19,8 +19,8 @@ fn test_pass_id_variants() {
 /// Test pass dependencies are well-formed.
 #[test]
 fn test_pass_dependencies_valid() {
-    use langs::solidity::analysis::passes::{CallGraphPass, SymbolTablePass, TypeIndexPass};
-    // Skipping others if unsure they exist in langs::solidity::analysis::passes yet
+    use frontend::solidity::analysis::passes::{CallGraphPass, SymbolTablePass, TypeIndexPass};
+    // Skipping others if unsure they exist in frontend::solidity::analysis::passes yet
 
     // SymbolTable has no dependencies
     let symbol_table_pass = SymbolTablePass::new();

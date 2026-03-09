@@ -1,5 +1,5 @@
 use crate::grep::core::{Match, MatchContext, Pattern};
-use langs::solidity::ast::{ContractElem, Expr, SourceUnit, SourceUnitElem, Stmt};
+use frontend::solidity::ast::{ContractElem, Expr, SourceUnit, SourceUnitElem, Stmt};
 use std::collections::HashMap;
 
 /// Pattern matcher that runs multiple patterns in one traversal
@@ -71,12 +71,12 @@ impl<'a> PatternVisitor<'a> {
             Expr::Call(c) => {
                 self.visit_expr(&c.callee);
                 match &c.args {
-                    langs::solidity::ast::CallArgs::Unnamed(args) => {
+                    frontend::solidity::ast::CallArgs::Unnamed(args) => {
                         for arg in args {
                             self.visit_expr(arg);
                         }
                     }
-                    langs::solidity::ast::CallArgs::Named(args) => {
+                    frontend::solidity::ast::CallArgs::Named(args) => {
                         for arg in args {
                             self.visit_expr(&arg.value);
                         }
@@ -182,7 +182,7 @@ impl<'a> PatternVisitor<'a> {
         }
     }
 
-    fn visit_block(&mut self, block: &langs::solidity::ast::Block) {
+    fn visit_block(&mut self, block: &frontend::solidity::ast::Block) {
         for stmt in &block.body {
             self.visit_stmt(stmt);
         }
@@ -198,7 +198,7 @@ impl<'a> PatternVisitor<'a> {
         }
     }
 
-    fn visit_contract(&mut self, contract: &langs::solidity::ast::ContractDef) {
+    fn visit_contract(&mut self, contract: &frontend::solidity::ast::ContractDef) {
         let prev_contract = self.context.current_contract.clone();
         self.context.current_contract = Some(contract.name.base.clone());
 
@@ -217,7 +217,7 @@ impl<'a> PatternVisitor<'a> {
         self.context.current_contract = prev_contract;
     }
 
-    fn visit_function(&mut self, func: &langs::solidity::ast::FuncDef) {
+    fn visit_function(&mut self, func: &frontend::solidity::ast::FuncDef) {
         let prev_function = self.context.current_function.clone();
         self.context.current_function = Some(func.name.base.clone());
 

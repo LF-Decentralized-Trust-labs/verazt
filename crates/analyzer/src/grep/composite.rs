@@ -1,5 +1,5 @@
 use crate::grep::core::{Match, MatchContext, Pattern};
-use langs::solidity::ast::{Expr, Stmt};
+use frontend::solidity::ast::{Expr, Stmt};
 use std::collections::HashMap;
 
 /// Match if all patterns match
@@ -188,10 +188,10 @@ impl ContainsPattern {
                 .or_else(|| self.search_expr(&b.right, ctx)),
             Expr::Unary(u) => self.search_expr(&u.body, ctx),
             Expr::Call(c) => self.search_expr(&c.callee, ctx).or_else(|| match &c.args {
-                langs::solidity::ast::CallArgs::Unnamed(args) => {
+                frontend::solidity::ast::CallArgs::Unnamed(args) => {
                     args.iter().find_map(|arg| self.search_expr(arg, ctx))
                 }
-                langs::solidity::ast::CallArgs::Named(args) => args
+                frontend::solidity::ast::CallArgs::Named(args) => args
                     .iter()
                     .find_map(|arg| self.search_expr(&arg.value, ctx)),
             }),
@@ -223,20 +223,20 @@ impl Pattern for ContainsPattern {
             Stmt::If(i) => self
                 .search_expr(&i.condition, ctx)
                 .or_else(|| match i.true_branch.as_ref() {
-                    langs::solidity::ast::Stmt::Block(b) => {
+                    frontend::solidity::ast::Stmt::Block(b) => {
                         b.body.iter().find_map(|s| self.match_stmt(s, ctx))
                     }
                     _ => self.match_stmt(&i.true_branch, ctx),
                 })
                 .or_else(|| {
                     i.false_branch.as_ref().and_then(|fb| match fb.as_ref() {
-                        langs::solidity::ast::Stmt::Block(b) => {
+                        frontend::solidity::ast::Stmt::Block(b) => {
                             b.body.iter().find_map(|s| self.match_stmt(s, ctx))
                         }
                         _ => self.match_stmt(fb, ctx),
                     })
                 }),
-            langs::solidity::ast::Stmt::DoWhile(w) => self
+            frontend::solidity::ast::Stmt::DoWhile(w) => self
                 .match_stmt(&w.body, ctx)
                 .or_else(|| self.search_expr(&w.condition, ctx)),
             Stmt::Return(r) => r.expr.as_ref().and_then(|v| self.search_expr(v, ctx)),

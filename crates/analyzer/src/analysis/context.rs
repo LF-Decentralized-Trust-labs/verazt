@@ -6,7 +6,7 @@
 use crate::analysis::pass_id::PassId;
 use crate::config::InputLanguage;
 
-use langs::solidity::ast::SourceUnit;
+use frontend::solidity::ast::SourceUnit;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -267,12 +267,12 @@ impl AnalysisContext {
     // ========================================
 
     /// Get all contracts from source units.
-    pub fn contracts(&self) -> Vec<&langs::solidity::ast::ContractDef> {
+    pub fn contracts(&self) -> Vec<&frontend::solidity::ast::ContractDef> {
         self.source_units
             .iter()
             .flat_map(|su| su.elems.iter())
             .filter_map(|elem| {
-                if let langs::solidity::ast::SourceUnitElem::Contract(c) = elem {
+                if let frontend::solidity::ast::SourceUnitElem::Contract(c) = elem {
                     Some(c)
                 } else {
                     None
@@ -282,16 +282,16 @@ impl AnalysisContext {
     }
 
     /// Get all functions from source units.
-    pub fn functions(&self) -> Vec<&langs::solidity::ast::FuncDef> {
+    pub fn functions(&self) -> Vec<&frontend::solidity::ast::FuncDef> {
         let mut funcs = Vec::new();
 
         for su in &self.source_units {
             for elem in &su.elems {
                 match elem {
-                    langs::solidity::ast::SourceUnitElem::Func(f) => funcs.push(f),
-                    langs::solidity::ast::SourceUnitElem::Contract(c) => {
+                    frontend::solidity::ast::SourceUnitElem::Func(f) => funcs.push(f),
+                    frontend::solidity::ast::SourceUnitElem::Contract(c) => {
                         for body_elem in &c.body {
-                            if let langs::solidity::ast::ContractElem::Func(f) = body_elem {
+                            if let frontend::solidity::ast::ContractElem::Func(f) = body_elem {
                                 funcs.push(f);
                             }
                         }

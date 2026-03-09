@@ -10,7 +10,7 @@ use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use langs::solidity::ast::{Block, ContractDef, ContractElem, FuncDef, Loc, SourceUnitElem, Stmt};
+use frontend::solidity::ast::{Block, ContractDef, ContractElem, FuncDef, Loc, SourceUnitElem, Stmt};
 use std::collections::HashSet;
 
 /// GREP-based detector for variable shadowing.

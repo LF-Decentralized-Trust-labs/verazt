@@ -11,7 +11,7 @@ use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use langs::solidity::ast::{ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnitElem};
+use frontend::solidity::ast::{ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnitElem};
 
 /// GREP-based detector for centralization risks.
 #[derive(Debug, Default)]

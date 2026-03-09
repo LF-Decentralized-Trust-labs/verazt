@@ -11,7 +11,7 @@ use crate::analysis::sir::structural;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use mlir::sir::{BinOp, BinOpExpr, Expr, OverflowSemantics};
-use langs::solidity::ast::Loc;
+use frontend::solidity::ast::Loc;
 
 /// SIR structural detector for unchecked arithmetic.
 #[derive(Debug, Default)]

@@ -1,4 +1,4 @@
-use langs::solidity::ast::{Expr, Identifier, Lit, Loc, Stmt, Type};
+use frontend::solidity::ast::{Expr, Identifier, Lit, Loc, Stmt, Type};
 use std::collections::HashMap;
 use std::sync::Arc;
 

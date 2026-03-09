@@ -7,7 +7,7 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use langs::solidity::ast::{
+use frontend::solidity::ast::{
     ContractDef, ContractElem, EnumDef, ErrorDef, EventDef, FuncDef, FuncKind, Name, SourceUnit,
     SourceUnitElem, StructDef, TypeDef, VarDecl,
 };

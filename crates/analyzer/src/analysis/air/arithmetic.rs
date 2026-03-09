@@ -12,7 +12,7 @@ use crate::analysis::pass_representation::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use mlir::air::interfaces::TaintLabel;
 use mlir::air::ops::OpId;
-use langs::solidity::ast::Loc;
+use frontend::solidity::ast::Loc;
 use std::collections::HashMap;
 
 /// AIR arithmetic overflow detection pass.

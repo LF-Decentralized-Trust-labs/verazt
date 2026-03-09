@@ -121,11 +121,11 @@ Dispatch: `Commands::Compile(args) => compile::run(args)?`
 
 Per input file:
 
-1. **Parse** — call `langs::solidity::parser::parse_input_file(...)` or
-   `langs::vyper::parser::parse_input_file(...)` depending on language.
+1. **Parse** — call `frontend::solidity::parser::parse_input_file(...)` or
+   `frontend::vyper::parser::parse_input_file(...)` depending on language.
 2. **Normalize** — call the respective `normalize::run_passes(...)`.
 3. If `--print-ast` → pretty-print the normalized AST.
-4. **Lower to SIR** — call `langs::{solidity,vyper}::irgen::lower_source_unit(...)`.
+4. **Lower to SIR** — call `frontend::{solidity,vyper}::irgen::lower_source_unit(...)`.
 5. If `--print-sir` → call `module.print_pretty()`.
 6. **Lower to AIR** — call `air::lower::lower_module(...)` (already used by analyzer).
 7. If `--print-air` → call `air_module.print_pretty()` (add `print_pretty` to AIR if missing).

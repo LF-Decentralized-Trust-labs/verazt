@@ -1,5 +1,5 @@
 [package]
-name = "langs"
+name = "frontend"
 version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }

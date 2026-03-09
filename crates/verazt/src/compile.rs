@@ -85,7 +85,7 @@ pub fn run(args: Args) -> Result<()> {
 
 /// Run the Solidity compilation pipeline for one file.
 fn compile_solidity(file: &str, args: &Args) -> Result<()> {
-    use langs::solidity;
+    use frontend::solidity;
 
     let base_path = args.base_path.as_deref();
     let include_paths: &[String] = &args.include_path;
@@ -141,7 +141,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
 
 /// Run the Vyper compilation pipeline for one file.
 fn compile_vyper(file: &str, args: &Args) -> Result<()> {
-    use langs::vyper;
+    use frontend::vyper;
 
     // Step 1: Parse
     let source_unit = vyper::parser::parse_input_file(file, None)?;

@@ -1,5 +1,5 @@
 use crate::absint::var::VarId;
-use langs::solidity::ast::Loc;
+use frontend::solidity::ast::Loc;
 
 /// State mutation event
 #[derive(Clone, Debug)]
