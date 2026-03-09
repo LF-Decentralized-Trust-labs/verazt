@@ -1,5 +1,5 @@
 [package]
-name = "langs"
+name = "frontend"
 version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
@@ -8,14 +8,6 @@ edition = { workspace = true }
 [features]
 default = []
 parallel = ["rayon"]
-
-[[bin]]
-name = "soljc"
-path = "src/solidity/main.rs"
-
-[[bin]]
-name = "vypc"
-path = "src/vyper/main.rs"
 
 [dependencies]
 backtrace = { workspace = true }

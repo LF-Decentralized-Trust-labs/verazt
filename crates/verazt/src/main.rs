@@ -1,3 +1,5 @@
+mod compile;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -13,6 +15,8 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Compile a smart contract and print its IR representations
+    Compile(compile::Args),
     /// Analyze smart contracts for vulnerabilities
     #[command(trailing_var_arg = true, allow_hyphen_values = true)]
     Analyzer { args: Vec<String> },
@@ -27,6 +31,12 @@ fn main() {
     // We insert the subcommand name back in at the front so that
     // the target module can parse it using try_parse_from.
     match cli.command {
+        Commands::Compile(args) => {
+            if let Err(err) = compile::run(args) {
+                eprintln!("Error: {err}");
+                std::process::exit(1);
+            }
+        }
         Commands::Analyzer { args } => {
             let mut all_args = vec!["verazt analyzer".to_string()];
             all_args.extend(args);

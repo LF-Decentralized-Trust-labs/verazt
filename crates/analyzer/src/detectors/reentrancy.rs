@@ -15,7 +15,7 @@ use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use langs::solidity::ast::{Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
+use frontend::solidity::ast::{Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
 use mlir::air::cfg::ICFGNode;
 use mlir::air::ops::OpId;
 

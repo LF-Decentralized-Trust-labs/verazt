@@ -15,7 +15,7 @@ use crate::analysis::pass_representation::PassRepresentation;
 use crate::config::InputLanguage;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use langs::solidity::ast::{
+use frontend::solidity::ast::{
     ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnitElem, Stmt, Type, VarMut,
 };
 use std::collections::HashSet;
@@ -73,7 +73,7 @@ impl UninitializedAstDetector {
     fn check_block(
         &self,
         contract_name: &str,
-        block: &langs::solidity::ast::Block,
+        block: &frontend::solidity::ast::Block,
         initialized: &mut HashSet<String>,
         bugs: &mut Vec<Bug>,
     ) {

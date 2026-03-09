@@ -6,7 +6,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-langs = { workspace = true }
+frontend = { workspace = true }
 serde = { workspace = true }
 regex = { workspace = true }
 walkdir = { workspace = true }

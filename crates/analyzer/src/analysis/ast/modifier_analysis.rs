@@ -8,7 +8,7 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use langs::solidity::ast::{
+use frontend::solidity::ast::{
     ContractDef, ContractElem, FuncDef, FuncKind, Name, SourceUnit, SourceUnitElem,
 };
 use std::collections::{HashMap, HashSet};
@@ -25,7 +25,7 @@ pub struct ModifierInfo {
     /// Whether this is a reentrancy guard.
     pub is_reentrancy_guard: bool,
     /// Location in source.
-    pub loc: Option<langs::solidity::ast::Loc>,
+    pub loc: Option<frontend::solidity::ast::Loc>,
 }
 
 /// Modifier usage on a function.
@@ -173,7 +173,7 @@ impl ModifierAnalysis {
             .filter_map(|m| {
                 // Extract name from callee expression
                 match m.callee.as_ref() {
-                    langs::solidity::ast::Expr::Ident(ident) => Some(ident.name.clone()),
+                    frontend::solidity::ast::Expr::Ident(ident) => Some(ident.name.clone()),
                     _ => None,
                 }
             })

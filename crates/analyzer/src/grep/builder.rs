@@ -1,7 +1,7 @@
 use crate::grep::composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
 use crate::grep::core::{Match, Pattern};
 use crate::grep::primitives::{AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern};
-use langs::solidity::ast::BinOp;
+use frontend::solidity::ast::BinOp;
 
 /// Builder for creating patterns fluently
 pub struct PatternBuilder;
@@ -115,10 +115,10 @@ impl BinaryPattern {
 impl Pattern for BinaryPattern {
     fn match_expr(
         &self,
-        expr: &langs::solidity::ast::Expr,
+        expr: &frontend::solidity::ast::Expr,
         ctx: &crate::grep::core::MatchContext,
     ) -> Option<Match> {
-        if let langs::solidity::ast::Expr::Binary(b) = expr {
+        if let frontend::solidity::ast::Expr::Binary(b) = expr {
             if b.operator == self.op {
                 let left_match = self.left.match_expr(&b.left, ctx)?;
                 let right_match = self.right.match_expr(&b.right, ctx)?;
@@ -135,7 +135,7 @@ impl Pattern for BinaryPattern {
 
     fn match_stmt(
         &self,
-        _stmt: &langs::solidity::ast::Stmt,
+        _stmt: &frontend::solidity::ast::Stmt,
         _ctx: &crate::grep::core::MatchContext,
     ) -> Option<Match> {
         None

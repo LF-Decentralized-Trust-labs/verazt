@@ -3,7 +3,7 @@ use crate::absint::lattice::PowerSetLattice;
 use crate::absint::solver::Transfer;
 use crate::absint::var::VarId;
 use mlir::sir::Stmt;
-use langs::solidity::ast::Loc;
+use frontend::solidity::ast::Loc;
 
 /// A definition point
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]

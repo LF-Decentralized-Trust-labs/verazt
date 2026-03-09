@@ -7,7 +7,7 @@ use crate::analysis::pass::{AnalysisPass, Pass, PassResult};
 use crate::analysis::pass_id::PassId;
 use crate::analysis::pass_level::PassLevel;
 use crate::analysis::pass_representation::PassRepresentation;
-use langs::solidity::ast::{ContractDef, Name, SourceUnit, SourceUnitElem};
+use frontend::solidity::ast::{ContractDef, Name, SourceUnit, SourceUnitElem};
 use std::collections::{HashMap, HashSet};
 
 /// Inheritance graph for contracts.
