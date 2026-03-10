@@ -1,74 +1,65 @@
-//! Dead Code Detector (AST-based)
+//! Dead Code Detector (SIR structural)
 //!
-//! Detects unreachable and unused code using control flow and liveness
-//! analysis.
+//! Detects unreachable code by walking SIR function bodies.
 //!
 //! This detector finds:
-//! - Statements after return/revert/throw (unreachable code)
-//! - Unused function parameters and local variables
-//! - Functions that are never called (internal/private only)
+//! - Statements after return/revert (unreachable code)
 
-use crate::config::InputLanguage;
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{
-    Block, ContractElem, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
-};
+use frontend::solidity::ast::Loc;
+use mlir::sir::{Decl, MemberDecl, Stmt};
 use std::any::TypeId;
 
-/// AST-based detector for dead code.
+/// SIR structural detector for dead code (unreachable statements).
 #[derive(Debug, Default)]
-pub struct DeadCodeAstDetector;
+pub struct DeadCodeSirDetector;
 
-impl DeadCodeAstDetector {
+impl DeadCodeSirDetector {
     pub fn new() -> Self {
         Self
     }
 
-    fn check_function(&self, func: &FuncDef, contract_name: &str, bugs: &mut Vec<Bug>) {
-        if let Some(body) = &func.body {
-            let func_name = func.name.base.as_str();
-            self.check_block_for_unreachable(body, contract_name, func_name, bugs);
-        }
-    }
-
-    /// Check a block for statements after return/revert.
-    fn check_block_for_unreachable(
+    /// Check a list of sequential statements for unreachable code after
+    /// a terminator (`return`, `revert`, `break`, `continue`).
+    fn check_stmts(
         &self,
-        block: &Block,
+        stmts: &[Stmt],
         contract_name: &str,
         func_name: &str,
         bugs: &mut Vec<Bug>,
     ) {
         let mut found_terminator = false;
 
-        for stmt in &block.body {
+        for stmt in stmts {
             if found_terminator {
-                // Any statement after a terminator is unreachable
-                let loc = stmt.loc().unwrap_or(Loc::new(1, 1, 1, 1));
-                let bug = create_bug(
-                    self,
+                bugs.push(Bug::new(
+                    self.name(),
                     Some(&format!(
                         "Unreachable code in '{}.{}': statement after return/revert.",
                         contract_name, func_name,
                     )),
-                    loc,
-                );
-                bugs.push(bug);
-                break; // Only report the first unreachable statement
+                    Loc::new(0, 0, 0, 0),
+                    self.bug_kind(),
+                    self.bug_category(),
+                    self.risk_level(),
+                    self.cwe_ids(),
+                    self.swc_ids(),
+                ));
+                // Only report the first unreachable statement per block.
+                break;
             }
 
-            // Check if this statement is a terminator
-            if self.is_terminator_stmt(stmt) {
+            if self.is_terminator(stmt) {
                 found_terminator = true;
             }
 
-            // Recurse into sub-blocks
+            // Recurse into compound statements.
             self.check_stmt_recursively(stmt, contract_name, func_name, bugs);
         }
     }
@@ -81,62 +72,37 @@ impl DeadCodeAstDetector {
         bugs: &mut Vec<Bug>,
     ) {
         match stmt {
-            Stmt::Block(block) => {
-                self.check_block_for_unreachable(block, contract_name, func_name, bugs);
-            }
-            Stmt::If(if_stmt) => {
-                if let Stmt::Block(block) = &*if_stmt.true_branch {
-                    self.check_block_for_unreachable(block, contract_name, func_name, bugs);
-                }
-                if let Some(false_br) = &if_stmt.false_branch {
-                    if let Stmt::Block(block) = false_br.as_ref() {
-                        self.check_block_for_unreachable(block, contract_name, func_name, bugs);
-                    }
+            Stmt::If(s) => {
+                self.check_stmts(&s.then_body, contract_name, func_name, bugs);
+                if let Some(else_body) = &s.else_body {
+                    self.check_stmts(else_body, contract_name, func_name, bugs);
                 }
             }
-            Stmt::While(w) => {
-                if let Stmt::Block(block) = &*w.body {
-                    self.check_block_for_unreachable(block, contract_name, func_name, bugs);
-                }
+            Stmt::While(s) => {
+                self.check_stmts(&s.body, contract_name, func_name, bugs);
             }
-            Stmt::DoWhile(d) => {
-                if let Stmt::Block(block) = &*d.body {
-                    self.check_block_for_unreachable(block, contract_name, func_name, bugs);
-                }
+            Stmt::For(s) => {
+                self.check_stmts(&s.body, contract_name, func_name, bugs);
             }
-            Stmt::For(f) => {
-                if let Stmt::Block(block) = &*f.body {
-                    self.check_block_for_unreachable(block, contract_name, func_name, bugs);
-                }
-            }
-            Stmt::Try(t) => {
-                self.check_block_for_unreachable(&t.body, contract_name, func_name, bugs);
-                for catch in &t.catch_clauses {
-                    self.check_block_for_unreachable(&catch.body, contract_name, func_name, bugs);
-                }
+            Stmt::Block(inner) => {
+                self.check_stmts(inner, contract_name, func_name, bugs);
             }
             _ => {}
         }
     }
 
-    fn is_terminator_stmt(&self, stmt: &Stmt) -> bool {
-        match stmt {
-            Stmt::Return(_) => true,
-            Stmt::Revert(_) => true,
-            Stmt::Continue(_) => true,
-            Stmt::Break(_) => true,
-            _ => false,
-        }
+    fn is_terminator(&self, stmt: &Stmt) -> bool {
+        matches!(stmt, Stmt::Return(_) | Stmt::Revert(_) | Stmt::Break | Stmt::Continue)
     }
 }
 
-impl Pass for DeadCodeAstDetector {
+impl Pass for DeadCodeSirDetector {
     fn name(&self) -> &'static str {
-        "Dead Code (AST)"
+        "Dead Code"
     }
 
     fn description(&self) -> &'static str {
-        "Detects unreachable and unused code using control flow analysis"
+        "Detects unreachable code after return/revert using SIR tree walking"
     }
 
     fn level(&self) -> PassLevel {
@@ -144,7 +110,7 @@ impl Pass for DeadCodeAstDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -152,41 +118,28 @@ impl Pass for DeadCodeAstDetector {
     }
 }
 
-impl BugDetectionPass for DeadCodeAstDetector {
+impl BugDetectionPass for DeadCodeSirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::DeadCode
     }
 
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        // Dead-code detection operates on Solidity AST; skip for Vyper
-        // input (Vyper's `pass` statement and different AST structure
-        // could produce false positives).
-        if context.input_language == InputLanguage::Vyper {
-            return Ok(vec![]);
-        }
-
         let mut bugs = Vec::new();
 
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
+        if !context.has_ir() {
+            return Ok(bugs);
+        }
 
-        for source_unit in source_units {
-            for elem in &source_unit.elems {
-                match elem {
-                    SourceUnitElem::Contract(contract) => {
-                        let contract_name = &contract.name.base;
-                        for elem in &contract.body {
-                            if let ContractElem::Func(func) = elem {
-                                self.check_function(func, contract_name, &mut bugs);
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    for member in &contract.members {
+                        if let MemberDecl::Function(func) = member {
+                            if let Some(body) = &func.body {
+                                self.check_stmts(body, &contract.name, &func.name, &mut bugs);
                             }
                         }
                     }
-                    SourceUnitElem::Func(func) => {
-                        self.check_function(&func, "global", &mut bugs);
-                    }
-                    _ => {}
                 }
             }
         }
@@ -234,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_dead_code_detector() {
-        let detector = DeadCodeAstDetector::new();
+        let detector = DeadCodeSirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::DeadCode);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }

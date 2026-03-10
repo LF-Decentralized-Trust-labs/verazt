@@ -57,7 +57,11 @@ pub use pipeline::{
 };
 
 // Re-export concrete passes
-pub use passes::air::TaintPropagationPass;
+pub use passes::air::{
+    DefUseArtifact, DefUsePass, DominanceArtifact, DominancePass, ICFGArtifact, ICFGPass,
+    Interval, IntervalArtifact, IntervalPass, TaintArtifact, TaintPass, TaintPropagationPass,
+};
+pub use passes::sir::{WriteSetArtifact, WriteSetPass};
 
 // Re-export DFA framework
 pub use frameworks::dfa::analyses::{

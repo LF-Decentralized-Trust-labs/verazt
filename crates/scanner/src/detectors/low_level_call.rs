@@ -1,36 +1,38 @@
-//! Low-Level Call Detector (GREP-based)
+//! Low-Level Call Detector (SIR structural)
 //!
-//! Detects usage of low-level calls like call, delegatecall, staticcall
-//! using declarative pattern matching.
+//! Detects usage of low-level calls (`.call`, `.delegatecall`, `.staticcall`)
+//! by walking the SIR tree for EvmExpr dialect nodes and FieldAccess patterns.
 
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
-use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::SourceUnit;
+use frontend::solidity::ast::Loc;
+use mlir::sir::dialect::evm::EvmExpr;
+use mlir::sir::utils::query as structural;
+use mlir::sir::{Decl, DialectExpr, Expr, MemberDecl};
 use std::any::TypeId;
 
-/// GREP-based detector for low-level calls.
+/// SIR structural detector for low-level calls.
 #[derive(Debug, Default)]
-pub struct LowLevelCallGrepDetector;
+pub struct LowLevelCallSirDetector;
 
-impl LowLevelCallGrepDetector {
+impl LowLevelCallSirDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for LowLevelCallGrepDetector {
+impl Pass for LowLevelCallSirDetector {
     fn name(&self) -> &'static str {
         "Low-Level Calls"
     }
 
     fn description(&self) -> &'static str {
-        "Detects usage of low-level calls that may be dangerous."
+        "Detects usage of low-level EVM calls on SIR."
     }
 
     fn level(&self) -> PassLevel {
@@ -38,7 +40,7 @@ impl Pass for LowLevelCallGrepDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -46,7 +48,7 @@ impl Pass for LowLevelCallGrepDetector {
     }
 }
 
-impl BugDetectionPass for LowLevelCallGrepDetector {
+impl BugDetectionPass for LowLevelCallSirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::LowLevelCall
     }
@@ -54,40 +56,62 @@ impl BugDetectionPass for LowLevelCallGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        let mut matcher = PatternMatcher::new();
+        if !context.has_ir() {
+            return Ok(bugs);
+        }
 
-        // Match .call(), .delegatecall(), .staticcall()
-        matcher.add_pattern("call", PatternBuilder::member(PatternBuilder::any(), "call"));
-        matcher.add_pattern(
-            "delegatecall",
-            PatternBuilder::member(PatternBuilder::any(), "delegatecall"),
-        );
-        matcher.add_pattern(
-            "staticcall",
-            PatternBuilder::member(PatternBuilder::any(), "staticcall"),
-        );
-
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
-
-        let ctx = MatchContext::new();
-        let results = matcher.match_all(source_units, &ctx);
-
-        for (name, matches) in &results {
-            for m in matches {
-                if let Some(loc) = m.loc {
-                    let bug = create_bug(
-                        self,
-                        Some(&format!(
-                            "Low-level '{}' detected. Consider using higher-level \
-                             function calls when possible.",
-                            name,
-                        )),
-                        loc,
-                    );
-                    bugs.push(bug);
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    for member in &contract.members {
+                        if let MemberDecl::Function(func) = member {
+                            if let Some(body) = &func.body {
+                                structural::walk_exprs(body, &mut |expr| {
+                                    let call_kind = match expr {
+                                        // EVM dialect low-level call nodes
+                                        Expr::Dialect(DialectExpr::Evm(
+                                            EvmExpr::LowLevelCall { .. },
+                                        )) => Some("call"),
+                                        Expr::Dialect(DialectExpr::Evm(EvmExpr::RawCall {
+                                            ..
+                                        })) => Some("raw_call"),
+                                        Expr::Dialect(DialectExpr::Evm(EvmExpr::Send {
+                                            ..
+                                        })) => Some("send"),
+                                        Expr::Dialect(DialectExpr::Evm(
+                                            EvmExpr::Delegatecall { .. },
+                                        )) => Some("delegatecall"),
+                                        // Field-access fallback: addr.call, addr.staticcall
+                                        Expr::FieldAccess(fa) => {
+                                            let field = fa.field.as_str();
+                                            if matches!(field, "call" | "staticcall") {
+                                                Some(field)
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                        _ => None,
+                                    };
+                                    if let Some(kind) = call_kind {
+                                        bugs.push(Bug::new(
+                                            self.name(),
+                                            Some(&format!(
+                                                "Low-level '{}' detected in '{}.{}'. \
+                                                 Consider using higher-level function calls.",
+                                                kind, contract.name, func.name
+                                            )),
+                                            Loc::new(0, 0, 0, 0),
+                                            self.bug_kind(),
+                                            self.bug_category(),
+                                            self.risk_level(),
+                                            self.cwe_ids(),
+                                            self.swc_ids(),
+                                        ));
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -135,8 +159,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_low_level_call_grep_detector() {
-        let detector = LowLevelCallGrepDetector::new();
+    fn test_low_level_call_sir_detector() {
+        let detector = LowLevelCallSirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::LowLevelCall);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }

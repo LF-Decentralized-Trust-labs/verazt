@@ -1,163 +1,40 @@
-//! Uninitialized Storage Detector (AST-based)
+//! Uninitialized Storage Detector (SIR structural)
 //!
-//! Detects uninitialized storage variables and storage pointers using
-//! data flow analysis (reaching definitions).
+//! Detects uninitialized storage variables by walking SIR contract
+//! declarations.
 //!
 //! This detector finds:
-//! - State variables that are not explicitly initialized
-//! - Local storage pointers that could point to arbitrary storage locations
+//! - State variables of mapping/array type that are not explicitly initialized
 
-use crate::config::InputLanguage;
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{
-    ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnit, SourceUnitElem, Stmt, Type, VarMut,
-};
+use frontend::solidity::ast::Loc;
+use mlir::sir::utils::query as structural;
+use mlir::sir::{Decl, MemberDecl};
 use std::any::TypeId;
-use std::collections::HashSet;
 
-/// AST-based detector for uninitialized storage variables and pointers.
+/// SIR structural detector for uninitialized storage variables.
 #[derive(Debug, Default)]
-pub struct UninitializedAstDetector;
+pub struct UninitializedSirDetector;
 
-impl UninitializedAstDetector {
+impl UninitializedSirDetector {
     pub fn new() -> Self {
         Self
     }
-
-    fn should_warn_uninitialized(&self, typ: &Type) -> bool {
-        matches!(typ, Type::Mapping(_) | Type::Array(_))
-    }
-
-    fn check_contract(&self, contract_name: &str, contract: &ContractDef, bugs: &mut Vec<Bug>) {
-        // Check state variables without initialization
-        for elem in &contract.body {
-            if let ContractElem::Var(state_var) = elem {
-                let is_constant =
-                    matches!(state_var.mutability, VarMut::Constant | VarMut::Immutable);
-
-                if !is_constant && state_var.value.is_none() {
-                    if self.should_warn_uninitialized(&state_var.typ) {
-                        let loc = state_var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                        let var_name = state_var.name.base.as_str();
-                        let bug = create_bug(
-                            self,
-                            Some(&format!(
-                                "State variable '{}' in contract '{}' is not initialized. \
-                                 Consider initializing it explicitly.",
-                                var_name, contract_name
-                            )),
-                            loc,
-                        );
-                        bugs.push(bug);
-                    }
-                }
-            }
-        }
-
-        // Check functions for uninitialized local storage pointers
-        for elem in &contract.body {
-            if let ContractElem::Func(func) = elem {
-                if let Some(body) = &func.body {
-                    let mut initialized: HashSet<String> = HashSet::new();
-                    self.check_block(contract_name, body, &mut initialized, bugs);
-                }
-            }
-        }
-    }
-
-    fn check_block(
-        &self,
-        contract_name: &str,
-        block: &frontend::solidity::ast::Block,
-        initialized: &mut HashSet<String>,
-        bugs: &mut Vec<Bug>,
-    ) {
-        for s in &block.body {
-            self.check_statement(contract_name, s, initialized, bugs);
-        }
-    }
-
-    fn check_statement(
-        &self,
-        contract_name: &str,
-        stmt: &Stmt,
-        initialized: &mut HashSet<String>,
-        bugs: &mut Vec<Bug>,
-    ) {
-        match stmt {
-            Stmt::Block(block) => {
-                self.check_block(contract_name, block, initialized, bugs);
-            }
-            Stmt::VarDecl(var_decl) => {
-                for var in var_decl.var_decls.iter().flatten() {
-                    if let Some(DataLoc::Storage) = &var.data_loc {
-                        if var_decl.value.is_none() {
-                            let loc = var.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                            let var_name = var.name.base.as_str();
-                            let bug = create_bug(
-                                self,
-                                Some(&format!(
-                                    "Local storage pointer '{}' in contract '{}' is not initialized. \
-                                     This can lead to unexpected storage access.",
-                                    var_name, contract_name
-                                )),
-                                loc,
-                            );
-                            bugs.push(bug);
-                        }
-                    }
-
-                    if var_decl.value.is_some() {
-                        initialized.insert(var.name.base.clone());
-                    }
-                }
-            }
-            Stmt::If(if_stmt) => {
-                self.check_statement(contract_name, &if_stmt.true_branch, initialized, bugs);
-                if let Some(false_br) = &if_stmt.false_branch {
-                    self.check_statement(contract_name, false_br, initialized, bugs);
-                }
-            }
-            Stmt::While(while_stmt) => {
-                self.check_statement(contract_name, &while_stmt.body, initialized, bugs);
-            }
-            Stmt::For(for_stmt) => {
-                if let Some(pre) = &for_stmt.pre_loop {
-                    self.check_statement(contract_name, pre, initialized, bugs);
-                }
-                self.check_statement(contract_name, &for_stmt.body, initialized, bugs);
-            }
-            Stmt::DoWhile(do_while) => {
-                self.check_statement(contract_name, &do_while.body, initialized, bugs);
-            }
-            Stmt::Try(try_stmt) => {
-                self.check_block(contract_name, &try_stmt.body, initialized, bugs);
-            }
-            Stmt::Expr(expr_stmt) => {
-                if let Expr::Assign(assign) = &expr_stmt.expr {
-                    if let Expr::Ident(ident) = &*assign.left {
-                        initialized.insert(ident.name.base.clone());
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
 }
 
-impl Pass for UninitializedAstDetector {
+impl Pass for UninitializedSirDetector {
     fn name(&self) -> &'static str {
-        "Uninitialized Storage (AST)"
+        "Uninitialized Storage"
     }
 
     fn description(&self) -> &'static str {
-        "Detects uninitialized storage variables and storage pointers using data flow analysis"
+        "Detects uninitialized storage variables using SIR tree walking"
     }
 
     fn level(&self) -> PassLevel {
@@ -165,7 +42,7 @@ impl Pass for UninitializedAstDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -173,29 +50,53 @@ impl Pass for UninitializedAstDetector {
     }
 }
 
-impl BugDetectionPass for UninitializedAstDetector {
+impl BugDetectionPass for UninitializedSirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::UninitializedStorage
     }
 
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        // Vyper initializes all variables to zero by default, so
-        // uninitialized-storage warnings are not applicable.
-        if context.input_language == InputLanguage::Vyper {
-            return Ok(vec![]);
-        }
-
         let mut bugs = Vec::new();
 
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
+        if !context.has_ir() {
+            return Ok(bugs);
+        }
 
-        for source_unit in source_units {
-            for elem in &source_unit.elems {
-                if let SourceUnitElem::Contract(contract) = elem {
-                    self.check_contract(&contract.name.base, &contract, &mut bugs);
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    for member in &contract.members {
+                        if let MemberDecl::Storage(storage) = member {
+                            // Skip constant/immutable storage variables
+                            if structural::is_constant_storage(storage) {
+                                continue;
+                            }
+
+                            // Check if the type is a mapping or array
+                            // (these are the most dangerous when
+                            // uninitialized)
+                            let ty_str = storage.ty.to_string().to_lowercase();
+                            let is_complex_type =
+                                ty_str.contains("mapping") || ty_str.contains("[]");
+
+                            if is_complex_type && storage.init.is_none() {
+                                bugs.push(Bug::new(
+                                    self.name(),
+                                    Some(&format!(
+                                        "State variable '{}' in contract '{}' is not \
+                                         initialized. Consider initializing it explicitly.",
+                                        storage.name, contract.name,
+                                    )),
+                                    Loc::new(0, 0, 0, 0),
+                                    self.bug_kind(),
+                                    self.bug_category(),
+                                    self.risk_level(),
+                                    self.cwe_ids(),
+                                    self.swc_ids(),
+                                ));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -243,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_uninitialized_detector() {
-        let detector = UninitializedAstDetector::new();
+        let detector = UninitializedSirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::UninitializedStorage);
         assert_eq!(detector.swc_ids(), vec![109]);
         assert_eq!(detector.risk_level(), RiskLevel::High);

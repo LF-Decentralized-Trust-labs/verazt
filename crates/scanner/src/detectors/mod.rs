@@ -1,30 +1,27 @@
 //! Bug Detectors
 //!
 //! All detectors are grouped by bug category. Each file may contain multiple
-//! detector variants (AST / SIR / AIR) that target the same vulnerability
-//! class.
+//! detector variants (SIR / AIR) that target the same vulnerability class.
 
-// AST-based detectors (formerly "DFA" but perform manual AST walks)
+// SIR structural detectors (migrated from AST / GREP)
 pub mod cei_violation;
-pub mod dead_code;
-pub mod reentrancy;
-pub mod unchecked_call;
-pub mod uninitialized;
-
-// GREP-based detectors (declarative AST pattern matching)
 pub mod centralization_risk;
 pub mod constant_state_var;
+pub mod dead_code;
 pub mod delegatecall;
 pub mod deprecated;
 pub mod floating_pragma;
 pub mod low_level_call;
 pub mod missing_access_control;
+pub mod reentrancy;
 pub mod shadowing;
 pub mod timestamp_dependence;
 pub mod tx_origin;
+pub mod unchecked_call;
+pub mod uninitialized;
 pub mod visibility;
 
-// SIR structural detectors
+// SIR structural detectors (multi-chain / dialect-specific)
 pub mod acquires_mismatch;
 pub mod missing_modifies;
 pub mod missing_pda_constraint;
@@ -38,28 +35,25 @@ pub mod arithmetic;
 
 // ── Re-exports ───────────────────────────────────────────────────────────
 
-// AST-based detectors
-pub use cei_violation::CeiViolationAstDetector;
-pub use dead_code::DeadCodeAstDetector;
-pub use reentrancy::AIRReentrancyDetector;
-pub use reentrancy::ReentrancyAstDetector;
-pub use unchecked_call::UncheckedCallAstDetector;
-pub use uninitialized::UninitializedAstDetector;
+// SIR structural detectors (migrated)
+pub use cei_violation::CeiViolationSirDetector;
+pub use centralization_risk::CentralizationRiskSirDetector;
+pub use constant_state_var::ConstantStateVarSirDetector;
+pub use dead_code::DeadCodeSirDetector;
+pub use delegatecall::DelegatecallSirDetector;
+pub use deprecated::DeprecatedSirDetector;
+pub use floating_pragma::FloatingPragmaSirDetector;
+pub use low_level_call::LowLevelCallSirDetector;
+pub use missing_access_control::MissingAccessControlSirDetector;
+pub use reentrancy::ReentrancySirDetector;
+pub use shadowing::ShadowingSirDetector;
+pub use timestamp_dependence::TimestampDependenceSirDetector;
+pub use tx_origin::TxOriginSirDetector;
+pub use unchecked_call::UncheckedCallSirDetector;
+pub use uninitialized::UninitializedSirDetector;
+pub use visibility::VisibilitySirDetector;
 
-// GREP-based detectors
-pub use centralization_risk::CentralizationRiskGrepDetector;
-pub use constant_state_var::ConstantStateVarGrepDetector;
-pub use delegatecall::DelegatecallGrepDetector;
-pub use deprecated::DeprecatedGrepDetector;
-pub use floating_pragma::FloatingPragmaGrepDetector;
-pub use low_level_call::LowLevelCallGrepDetector;
-pub use missing_access_control::MissingAccessControlGrepDetector;
-pub use shadowing::ShadowingGrepDetector;
-pub use timestamp_dependence::TimestampDependenceGrepDetector;
-pub use tx_origin::TxOriginGrepDetector;
-pub use visibility::VisibilityGrepDetector;
-
-// SIR structural detectors
+// SIR structural detectors (multi-chain)
 pub use acquires_mismatch::SirAcquiresMismatchDetector;
 pub use missing_modifies::SirMissingModifiesDetector;
 pub use missing_pda_constraint::SirMissingPdaConstraintDetector;
@@ -70,3 +64,4 @@ pub use unchecked_arithmetic::SirUncheckedArithmeticDetector;
 // AIR dataflow detectors
 pub use access_control::AIRAccessControlDetector;
 pub use arithmetic::AIRArithmeticDetector;
+pub use reentrancy::AIRReentrancyDetector;

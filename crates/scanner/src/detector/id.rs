@@ -8,27 +8,25 @@
 /// Unique identifier for each built-in bug detector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DetectorId {
-    // ── AST-based detectors ──────────────────────────────────────
+    // ── SIR structural detectors (migrated from AST / GREP) ─────
     CeiViolation,
-    DeadCode,
-    Reentrancy,
-    UncheckedCall,
-    UninitializedStorage,
-
-    // ── GREP-based detectors ─────────────────────────────────────
     CentralizationRisk,
     ConstantStateVar,
+    DeadCode,
     Delegatecall,
     Deprecated,
     FloatingPragma,
     LowLevelCall,
     MissingAccessControl,
+    Reentrancy,
     Shadowing,
     TimestampDependence,
     TxOrigin,
+    UncheckedCall,
+    UninitializedStorage,
     Visibility,
 
-    // ── SIR structural detectors ─────────────────────────────────
+    // ── SIR structural detectors (multi-chain) ──────────────────
     SirMissingAccessControl,
     SirMissingModifies,
     SirUncheckedArithmetic,

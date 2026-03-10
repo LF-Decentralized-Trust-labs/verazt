@@ -1,76 +1,39 @@
-//! Visibility Detector (GREP-based)
+//! Visibility Detector (SIR structural)
 //!
-//! Detects missing or incorrect visibility specifiers using pattern matching.
+//! Detects missing visibility specifiers on SIR `FunctionDecl` nodes by
+//! checking for absence of `#sir.visibility` attribute.
 
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{
-    ContractDef, ContractElem, FuncDef, FuncVis, Loc, SourceUnit, SourceUnitElem,
-};
+use frontend::solidity::ast::Loc;
+use mlir::sir::attrs::sir_attrs;
+use mlir::sir::{Decl, MemberDecl};
 use std::any::TypeId;
 
-/// GREP-based detector for visibility issues.
+/// SIR structural detector for visibility issues.
 ///
 /// Detects functions without explicit visibility specifiers.
 #[derive(Debug, Default)]
-pub struct VisibilityGrepDetector;
+pub struct VisibilitySirDetector;
 
-impl VisibilityGrepDetector {
+impl VisibilitySirDetector {
     pub fn new() -> Self {
         Self
     }
-
-    fn check_contract(&self, contract: &ContractDef, bugs: &mut Vec<Bug>) {
-        for elem in &contract.body {
-            if let ContractElem::Func(func) = elem {
-                self.check_function(func, &contract.name.base, bugs);
-            }
-        }
-    }
-
-    fn check_function(&self, func: &FuncDef, contract_name: &str, bugs: &mut Vec<Bug>) {
-        // Skip constructors, fallback, and receive functions
-        let func_name = func.name.base.as_str();
-        if func_name.is_empty()
-            || func_name == "constructor"
-            || func_name == "fallback"
-            || func_name == "receive"
-        {
-            return;
-        }
-
-        // Check if visibility is explicitly specified (None means default/public)
-        if func.visibility == FuncVis::None {
-            let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-            let bug = create_bug(
-                self,
-                Some(&format!(
-                    "Function '{}' in contract '{}' has no explicit visibility specifier. \
-                     Consider adding 'public', 'external', 'internal', or 'private'.",
-                    func_name, contract_name,
-                )),
-                loc,
-            );
-            bugs.push(bug);
-        }
-
-        // Check state variables with default visibility
-        // State variables default to internal but explicit is better
-    }
 }
 
-impl Pass for VisibilityGrepDetector {
+impl Pass for VisibilitySirDetector {
     fn name(&self) -> &'static str {
         "Visibility Issues"
     }
 
     fn description(&self) -> &'static str {
-        "Detects missing or incorrect function visibility specifiers."
+        "Detects missing function visibility specifiers on SIR."
     }
 
     fn level(&self) -> PassLevel {
@@ -78,7 +41,7 @@ impl Pass for VisibilityGrepDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -86,7 +49,7 @@ impl Pass for VisibilityGrepDetector {
     }
 }
 
-impl BugDetectionPass for VisibilityGrepDetector {
+impl BugDetectionPass for VisibilitySirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::Visibility
     }
@@ -94,15 +57,49 @@ impl BugDetectionPass for VisibilityGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
+        if !context.has_ir() {
+            return Ok(bugs);
+        }
 
-        for source_unit in source_units {
-            for elem in &source_unit.elems {
-                if let SourceUnitElem::Contract(contract) = elem {
-                    self.check_contract(contract, &mut bugs);
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    for member in &contract.members {
+                        if let MemberDecl::Function(func) = member {
+                            // Skip constructors, fallback, receive
+                            if func.name.is_empty()
+                                || func.name == "constructor"
+                                || func.name == "fallback"
+                                || func.name == "receive"
+                            {
+                                continue;
+                            }
+
+                            // Check for #sir.visibility attr
+                            let has_visibility = func
+                                .attrs
+                                .iter()
+                                .any(|a| a.namespace == "sir" && a.key == sir_attrs::VISIBILITY);
+
+                            if !has_visibility {
+                                bugs.push(Bug::new(
+                                    self.name(),
+                                    Some(&format!(
+                                        "Function '{}' in contract '{}' has no explicit \
+                                         visibility specifier. Consider adding 'public', \
+                                         'external', 'internal', or 'private'.",
+                                        func.name, contract.name,
+                                    )),
+                                    Loc::new(0, 0, 0, 0),
+                                    self.bug_kind(),
+                                    self.bug_category(),
+                                    self.risk_level(),
+                                    self.cwe_ids(),
+                                    self.swc_ids(),
+                                ));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -151,8 +148,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_visibility_grep_detector() {
-        let detector = VisibilityGrepDetector::new();
+    fn test_visibility_sir_detector() {
+        let detector = VisibilitySirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::Visibility);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }

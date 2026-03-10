@@ -1,109 +1,59 @@
-//! Centralization Risk Detector (GREP-based)
+//! Centralization Risk Detector (SIR structural + WriteSetPass)
 //!
-//! Detects centralization risks in smart contracts using pattern matching.
-//! Finds contracts with privileged functions that give excessive control
-//! to a single address or entity.
+//! Detects centralization risks by identifying privileged functions that
+//! have write sets covering security-sensitive storage variables.
 
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
+use analysis::passes::sir::WriteSetArtifact;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{
-    ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem,
-};
+use frontend::solidity::ast::Loc;
+use mlir::sir::utils::query as structural;
+use mlir::sir::{Decl, MemberDecl};
 use std::any::TypeId;
 
-/// GREP-based detector for centralization risks.
-#[derive(Debug, Default)]
-pub struct CentralizationRiskGrepDetector;
+/// Risky function name patterns indicating privileged operations.
+const RISKY_FUNCTION_PATTERNS: &[&str] = &[
+    "pause",
+    "unpause",
+    "freeze",
+    "unfreeze",
+    "setfee",
+    "changefee",
+    "updatefee",
+    "setowner",
+    "changeowner",
+    "transferownership",
+    "mint",
+    "burn",
+    "setprice",
+    "changeprice",
+    "setadmin",
+    "addadmin",
+    "removeadmin",
+    "upgrade",
+    "setimplementation",
+    "emergencywithdraw",
+    "drain",
+    "blacklist",
+    "whitelist",
+];
 
-impl CentralizationRiskGrepDetector {
+/// SIR structural detector for centralization risks.
+#[derive(Debug, Default)]
+pub struct CentralizationRiskSirDetector;
+
+impl CentralizationRiskSirDetector {
     pub fn new() -> Self {
         Self
     }
-
-    /// Risky function name patterns.
-    const RISKY_FUNCTION_PATTERNS: &'static [&'static str] = &[
-        "pause",
-        "unpause",
-        "freeze",
-        "unfreeze",
-        "setfee",
-        "changefee",
-        "updatefee",
-        "setowner",
-        "changeowner",
-        "transferownership",
-        "mint",
-        "burn",
-        "setprice",
-        "changeprice",
-        "setadmin",
-        "addadmin",
-        "removeadmin",
-        "upgrade",
-        "setimplementation",
-        "emergencywithdraw",
-        "drain",
-        "blacklist",
-        "whitelist",
-    ];
-
-    fn is_privileged_function(&self, func: &FuncDef) -> bool {
-        // Check if function has owner/admin modifier
-        let has_privilege_modifier = func.modifier_invocs.iter().any(|m| {
-            if let Expr::Ident(ident) = m.callee.as_ref() {
-                let name = ident.name.base.as_str().to_lowercase();
-                name.contains("owner") || name.contains("admin") || name.contains("role")
-            } else {
-                false
-            }
-        });
-
-        if !has_privilege_modifier {
-            return false;
-        }
-
-        let func_name = func.name.base.as_str().to_lowercase();
-        Self::RISKY_FUNCTION_PATTERNS
-            .iter()
-            .any(|pattern| func_name.contains(pattern))
-    }
-
-    fn check_contract(&self, contract: &ContractDef, bugs: &mut Vec<Bug>) {
-        let mut privileged_functions = Vec::new();
-
-        for elem in &contract.body {
-            if let ContractElem::Func(func) = elem {
-                if self.is_privileged_function(func) {
-                    privileged_functions.push(func);
-                }
-            }
-        }
-
-        // Report if there are multiple privileged functions
-        if privileged_functions.len() >= 3 {
-            for func in &privileged_functions {
-                let loc = func.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                let bug = create_bug(
-                    self,
-                    Some(&format!(
-                        "Privileged function '{}' may pose centralization risk. \
-                         Consider implementing timelocks or multi-sig for critical operations.",
-                        func.name.base.as_str()
-                    )),
-                    loc,
-                );
-                bugs.push(bug);
-            }
-        }
-    }
 }
 
-impl Pass for CentralizationRiskGrepDetector {
+impl Pass for CentralizationRiskSirDetector {
     fn name(&self) -> &'static str {
         "Centralization Risk"
     }
@@ -117,15 +67,15 @@ impl Pass for CentralizationRiskGrepDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
-        vec![]
+        vec![TypeId::of::<analysis::passes::sir::WriteSetPass>()]
     }
 }
 
-impl BugDetectionPass for CentralizationRiskGrepDetector {
+impl BugDetectionPass for CentralizationRiskSirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::CentralizationRisk
     }
@@ -133,15 +83,68 @@ impl BugDetectionPass for CentralizationRiskGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
+        if !context.has_ir() {
+            return Ok(bugs);
+        }
 
-        for source_unit in source_units {
-            for elem in &source_unit.elems {
-                if let SourceUnitElem::Contract(contract) = elem {
-                    self.check_contract(contract, &mut bugs);
+        let write_sets = context.get::<WriteSetArtifact>();
+
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    let mut privileged_count = 0;
+                    let mut privileged_funcs = Vec::new();
+
+                    for member in &contract.members {
+                        if let MemberDecl::Function(func) = member {
+                            // Check if function name matches risky patterns
+                            let func_lower = func.name.to_lowercase();
+                            let is_risky = RISKY_FUNCTION_PATTERNS
+                                .iter()
+                                .any(|p| func_lower.contains(p));
+
+                            if !is_risky {
+                                continue;
+                            }
+
+                            // Only flag if function also has a non-empty write set
+                            let has_writes = write_sets
+                                .and_then(|ws| ws.get(&(contract.name.clone(), func.name.clone())))
+                                .map_or(false, |w| !w.is_empty());
+
+                            // Or check structurally
+                            let has_structural_writes = func.body.as_ref().map_or(false, |body| {
+                                let storage_vars = structural::storage_names(contract);
+                                structural::has_storage_write(body, &storage_vars)
+                            });
+
+                            if has_writes || has_structural_writes {
+                                privileged_count += 1;
+                                privileged_funcs.push(func.name.clone());
+                            }
+                        }
+                    }
+
+                    // Only report if there are multiple privileged functions
+                    if privileged_count >= 3 {
+                        for fname in &privileged_funcs {
+                            bugs.push(Bug::new(
+                                self.name(),
+                                Some(&format!(
+                                    "Privileged function '{}' in '{}' may pose \
+                                     centralization risk. Consider implementing \
+                                     timelocks or multi-sig for critical operations.",
+                                    fname, contract.name
+                                )),
+                                Loc::new(0, 0, 0, 0),
+                                self.bug_kind(),
+                                self.bug_category(),
+                                self.risk_level(),
+                                self.cwe_ids(),
+                                self.swc_ids(),
+                            ));
+                        }
+                    }
                 }
             }
         }
@@ -190,8 +193,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_centralization_risk_grep_detector() {
-        let detector = CentralizationRiskGrepDetector::new();
+    fn test_centralization_risk_sir_detector() {
+        let detector = CentralizationRiskSirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::CentralizationRisk);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
