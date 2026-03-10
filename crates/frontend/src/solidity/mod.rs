@@ -5,7 +5,6 @@ pub mod ast;
 
 pub use mlir::sir;
 
-pub mod analysis;
 pub mod irgen;
 pub mod parser;
 
