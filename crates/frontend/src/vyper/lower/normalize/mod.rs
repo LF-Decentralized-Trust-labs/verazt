@@ -1,6 +1,6 @@
 //! Vyper AST normalization passes.
 
-use super::source_unit::SourceUnit;
+use crate::vyper::ast::source_unit::SourceUnit;
 
 pub mod flatten_expr;
 pub mod rename_defs;

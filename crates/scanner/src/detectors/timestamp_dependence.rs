@@ -1,39 +1,40 @@
-//! Timestamp Dependence Detector (GREP-based)
+//! Timestamp Dependence Detector (SIR structural)
 //!
-//! Detects dangerous usage of block.timestamp for critical decisions
-//! using declarative pattern matching.
+//! Detects usage of `block.timestamp` by walking the SIR tree for
+//! `EvmExpr::Timestamp` dialect nodes.
 
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
-use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::SourceUnit;
+use frontend::solidity::ast::Loc;
+use mlir::sir::dialect::evm::EvmExpr;
+use mlir::sir::utils::query as structural;
+use mlir::sir::{Decl, DialectExpr, Expr, MemberDecl};
 use std::any::TypeId;
 
-/// GREP-based detector for timestamp dependence.
+/// SIR structural detector for timestamp dependence.
 ///
-/// Detects usage of `block.timestamp` and `now` (deprecated alias)
-/// which can be manipulated by miners.
+/// Detects usage of `block.timestamp` which can be manipulated by miners.
 #[derive(Debug, Default)]
-pub struct TimestampDependenceGrepDetector;
+pub struct TimestampDependenceSirDetector;
 
-impl TimestampDependenceGrepDetector {
+impl TimestampDependenceSirDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for TimestampDependenceGrepDetector {
+impl Pass for TimestampDependenceSirDetector {
     fn name(&self) -> &'static str {
         "Timestamp Dependence"
     }
 
     fn description(&self) -> &'static str {
-        "Detects dangerous reliance on block.timestamp."
+        "Detects dangerous reliance on block.timestamp via SIR."
     }
 
     fn level(&self) -> PassLevel {
@@ -41,7 +42,7 @@ impl Pass for TimestampDependenceGrepDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -49,7 +50,7 @@ impl Pass for TimestampDependenceGrepDetector {
     }
 }
 
-impl BugDetectionPass for TimestampDependenceGrepDetector {
+impl BugDetectionPass for TimestampDependenceSirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::TimestampDependence
     }
@@ -57,50 +58,41 @@ impl BugDetectionPass for TimestampDependenceGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        let mut matcher = PatternMatcher::new();
-
-        // Match block.timestamp
-        matcher.add_pattern("block_timestamp", PatternBuilder::block_timestamp());
-
-        // Match deprecated 'now' keyword
-        matcher.add_pattern("now", PatternBuilder::ident("now"));
-
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
-
-        let ctx = MatchContext::new();
-        let results = matcher.match_all(source_units, &ctx);
-
-        if let Some(matches) = results.get("block_timestamp") {
-            for m in matches {
-                if let Some(loc) = m.loc {
-                    let bug = create_bug(
-                        self,
-                        Some(
-                            "Usage of block.timestamp detected. Miners can manipulate \
-                             this value within a range of ~15 seconds.",
-                        ),
-                        loc,
-                    );
-                    bugs.push(bug);
-                }
-            }
+        if !context.has_ir() {
+            return Ok(bugs);
         }
 
-        if let Some(matches) = results.get("now") {
-            for m in matches {
-                if let Some(loc) = m.loc {
-                    let bug = create_bug(
-                        self,
-                        Some(
-                            "Usage of 'now' (alias for block.timestamp) detected. \
-                             This is deprecated and can be manipulated by miners.",
-                        ),
-                        loc,
-                    );
-                    bugs.push(bug);
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    for member in &contract.members {
+                        if let MemberDecl::Function(func) = member {
+                            if let Some(body) = &func.body {
+                                structural::walk_exprs(body, &mut |expr| {
+                                    if matches!(
+                                        expr,
+                                        Expr::Dialect(DialectExpr::Evm(EvmExpr::Timestamp))
+                                    ) {
+                                        bugs.push(Bug::new(
+                                            self.name(),
+                                            Some(&format!(
+                                                "Usage of block.timestamp in '{}.{}'. \
+                                                 Miners can manipulate this value within \
+                                                 a range of ~15 seconds.",
+                                                contract.name, func.name
+                                            )),
+                                            Loc::new(0, 0, 0, 0),
+                                            self.bug_kind(),
+                                            self.bug_category(),
+                                            self.risk_level(),
+                                            self.cwe_ids(),
+                                            self.swc_ids(),
+                                        ));
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -146,8 +138,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_timestamp_dependence_grep_detector() {
-        let detector = TimestampDependenceGrepDetector::new();
+    fn test_timestamp_dependence_sir_detector() {
+        let detector = TimestampDependenceSirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::TimestampDependence);
         assert_eq!(detector.swc_ids(), vec![116]);
     }

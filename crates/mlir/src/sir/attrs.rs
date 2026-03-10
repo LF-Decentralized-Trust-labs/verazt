@@ -91,6 +91,7 @@ pub mod sir_attrs {
     pub const LOADED_DIALECTS: &str = "loaded_dialects";
     pub const IS_INTERFACE: &str = "is_interface";
     pub const MUTABILITY: &str = "mutability"; // "view" | "pure"
+    pub const PRAGMA_SOLIDITY: &str = "pragma_solidity"; // e.g. "^0.8.0"
 }
 
 /// EVM dialect `#evm.*` attribute keys.

@@ -5,7 +5,7 @@ pub mod ast;
 
 pub use mlir::sir;
 
-pub mod irgen;
+pub mod lower;
 pub mod parser;
 
 use common::error::Result;

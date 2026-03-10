@@ -1,38 +1,41 @@
-//! Delegatecall Detector (GREP-based)
+//! Delegatecall Detector (SIR structural)
 //!
-//! Detects dangerous usage of delegatecall using pattern matching.
+//! Detects dangerous usage of delegatecall by walking the SIR tree for
+//! `EvmExpr::Delegatecall` nodes or `.delegatecall()` field-access calls.
 
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
-use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::SourceUnit;
+use frontend::solidity::ast::Loc;
+use mlir::sir::dialect::evm::EvmExpr;
+use mlir::sir::utils::query as structural;
+use mlir::sir::{Decl, DialectExpr, Expr, MemberDecl};
 use std::any::TypeId;
 
-/// GREP-based detector for delegatecall usage.
+/// SIR structural detector for delegatecall usage.
 ///
 /// Delegatecall to untrusted addresses can lead to storage corruption
 /// and complete contract compromise.
 #[derive(Debug, Default)]
-pub struct DelegatecallGrepDetector;
+pub struct DelegatecallSirDetector;
 
-impl DelegatecallGrepDetector {
+impl DelegatecallSirDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for DelegatecallGrepDetector {
+impl Pass for DelegatecallSirDetector {
     fn name(&self) -> &'static str {
         "Dangerous Delegatecall"
     }
 
     fn description(&self) -> &'static str {
-        "Detects potentially dangerous delegatecall usage."
+        "Detects potentially dangerous delegatecall usage on SIR."
     }
 
     fn level(&self) -> PassLevel {
@@ -40,7 +43,7 @@ impl Pass for DelegatecallGrepDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -48,7 +51,7 @@ impl Pass for DelegatecallGrepDetector {
     }
 }
 
-impl BugDetectionPass for DelegatecallGrepDetector {
+impl BugDetectionPass for DelegatecallSirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::Delegatecall
     }
@@ -56,34 +59,49 @@ impl BugDetectionPass for DelegatecallGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        let mut matcher = PatternMatcher::new();
+        if !context.has_ir() {
+            return Ok(bugs);
+        }
 
-        // Match any .delegatecall() usage
-        matcher.add_pattern(
-            "delegatecall",
-            PatternBuilder::member(PatternBuilder::any(), "delegatecall"),
-        );
-
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
-
-        let ctx = MatchContext::new();
-        let results = matcher.match_all(source_units, &ctx);
-
-        if let Some(matches) = results.get("delegatecall") {
-            for m in matches {
-                if let Some(loc) = m.loc {
-                    let bug = create_bug(
-                        self,
-                        Some(
-                            "Usage of delegatecall detected. Delegatecall to an untrusted \
-                             address can lead to storage corruption and contract compromise.",
-                        ),
-                        loc,
-                    );
-                    bugs.push(bug);
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    for member in &contract.members {
+                        if let MemberDecl::Function(func) = member {
+                            if let Some(body) = &func.body {
+                                structural::walk_exprs(body, &mut |expr| {
+                                    let is_delegatecall = match expr {
+                                        // EVM dialect delegatecall node
+                                        Expr::Dialect(DialectExpr::Evm(
+                                            EvmExpr::Delegatecall { .. },
+                                        )) => true,
+                                        // Field-access fallback: addr.delegatecall(...)
+                                        Expr::FieldAccess(fa) if fa.field == "delegatecall" => {
+                                            true
+                                        }
+                                        _ => false,
+                                    };
+                                    if is_delegatecall {
+                                        bugs.push(Bug::new(
+                                            self.name(),
+                                            Some(&format!(
+                                                "Usage of delegatecall in '{}.{}'. \
+                                                 Delegatecall to an untrusted address can lead \
+                                                 to storage corruption and contract compromise.",
+                                                contract.name, func.name
+                                            )),
+                                            Loc::new(0, 0, 0, 0),
+                                            self.bug_kind(),
+                                            self.bug_category(),
+                                            self.risk_level(),
+                                            self.cwe_ids(),
+                                            self.swc_ids(),
+                                        ));
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -130,8 +148,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_delegatecall_grep_detector() {
-        let detector = DelegatecallGrepDetector::new();
+    fn test_delegatecall_sir_detector() {
+        let detector = DelegatecallSirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::Delegatecall);
         assert_eq!(detector.swc_ids(), vec![112]);
         assert_eq!(detector.risk_level(), RiskLevel::High);

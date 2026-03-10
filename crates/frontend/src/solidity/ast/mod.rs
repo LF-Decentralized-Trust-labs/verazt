@@ -9,7 +9,6 @@ pub mod ident;
 pub mod lits;
 pub mod loc;
 pub mod name;
-pub mod normalize;
 pub mod source_unit;
 pub mod stmts;
 pub mod types;

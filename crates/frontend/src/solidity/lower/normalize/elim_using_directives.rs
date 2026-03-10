@@ -296,7 +296,7 @@ pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit
 #[cfg(test)]
 mod tests {
     use crate::solidity::{
-        ast::normalize::{eliminate_using_directives, utils::configure_unit_test_env},
+        lower::normalize::{eliminate_using_directives, utils::configure_unit_test_env},
         ast::utils::syntactic_comparer::compare_source_units,
         parser::parse_solidity_source_code,
     };

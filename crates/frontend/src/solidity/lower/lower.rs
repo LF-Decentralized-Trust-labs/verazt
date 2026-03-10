@@ -1,9 +1,10 @@
-//! Module to transform the original Solidity AST to SIR.
+//! Lower the Solidity AST into SIR.
 
 use crate::solidity::ast;
 use crate::solidity::ast::Loc;
 use common::{error::Result, fail};
 use log::trace;
+use mlir::sir::attrs::{Attr, AttrValue, sir_attrs};
 use mlir::sir::dialect::evm::*;
 use mlir::sir::*;
 
@@ -38,10 +39,19 @@ impl IrGen {
     fn lower_source_unit(&mut self, su: &ast::SourceUnit) -> Result<Module> {
         let mut decls: Vec<Decl> = vec![];
         let mut global_members: Vec<MemberDecl> = vec![];
+        let mut module_attrs: Vec<Attr> = vec![];
 
         for elem in &su.elems {
             match elem {
-                ast::SourceUnitElem::Pragma(_) => { /* skip */ }
+                ast::SourceUnitElem::Pragma(p) => {
+                    // Capture `pragma solidity <version>` as a module attribute.
+                    if let ast::PragmaKind::Version(ver) = &p.kind {
+                        module_attrs.push(Attr::sir(
+                            sir_attrs::PRAGMA_SOLIDITY,
+                            AttrValue::String(ver.clone()),
+                        ));
+                    }
+                }
                 ast::SourceUnitElem::Import(_) => {
                     fail!("IR: `import` must be eliminated: {}", elem)
                 }
@@ -85,7 +95,7 @@ impl IrGen {
             decls.insert(0, Decl::Contract(global));
         }
 
-        Ok(Module::new(&su.path, decls))
+        Ok(Module { id: su.path.clone(), attrs: module_attrs, decls })
     }
 
     //-------------------------------------------------
@@ -582,7 +592,7 @@ impl IrGen {
                 Ok((lhs, all_stmts))
             }
             ast::Expr::Call(e) => self.lower_call_expr(e),
-            ast::Expr::CallOpts(_) => fail!("Function call opts must be normalized"),
+            ast::Expr::CallOpts(e) => self.lower_call_opts_expr(e),
             ast::Expr::Tuple(e) => self.lower_tuple_expr(e),
             ast::Expr::Index(e) => self.lower_index_expr(e),
             ast::Expr::Slice(e) => self.lower_slice_expr(e),
@@ -737,6 +747,98 @@ impl IrGen {
         Ok((expr, stmts))
     }
 
+    //-------------------------------------------------
+    // Function call with options expression
+    //-------------------------------------------------
+
+    /// Lower `addr.call{value: v, gas: g}(data)` / `addr.delegatecall(data)`
+    /// etc.
+    fn lower_call_opts_expr(&mut self, e: &ast::CallOptsExpr) -> Result<(Expr, Vec<Stmt>)> {
+        let mut stmts = vec![];
+        let span = loc_to_span(e.loc);
+
+        // The callee is typically a CallExpr wrapping a MemberExpr:
+        //   `addr.call{value: x}(data)` → callee=Call(Member(addr, "call"), [data])
+        // Or it could be a direct MemberExpr without further call:
+        //   We need to extract target, method name, and call args.
+
+        // Extract call-options value/gas
+        let mut opt_value: Option<Box<Expr>> = None;
+        let mut opt_gas: Option<Box<Expr>> = None;
+        for opt in &e.call_opts {
+            let (val, extra) = self.lower_expr(&opt.value)?;
+            stmts.extend(extra);
+            match opt.name.as_str() {
+                "value" => opt_value = Some(Box::new(val)),
+                "gas" => opt_gas = Some(Box::new(val)),
+                _ => {} // ignore unknown options
+            }
+        }
+
+        // The inner callee should be a Call(Member(target, method), args)
+        match &*e.callee {
+            ast::Expr::Call(call) => {
+                // Extract the member access to get target + method name.
+                if let ast::Expr::Member(mem) = &*call.callee {
+                    let method = mem.member.to_string();
+                    let (target, extra) = self.lower_expr(&mem.base)?;
+                    stmts.extend(extra);
+                    let (args, extra) = self.lower_call_args_exprs(&call.args)?;
+                    stmts.extend(extra);
+
+                    // First arg is the data payload for low-level calls
+                    let data = args
+                        .into_iter()
+                        .next()
+                        .unwrap_or(Expr::Lit(Lit::String(StringLit::new(String::new(), span))));
+
+                    let evm = match method.as_str() {
+                        "delegatecall" => EvmExpr::Delegatecall {
+                            target: Box::new(target),
+                            data: Box::new(data),
+                            span,
+                        },
+                        "call" | "staticcall" => EvmExpr::LowLevelCall {
+                            target: Box::new(target),
+                            data: Box::new(data),
+                            value: opt_value,
+                            gas: opt_gas,
+                            span,
+                        },
+                        _ => {
+                            // Fallback: emit as a generic low-level call
+                            EvmExpr::LowLevelCall {
+                                target: Box::new(target),
+                                data: Box::new(data),
+                                value: opt_value,
+                                gas: opt_gas,
+                                span,
+                            }
+                        }
+                    };
+                    let expr = Expr::Dialect(DialectExpr::Evm(evm));
+                    return Ok((expr, stmts));
+                }
+
+                // Non-member call with options — fall through to generic call
+                let (callee, extra) = self.lower_expr(&call.callee)?;
+                stmts.extend(extra);
+                let ty = self.lower_type(&call.typ)?;
+                let (args, extra) = self.lower_call_args_exprs(&call.args)?;
+                stmts.extend(extra);
+                let expr =
+                    Expr::FunctionCall(CallExpr { callee: Box::new(callee), args, ty, span });
+                Ok((expr, stmts))
+            }
+            _ => {
+                // Unexpected shape — lower as a generic expression
+                let (expr, extra) = self.lower_expr(&e.callee)?;
+                stmts.extend(extra);
+                Ok((expr, stmts))
+            }
+        }
+    }
+
     fn lower_call_args_exprs(&mut self, args: &ast::CallArgs) -> Result<(Vec<Expr>, Vec<Stmt>)> {
         match args {
             ast::CallArgs::Unnamed(exprs) => {
@@ -844,6 +946,25 @@ impl IrGen {
                     span,
                 });
                 return Ok((expr, stmts));
+            }
+        }
+
+        // ── EVM global member accesses ──────────────────────────────
+        // Recognize `msg.sender`, `msg.value`, `tx.origin`,
+        // `block.timestamp`, `block.number` and lower them to
+        // dedicated dialect expressions.
+        if let ast::Expr::Ident(base_id) = &*e.base {
+            let base_name = base_id.name.base.as_str();
+            let evm_expr = match (base_name, member.as_str()) {
+                ("msg", "sender") => Some(EvmExpr::MsgSender),
+                ("msg", "value") => Some(EvmExpr::MsgValue),
+                ("tx", "origin") => Some(EvmExpr::TxOrigin),
+                ("block", "timestamp") => Some(EvmExpr::Timestamp),
+                ("block", "number") => Some(EvmExpr::BlockNumber),
+                _ => None,
+            };
+            if let Some(evm) = evm_expr {
+                return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
             }
         }
 

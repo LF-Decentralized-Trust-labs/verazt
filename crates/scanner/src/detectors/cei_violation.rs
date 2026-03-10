@@ -1,7 +1,7 @@
-//! CEI Violation Detector (AST-based)
+//! CEI Violation Detector (SIR structural)
 //!
 //! Detects violations of the Checks-Effects-Interactions pattern
-//! using data flow analysis.
+//! by walking SIR function bodies.
 //!
 //! The CEI pattern requires that:
 //! 1. Checks (conditions, requires) come first
@@ -9,257 +9,156 @@
 //! 3. Interactions (external calls) come last
 
 use crate::detector::id::DetectorId;
-use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{
-    Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
-};
+use frontend::solidity::ast::Loc;
+use mlir::sir::utils::query as structural;
+use mlir::sir::{Decl, MemberDecl, Stmt};
 use std::any::TypeId;
 
-/// AST-based detector for CEI (Checks-Effects-Interactions) pattern violations.
+/// SIR structural detector for CEI (Checks-Effects-Interactions) pattern
+/// violations.
 #[derive(Debug, Default)]
-pub struct CeiViolationAstDetector;
+pub struct CeiViolationSirDetector;
 
-impl CeiViolationAstDetector {
+impl CeiViolationSirDetector {
     pub fn new() -> Self {
         Self
     }
 
-    fn check_function(&self, func: &FuncDef, contract_name: &str, bugs: &mut Vec<Bug>) {
-        // Skip if function has nonReentrant modifier
-        for modifier in &func.modifier_invocs {
-            if let Expr::Ident(ident) = modifier.callee.as_ref() {
-                let name = ident.name.base.as_str().to_lowercase();
-                if name == "nonreentrant" {
-                    return;
-                }
+    /// Walk statements sequentially. Track whether we have seen an external
+    /// call so far; if a subsequent statement writes to storage, flag a
+    /// violation.
+    fn check_stmts(
+        &self,
+        stmts: &[Stmt],
+        storage_vars: &[String],
+        seen_ext_call: &mut bool,
+        bugs: &mut Vec<Bug>,
+        contract_name: &str,
+        func_name: &str,
+    ) {
+        for stmt in stmts {
+            // First: mark if this statement contains an external call.
+            if !*seen_ext_call && self.stmt_has_external_call(stmt) {
+                *seen_ext_call = true;
             }
-        }
 
-        if let Some(body) = &func.body {
-            let mut analyzer = CeiAnalyzer::new();
-            analyzer.analyze_block(body);
-
-            let func_name = func.name.base.as_str();
-            for issue in analyzer.violations {
-                let bug = create_bug(
-                    self,
+            // Second: if we already saw an external call, check for storage
+            // writes.
+            if *seen_ext_call && self.stmt_has_storage_write(stmt, storage_vars) {
+                bugs.push(Bug::new(
+                    self.name(),
                     Some(&format!(
-                        "CEI violation in '{}.{}': state update at line {} occurs after \
-                         external call at line {}. This violates the \
+                        "CEI violation in '{}.{}': state update occurs after \
+                         an external call. This violates the \
                          Checks-Effects-Interactions pattern.",
+                        contract_name, func_name,
+                    )),
+                    Loc::new(0, 0, 0, 0),
+                    self.bug_kind(),
+                    self.bug_category(),
+                    self.risk_level(),
+                    self.cwe_ids(),
+                    self.swc_ids(),
+                ));
+                // Only report once per function.
+                return;
+            }
+
+            // Recurse into compound statements.
+            match stmt {
+                Stmt::If(s) => {
+                    let mut branch_seen = *seen_ext_call;
+                    self.check_stmts(
+                        &s.then_body,
+                        storage_vars,
+                        &mut branch_seen,
+                        bugs,
                         contract_name,
                         func_name,
-                        issue.state_update_line,
-                        issue.external_call_line,
-                    )),
-                    issue.loc,
-                );
-                bugs.push(bug);
+                    );
+                    if let Some(else_body) = &s.else_body {
+                        let mut else_seen = *seen_ext_call;
+                        self.check_stmts(
+                            else_body,
+                            storage_vars,
+                            &mut else_seen,
+                            bugs,
+                            contract_name,
+                            func_name,
+                        );
+                        branch_seen = branch_seen || else_seen;
+                    }
+                    *seen_ext_call = branch_seen;
+                }
+                Stmt::While(s) => {
+                    self.check_stmts(
+                        &s.body,
+                        storage_vars,
+                        seen_ext_call,
+                        bugs,
+                        contract_name,
+                        func_name,
+                    );
+                }
+                Stmt::For(s) => {
+                    self.check_stmts(
+                        &s.body,
+                        storage_vars,
+                        seen_ext_call,
+                        bugs,
+                        contract_name,
+                        func_name,
+                    );
+                }
+                Stmt::Block(inner) => {
+                    self.check_stmts(
+                        inner,
+                        storage_vars,
+                        seen_ext_call,
+                        bugs,
+                        contract_name,
+                        func_name,
+                    );
+                }
+                _ => {}
             }
         }
     }
-}
 
-/// CEI violation detail.
-struct CeiViolation {
-    loc: Loc,
-    external_call_line: usize,
-    state_update_line: usize,
-}
-
-/// Analyzer for CEI pattern violations.
-struct CeiAnalyzer {
-    /// Whether we've seen an external call.
-    seen_external_call: bool,
-    /// Location of the first external call.
-    external_call_loc: Option<Loc>,
-    /// Detected violations.
-    violations: Vec<CeiViolation>,
-}
-
-impl CeiAnalyzer {
-    fn new() -> Self {
-        Self { seen_external_call: false, external_call_loc: None, violations: Vec::new() }
+    /// Check if a single statement contains an external call expression.
+    fn stmt_has_external_call(&self, stmt: &Stmt) -> bool {
+        let mut found = false;
+        structural::walk_function_calls(std::slice::from_ref(stmt), &mut |call| {
+            if structural::is_evm_external_call(call) {
+                found = true;
+            }
+        });
+        found
     }
 
-    fn analyze_block(&mut self, block: &Block) {
-        for stmt in &block.body {
-            self.analyze_stmt(stmt);
-        }
-    }
-
-    fn analyze_stmt(&mut self, stmt: &Stmt) {
+    /// Check if a single statement writes to storage.
+    fn stmt_has_storage_write(&self, stmt: &Stmt, storage_vars: &[String]) -> bool {
         match stmt {
-            Stmt::Block(block) => {
-                self.analyze_block(block);
-            }
-
-            Stmt::Expr(expr_stmt) => {
-                // Check for external calls first
-                if let Some(call_loc) = self.find_external_call(&expr_stmt.expr) {
-                    if !self.seen_external_call {
-                        self.seen_external_call = true;
-                        self.external_call_loc = Some(call_loc);
-                    }
-                }
-
-                // Check for state updates after external call
-                if self.seen_external_call {
-                    if let Expr::Assign(assign) = &expr_stmt.expr {
-                        if self.is_state_write(&assign.left) {
-                            if let Some(call_loc) = self.external_call_loc {
-                                let update_loc = assign.loc.unwrap_or(Loc::new(1, 1, 1, 1));
-                                self.violations.push(CeiViolation {
-                                    loc: update_loc,
-                                    external_call_line: call_loc.start_line,
-                                    state_update_line: update_loc.start_line,
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-
-            Stmt::If(if_stmt) => {
-                // Check condition for external calls
-                if let Some(call_loc) = self.find_external_call(&if_stmt.condition) {
-                    if !self.seen_external_call {
-                        self.seen_external_call = true;
-                        self.external_call_loc = Some(call_loc);
-                    }
-                }
-
-                // Analyze branches
-                self.analyze_stmt(&if_stmt.true_branch);
-                if let Some(false_br) = &if_stmt.false_branch {
-                    self.analyze_stmt(false_br);
-                }
-            }
-
-            Stmt::For(for_stmt) => {
-                if let Some(pre) = &for_stmt.pre_loop {
-                    self.analyze_stmt(pre);
-                }
-                self.analyze_stmt(&for_stmt.body);
-                if let Some(post) = &for_stmt.post_loop {
-                    self.analyze_stmt(post);
-                }
-            }
-
-            Stmt::While(while_stmt) => {
-                self.analyze_stmt(&while_stmt.body);
-            }
-
-            Stmt::DoWhile(do_while) => {
-                self.analyze_stmt(&do_while.body);
-            }
-
-            Stmt::VarDecl(var_decl) => {
-                if let Some(value) = &var_decl.value {
-                    if let Some(call_loc) = self.find_external_call(value) {
-                        if !self.seen_external_call {
-                            self.seen_external_call = true;
-                            self.external_call_loc = Some(call_loc);
-                        }
-                    }
-                }
-            }
-
-            Stmt::Try(try_stmt) => {
-                if let Some(call_loc) = self.find_external_call(&try_stmt.guarded_expr) {
-                    if !self.seen_external_call {
-                        self.seen_external_call = true;
-                        self.external_call_loc = Some(call_loc);
-                    }
-                }
-                self.analyze_block(&try_stmt.body);
-                for catch in &try_stmt.catch_clauses {
-                    self.analyze_block(&catch.body);
-                }
-            }
-
-            _ => {}
-        }
-    }
-
-    fn find_external_call(&self, expr: &Expr) -> Option<Loc> {
-        match expr {
-            Expr::Call(call) => {
-                if self.is_external_call(&call.callee) {
-                    return call.loc;
-                }
-                // Check arguments
-                match &call.args {
-                    CallArgs::Unnamed(args) => {
-                        for arg in args {
-                            if let Some(loc) = self.find_external_call(arg) {
-                                return Some(loc);
-                            }
-                        }
-                    }
-                    CallArgs::Named(args) => {
-                        for arg in args {
-                            if let Some(loc) = self.find_external_call(&arg.value) {
-                                return Some(loc);
-                            }
-                        }
-                    }
-                }
-                None
-            }
-            Expr::CallOpts(call_opts) => {
-                if let Expr::Member(member) = call_opts.callee.as_ref() {
-                    let method = member.member.base.as_str();
-                    if matches!(
-                        method,
-                        "call" | "delegatecall" | "staticcall" | "transfer" | "send"
-                    ) {
-                        return call_opts.loc;
-                    }
-                }
-                None
-            }
-            Expr::Member(member) => self.find_external_call(&member.base),
-            Expr::Binary(binary) => self
-                .find_external_call(&binary.left)
-                .or_else(|| self.find_external_call(&binary.right)),
-            Expr::Unary(unary) => self.find_external_call(&unary.body),
-            _ => None,
-        }
-    }
-
-    fn is_external_call(&self, expr: &Expr) -> bool {
-        match expr {
-            Expr::Member(member) => {
-                let method = member.member.base.as_str();
-                matches!(method, "call" | "delegatecall" | "staticcall" | "transfer" | "send")
-            }
-            _ => false,
-        }
-    }
-
-    fn is_state_write(&self, expr: &Expr) -> bool {
-        match expr {
-            Expr::Ident(_) => true,
-            Expr::Member(m) => self.is_state_write(&m.base),
-            Expr::Index(i) => self.is_state_write(&i.base_expr),
+            Stmt::Assign(a) => structural::expr_references_storage(&a.lhs, storage_vars),
+            Stmt::AugAssign(a) => structural::expr_references_storage(&a.lhs, storage_vars),
             _ => false,
         }
     }
 }
 
-impl Pass for CeiViolationAstDetector {
+impl Pass for CeiViolationSirDetector {
     fn name(&self) -> &'static str {
-        "CEI Pattern Violation (AST)"
+        "CEI Pattern Violation"
     }
 
     fn description(&self) -> &'static str {
-        "Detects violations of the Checks-Effects-Interactions pattern using data flow analysis"
+        "Detects violations of the Checks-Effects-Interactions pattern using SIR tree walking"
     }
 
     fn level(&self) -> PassLevel {
@@ -267,7 +166,7 @@ impl Pass for CeiViolationAstDetector {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ast
+        PassRepresentation::Ir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -275,7 +174,7 @@ impl Pass for CeiViolationAstDetector {
     }
 }
 
-impl BugDetectionPass for CeiViolationAstDetector {
+impl BugDetectionPass for CeiViolationSirDetector {
     fn detector_id(&self) -> DetectorId {
         DetectorId::CeiViolation
     }
@@ -283,26 +182,38 @@ impl BugDetectionPass for CeiViolationAstDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        let empty = vec![];
-        let source_units: &Vec<SourceUnit> = context
-            .get::<crate::artifacts::SourceUnitsArtifact>()
-            .unwrap_or(&empty);
+        if !context.has_ir() {
+            return Ok(bugs);
+        }
 
-        for source_unit in source_units {
-            for elem in &source_unit.elems {
-                match elem {
-                    SourceUnitElem::Contract(contract) => {
-                        let contract_name = &contract.name.base;
-                        for elem in &contract.body {
-                            if let ContractElem::Func(func) = elem {
-                                self.check_function(func, contract_name, &mut bugs);
+        for module in context.ir_units() {
+            for decl in &module.decls {
+                if let Decl::Contract(contract) = decl {
+                    let storage_vars = structural::storage_names(contract);
+                    if storage_vars.is_empty() {
+                        continue;
+                    }
+
+                    for member in &contract.members {
+                        if let MemberDecl::Function(func) = member {
+                            // Skip functions with reentrancy guard
+                            if structural::has_reentrancy_guard(func) {
+                                continue;
+                            }
+
+                            if let Some(body) = &func.body {
+                                let mut seen_ext_call = false;
+                                self.check_stmts(
+                                    body,
+                                    &storage_vars,
+                                    &mut seen_ext_call,
+                                    &mut bugs,
+                                    &contract.name,
+                                    &func.name,
+                                );
                             }
                         }
                     }
-                    SourceUnitElem::Func(func) => {
-                        self.check_function(&func, "global", &mut bugs);
-                    }
-                    _ => {}
                 }
             }
         }
@@ -354,7 +265,7 @@ mod tests {
 
     #[test]
     fn test_cei_violation_detector() {
-        let detector = CeiViolationAstDetector::new();
+        let detector = CeiViolationSirDetector::new();
         assert_eq!(detector.detector_id(), DetectorId::CeiViolation);
         assert_eq!(detector.risk_level(), RiskLevel::High);
         assert_eq!(detector.swc_ids(), vec![107]);

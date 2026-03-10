@@ -97,30 +97,31 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
     let source_units =
         solidity::parser::parse_input_file(file, base_path, include_paths, solc_ver)?;
 
-    // Step 2: Normalize
-    let normalized = solidity::ast::normalize::run_passes(&source_units);
-
-    // Step 3: Print AST if requested
+    // Step 2: Print AST if requested (before normalization — source-faithful)
     if args.print_ast {
         println!("=== Parsed AST for {file} ===");
-        for su in &normalized {
+        for su in &source_units {
             su.print_highlighted_code();
             println!();
         }
     }
 
-    for su in &normalized {
-        // Step 4: Lower to SIR
-        let sir_module = solidity::irgen::lower_source_unit(su)?;
+    // Step 3: Normalize + lower to SIR (integrated in sir::lower)
+    let sir_modules = solidity::lower::lower_source_units(&source_units)?;
 
-        // Step 5: Print SIR if requested
+    for sir_module in &sir_modules {
+        // Step 4: Print SIR if requested
         if args.print_sir {
             println!("=== SIR for {file} ===");
             sir_module.print_pretty();
         }
 
-        // Step 6: Lower to AIR
-        let air_module = mlir::air::lower::lower_module(&sir_module)
+        // Step 5: Lower SIR → CIR
+        let cir_module = mlir::cir::lower::lower_module(sir_module)
+            .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
+
+        // Step 6: Lower CIR → AIR
+        let air_module = mlir::air::lower::lower_module(&cir_module)
             .map_err(|e| create_error(format!("AIR lowering failed: {e}")))?;
 
         // Step 7: Print AIR if requested
@@ -146,27 +147,28 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     // Step 1: Parse
     let source_unit = vyper::parser::parse_input_file(file, None)?;
 
-    // Step 2: Normalize
-    let normalized = vyper::ast::normalize::run_passes(&source_unit);
-
-    // Step 3: Print AST if requested
+    // Step 2: Print AST if requested (before normalization — source-faithful)
     if args.print_ast {
         println!("=== Parsed AST for {file} ===");
-        println!("{normalized:#?}");
+        println!("{source_unit:#?}");
         println!();
     }
 
-    // Step 4: Lower to SIR
-    let sir_module = vyper::irgen::lower_source_unit(&normalized)?;
+    // Step 3: Normalize + lower to SIR (integrated in sir::lower)
+    let sir_module = vyper::lower::lower_source_unit_normalized(&source_unit)?;
 
-    // Step 5: Print SIR if requested
+    // Step 4: Print SIR if requested
     if args.print_sir {
         println!("=== SIR for {file} ===");
         sir_module.print_pretty();
     }
 
-    // Step 6: Lower to AIR
-    let air_module = mlir::air::lower::lower_module(&sir_module)
+    // Step 5: Lower SIR → CIR
+    let cir_module = mlir::cir::lower::lower_module(&sir_module)
+        .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
+
+    // Step 6: Lower CIR → AIR
+    let air_module = mlir::air::lower::lower_module(&cir_module)
         .map_err(|e| create_error(format!("AIR lowering failed: {e}")))?;
 
     // Step 7: Print AIR if requested

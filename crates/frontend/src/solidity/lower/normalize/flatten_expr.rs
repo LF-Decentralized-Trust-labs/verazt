@@ -438,7 +438,7 @@ pub fn flatten_expr(source_units: &[SourceUnit], env: Option<&NamingEnv>) -> Vec
 #[cfg(test)]
 mod tests {
     use crate::solidity::{
-        ast::normalize::{flatten_expr, utils::configure_unit_test_env},
+        lower::normalize::{flatten_expr, utils::configure_unit_test_env},
         ast::utils::syntactic_comparer::compare_source_units,
         parser::parse_solidity_source_code,
     };

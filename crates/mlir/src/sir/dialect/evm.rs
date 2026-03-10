@@ -61,6 +61,8 @@ pub enum EvmExpr {
     Timestamp,
     /// `evm.block_number()` — `block.number`
     BlockNumber,
+    /// `evm.tx_origin()` — `tx.origin`
+    TxOrigin,
     /// `evm.inline_asm` — opaque inline assembly with conservative
     /// attributes (`#sir.call_risk = {reentrancy: true}`, alias = TOP).
     InlineAsm { asm_text: String },
@@ -91,6 +93,22 @@ pub enum EvmExpr {
     Empty(Type),
     /// `concat(a, b, ...)` — byte/string concatenation.
     Concat(Vec<Expr>),
+
+    // ── Explicit low-level call dialect nodes ──────────────────
+    /// `evm.delegatecall(target, data)` — low-level delegatecall.
+    Delegatecall {
+        target: Box<Expr>,
+        data: Box<Expr>,
+        span: Option<Span>,
+    },
+    /// `evm.low_level_call(target, data, value?, gas?)` — `.call{value:…}(…)`.
+    LowLevelCall {
+        target: Box<Expr>,
+        data: Box<Expr>,
+        value: Option<Box<Expr>>,
+        gas: Option<Box<Expr>>,
+        span: Option<Span>,
+    },
 }
 
 impl Display for EvmExpr {
@@ -100,6 +118,7 @@ impl Display for EvmExpr {
             EvmExpr::MsgValue => write!(f, "evm.msg_value()"),
             EvmExpr::Timestamp => write!(f, "evm.timestamp()"),
             EvmExpr::BlockNumber => write!(f, "evm.block_number()"),
+            EvmExpr::TxOrigin => write!(f, "evm.tx_origin()"),
             EvmExpr::InlineAsm { asm_text } => write!(f, "evm.inline_asm({asm_text})"),
             EvmExpr::Convert { expr, to } => write!(f, "evm.convert({expr}, {to})"),
             EvmExpr::Slice { expr, start, length } => {
@@ -124,6 +143,19 @@ impl Display for EvmExpr {
             EvmExpr::Concat(exprs) => {
                 let es: Vec<_> = exprs.iter().map(|e| e.to_string()).collect();
                 write!(f, "evm.concat({})", es.join(", "))
+            }
+            EvmExpr::Delegatecall { target, data, .. } => {
+                write!(f, "evm.delegatecall({target}, {data})")
+            }
+            EvmExpr::LowLevelCall { target, data, value, gas, .. } => {
+                write!(f, "evm.low_level_call({target}, {data}")?;
+                if let Some(v) = value {
+                    write!(f, ", value={v}")?;
+                }
+                if let Some(g) = gas {
+                    write!(f, ", gas={g}")?;
+                }
+                write!(f, ")")
             }
         }
     }
