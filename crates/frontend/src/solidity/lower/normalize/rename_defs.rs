@@ -192,7 +192,7 @@ pub fn rename_defs(
 mod tests {
     use super::rename_defs;
     use crate::solidity::{
-        ast::normalize::utils::configure_unit_test_env,
+        lower::normalize::utils::configure_unit_test_env,
         ast::utils::syntactic_comparer::compare_source_units, parser::parse_solidity_source_code,
     };
     use indoc::indoc;

@@ -131,14 +131,17 @@ impl AnalysisContext {
     pub fn new(sir_modules: Vec<mlir::sir::Module>, config: AnalysisConfig) -> Self {
         let input_language = config.input_language;
 
-        // Eager lowering: SIR → AIR (step 1.8)
+        // Eager lowering: SIR → CIR → AIR
         let air_units = if sir_modules.is_empty() {
             None
         } else {
             let start = std::time::Instant::now();
             let air = sir_modules
                 .iter()
-                .filter_map(|m| mlir::air::lower::lower_module(m).ok())
+                .filter_map(|m| {
+                    let cir = mlir::cir::lower::lower_module(m).ok()?;
+                    mlir::air::lower::lower_module(&cir).ok()
+                })
                 .collect::<Vec<_>>();
             let _elapsed = start.elapsed();
             if air.is_empty() { None } else { Some(air) }
@@ -178,10 +181,13 @@ impl AnalysisContext {
 
     /// Set IR units and eagerly lower to AIR.
     pub fn set_ir_units(&mut self, ir_units: Vec<mlir::sir::Module>) {
-        // Eagerly lower SIR → AIR
+        // Eagerly lower SIR → CIR → AIR
         let air = ir_units
             .iter()
-            .filter_map(|m| mlir::air::lower::lower_module(m).ok())
+            .filter_map(|m| {
+                let cir = mlir::cir::lower::lower_module(m).ok()?;
+                mlir::air::lower::lower_module(&cir).ok()
+            })
             .collect::<Vec<_>>();
         if !air.is_empty() {
             self.air_units = Some(air);

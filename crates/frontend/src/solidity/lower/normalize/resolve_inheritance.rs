@@ -381,7 +381,7 @@ pub fn resolve_inheritance(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
 mod tests {
     use super::*;
     use crate::solidity::{
-        ast::normalize::{
+        lower::normalize::{
             flatten_name, rename_callees, rename_contracts, rename_defs,
             utils::configure_unit_test_env,
         },

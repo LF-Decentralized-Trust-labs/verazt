@@ -1,10 +1,8 @@
 //! Module to eliminate function modifier from function definitions.
 
 use crate::solidity::ast::Name;
-use crate::solidity::{
-    ast::normalize::substitution,
-    ast::{utils::*, *},
-};
+use crate::solidity::ast::{utils::*, *};
+use super::substitution;
 use std::{collections::HashMap, ops::Deref};
 
 #[derive(Clone)]
@@ -199,7 +197,7 @@ pub fn eliminate_modifier_invocs(source_units: &[SourceUnit]) -> Vec<SourceUnit>
 mod tests {
     use super::eliminate_modifier_invocs;
     use crate::solidity::{
-        ast::normalize::utils::configure_unit_test_env,
+        lower::normalize::utils::configure_unit_test_env,
         ast::utils::syntactic_comparer::compare_source_units, parser::parse_solidity_source_code,
     };
     use indoc::indoc;

@@ -3,15 +3,13 @@
 //! These tests exercise the full pipeline:
 //! JSON AST string → internal AST → normalization → SIR Module
 
-use frontend::vyper::ast::normalize;
-use frontend::vyper::irgen;
+use frontend::vyper::lower;
 use frontend::vyper::parser;
 
 /// Helper: run the full pipeline from JSON AST string.
 fn compile_json(json: &str, path: &str) -> mlir::sir::Module {
     let su = parser::parse_from_json(json, path).expect("parse_from_json failed");
-    let norm = normalize::run_passes(&su);
-    irgen::lower_source_unit(&norm).expect("lower_source_unit failed")
+    lower::lower_source_unit_normalized(&su).expect("lower_source_unit_normalized failed")
 }
 
 // ─── JSON AST fragments for testing ───────────────────────────

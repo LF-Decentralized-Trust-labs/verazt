@@ -1,4 +1,4 @@
-//! Module to transform the original Solidity AST to SIR.
+//! Lower the Solidity AST into SIR.
 
 use crate::solidity::ast;
 use crate::solidity::ast::Loc;

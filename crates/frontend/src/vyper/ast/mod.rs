@@ -3,7 +3,6 @@
 pub mod defs;
 pub mod exprs;
 pub mod loc;
-pub mod normalize;
 pub mod source_unit;
 pub mod stmts;
 pub mod types;
