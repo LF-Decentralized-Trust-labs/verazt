@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use frontend::solidity::ast::Loc;
+use serde::{Deserialize, Serialize};
 
 //-------------------------------------------------------------------------
 // Data structures representing smart contract bugs.

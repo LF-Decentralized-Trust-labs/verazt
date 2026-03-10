@@ -401,7 +401,8 @@ impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
     ) -> (Vec<VarDecl>, VarDecl) {
         let saved_mutability = self.current_mutability.clone();
         self.current_mutability = Some(vdecl.mutability.clone());
-        let res = crate::solidity::ast::utils::normalize::default::normalize_var_decl(self, acc, vdecl);
+        let res =
+            crate::solidity::ast::utils::normalize::default::normalize_var_decl(self, acc, vdecl);
         self.current_mutability = saved_mutability;
         res
     }

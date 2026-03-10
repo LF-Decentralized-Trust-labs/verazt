@@ -171,7 +171,9 @@ impl ExprFlattener {
                         let tmp_name = self.fresh_tmp();
                         pre.push(Stmt::AnnAssign(AnnAssignStmt {
                             target: Expr::Ident(Identifier { name: tmp_name.clone(), loc: None }),
-                            annotation: Type::UInt(crate::vyper::ast::types::UIntType { bits: 256 }),
+                            annotation: Type::UInt(crate::vyper::ast::types::UIntType {
+                                bits: 256,
+                            }),
                             value: Some(a),
                             loc: None,
                         }));

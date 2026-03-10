@@ -9,7 +9,7 @@ pub mod icfg;
 pub mod modifier_expand;
 pub mod ssa;
 
-use crate::air::module::AIRModule;
+use crate::air::module::Module;
 use thiserror::Error;
 
 /// Errors that can occur during SIR → AIR lowering.
@@ -31,7 +31,7 @@ pub enum LowerError {
     IcfgError(String),
 }
 
-/// Lower a SIR Module into an AIRModule.
+/// Lower a SIR Module into an Module.
 ///
 /// This runs the five-step Pass 2a transformation:
 ///   1. EVM Modifier Expansion (EVM only)
@@ -39,10 +39,10 @@ pub enum LowerError {
 ///   3. SSA Renaming
 ///   4. Dialect Lowering
 ///   5. ICFG + Alias + Taint init
-pub fn lower_module(cir: &crate::sir::Module) -> Result<AIRModule, LowerError> {
-    use crate::air::cfg::{AIRFunction, FunctionId};
+pub fn lower_module(cir: &crate::sir::Module) -> Result<Module, LowerError> {
+    use crate::air::cfg::{Function, FunctionId};
 
-    let mut air_module = AIRModule::new(cir.id.clone());
+    let mut air_module = Module::new(cir.id.clone());
 
     // Iterate over each contract declaration
     for decl in &cir.decls {
@@ -86,7 +86,7 @@ pub fn lower_module(cir: &crate::sir::Module) -> Result<AIRModule, LowerError> {
                     // Step 4: Dialect lowering
                     dialect_lower::lower_dialect_ops(&mut blocks, &cir.attrs)?;
 
-                    let mut air_func = AIRFunction::new(func_id, is_public);
+                    let mut air_func = Function::new(func_id, is_public);
                     air_func.blocks = blocks;
                     air_module.functions.push(air_func);
                 }

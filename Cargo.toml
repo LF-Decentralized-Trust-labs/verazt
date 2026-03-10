@@ -1,6 +1,7 @@
 [workspace]
 members = [
-  "crates/analyzer",
+  "crates/analysis",
+  "crates/scanner",
   "crates/bugs",
   "crates/common",
   "crates/frontend",
@@ -19,7 +20,8 @@ license = "Apache License 2.0"
 edition = "2024"
 
 [workspace.dependencies]
-analyzer = { path = "crates/analyzer" }
+analysis = { path = "crates/analysis" }
+scanner = { path = "crates/scanner" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
 mlir = { path = "crates/mlir" }
