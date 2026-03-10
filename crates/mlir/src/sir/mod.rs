@@ -7,6 +7,7 @@
 //! The first dialect implemented is `evm` (covering Solidity and Vyper).
 
 pub mod attrs;
+pub mod cfg;
 pub mod defs;
 pub mod dialect;
 pub mod exprs;

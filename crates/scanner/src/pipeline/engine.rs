@@ -7,10 +7,10 @@
 //! 2. **Detection Phase**: Run all enabled detectors fully in parallel
 
 use analysis::context::AnalysisContext;
-use analysis::manager::{PassManager, PassManagerConfig};
+use analysis::pipeline::manager::{PassManager, PassManagerConfig};
 use analysis::pass::AnalysisPass;
-use analysis::pass_id::PassId;
-use analysis::pass_representation::PassRepresentation;
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassRepresentation;
 use crate::config::InputLanguage;
 use crate::pipeline::detector::BugDetectionPass;
 use crate::pipeline::registry::{DetectorRegistry, register_all_detectors};
@@ -140,7 +140,7 @@ impl PipelineEngine {
         }
 
         // Phase 3 — AIR dataflow analysis
-        if context.has_ir() && context.config.enable_air {
+        if context.has_air() {
             if let Err(e) = self.run_air_phase(context) {
                 log::error!("AIR dataflow phase failed: {}", e);
             }
@@ -248,7 +248,6 @@ impl PipelineEngine {
             enable_parallel: self.config.parallel,
             max_workers: self.config.num_threads,
             fail_fast: true,
-            lazy_ir_generation: true,
             verbose: false,
             timing: true,
         });
@@ -257,7 +256,7 @@ impl PipelineEngine {
         // (including transitive dependencies via the pass's own dependencies())
         for &pass_id in &required {
             // Skip AST-level passes for Vyper (no Solidity source units)
-            if is_vyper && !pass_id.requires_ir() && !pass_id.is_hybrid() {
+            if is_vyper && !pass_id.requires_ir() && !pass_id.requires_air() {
                 log::debug!("Skipping AST pass {:?} for Vyper input", pass_id);
                 continue;
             }
@@ -440,31 +439,11 @@ fn run_single_detector(
 ///
 /// This factory function maps PassIds to their concrete implementations.
 fn create_analysis_pass(pass_id: PassId) -> Option<Box<dyn AnalysisPass>> {
-    use analysis::ast::*;
-    use analysis::sir::CfgPass;
-
     match pass_id {
-        // AST Foundation Passes
-        PassId::SymbolTable => Some(Box::new(SymbolTablePass::new())),
-        PassId::TypeIndex => Some(Box::new(TypeIndexPass::new())),
-
-        // AST Analysis Passes
-        PassId::InheritanceGraph => Some(Box::new(InheritanceGraphPass::new())),
-        PassId::CallGraph => Some(Box::new(CallGraphPass::new())),
-        PassId::ModifierAnalysis => Some(Box::new(ModifierAnalysisPass::new())),
-
-        // IR Passes
-        PassId::IrCfg => Some(Box::new(CfgPass::new())),
-
-        // AIR Generation
-        PassId::AIRGeneration => Some(Box::new(analysis::air::AIRGenerationPass)),
-
-        // AIR Analysis Passes
+        // AIR Analysis Passes (AIR is eagerly lowered, no AIRGeneration needed)
         PassId::AIRTaintPropagation => {
-            Some(Box::new(analysis::air::AIRTaintPropagationPass))
+            Some(Box::new(analysis::passes::air::AIRTaintPropagationPass))
         }
-        PassId::AIRAccessControl => Some(Box::new(analysis::air::AIRAccessControlPass)),
-        PassId::AIRArithmetic => Some(Box::new(analysis::air::AIRArithmeticPass)),
 
         // Not yet implemented or not an analysis pass
         _ => {
@@ -518,11 +497,7 @@ mod tests {
 
     #[test]
     fn test_create_analysis_pass() {
-        assert!(create_analysis_pass(PassId::SymbolTable).is_some());
-        assert!(create_analysis_pass(PassId::TypeIndex).is_some());
-        assert!(create_analysis_pass(PassId::CallGraph).is_some());
-        assert!(create_analysis_pass(PassId::InheritanceGraph).is_some());
-        assert!(create_analysis_pass(PassId::ModifierAnalysis).is_some());
+        assert!(create_analysis_pass(PassId::AIRTaintPropagation).is_some());
     }
 
     #[test]

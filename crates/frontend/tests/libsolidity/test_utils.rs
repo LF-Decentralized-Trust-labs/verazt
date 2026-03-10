@@ -1,10 +1,10 @@
 //! Module containing utility functions for unit test.
 use common::{error::Result, fail};
-use regex::Regex;
 use frontend::solidity::{
     ast::SourceUnit, ast::normalize, ast::utils::export::export_source_unit,
     parser::parse_input_file,
 };
+use regex::Regex;
 use std::{
     ffi::OsStr,
     fs::{self, File},

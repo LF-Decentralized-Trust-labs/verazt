@@ -4,9 +4,9 @@
 
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
@@ -43,7 +43,7 @@ impl Pass for SirMissingPdaConstraintDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::IrGeneration]
+        vec![]
     }
 }
 

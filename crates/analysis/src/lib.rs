@@ -1,15 +1,17 @@
-//! Analysis Framework for Solidity Code
+//! Analysis Framework
 //!
 //! # Architecture
 //!
 //! The analysis framework provides:
-//! - **Pass Infrastructure**: Base traits for analysis passes
-//! - **PassManager**: Orchestrates pass registration, scheduling, and execution
-//! - **AnalysisContext**: Central storage for AST, IR, and analysis artifacts
-//! - **Dependency Resolution**: Automatic scheduling based on pass dependencies
-//! - **Abstract Interpretation**: Generic lattice framework, worklist-based
-//!   fixpoint solver, and built-in dataflow analyses (reaching defs, liveness,
-//!   taint, etc.) shared across crates.
+//! - **Pass Infrastructure** (`pass/`): Base traits, ID enum, metadata for
+//!   passes.
+//! - **Pipeline** (`pipeline/`): PassManager, scheduler, executor, dependency
+//!   graph.
+//! - **Passes** (`passes/`): Concrete analysis passes organised by IR layer
+//!   (SIR, AIR, VIR).
+//! - **Frameworks** (`frameworks/`): Reusable analysis infrastructure —
+//!   dataflow analysis (`dfa/`) and control-flow analysis (`cfa/`).
+//! - **AnalysisContext**: Central storage for SIR, AIR, and analysis artifacts.
 //!
 //! # Usage
 //!
@@ -19,65 +21,48 @@
 //! let mut manager = PassManager::new(PassManagerConfig::default());
 //! // Register passes...
 //!
-//! let mut context = AnalysisContext::new(source_units, Default::default());
+//! let mut context = AnalysisContext::new(sir_modules, Default::default());
 //! let report = manager.run(&mut context)?;
 //! ```
 
+// Core modules
 pub mod context;
-pub mod dependency;
-pub mod executor;
-pub mod manager;
 pub mod pass;
-pub mod pass_id;
-pub mod pass_level;
-pub mod pass_representation;
-pub mod scheduler;
+pub mod pipeline;
 
-// Analysis domains
-pub mod air;
-pub mod ast;
-pub mod sir;
+// Analysis passes, organised by IR layer
+pub mod passes;
 
-// Abstract Interpretation framework (shared across crates)
-pub mod absint;
+// Reusable analysis infrastructure
+pub mod frameworks;
 
 // Re-exports for convenient access
-pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats, InputLanguage};
-pub use dependency::DependencyGraph;
-pub use executor::PassExecutor;
-pub use manager::{AnalysisReport, PassManager, PassManagerConfig};
-pub use pass::{AnalysisPass, Pass, PassError, PassResult};
-pub use pass_id::PassId;
-pub use pass_level::PassLevel;
-pub use pass_representation::PassRepresentation;
-pub use scheduler::PassScheduler;
+pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats, ArtifactKey, InputLanguage};
+pub use pass::id::{AirPassId, DetectionPassId, PassId, SirPassId};
+pub use pass::meta::{PassLevel, PassRepresentation};
+pub use pass::{AnalysisPass, Pass, PassError, PassExecutionInfo, PassResult};
+pub use pipeline::{
+    AnalysisReport, DependencyGraph, ExecutionResult, ExecutorConfig, PassExecutor, PassManager,
+    PassManagerConfig, PassScheduler,
+};
 
 // Re-export concrete passes
-pub use ast::{
-    CallGraph, CallGraphExt, CallGraphPass, CallSite, FunctionId, InheritanceGraph,
-    InheritanceGraphExt, InheritanceGraphPass, ModifierAnalysis, ModifierAnalysisExt,
-    ModifierAnalysisPass, ModifierInfo, SymbolTable, SymbolTableExt, SymbolTablePass, TypeIndex,
-    TypeIndexExt, TypeIndexPass, TypeInfo,
+pub use passes::air::AIRTaintPropagationPass;
+
+// Re-export DFA framework
+pub use frameworks::dfa::analyses::{
+    DefUseChainsPass, Definition, LiveVarsTransfer, LivenessPass, ReachingDefsPass,
+    ReachingDefsTransfer, StateMutationPass, TaintAnalysisPass, TaintSource, Use,
+};
+pub use frameworks::dfa::{
+    DataFlowResult, DataFlowSolver, Direction, FlatLattice, Lattice, MapLattice, PowerSetLattice,
+    ProductLattice, Transfer, VarId, VarScope,
 };
 
-// Re-export SIR/CFG passes
-pub use sir::{BasicBlock, BasicBlockId, CfgPass, ControlFlowGraph, Terminator};
-
-// Re-export AIR passes
-pub use air::{
-    AIRAccessControlPass, AIRArithmeticPass, AIRGenerationPass, AIRTaintPropagationPass,
-};
-
-// Re-export absint framework
-pub use absint::{
-    FlatLattice, Lattice, MapLattice, PowerSetLattice, ProductLattice,
-    DataFlowResult, DataFlowSolver, Direction, Transfer,
-    VarId, VarScope,
-};
-pub use absint::analyses::{
-    DefUseChainsPass, Use,
-    LiveVarsTransfer, LivenessPass,
-    Definition, ReachingDefsPass, ReachingDefsTransfer,
-    AccessKind, StateAccess, StateMutationPass,
-    TaintAnalysisPass, TaintSink, TaintSource,
+// Re-export CFA framework
+pub use frameworks::cfa::{
+    callgraph::SirCallGraph,
+    domtree::{DomTree, PostDomTree},
+    loops::{LoopInfo, NaturalLoop},
+    reachability::{self, ReachabilitySet},
 };

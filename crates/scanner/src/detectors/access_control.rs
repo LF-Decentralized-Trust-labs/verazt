@@ -4,9 +4,9 @@
 
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 
@@ -44,13 +44,16 @@ impl Pass for AIRAccessControlDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AIRAccessControl]
+        // Note: The upstream AIRAccessControlPass was moved; the detection
+        // logic now lives in this detector via artifact harvesting.
+        vec![]
     }
 }
 
 impl BugDetectionPass for AIRAccessControlDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Findings are pre-computed by AIRAccessControlPass
+        #[allow(deprecated)]
         if let Some(findings) = context.get_artifact::<Vec<Bug>>("AIR.access_control_findings") {
             Ok(findings.clone())
         } else {

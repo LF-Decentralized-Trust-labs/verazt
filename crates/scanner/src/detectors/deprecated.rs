@@ -2,14 +2,15 @@
 //!
 //! Detects usage of deprecated Solidity features using pattern matching.
 
-use analysis::context::AnalysisContext;
-use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
 use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use analysis::context::AnalysisContext;
+use analysis::pass::Pass;
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
+use frontend::solidity::ast::SourceUnit;
 
 /// Known deprecated function names in Solidity.
 #[allow(dead_code)]
@@ -71,8 +72,13 @@ impl BugDetectionPass for DeprecatedGrepDetector {
             PatternBuilder::member(PatternBuilder::ident("block"), "blockhash"),
         );
 
+        let empty = vec![];
+        let source_units: &Vec<SourceUnit> = context
+            .get::<crate::artifacts::SourceUnitsArtifact>()
+            .unwrap_or(&empty);
+
         let ctx = MatchContext::new();
-        let results = matcher.match_all(&context.source_units, &ctx);
+        let results = matcher.match_all(source_units, &ctx);
 
         let replacements = [
             ("suicide", "selfdestruct"),

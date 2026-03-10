@@ -3,14 +3,14 @@
 //! Detects unlocked compiler versions in pragma directives using
 //! pattern matching.
 
+use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{PragmaKind, SourceUnitElem};
+use frontend::solidity::ast::{PragmaKind, SourceUnit, SourceUnitElem};
 
 /// GREP-based detector for floating pragma.
 ///
@@ -54,7 +54,12 @@ impl BugDetectionPass for FloatingPragmaGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        for source_unit in &context.source_units {
+        let empty = vec![];
+        let source_units: &Vec<SourceUnit> = context
+            .get::<crate::artifacts::SourceUnitsArtifact>()
+            .unwrap_or(&empty);
+
+        for source_unit in source_units {
             for elem in &source_unit.elems {
                 if let SourceUnitElem::Pragma(pragma) = elem {
                     if let PragmaKind::Version(version) = &pragma.kind {

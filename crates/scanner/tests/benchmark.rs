@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use scanner::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
+use scanner::artifacts::SourceUnitsArtifact;
 use bugs::bug::BugCategory;
 use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
 use frontend::solidity::parser::parse_input_file;
@@ -101,7 +102,8 @@ fn run_analyze_on_file(file_path: &Path) -> Vec<DetectedBug> {
         return vec![];
     }
 
-    let mut context = AnalysisContext::new(source_units, AnalysisConfig::default());
+    let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
+    context.store::<SourceUnitsArtifact>(source_units);
     let engine =
         PipelineEngine::new(PipelineConfig { parallel: false, ..PipelineConfig::default() });
 

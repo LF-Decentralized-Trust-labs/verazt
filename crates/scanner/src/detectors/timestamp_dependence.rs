@@ -3,14 +3,15 @@
 //! Detects dangerous usage of block.timestamp for critical decisions
 //! using declarative pattern matching.
 
-use analysis::context::AnalysisContext;
-use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
 use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use analysis::context::AnalysisContext;
+use analysis::pass::Pass;
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
+use frontend::solidity::ast::SourceUnit;
 
 /// GREP-based detector for timestamp dependence.
 ///
@@ -63,8 +64,13 @@ impl BugDetectionPass for TimestampDependenceGrepDetector {
         // Match deprecated 'now' keyword
         matcher.add_pattern("now", PatternBuilder::ident("now"));
 
+        let empty = vec![];
+        let source_units: &Vec<SourceUnit> = context
+            .get::<crate::artifacts::SourceUnitsArtifact>()
+            .unwrap_or(&empty);
+
         let ctx = MatchContext::new();
-        let results = matcher.match_all(&context.source_units, &ctx);
+        let results = matcher.match_all(source_units, &ctx);
 
         if let Some(matches) = results.get("block_timestamp") {
             for m in matches {

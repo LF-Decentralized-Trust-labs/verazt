@@ -3,14 +3,16 @@
 //! Detects variable shadowing across scopes and inheritance
 //! using pattern matching on the AST.
 
+use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{Block, ContractDef, ContractElem, FuncDef, Loc, SourceUnitElem, Stmt};
+use frontend::solidity::ast::{
+    Block, ContractDef, ContractElem, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
+};
 use std::collections::HashSet;
 
 /// GREP-based detector for variable shadowing.
@@ -166,7 +168,7 @@ impl Pass for ShadowingGrepDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable, PassId::InheritanceGraph]
+        vec![]
     }
 }
 
@@ -174,7 +176,12 @@ impl BugDetectionPass for ShadowingGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        for source_unit in &context.source_units {
+        let empty = vec![];
+        let source_units: &Vec<SourceUnit> = context
+            .get::<crate::artifacts::SourceUnitsArtifact>()
+            .unwrap_or(&empty);
+
+        for source_unit in source_units {
             for elem in &source_unit.elems {
                 if let SourceUnitElem::Contract(contract) = elem {
                     self.check_contract(contract, &mut bugs);

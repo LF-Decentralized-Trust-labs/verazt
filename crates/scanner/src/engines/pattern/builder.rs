@@ -1,6 +1,10 @@
-use crate::engines::pattern::composite::{AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern};
+use crate::engines::pattern::composite::{
+    AndPattern, ContainsPattern, NotPattern, OrPattern, WherePattern,
+};
 use crate::engines::pattern::core::{Match, Pattern};
-use crate::engines::pattern::primitives::{AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern};
+use crate::engines::pattern::primitives::{
+    AnyExpr, AnyStmt, CallPattern, IdentPattern, MemberAccessPattern,
+};
 use frontend::solidity::ast::BinOp;
 
 /// Builder for creating patterns fluently

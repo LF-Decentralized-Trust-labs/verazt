@@ -41,8 +41,8 @@ pub mod arithmetic;
 // AST-based detectors
 pub use cei_violation::CeiViolationAstDetector;
 pub use dead_code::DeadCodeAstDetector;
-pub use reentrancy::ReentrancyAstDetector;
 pub use reentrancy::AIRReentrancyDetector;
+pub use reentrancy::ReentrancyAstDetector;
 pub use unchecked_call::UncheckedCallAstDetector;
 pub use uninitialized::UninitializedAstDetector;
 

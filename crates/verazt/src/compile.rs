@@ -1,4 +1,5 @@
-//! `verazt compile` subcommand — parse a smart contract and print its IR layers.
+//! `verazt compile` subcommand — parse a smart contract and print its IR
+//! layers.
 
 use clap::{Parser, ValueEnum};
 use common::error::{Result, create_error};
@@ -17,7 +18,8 @@ pub struct Args {
     /// Input smart contract file(s) (.sol or .vy).
     pub input_files: Vec<String>,
 
-    /// Explicit language override (solidity | vyper). Auto-detected from extension if omitted.
+    /// Explicit language override (solidity | vyper). Auto-detected from
+    /// extension if omitted.
     #[arg(long)]
     pub language: Option<Language>,
 
@@ -130,9 +132,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
 
     // Step 8: VIR (not yet implemented)
     if args.print_vir {
-        return Err(create_error(
-            "VIR lowering is not yet implemented.".to_string(),
-        ));
+        return Err(create_error("VIR lowering is not yet implemented.".to_string()));
     }
 
     println!("Successfully compiled {file}");
@@ -177,9 +177,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
 
     // Step 8: VIR (not yet implemented)
     if args.print_vir {
-        return Err(create_error(
-            "VIR lowering is not yet implemented.".to_string(),
-        ));
+        return Err(create_error("VIR lowering is not yet implemented.".to_string()));
     }
 
     println!("Successfully compiled {file}");

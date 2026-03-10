@@ -7,9 +7,8 @@ edition.workspace = true
 
 
 [dependencies]
-bugs = { workspace = true }
-frontend = { workspace = true }
 log = { workspace = true }
 mlir = { workspace = true }
+petgraph = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }

@@ -1,9 +1,10 @@
 //! Analysis Context
 //!
 //! This module provides the central storage for analysis artifacts,
-//! supporting both AST and IR representations.
+//! supporting SIR and AIR representations. AST (frontend) types have
+//! been removed — all input is via SIR `Module`.
 
-use crate::pass_id::PassId;
+use crate::pass::id::PassId;
 
 /// The input source language.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -11,13 +12,49 @@ pub enum InputLanguage {
     #[default]
     Solidity,
     Vyper,
+    MoveSui,
+    MoveAptos,
+    Solana,
 }
 
-use frontend::solidity::ast::SourceUnit;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
+
+// ========================================
+// Typed Artifact Key Trait (Step 2.2)
+// ========================================
+
+/// Marker trait for type-safe artifact storage and retrieval.
+///
+/// Each analysis pass that produces an artifact should define a zero-sized
+/// marker type implementing this trait. The `Value` associated type pins
+/// down the concrete data stored under this key, eliminating stringly-typed
+/// lookups and making type mismatches a compile error.
+///
+/// # Example
+///
+/// ```ignore
+/// pub struct CallGraphArtifact;
+/// impl ArtifactKey for CallGraphArtifact {
+///     type Value = CallGraph;
+///     const NAME: &'static str = "call_graph"; // debug / serialisation only
+/// }
+///
+/// // Store
+/// ctx.store::<CallGraphArtifact>(graph);
+///
+/// // Retrieve
+/// let cg: Option<&CallGraph> = ctx.get::<CallGraphArtifact>();
+/// ```
+pub trait ArtifactKey: 'static {
+    /// The concrete value type stored under this key.
+    type Value: Any + Send + Sync;
+
+    /// A human-readable name, used for logging and serialisation only.
+    const NAME: &'static str;
+}
 
 /// Configuration for analysis.
 #[derive(Debug, Clone, Default)]
@@ -27,12 +64,6 @@ pub struct AnalysisConfig {
 
     /// Maximum number of worker threads.
     pub max_workers: usize,
-
-    /// Enable IR generation (lazy by default).
-    pub enable_ir: bool,
-
-    /// Enable AIR generation (requires IR).
-    pub enable_air: bool,
 
     /// Enable verbose logging.
     pub verbose: bool,
@@ -50,8 +81,6 @@ impl AnalysisConfig {
         Self {
             enable_parallel: true,
             max_workers: 0, // 0 = auto-detect
-            enable_ir: false,
-            enable_air: false,
             verbose: false,
             input_language: InputLanguage::default(),
             options: HashMap::new(),
@@ -62,30 +91,19 @@ impl AnalysisConfig {
     pub fn parallel() -> Self {
         Self { enable_parallel: true, ..Self::new() }
     }
-
-    /// Create configuration with IR enabled.
-    pub fn with_ir() -> Self {
-        Self { enable_ir: true, enable_air: true, ..Self::new() }
-    }
 }
 
 /// Statistics about analysis execution.
 #[derive(Debug, Clone, Default)]
 pub struct AnalysisStats {
-    /// Number of AST traversals.
-    pub ast_traversals: usize,
-
     /// Number of IR traversals.
     pub ir_traversals: usize,
-
-    /// Time spent on AST analysis.
-    pub ast_analysis_time: Duration,
 
     /// Time spent on IR analysis.
     pub ir_analysis_time: Duration,
 
-    /// Time spent on IR generation.
-    pub ir_generation_time: Duration,
+    /// Time spent on AIR lowering.
+    pub air_lowering_time: Duration,
 
     /// Total passes executed.
     pub passes_executed: usize,
@@ -97,8 +115,8 @@ pub struct AnalysisStats {
 /// The central analysis context holding all artifacts.
 ///
 /// This context stores:
-/// - Original AST (always available)
-/// - Generated IR (optional, created on demand)
+/// - SIR modules (always available when provided)
+/// - AIR modules (eagerly lowered from SIR — step 1.8)
 /// - Analysis artifacts from all passes
 /// - Execution statistics
 #[derive(Debug)]
@@ -106,13 +124,10 @@ pub struct AnalysisContext {
     // ========================================
     // Source Representations
     // ========================================
-    /// Original AST source units.
-    pub source_units: Vec<SourceUnit>,
-
-    /// Generated IR units (optional).
+    /// SIR modules.
     pub ir_units: Option<Vec<mlir::sir::Module>>,
 
-    /// Generated AIR units (optional).
+    /// AIR modules (eagerly lowered from SIR).
     pub air_units: Option<Vec<mlir::air::AIRModule>>,
 
     /// The input source language.
@@ -121,9 +136,13 @@ pub struct AnalysisContext {
     // ========================================
     // Analysis Artifacts (Dynamic Storage)
     // ========================================
-    /// Type-erased artifact storage.
+    /// Type-erased artifact storage (stringly-typed, deprecated).
     /// Key: artifact name, Value: boxed artifact.
     artifacts: HashMap<String, Arc<dyn Any + Send + Sync>>,
+
+    /// Type-safe artifact storage (step 2.2).
+    /// Key: `TypeId` of the `ArtifactKey` marker, Value: boxed artifact.
+    typed_artifacts: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 
     // ========================================
     // Pass Management
@@ -145,26 +164,43 @@ pub struct AnalysisContext {
 }
 
 impl AnalysisContext {
-    /// Create a new analysis context.
-    pub fn new(source_units: Vec<SourceUnit>, config: AnalysisConfig) -> Self {
+    /// Create a new analysis context from SIR modules.
+    ///
+    /// AIR modules are **eagerly** lowered from SIR so that all AIR
+    /// passes can run without an explicit `AIRGeneration` dependency.
+    pub fn new(sir_modules: Vec<mlir::sir::Module>, config: AnalysisConfig) -> Self {
         let input_language = config.input_language;
+
+        // Eager lowering: SIR → AIR (step 1.8)
+        let air_units = if sir_modules.is_empty() {
+            None
+        } else {
+            let start = std::time::Instant::now();
+            let air = sir_modules
+                .iter()
+                .filter_map(|m| mlir::air::lower::lower_module(m).ok())
+                .collect::<Vec<_>>();
+            let _elapsed = start.elapsed();
+            if air.is_empty() { None } else { Some(air) }
+        };
+
+        let ir_units = if sir_modules.is_empty() {
+            None
+        } else {
+            Some(sir_modules)
+        };
+
         Self {
-            source_units,
-            ir_units: None,
-            air_units: None,
+            ir_units,
+            air_units,
             input_language,
             artifacts: HashMap::new(),
+            typed_artifacts: HashMap::new(),
             completed_passes: HashSet::new(),
             pass_order: Vec::new(),
             config,
             stats: AnalysisStats::default(),
         }
-    }
-
-    /// Create context with IR units.
-    pub fn with_ir(mut self, ir_units: Vec<mlir::sir::Module>) -> Self {
-        self.ir_units = Some(ir_units);
-        self
     }
 
     // ========================================
@@ -181,8 +217,16 @@ impl AnalysisContext {
         self.ir_units.as_ref().expect("IR not generated")
     }
 
-    /// Set IR units.
+    /// Set IR units and eagerly lower to AIR.
     pub fn set_ir_units(&mut self, ir_units: Vec<mlir::sir::Module>) {
+        // Eagerly lower SIR → AIR
+        let air = ir_units
+            .iter()
+            .filter_map(|m| mlir::air::lower::lower_module(m).ok())
+            .collect::<Vec<_>>();
+        if !air.is_empty() {
+            self.air_units = Some(air);
+        }
         self.ir_units = Some(ir_units);
     }
 
@@ -195,45 +239,84 @@ impl AnalysisContext {
         self.air_units.is_some()
     }
 
-    /// Get AIR units (panics if not available).
-    pub fn air_units(&self) -> &Vec<mlir::air::AIRModule> {
-        self.air_units.as_ref().expect("AIR not generated")
+    /// Get AIR units. Returns an empty slice if AIR is not available.
+    pub fn air_units(&self) -> &[mlir::air::AIRModule] {
+        self.air_units.as_deref().unwrap_or(&[])
     }
 
-    /// Set AIR units.
+    /// Set AIR units directly (escape hatch).
     pub fn set_air_units(&mut self, units: Vec<mlir::air::AIRModule>) {
         self.air_units = Some(units);
     }
 
     // ========================================
-    // Artifact Storage
+    // Artifact Storage (stringly-typed — deprecated)
     // ========================================
 
-    /// Store an artifact in the context.
+    /// Store an artifact in the context (stringly-typed).
+    #[deprecated(note = "Use `store::<K>()` with an `ArtifactKey` marker type")]
     pub fn store_artifact<T: Any + Send + Sync>(&mut self, name: &str, artifact: T) {
         self.artifacts.insert(name.to_string(), Arc::new(artifact));
     }
 
-    /// Get an artifact from the context.
+    /// Get an artifact from the context (stringly-typed).
+    #[deprecated(note = "Use `get::<K>()` with an `ArtifactKey` marker type")]
     pub fn get_artifact<T: Any + Send + Sync>(&self, name: &str) -> Option<&T> {
         self.artifacts.get(name).and_then(|a| a.downcast_ref::<T>())
     }
 
-    /// Get an artifact as Arc (for sharing).
+    /// Get an artifact as Arc (for sharing) (stringly-typed).
+    #[deprecated(note = "Use `get_arc::<K>()` with an `ArtifactKey` marker type")]
     pub fn get_artifact_arc<T: Any + Send + Sync>(&self, name: &str) -> Option<Arc<T>> {
         self.artifacts
             .get(name)
             .and_then(|a| Arc::clone(a).downcast::<T>().ok())
     }
 
-    /// Check if an artifact exists.
+    /// Check if an artifact exists (stringly-typed).
+    #[deprecated(note = "Use `has::<K>()` with an `ArtifactKey` marker type")]
     pub fn has_artifact(&self, name: &str) -> bool {
         self.artifacts.contains_key(name)
     }
 
-    /// Remove an artifact.
+    /// Remove an artifact (stringly-typed).
+    #[deprecated(note = "Use `remove::<K>()` with an `ArtifactKey` marker type")]
     pub fn remove_artifact(&mut self, name: &str) -> bool {
         self.artifacts.remove(name).is_some()
+    }
+
+    // ========================================
+    // Typed Artifact Storage (Step 2.2)
+    // ========================================
+
+    /// Store a typed artifact using an `ArtifactKey` marker.
+    pub fn store<K: ArtifactKey>(&mut self, value: K::Value) {
+        self.typed_artifacts
+            .insert(TypeId::of::<K>(), Arc::new(value));
+    }
+
+    /// Retrieve a typed artifact by key.
+    pub fn get<K: ArtifactKey>(&self) -> Option<&K::Value> {
+        self.typed_artifacts
+            .get(&TypeId::of::<K>())
+            .and_then(|a| a.downcast_ref::<K::Value>())
+    }
+
+    /// Retrieve a typed artifact as `Arc` (for sharing across threads).
+    pub fn get_arc<K: ArtifactKey>(&self) -> Option<Arc<K::Value>> {
+        self.typed_artifacts
+            .get(&TypeId::of::<K>())
+            .and_then(|a| Arc::clone(a).downcast::<K::Value>().ok())
+    }
+
+    /// Check whether a typed artifact exists.
+    pub fn has<K: ArtifactKey>(&self) -> bool {
+        self.typed_artifacts.contains_key(&TypeId::of::<K>())
+    }
+
+    /// Remove a typed artifact, returning whether it existed.
+    pub fn remove<K: ArtifactKey>(&mut self) -> bool {
+        self.typed_artifacts.remove(&TypeId::of::<K>()).is_some()
     }
 
     // ========================================
@@ -273,57 +356,9 @@ impl AnalysisContext {
     // Convenience Methods
     // ========================================
 
-    /// Get all contracts from source units.
-    pub fn contracts(&self) -> Vec<&frontend::solidity::ast::ContractDef> {
-        self.source_units
-            .iter()
-            .flat_map(|su| su.elems.iter())
-            .filter_map(|elem| {
-                if let frontend::solidity::ast::SourceUnitElem::Contract(c) = elem {
-                    Some(c)
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
-    /// Get all functions from source units.
-    pub fn functions(&self) -> Vec<&frontend::solidity::ast::FuncDef> {
-        let mut funcs = Vec::new();
-
-        for su in &self.source_units {
-            for elem in &su.elems {
-                match elem {
-                    frontend::solidity::ast::SourceUnitElem::Func(f) => funcs.push(f),
-                    frontend::solidity::ast::SourceUnitElem::Contract(c) => {
-                        for body_elem in &c.body {
-                            if let frontend::solidity::ast::ContractElem::Func(f) = body_elem {
-                                funcs.push(f);
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        funcs
-    }
-
-    /// Get the number of source units.
-    pub fn source_unit_count(&self) -> usize {
-        self.source_units.len()
-    }
-
     /// Get execution statistics.
     pub fn stats(&self) -> &AnalysisStats {
         &self.stats
-    }
-
-    /// Update AST traversal count.
-    pub fn record_ast_traversal(&mut self) {
-        self.stats.ast_traversals += 1;
     }
 
     /// Update IR traversal count.
@@ -335,11 +370,11 @@ impl AnalysisContext {
 impl Clone for AnalysisContext {
     fn clone(&self) -> Self {
         Self {
-            source_units: self.source_units.clone(),
             ir_units: self.ir_units.clone(),
             air_units: self.air_units.clone(),
             input_language: self.input_language,
             artifacts: self.artifacts.clone(),
+            typed_artifacts: self.typed_artifacts.clone(),
             completed_passes: self.completed_passes.clone(),
             pass_order: self.pass_order.clone(),
             config: self.config.clone(),
@@ -353,6 +388,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(deprecated)]
     fn test_artifact_storage() {
         let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
 
@@ -365,14 +401,44 @@ mod tests {
     }
 
     #[test]
+    fn test_typed_artifact_storage() {
+        struct TestKey;
+        impl ArtifactKey for TestKey {
+            type Value = i32;
+            const NAME: &'static str = "test";
+        }
+
+        struct OtherKey;
+        impl ArtifactKey for OtherKey {
+            type Value = String;
+            const NAME: &'static str = "other";
+        }
+
+        let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
+
+        // Store
+        context.store::<TestKey>(42);
+        assert!(context.has::<TestKey>());
+        assert!(!context.has::<OtherKey>());
+
+        // Retrieve
+        assert_eq!(context.get::<TestKey>(), Some(&42));
+        assert_eq!(context.get::<OtherKey>(), None);
+
+        // Remove
+        assert!(context.remove::<TestKey>());
+        assert!(!context.has::<TestKey>());
+    }
+
+    #[test]
     fn test_pass_completion() {
         let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
 
-        assert!(!context.is_pass_completed(PassId::SymbolTable));
+        assert!(!context.is_pass_completed(PassId::Cfg));
 
-        context.mark_pass_completed(PassId::SymbolTable);
+        context.mark_pass_completed(PassId::Cfg);
 
-        assert!(context.is_pass_completed(PassId::SymbolTable));
+        assert!(context.is_pass_completed(PassId::Cfg));
         assert_eq!(context.completed_pass_count(), 1);
     }
 }

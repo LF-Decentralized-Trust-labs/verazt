@@ -3,15 +3,16 @@
 //! Detects public/external functions that lack proper access control
 //! using pattern matching on function modifiers and state mutations.
 
+use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
-    Block, ContractDef, ContractElem, Expr, FuncDef, FuncVis, Loc, SourceUnitElem, Stmt,
+    Block, ContractDef, ContractElem, Expr, FuncDef, FuncVis, Loc, SourceUnit, SourceUnitElem,
+    Stmt,
 };
 
 /// GREP-based detector for missing access control.
@@ -249,7 +250,7 @@ impl Pass for MissingAccessControlGrepDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable, PassId::ModifierAnalysis]
+        vec![]
     }
 }
 
@@ -257,7 +258,12 @@ impl BugDetectionPass for MissingAccessControlGrepDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        for source_unit in &context.source_units {
+        let empty = vec![];
+        let source_units: &Vec<SourceUnit> = context
+            .get::<crate::artifacts::SourceUnitsArtifact>()
+            .unwrap_or(&empty);
+
+        for source_unit in source_units {
             for elem in &source_unit.elems {
                 if let SourceUnitElem::Contract(contract) = elem {
                     self.check_contract(contract, &mut bugs);

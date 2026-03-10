@@ -8,14 +8,16 @@
 //! - `.send()` returns not checked
 //! - Low-level calls used as expression statements (return value discarded)
 
+use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::{Block, ContractElem, Expr, FuncDef, Loc, SourceUnitElem, Stmt};
+use frontend::solidity::ast::{
+    Block, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
+};
 
 /// AST-based detector for unchecked call return values.
 #[derive(Debug, Default)]
@@ -152,7 +154,7 @@ impl Pass for UncheckedCallAstDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable]
+        vec![]
     }
 }
 
@@ -160,7 +162,12 @@ impl BugDetectionPass for UncheckedCallAstDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
-        for source_unit in &context.source_units {
+        let empty = vec![];
+        let source_units: &Vec<SourceUnit> = context
+            .get::<crate::artifacts::SourceUnitsArtifact>()
+            .unwrap_or(&empty);
+
+        for source_unit in source_units {
             for elem in &source_unit.elems {
                 match elem {
                     SourceUnitElem::Contract(contract) => {
@@ -172,7 +179,7 @@ impl BugDetectionPass for UncheckedCallAstDetector {
                         }
                     }
                     SourceUnitElem::Func(func) => {
-                        self.check_function(func, "global", &mut bugs);
+                        self.check_function(&func, "global", &mut bugs);
                     }
                     _ => {}
                 }

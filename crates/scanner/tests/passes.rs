@@ -20,7 +20,8 @@ fn test_pass_id_variants() {
 #[test]
 fn test_pass_dependencies_valid() {
     use frontend::solidity::analysis::passes::{CallGraphPass, SymbolTablePass, TypeIndexPass};
-    // Skipping others if unsure they exist in frontend::solidity::analysis::passes yet
+    // Skipping others if unsure they exist in frontend::solidity::analysis::passes
+    // yet
 
     // SymbolTable has no dependencies
     let symbol_table_pass = SymbolTablePass::new();

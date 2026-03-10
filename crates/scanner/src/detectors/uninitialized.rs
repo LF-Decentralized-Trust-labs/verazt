@@ -7,16 +7,16 @@
 //! - State variables that are not explicitly initialized
 //! - Local storage pointers that could point to arbitrary storage locations
 
-use analysis::context::AnalysisContext;
-use analysis::pass::Pass;
-use analysis::pass_id::PassId;
-use analysis::pass_level::PassLevel;
-use analysis::pass_representation::PassRepresentation;
 use crate::config::InputLanguage;
 use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use analysis::context::AnalysisContext;
+use analysis::pass::Pass;
+use analysis::pass::id::PassId;
+use analysis::pass::meta::PassLevel;
+use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
-    ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnitElem, Stmt, Type, VarMut,
+    ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnit, SourceUnitElem, Stmt, Type, VarMut,
 };
 use std::collections::HashSet;
 
@@ -172,7 +172,7 @@ impl Pass for UninitializedAstDetector {
     }
 
     fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::SymbolTable]
+        vec![]
     }
 }
 
@@ -186,10 +186,15 @@ impl BugDetectionPass for UninitializedAstDetector {
 
         let mut bugs = Vec::new();
 
-        for source_unit in &context.source_units {
+        let empty = vec![];
+        let source_units: &Vec<SourceUnit> = context
+            .get::<crate::artifacts::SourceUnitsArtifact>()
+            .unwrap_or(&empty);
+
+        for source_unit in source_units {
             for elem in &source_unit.elems {
                 if let SourceUnitElem::Contract(contract) = elem {
-                    self.check_contract(&contract.name.base, contract, &mut bugs);
+                    self.check_contract(&contract.name.base, &contract, &mut bugs);
                 }
             }
         }

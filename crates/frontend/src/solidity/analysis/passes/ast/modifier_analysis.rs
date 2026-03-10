@@ -8,7 +8,9 @@ use crate::solidity::analysis::pass_id::PassId;
 use crate::solidity::analysis::pass_level::PassLevel;
 use crate::solidity::analysis::pass_representation::PassRepresentation;
 use crate::solidity::analysis::passes::ast::symbol_table::FunctionId;
-use crate::solidity::ast::{ContractDef, ContractElem, FuncDef, FuncKind, Name, SourceUnit, SourceUnitElem};
+use crate::solidity::ast::{
+    ContractDef, ContractElem, FuncDef, FuncKind, Name, SourceUnit, SourceUnitElem,
+};
 use std::collections::{HashMap, HashSet};
 
 /// Information about a modifier.

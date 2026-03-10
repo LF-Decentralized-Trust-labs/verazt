@@ -6,6 +6,7 @@ use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
     PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
+    artifacts::SourceUnitsArtifact,
 };
 use clap::{Parser, Subcommand, crate_version};
 use common::error;
@@ -424,6 +425,13 @@ fn run_analysis(args: Arguments) {
                     }
                 }
             },
+            _ => {
+                eprintln!(
+                    "Language {:?} is not yet supported by the scanner CLI.",
+                    input_language
+                );
+                continue;
+            }
         }
 
         files_analyzed.push(file.clone());
@@ -436,11 +444,11 @@ fn run_analysis(args: Arguments) {
 
     // Create analysis context
     let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
-    let mut context = AnalysisContext::new(all_source_units, analysis_config);
+    let mut context = AnalysisContext::new(ir_units, analysis_config);
 
-    // For Vyper, inject IR modules directly
-    if !ir_units.is_empty() {
-        context.set_ir_units(ir_units);
+    // Store AST source units as an artifact for Solidity GREP-tier detectors
+    if !all_source_units.is_empty() {
+        context.store::<SourceUnitsArtifact>(all_source_units);
     }
 
     // Create and run the pipeline
@@ -468,6 +476,9 @@ fn run_analysis(args: Arguments) {
     let lang_str = match input_language {
         InputLanguage::Vyper => "vyper",
         InputLanguage::Solidity => "solidity",
+        InputLanguage::MoveSui => "move_sui",
+        InputLanguage::MoveAptos => "move_aptos",
+        InputLanguage::Solana => "solana",
     };
     let report = AnalysisReport::with_language(
         result.bugs,

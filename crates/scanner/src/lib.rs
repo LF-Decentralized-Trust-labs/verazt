@@ -24,6 +24,9 @@
 // CLI entry module
 pub mod cli;
 
+// Typed artifact keys
+pub mod artifacts;
+
 // Detection engines
 pub mod engines;
 
@@ -41,8 +44,8 @@ pub mod config;
 
 // Re-export core analysis types for convenience
 pub use analysis::{
-    AnalysisConfig, AnalysisContext, AnalysisPass, Pass, PassId, PassLevel, PassManager,
-    PassManagerConfig, PassRepresentation,
+    AnalysisConfig, AnalysisContext, AnalysisPass, Pass, PassId, PassLevel,
+    PassManager, PassManagerConfig, PassRepresentation,
 };
 
 // Re-export from pipeline framework
