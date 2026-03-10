@@ -8,10 +8,10 @@
 //! 3. Track state mutations after external calls
 //! 4. Detect patterns where state is modified after an external call
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
@@ -20,6 +20,7 @@ use frontend::solidity::ast::{
 };
 use mlir::air::cfg::ICFGNode;
 use mlir::air::ops::OpId;
+use std::any::TypeId;
 
 /// AST-based detector for reentrancy vulnerabilities.
 ///
@@ -311,10 +312,6 @@ impl ReentrancyAnalyzer {
 }
 
 impl Pass for ReentrancyAstDetector {
-    fn id(&self) -> PassId {
-        PassId::Reentrancy
-    }
-
     fn name(&self) -> &'static str {
         "Reentrancy (AST)"
     }
@@ -332,12 +329,16 @@ impl Pass for ReentrancyAstDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for ReentrancyAstDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::Reentrancy
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -420,13 +421,6 @@ impl AIRReentrancyDetector {
 }
 
 impl Pass for AIRReentrancyDetector {
-    fn id(&self) -> PassId {
-        // This is a detection pass; it uses the Reentrancy PassId
-        // and supersedes the AST-based reentrancy detector when AIR
-        // is available.
-        PassId::AIRReentrancy
-    }
-
     fn name(&self) -> &'static str {
         "AIR Reentrancy"
     }
@@ -443,12 +437,16 @@ impl Pass for AIRReentrancyDetector {
         PassRepresentation::Air
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
-        vec![PassId::AIRTaintPropagation]
+    fn dependencies(&self) -> Vec<TypeId> {
+        vec![TypeId::of::<analysis::passes::air::TaintPropagationPass>()]
     }
 }
 
 impl BugDetectionPass for AIRReentrancyDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::Reentrancy
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -545,7 +543,7 @@ mod tests {
     #[test]
     fn test_reentrancy_detector() {
         let detector = ReentrancyAstDetector::new();
-        assert_eq!(detector.id(), PassId::Reentrancy);
+        assert_eq!(detector.detector_id(), DetectorId::Reentrancy);
         assert_eq!(detector.risk_level(), RiskLevel::Critical);
         assert_eq!(detector.swc_ids(), vec![107]);
     }

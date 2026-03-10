@@ -2,16 +2,17 @@
 //!
 //! Detects `BinOp` with `OverflowSemantics::Wrapping` on non-constant operands.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
-use mlir::sir::utils::query as structural;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use mlir::sir::{BinOp, BinOpExpr, Expr, OverflowSemantics};
 use frontend::solidity::ast::Loc;
+use mlir::sir::utils::query as structural;
+use mlir::sir::{BinOp, BinOpExpr, Expr, OverflowSemantics};
+use std::any::TypeId;
 
 /// SIR structural detector for unchecked arithmetic.
 #[derive(Debug, Default)]
@@ -24,10 +25,6 @@ impl SirUncheckedArithmeticDetector {
 }
 
 impl Pass for SirUncheckedArithmeticDetector {
-    fn id(&self) -> PassId {
-        PassId::SirUncheckedArithmetic
-    }
-
     fn name(&self) -> &'static str {
         "SIR Unchecked Arithmetic"
     }
@@ -44,7 +41,7 @@ impl Pass for SirUncheckedArithmeticDetector {
         PassRepresentation::Ir
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
@@ -54,6 +51,10 @@ fn is_literal(expr: &Expr) -> bool {
 }
 
 impl BugDetectionPass for SirUncheckedArithmeticDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::SirUncheckedArithmetic
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 

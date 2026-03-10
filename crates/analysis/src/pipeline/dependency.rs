@@ -13,8 +13,8 @@
 //! *do* benefit from `petgraph` (dominator trees, SCC) live in
 //! `frameworks::cfa`.
 
-use crate::pass::id::PassId;
-use crate::pass::{PassError, PassResult};
+use crate::passes::base::{PassError, PassResult};
+use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
 /// Dependency graph for passes.
@@ -24,13 +24,13 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug, Default)]
 pub struct DependencyGraph {
     /// Edges: pass -> set of passes it depends on
-    dependencies: HashMap<PassId, HashSet<PassId>>,
+    dependencies: HashMap<TypeId, HashSet<TypeId>>,
 
     /// Reverse edges: pass -> set of passes that depend on it
-    dependents: HashMap<PassId, HashSet<PassId>>,
+    dependents: HashMap<TypeId, HashSet<TypeId>>,
 
     /// All registered passes
-    passes: HashSet<PassId>,
+    passes: HashSet<TypeId>,
 }
 
 impl DependencyGraph {
@@ -40,14 +40,14 @@ impl DependencyGraph {
     }
 
     /// Add a pass to the graph.
-    pub fn add_pass(&mut self, pass_id: PassId) {
+    pub fn add_pass(&mut self, pass_id: TypeId) {
         self.passes.insert(pass_id);
         self.dependencies.entry(pass_id).or_default();
         self.dependents.entry(pass_id).or_default();
     }
 
     /// Add a dependency: `pass_id` depends on `dependency`.
-    pub fn add_dependency(&mut self, pass_id: PassId, dependency: PassId) {
+    pub fn add_dependency(&mut self, pass_id: TypeId, dependency: TypeId) {
         self.add_pass(pass_id);
         self.add_pass(dependency);
 
@@ -63,7 +63,7 @@ impl DependencyGraph {
     }
 
     /// Get dependencies of a pass.
-    pub fn get_dependencies(&self, pass_id: &PassId) -> Vec<PassId> {
+    pub fn get_dependencies(&self, pass_id: &TypeId) -> Vec<TypeId> {
         self.dependencies
             .get(pass_id)
             .map(|deps| deps.iter().cloned().collect())
@@ -71,7 +71,7 @@ impl DependencyGraph {
     }
 
     /// Get dependents of a pass (passes that depend on it).
-    pub fn get_dependents(&self, pass_id: &PassId) -> Vec<PassId> {
+    pub fn get_dependents(&self, pass_id: &TypeId) -> Vec<TypeId> {
         self.dependents
             .get(pass_id)
             .map(|deps| deps.iter().cloned().collect())
@@ -79,7 +79,7 @@ impl DependencyGraph {
     }
 
     /// Check if all dependencies of a pass are satisfied.
-    pub fn dependencies_satisfied(&self, pass_id: &PassId, completed: &HashSet<PassId>) -> bool {
+    pub fn dependencies_satisfied(&self, pass_id: &TypeId, completed: &HashSet<TypeId>) -> bool {
         self.dependencies
             .get(pass_id)
             .map(|deps| deps.iter().all(|dep| completed.contains(dep)))
@@ -89,7 +89,7 @@ impl DependencyGraph {
     /// Compute topological sort of all passes.
     ///
     /// Returns passes in execution order (dependencies before dependents).
-    pub fn topological_sort(&self) -> PassResult<Vec<PassId>> {
+    pub fn topological_sort(&self) -> PassResult<Vec<TypeId>> {
         let mut result = Vec::new();
         let mut visited = HashSet::new();
         let mut in_progress = HashSet::new();
@@ -103,10 +103,10 @@ impl DependencyGraph {
 
     fn visit(
         &self,
-        pass_id: PassId,
-        visited: &mut HashSet<PassId>,
-        in_progress: &mut HashSet<PassId>,
-        result: &mut Vec<PassId>,
+        pass_id: TypeId,
+        visited: &mut HashSet<TypeId>,
+        in_progress: &mut HashSet<TypeId>,
+        result: &mut Vec<TypeId>,
     ) -> PassResult<()> {
         if visited.contains(&pass_id) {
             return Ok(());
@@ -114,7 +114,7 @@ impl DependencyGraph {
 
         if in_progress.contains(&pass_id) {
             return Err(PassError::CircularDependency(format!(
-                "Circular dependency detected involving pass '{}'",
+                "Circular dependency detected involving pass '{:?}'",
                 pass_id
             )));
         }
@@ -140,10 +140,10 @@ impl DependencyGraph {
     ///
     /// Returns a vector of levels, where each level contains passes
     /// that can be executed in parallel.
-    pub fn compute_levels(&self) -> PassResult<Vec<Vec<PassId>>> {
+    pub fn compute_levels(&self) -> PassResult<Vec<Vec<TypeId>>> {
         let sorted = self.topological_sort()?;
-        let mut levels: Vec<Vec<PassId>> = Vec::new();
-        let mut pass_level: HashMap<PassId, usize> = HashMap::new();
+        let mut levels: Vec<Vec<TypeId>> = Vec::new();
+        let mut pass_level: HashMap<TypeId, usize> = HashMap::new();
 
         for pass_id in sorted {
             // Compute level based on dependencies
@@ -194,56 +194,76 @@ impl DependencyGraph {
 mod tests {
     use super::*;
 
+    // Marker types to get distinct TypeIds for testing
+    struct PassA; // analogous to "Cfg"
+    struct PassB; // analogous to "IrCfg"
+    struct PassC; // analogous to "IrCallGraph"
+    struct PassD; // analogous to "DataFlow"
+    struct PassE; // analogous to "TaintAnalysis"
+
     #[test]
     fn test_add_dependency() {
         let mut graph = DependencyGraph::new();
-        graph.add_dependency(PassId::IrCfg, PassId::Cfg);
+        let id_a = TypeId::of::<PassA>();
+        let id_b = TypeId::of::<PassB>();
 
-        assert!(graph.passes.contains(&PassId::IrCfg));
-        assert!(graph.passes.contains(&PassId::Cfg));
+        graph.add_dependency(id_b, id_a);
+
+        assert!(graph.passes.contains(&id_b));
+        assert!(graph.passes.contains(&id_a));
     }
 
     #[test]
     fn test_topological_sort() {
         let mut graph = DependencyGraph::new();
-        graph.add_pass(PassId::Cfg);
-        graph.add_dependency(PassId::IrCfg, PassId::Cfg);
-        graph.add_dependency(PassId::IrCallGraph, PassId::Cfg);
+        let id_a = TypeId::of::<PassA>();
+        let id_b = TypeId::of::<PassB>();
+        let id_c = TypeId::of::<PassC>();
+
+        graph.add_pass(id_a);
+        graph.add_dependency(id_b, id_a);
+        graph.add_dependency(id_c, id_a);
 
         let sorted = graph.topological_sort().unwrap();
 
-        let cfg_pos = sorted.iter().position(|&p| p == PassId::Cfg).unwrap();
-        let ir_cfg_pos = sorted.iter().position(|&p| p == PassId::IrCfg).unwrap();
-        let ir_cg_pos = sorted
-            .iter()
-            .position(|&p| p == PassId::IrCallGraph)
-            .unwrap();
+        let a_pos = sorted.iter().position(|&p| p == id_a).unwrap();
+        let b_pos = sorted.iter().position(|&p| p == id_b).unwrap();
+        let c_pos = sorted.iter().position(|&p| p == id_c).unwrap();
 
-        assert!(cfg_pos < ir_cfg_pos);
-        assert!(cfg_pos < ir_cg_pos);
+        assert!(a_pos < b_pos);
+        assert!(a_pos < c_pos);
     }
 
     #[test]
     fn test_compute_levels() {
         let mut graph = DependencyGraph::new();
-        graph.add_pass(PassId::Cfg);
-        graph.add_pass(PassId::DataFlow);
-        graph.add_dependency(PassId::IrCfg, PassId::Cfg);
-        graph.add_dependency(PassId::IrCallGraph, PassId::Cfg);
-        graph.add_dependency(PassId::TaintAnalysis, PassId::IrCallGraph);
+        let id_a = TypeId::of::<PassA>();
+        let id_b = TypeId::of::<PassB>();
+        let id_c = TypeId::of::<PassC>();
+        let id_d = TypeId::of::<PassD>();
+        let id_e = TypeId::of::<PassE>();
+
+        graph.add_pass(id_a);
+        graph.add_pass(id_d);
+        graph.add_dependency(id_b, id_a);
+        graph.add_dependency(id_c, id_a);
+        graph.add_dependency(id_e, id_c);
 
         let levels = graph.compute_levels().unwrap();
 
         assert_eq!(levels.len(), 3);
-        assert!(levels[0].contains(&PassId::Cfg));
-        assert!(levels[0].contains(&PassId::DataFlow));
+        assert!(levels[0].contains(&id_a));
+        assert!(levels[0].contains(&id_d));
     }
 
     #[test]
     fn test_circular_dependency() {
         let mut graph = DependencyGraph::new();
-        graph.add_dependency(PassId::Cfg, PassId::IrCfg);
-        graph.add_dependency(PassId::IrCfg, PassId::Cfg);
+        let id_a = TypeId::of::<PassA>();
+        let id_b = TypeId::of::<PassB>();
+
+        graph.add_dependency(id_a, id_b);
+        graph.add_dependency(id_b, id_a);
 
         let result = graph.topological_sort();
         assert!(result.is_err());

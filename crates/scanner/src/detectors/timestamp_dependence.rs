@@ -3,15 +3,16 @@
 //! Detects dangerous usage of block.timestamp for critical decisions
 //! using declarative pattern matching.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::SourceUnit;
+use std::any::TypeId;
 
 /// GREP-based detector for timestamp dependence.
 ///
@@ -27,10 +28,6 @@ impl TimestampDependenceGrepDetector {
 }
 
 impl Pass for TimestampDependenceGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::TimestampDependence
-    }
-
     fn name(&self) -> &'static str {
         "Timestamp Dependence"
     }
@@ -47,12 +44,16 @@ impl Pass for TimestampDependenceGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for TimestampDependenceGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::TimestampDependence
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -147,7 +148,7 @@ mod tests {
     #[test]
     fn test_timestamp_dependence_grep_detector() {
         let detector = TimestampDependenceGrepDetector::new();
-        assert_eq!(detector.id(), PassId::TimestampDependence);
+        assert_eq!(detector.detector_id(), DetectorId::TimestampDependence);
         assert_eq!(detector.swc_ids(), vec![116]);
     }
 }

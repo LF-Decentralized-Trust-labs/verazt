@@ -9,16 +9,17 @@
 //! - Functions that are never called (internal/private only)
 
 use crate::config::InputLanguage;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
     Block, ContractElem, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
 };
+use std::any::TypeId;
 
 /// AST-based detector for dead code.
 #[derive(Debug, Default)]
@@ -130,10 +131,6 @@ impl DeadCodeAstDetector {
 }
 
 impl Pass for DeadCodeAstDetector {
-    fn id(&self) -> PassId {
-        PassId::DeadCode
-    }
-
     fn name(&self) -> &'static str {
         "Dead Code (AST)"
     }
@@ -150,12 +147,16 @@ impl Pass for DeadCodeAstDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for DeadCodeAstDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::DeadCode
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Dead-code detection operates on Solidity AST; skip for Vyper
         // input (Vyper's `pass` statement and different AST structure
@@ -234,7 +235,7 @@ mod tests {
     #[test]
     fn test_dead_code_detector() {
         let detector = DeadCodeAstDetector::new();
-        assert_eq!(detector.id(), PassId::DeadCode);
+        assert_eq!(detector.detector_id(), DetectorId::DeadCode);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

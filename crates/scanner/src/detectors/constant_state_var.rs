@@ -3,16 +3,17 @@
 //! Detects state variables that could be declared constant or immutable
 //! using pattern matching.
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
     Block, ContractDef, ContractElem, Expr, Loc, SourceUnit, SourceUnitElem, Stmt, VarMut,
 };
+use std::any::TypeId;
 use std::collections::HashSet;
 
 /// GREP-based detector for state variables that could be constant.
@@ -159,10 +160,6 @@ impl ConstantStateVarGrepDetector {
 }
 
 impl Pass for ConstantStateVarGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::ConstantStateVar
-    }
-
     fn name(&self) -> &'static str {
         "Constant State Variable"
     }
@@ -179,12 +176,16 @@ impl Pass for ConstantStateVarGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for ConstantStateVarGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::ConstantStateVar
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -247,7 +248,7 @@ mod tests {
     #[test]
     fn test_constant_state_var_grep_detector() {
         let detector = ConstantStateVarGrepDetector::new();
-        assert_eq!(detector.id(), PassId::ConstantStateVar);
+        assert_eq!(detector.detector_id(), DetectorId::ConstantStateVar);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

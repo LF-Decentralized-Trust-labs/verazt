@@ -8,16 +8,17 @@
 //! 2. Effects (state changes) come second
 //! 3. Interactions (external calls) come last
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
     Block, CallArgs, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
 };
+use std::any::TypeId;
 
 /// AST-based detector for CEI (Checks-Effects-Interactions) pattern violations.
 #[derive(Debug, Default)]
@@ -253,10 +254,6 @@ impl CeiAnalyzer {
 }
 
 impl Pass for CeiViolationAstDetector {
-    fn id(&self) -> PassId {
-        PassId::CeiViolation
-    }
-
     fn name(&self) -> &'static str {
         "CEI Pattern Violation (AST)"
     }
@@ -273,12 +270,16 @@ impl Pass for CeiViolationAstDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for CeiViolationAstDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::CeiViolation
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -354,7 +355,7 @@ mod tests {
     #[test]
     fn test_cei_violation_detector() {
         let detector = CeiViolationAstDetector::new();
-        assert_eq!(detector.id(), PassId::CeiViolation);
+        assert_eq!(detector.detector_id(), DetectorId::CeiViolation);
         assert_eq!(detector.risk_level(), RiskLevel::High);
         assert_eq!(detector.swc_ids(), vec![107]);
     }

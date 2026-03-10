@@ -2,13 +2,14 @@
 //!
 //! Detects use of `evm.tx_origin()` for authentication.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
+use std::any::TypeId;
 
 /// SIR structural detector for tx.origin auth misuse (EVM-specific).
 #[derive(Debug, Default)]
@@ -21,10 +22,6 @@ impl SirTxOriginAuthDetector {
 }
 
 impl Pass for SirTxOriginAuthDetector {
-    fn id(&self) -> PassId {
-        PassId::SirTxOriginAuth
-    }
-
     fn name(&self) -> &'static str {
         "SIR tx.origin Auth"
     }
@@ -41,12 +38,16 @@ impl Pass for SirTxOriginAuthDetector {
         PassRepresentation::Ir
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for SirTxOriginAuthDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::SirTxOriginAuth
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let bugs = Vec::new();
 

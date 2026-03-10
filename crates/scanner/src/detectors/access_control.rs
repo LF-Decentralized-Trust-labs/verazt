@@ -2,13 +2,14 @@
 //!
 //! Harvests findings from the `AIRAccessControlPass` analysis artifact.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
+use std::any::TypeId;
 
 /// AIR-based access control detector.
 ///
@@ -23,10 +24,6 @@ impl AIRAccessControlDetector {
 }
 
 impl Pass for AIRAccessControlDetector {
-    fn id(&self) -> PassId {
-        PassId::AIRAccessControl
-    }
-
     fn name(&self) -> &'static str {
         "AIR Access Control"
     }
@@ -43,7 +40,7 @@ impl Pass for AIRAccessControlDetector {
         PassRepresentation::Air
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         // Note: The upstream AIRAccessControlPass was moved; the detection
         // logic now lives in this detector via artifact harvesting.
         vec![]
@@ -51,6 +48,10 @@ impl Pass for AIRAccessControlDetector {
 }
 
 impl BugDetectionPass for AIRAccessControlDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::AIRAccessControl
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Findings are pre-computed by AIRAccessControlPass
         #[allow(deprecated)]

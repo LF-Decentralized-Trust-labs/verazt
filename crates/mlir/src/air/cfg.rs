@@ -189,19 +189,19 @@ impl Display for ICFG {
 
 /// A function in AIR form with SSA-renamed basic blocks.
 #[derive(Debug, Clone)]
-pub struct AIRFunction {
+pub struct Function {
     pub id: FunctionId,
     pub blocks: Vec<BasicBlock>,
     pub is_public: bool,
 }
 
-impl AIRFunction {
+impl Function {
     pub fn new(id: FunctionId, is_public: bool) -> Self {
-        AIRFunction { id, blocks: Vec::new(), is_public }
+        Function { id, blocks: Vec::new(), is_public }
     }
 }
 
-impl Display for AIRFunction {
+impl Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let vis = if self.is_public { "public " } else { "" };
         writeln!(f, "{vis}function {} {{", self.id)?;

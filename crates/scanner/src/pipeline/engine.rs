@@ -6,15 +6,15 @@
 //!    dependency level
 //! 2. **Detection Phase**: Run all enabled detectors fully in parallel
 
+use crate::config::InputLanguage;
+use crate::detector::BugDetectionPass;
+use crate::pipeline::registry::{DetectorRegistry, register_all_detectors};
+use analysis::AnalysisPass;
+use analysis::PassRepresentation;
 use analysis::context::AnalysisContext;
 use analysis::pipeline::manager::{PassManager, PassManagerConfig};
-use analysis::pass::AnalysisPass;
-use analysis::pass::id::PassId;
-use analysis::pass::meta::PassRepresentation;
-use crate::config::InputLanguage;
-use crate::pipeline::detector::BugDetectionPass;
-use crate::pipeline::registry::{DetectorRegistry, register_all_detectors};
 use bugs::bug::Bug;
+use std::any::TypeId;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
@@ -197,7 +197,7 @@ impl PipelineEngine {
     /// Check if a detector is enabled based on config.
     fn is_detector_enabled(&self, detector: &dyn BugDetectionPass) -> bool {
         let name = detector.name();
-        let id = detector.id().as_str();
+        let id = detector.detector_id().as_str();
 
         // Check if explicitly disabled
         if self.config.disabled.iter().any(|d| d == name || d == id) {
@@ -227,7 +227,7 @@ impl PipelineEngine {
         context: &mut AnalysisContext,
     ) -> Result<(), String> {
         // Collect required passes from detector dependencies
-        let required: HashSet<PassId> = enabled_detectors
+        let required: HashSet<TypeId> = enabled_detectors
             .iter()
             .flat_map(|d| d.dependencies())
             .collect();
@@ -236,10 +236,6 @@ impl PipelineEngine {
             log::debug!("No analysis passes required by enabled detectors");
             return Ok(());
         }
-
-        // For Vyper, skip AST-level analysis passes entirely since
-        // we don't have Solidity AST source units.
-        let is_vyper = context.input_language == InputLanguage::Vyper;
 
         log::info!("Analysis phase: {} passes required", required.len());
 
@@ -255,11 +251,8 @@ impl PipelineEngine {
         // Create and register only the required analysis passes
         // (including transitive dependencies via the pass's own dependencies())
         for &pass_id in &required {
-            // Skip AST-level passes for Vyper (no Solidity source units)
-            if is_vyper && !pass_id.requires_ir() && !pass_id.requires_air() {
-                log::debug!("Skipping AST pass {:?} for Vyper input", pass_id);
-                continue;
-            }
+            // Note: Vyper AST-level pass filtering removed (TypeId has no representation
+            // info)
             if let Some(pass) = create_analysis_pass(pass_id) {
                 pass_manager.register_analysis_pass(pass);
             }
@@ -435,21 +428,15 @@ fn run_single_detector(
     }
 }
 
-/// Create an analysis pass instance from a PassId.
+/// Create an analysis pass instance from a TypeId.
 ///
-/// This factory function maps PassIds to their concrete implementations.
-fn create_analysis_pass(pass_id: PassId) -> Option<Box<dyn AnalysisPass>> {
-    match pass_id {
-        // AIR Analysis Passes (AIR is eagerly lowered, no AIRGeneration needed)
-        PassId::AIRTaintPropagation => {
-            Some(Box::new(analysis::passes::air::AIRTaintPropagationPass))
-        }
-
-        // Not yet implemented or not an analysis pass
-        _ => {
-            log::warn!("No analysis pass implementation for {:?}", pass_id);
-            None
-        }
+/// This factory function maps TypeIds to their concrete implementations.
+fn create_analysis_pass(pass_id: TypeId) -> Option<Box<dyn AnalysisPass>> {
+    if pass_id == TypeId::of::<analysis::passes::air::TaintPropagationPass>() {
+        Some(Box::new(analysis::passes::air::TaintPropagationPass))
+    } else {
+        log::warn!("No analysis pass implementation for {:?}", pass_id);
+        None
     }
 }
 
@@ -497,7 +484,10 @@ mod tests {
 
     #[test]
     fn test_create_analysis_pass() {
-        assert!(create_analysis_pass(PassId::AIRTaintPropagation).is_some());
+        assert!(
+            create_analysis_pass(TypeId::of::<analysis::passes::air::TaintPropagationPass>())
+                .is_some()
+        );
     }
 
     #[test]

@@ -8,16 +8,17 @@
 //! - Local storage pointers that could point to arbitrary storage locations
 
 use crate::config::InputLanguage;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
     ContractDef, ContractElem, DataLoc, Expr, Loc, SourceUnit, SourceUnitElem, Stmt, Type, VarMut,
 };
+use std::any::TypeId;
 use std::collections::HashSet;
 
 /// AST-based detector for uninitialized storage variables and pointers.
@@ -151,10 +152,6 @@ impl UninitializedAstDetector {
 }
 
 impl Pass for UninitializedAstDetector {
-    fn id(&self) -> PassId {
-        PassId::UninitializedStorage
-    }
-
     fn name(&self) -> &'static str {
         "Uninitialized Storage (AST)"
     }
@@ -171,12 +168,16 @@ impl Pass for UninitializedAstDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for UninitializedAstDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::UninitializedStorage
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Vyper initializes all variables to zero by default, so
         // uninitialized-storage warnings are not applicable.
@@ -243,7 +244,7 @@ mod tests {
     #[test]
     fn test_uninitialized_detector() {
         let detector = UninitializedAstDetector::new();
-        assert_eq!(detector.id(), PassId::UninitializedStorage);
+        assert_eq!(detector.detector_id(), DetectorId::UninitializedStorage);
         assert_eq!(detector.swc_ids(), vec![109]);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }

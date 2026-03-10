@@ -2,15 +2,16 @@
 //!
 //! Detects usage of deprecated Solidity features using pattern matching.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::SourceUnit;
+use std::any::TypeId;
 
 /// Known deprecated function names in Solidity.
 #[allow(dead_code)]
@@ -32,10 +33,6 @@ impl DeprecatedGrepDetector {
 }
 
 impl Pass for DeprecatedGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::Deprecated
-    }
-
     fn name(&self) -> &'static str {
         "Deprecated Features"
     }
@@ -52,12 +49,16 @@ impl Pass for DeprecatedGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for DeprecatedGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::Deprecated
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -148,7 +149,7 @@ mod tests {
     #[test]
     fn test_deprecated_grep_detector() {
         let detector = DeprecatedGrepDetector::new();
-        assert_eq!(detector.id(), PassId::Deprecated);
+        assert_eq!(detector.detector_id(), DetectorId::Deprecated);
         assert_eq!(detector.swc_ids(), vec![111]);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }

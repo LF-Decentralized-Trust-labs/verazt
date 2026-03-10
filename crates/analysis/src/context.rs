@@ -4,8 +4,6 @@
 //! supporting SIR and AIR representations. AST (frontend) types have
 //! been removed — all input is via SIR `Module`.
 
-use crate::pass::id::PassId;
-
 /// The input source language.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum InputLanguage {
@@ -128,7 +126,7 @@ pub struct AnalysisContext {
     pub ir_units: Option<Vec<mlir::sir::Module>>,
 
     /// AIR modules (eagerly lowered from SIR).
-    pub air_units: Option<Vec<mlir::air::AIRModule>>,
+    pub air_units: Option<Vec<mlir::air::Module>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -148,10 +146,10 @@ pub struct AnalysisContext {
     // Pass Management
     // ========================================
     /// Set of completed pass IDs.
-    completed_passes: HashSet<PassId>,
+    completed_passes: HashSet<TypeId>,
 
     /// Pass completion order.
-    pass_order: Vec<PassId>,
+    pass_order: Vec<TypeId>,
 
     // ========================================
     // Configuration and Stats
@@ -240,12 +238,12 @@ impl AnalysisContext {
     }
 
     /// Get AIR units. Returns an empty slice if AIR is not available.
-    pub fn air_units(&self) -> &[mlir::air::AIRModule] {
+    pub fn air_units(&self) -> &[mlir::air::Module] {
         self.air_units.as_deref().unwrap_or(&[])
     }
 
     /// Set AIR units directly (escape hatch).
-    pub fn set_air_units(&mut self, units: Vec<mlir::air::AIRModule>) {
+    pub fn set_air_units(&mut self, units: Vec<mlir::air::Module>) {
         self.air_units = Some(units);
     }
 
@@ -324,7 +322,7 @@ impl AnalysisContext {
     // ========================================
 
     /// Mark a pass as completed.
-    pub fn mark_pass_completed(&mut self, pass_id: PassId) {
+    pub fn mark_pass_completed(&mut self, pass_id: TypeId) {
         if self.completed_passes.insert(pass_id) {
             self.pass_order.push(pass_id);
             self.stats.passes_executed += 1;
@@ -332,12 +330,12 @@ impl AnalysisContext {
     }
 
     /// Check if a pass has been completed.
-    pub fn is_pass_completed(&self, pass_id: PassId) -> bool {
+    pub fn is_pass_completed(&self, pass_id: TypeId) -> bool {
         self.completed_passes.contains(&pass_id)
     }
 
     /// Get all completed passes in order.
-    pub fn completed_passes(&self) -> &[PassId] {
+    pub fn completed_passes(&self) -> &[TypeId] {
         &self.pass_order
     }
 
@@ -434,11 +432,11 @@ mod tests {
     fn test_pass_completion() {
         let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
 
-        assert!(!context.is_pass_completed(PassId::Cfg));
+        assert!(!context.is_pass_completed(TypeId::of::<u8>()));
 
-        context.mark_pass_completed(PassId::Cfg);
+        context.mark_pass_completed(TypeId::of::<u8>());
 
-        assert!(context.is_pass_completed(PassId::Cfg));
+        assert!(context.is_pass_completed(TypeId::of::<u8>()));
         assert_eq!(context.completed_pass_count(), 1);
     }
 }

@@ -4,8 +4,6 @@
 //! supporting SIR and AIR representations. AST (frontend) types have
 //! been removed — all input is via SIR `Module`.
 
-use crate::pass::id::PassId;
-
 /// The input source language.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum InputLanguage {
@@ -17,7 +15,7 @@ pub enum InputLanguage {
     Solana,
 }
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
@@ -94,7 +92,7 @@ pub struct AnalysisContext {
     pub ir_units: Option<Vec<mlir::sir::Module>>,
 
     /// AIR modules (eagerly lowered from SIR).
-    pub air_units: Option<Vec<mlir::air::AIRModule>>,
+    pub air_units: Option<Vec<mlir::air::Module>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -110,10 +108,10 @@ pub struct AnalysisContext {
     // Pass Management
     // ========================================
     /// Set of completed pass IDs.
-    completed_passes: HashSet<PassId>,
+    completed_passes: HashSet<TypeId>,
 
     /// Pass completion order.
-    pass_order: Vec<PassId>,
+    pass_order: Vec<TypeId>,
 
     // ========================================
     // Configuration and Stats
@@ -146,7 +144,11 @@ impl AnalysisContext {
             if air.is_empty() { None } else { Some(air) }
         };
 
-        let ir_units = if sir_modules.is_empty() { None } else { Some(sir_modules) };
+        let ir_units = if sir_modules.is_empty() {
+            None
+        } else {
+            Some(sir_modules)
+        };
 
         Self {
             ir_units,
@@ -197,12 +199,12 @@ impl AnalysisContext {
     }
 
     /// Get AIR units (panics if not available).
-    pub fn air_units(&self) -> &Vec<mlir::air::AIRModule> {
+    pub fn air_units(&self) -> &Vec<mlir::air::Module> {
         self.air_units.as_ref().expect("AIR not generated")
     }
 
     /// Set AIR units directly (escape hatch).
-    pub fn set_air_units(&mut self, units: Vec<mlir::air::AIRModule>) {
+    pub fn set_air_units(&mut self, units: Vec<mlir::air::Module>) {
         self.air_units = Some(units);
     }
 
@@ -242,7 +244,7 @@ impl AnalysisContext {
     // ========================================
 
     /// Mark a pass as completed.
-    pub fn mark_pass_completed(&mut self, pass_id: PassId) {
+    pub fn mark_pass_completed(&mut self, pass_id: TypeId) {
         if self.completed_passes.insert(pass_id) {
             self.pass_order.push(pass_id);
             self.stats.passes_executed += 1;
@@ -250,12 +252,12 @@ impl AnalysisContext {
     }
 
     /// Check if a pass has been completed.
-    pub fn is_pass_completed(&self, pass_id: PassId) -> bool {
+    pub fn is_pass_completed(&self, pass_id: TypeId) -> bool {
         self.completed_passes.contains(&pass_id)
     }
 
     /// Get all completed passes in order.
-    pub fn completed_passes(&self) -> &[PassId] {
+    pub fn completed_passes(&self) -> &[TypeId] {
         &self.pass_order
     }
 
@@ -320,11 +322,14 @@ mod tests {
     fn test_pass_completion() {
         let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
 
-        assert!(!context.is_pass_completed(PassId::Cfg));
+        // Use an arbitrary type as a stand-in pass ID
+        let pass_id = TypeId::of::<u8>();
 
-        context.mark_pass_completed(PassId::Cfg);
+        assert!(!context.is_pass_completed(pass_id));
 
-        assert!(context.is_pass_completed(PassId::Cfg));
+        context.mark_pass_completed(pass_id);
+
+        assert!(context.is_pass_completed(pass_id));
         assert_eq!(context.completed_pass_count(), 1);
     }
 }

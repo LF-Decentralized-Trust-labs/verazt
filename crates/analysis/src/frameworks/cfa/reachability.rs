@@ -10,7 +10,7 @@
 //! - **Reentrancy**: check whether an external call can *reach* a storage write
 //!   on any path — a direct reachability query, no full DFA pass required.
 
-use mlir::air::cfg::{AIRFunction, BlockId, Terminator};
+use mlir::air::cfg::{BlockId, Function, Terminator};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -28,14 +28,14 @@ pub struct ReachabilitySet {
 
 impl ReachabilitySet {
     /// Compute all blocks reachable from `start` in `func`'s CFG using BFS.
-    pub fn forward(func: &AIRFunction, start: BlockId) -> Self {
+    pub fn forward(func: &Function, start: BlockId) -> Self {
         let succ_map = build_successor_map(func);
         let reachable = bfs(&succ_map, start);
         ReachabilitySet { reachable, start }
     }
 
     /// Compute all blocks that can *reach* `target` by backwards traversal.
-    pub fn backward(func: &AIRFunction, target: BlockId) -> Self {
+    pub fn backward(func: &Function, target: BlockId) -> Self {
         let pred_map = build_predecessor_map(func);
         let reachable = bfs(&pred_map, target);
         ReachabilitySet { reachable, start: target }
@@ -80,7 +80,7 @@ impl ReachabilitySet {
 ///
 /// Terminates early as soon as `to` is found. More efficient than
 /// building the full `ReachabilitySet` when you only need a yes/no answer.
-pub fn can_reach(func: &AIRFunction, from: BlockId, to: BlockId) -> bool {
+pub fn can_reach(func: &Function, from: BlockId, to: BlockId) -> bool {
     if from == to {
         return true;
     }
@@ -106,7 +106,7 @@ pub fn can_reach(func: &AIRFunction, from: BlockId, to: BlockId) -> bool {
 }
 
 /// Check if `from` can reach `to` going backwards through predecessors.
-pub fn can_reach_backward(func: &AIRFunction, from: BlockId, to: BlockId) -> bool {
+pub fn can_reach_backward(func: &Function, from: BlockId, to: BlockId) -> bool {
     if from == to {
         return true;
     }
@@ -143,7 +143,7 @@ fn terminator_successors(term: &Terminator) -> Vec<BlockId> {
     }
 }
 
-fn build_successor_map(func: &AIRFunction) -> HashMap<BlockId, Vec<BlockId>> {
+fn build_successor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
     let mut map: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
     for block in &func.blocks {
         map.insert(block.id, terminator_successors(&block.term));
@@ -151,7 +151,7 @@ fn build_successor_map(func: &AIRFunction) -> HashMap<BlockId, Vec<BlockId>> {
     map
 }
 
-fn build_predecessor_map(func: &AIRFunction) -> HashMap<BlockId, Vec<BlockId>> {
+fn build_predecessor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
     let mut preds: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
     for block in &func.blocks {
         for succ in terminator_successors(&block.term) {
@@ -182,12 +182,12 @@ fn bfs(adj: &HashMap<BlockId, Vec<BlockId>>, start: BlockId) -> HashSet<BlockId>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::air::cfg::{AIRFunction, BasicBlock, BlockId, FunctionId, Terminator};
+    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
     use mlir::air::ops::{OpId, OpRef};
 
     /// Diamond CFG: bb0 → {bb1, bb2} → bb3 (exit)
-    fn diamond_function() -> AIRFunction {
-        let mut func = AIRFunction::new(FunctionId("diamond".into()), true);
+    fn diamond_function() -> Function {
+        let mut func = Function::new(FunctionId("diamond".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term =

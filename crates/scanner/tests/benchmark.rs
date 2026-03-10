@@ -7,11 +7,11 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use scanner::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
-use scanner::artifacts::SourceUnitsArtifact;
 use bugs::bug::BugCategory;
 use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
 use frontend::solidity::parser::parse_input_file;
+use scanner::artifacts::SourceUnitsArtifact;
+use scanner::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
 
 /// Represents a bug detected by the local analyzer.
 #[derive(Debug, Clone)]

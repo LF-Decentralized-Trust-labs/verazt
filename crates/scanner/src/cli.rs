@@ -5,8 +5,8 @@
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
-    PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
-    artifacts::SourceUnitsArtifact,
+    PipelineEngine, SarifFormatter, SeverityFilter, artifacts::SourceUnitsArtifact,
+    register_all_detectors,
 };
 use clap::{Parser, Subcommand, crate_version};
 use common::error;
@@ -179,7 +179,7 @@ fn list_detectors() {
     for detector in sorted_detectors {
         println!(
             "{:<25} {:<35} {:<10} {:<10}",
-            detector.id().as_str(),
+            detector.detector_id().as_str(),
             detector.name(),
             detector.risk_level().as_str(),
             format!("{:?}", detector.confidence()).to_lowercase(),
@@ -196,7 +196,7 @@ fn show_detector(id: &str) {
     match registry.get(id) {
         Some(detector) => {
             println!("Detector: {}", detector.name());
-            println!("ID: {}", detector.id().as_str());
+            println!("ID: {}", detector.detector_id().as_str());
             println!("Severity: {}", detector.risk_level());
             println!("Confidence: {:?}", detector.confidence());
             println!();

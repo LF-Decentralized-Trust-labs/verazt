@@ -5,9 +5,9 @@
 //! live in `mlir::sir::cfg`.
 
 use crate::context::AnalysisContext;
-use crate::pass::{AnalysisPass, Pass, PassResult};
-use crate::pass::id::PassId;
-use crate::pass::meta::{PassLevel, PassRepresentation};
+use crate::passes::base::{AnalysisPass, Pass, PassResult};
+use std::any::TypeId;
+use crate::passes::base::meta::{PassLevel, PassRepresentation};
 
 pub use mlir::sir::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph, Terminator};
 
@@ -50,8 +50,8 @@ impl Default for CfgPass {
 }
 
 impl Pass for CfgPass {
-    fn id(&self) -> PassId {
-        PassId::IrCfg
+    fn id(&self) -> TypeId {
+        TypeId::of::<Self>()
     }
 
     fn name(&self) -> &'static str {
@@ -70,7 +70,7 @@ impl Pass for CfgPass {
         PassRepresentation::Ir
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
@@ -79,7 +79,7 @@ impl AnalysisPass for CfgPass {
     fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
         // Check if IR is available
         if context.ir_units.is_none() {
-            return Err(crate::pass::PassError::IrNotAvailable(self.name().to_string()));
+            return Err(crate::passes::base::PassError::IrNotAvailable(self.name().to_string()));
         }
 
         // For now, just mark as completed
@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_cfg_pass() {
         let pass = CfgPass::new();
-        assert_eq!(pass.id(), PassId::IrCfg);
+        assert_eq!(pass.id(), TypeId::of::<CfgPass>());
         assert_eq!(pass.representation(), PassRepresentation::Ir);
     }
 }

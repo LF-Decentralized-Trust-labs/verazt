@@ -15,7 +15,7 @@ fn test_detectors_have_valid_metadata() {
 
     for detector in registry.all() {
         // Check ID is non-empty
-        assert!(!detector.id().as_str().is_empty(), "Detector ID should not be empty");
+        assert!(!detector.detector_id().as_str().is_empty(), "Detector ID should not be empty");
 
         // Check name is non-empty
         assert!(!detector.name().is_empty(), "Detector name should not be empty");
@@ -27,7 +27,7 @@ fn test_detectors_have_valid_metadata() {
         assert!(
             !detector.recommendation().is_empty(),
             "Detector recommendation should not be empty for {}",
-            detector.id()
+            detector.detector_id()
         );
     }
 }
@@ -40,7 +40,7 @@ fn test_tx_origin_detector() {
         .get("tx-origin")
         .expect("tx-origin detector should exist");
 
-    assert_eq!(detector.id().as_str(), "tx-origin");
+    assert_eq!(detector.detector_id().as_str(), "tx-origin");
     assert_eq!(detector.name(), "Dangerous use of tx.origin");
     assert_eq!(detector.swc_ids(), vec![115]);
     assert_eq!(detector.cwe_ids(), vec![345]);
@@ -54,7 +54,7 @@ fn test_reentrancy_detector() {
         .get("reentrancy")
         .expect("reentrancy detector should exist");
 
-    assert_eq!(detector.id().as_str(), "reentrancy");
+    assert_eq!(detector.detector_id().as_str(), "reentrancy");
     assert_eq!(detector.swc_ids(), vec![107]);
 }
 
@@ -66,7 +66,7 @@ fn test_unchecked_call_detector() {
         .get("unchecked-call")
         .expect("unchecked-call detector should exist");
 
-    assert_eq!(detector.id().as_str(), "unchecked-call");
+    assert_eq!(detector.detector_id().as_str(), "unchecked-call");
     assert_eq!(detector.swc_ids(), vec![104]);
 }
 
@@ -78,7 +78,7 @@ fn test_floating_pragma_detector() {
         .get("floating-pragma")
         .expect("floating-pragma detector should exist");
 
-    assert_eq!(detector.id().as_str(), "floating-pragma");
+    assert_eq!(detector.detector_id().as_str(), "floating-pragma");
     assert_eq!(detector.swc_ids(), vec![103]);
 }
 
@@ -90,7 +90,7 @@ fn test_shadowing_detector() {
         .get("shadowing")
         .expect("shadowing detector should exist");
 
-    assert_eq!(detector.id().as_str(), "shadowing");
+    assert_eq!(detector.detector_id().as_str(), "shadowing");
     assert_eq!(detector.swc_ids(), vec![119]);
 }
 
@@ -102,7 +102,7 @@ fn test_uninitialized_detector() {
         .get("uninitialized-storage")
         .expect("uninitialized detector should exist");
 
-    assert_eq!(detector.id().as_str(), "uninitialized-storage");
+    assert_eq!(detector.detector_id().as_str(), "uninitialized-storage");
     assert_eq!(detector.swc_ids(), vec![109]);
 }
 
@@ -114,7 +114,7 @@ fn test_deprecated_detector() {
         .get("deprecated")
         .expect("deprecated detector should exist");
 
-    assert_eq!(detector.id().as_str(), "deprecated");
+    assert_eq!(detector.detector_id().as_str(), "deprecated");
     assert_eq!(detector.swc_ids(), vec![111]);
 }
 
@@ -126,7 +126,7 @@ fn test_visibility_detector() {
         .get("visibility")
         .expect("visibility detector should exist");
 
-    assert_eq!(detector.id().as_str(), "visibility");
+    assert_eq!(detector.detector_id().as_str(), "visibility");
     assert!(detector.swc_ids().contains(&100));
     assert!(detector.swc_ids().contains(&108));
 }
@@ -139,6 +139,6 @@ fn test_dead_code_detector() {
         .get("dead-code")
         .expect("dead-code detector should exist");
 
-    assert_eq!(detector.id().as_str(), "dead-code");
+    assert_eq!(detector.detector_id().as_str(), "dead-code");
     assert!(detector.cwe_ids().contains(&561));
 }

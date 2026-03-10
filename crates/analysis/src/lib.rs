@@ -3,7 +3,7 @@
 //! # Architecture
 //!
 //! The analysis framework provides:
-//! - **Pass Infrastructure** (`pass/`): Base traits, ID enum, metadata for
+//! - **Pass Infrastructure** (`passes/base/`): Base traits, metadata for
 //!   passes.
 //! - **Pipeline** (`pipeline/`): PassManager, scheduler, executor, dependency
 //!   graph.
@@ -27,27 +27,37 @@
 
 // Core modules
 pub mod context;
-pub mod pass;
 pub mod pipeline;
 
 // Analysis passes, organised by IR layer
 pub mod passes;
+
+/// Convenience alias so that `analysis::pass::*` keeps working for
+/// downstream crates (e.g. scanner) that have not migrated yet.
+pub mod pass {
+    pub use crate::passes::base::*;
+    pub mod meta {
+        pub use crate::passes::base::meta::*;
+    }
+    pub mod traits {
+        pub use crate::passes::base::traits::*;
+    }
+}
 
 // Reusable analysis infrastructure
 pub mod frameworks;
 
 // Re-exports for convenient access
 pub use context::{AnalysisConfig, AnalysisContext, AnalysisStats, ArtifactKey, InputLanguage};
-pub use pass::id::{AirPassId, DetectionPassId, PassId, SirPassId};
-pub use pass::meta::{PassLevel, PassRepresentation};
-pub use pass::{AnalysisPass, Pass, PassError, PassExecutionInfo, PassResult};
+pub use passes::base::meta::{PassLevel, PassRepresentation};
+pub use passes::base::{AnalysisPass, Pass, PassError, PassExecutionInfo, PassResult};
 pub use pipeline::{
     AnalysisReport, DependencyGraph, ExecutionResult, ExecutorConfig, PassExecutor, PassManager,
     PassManagerConfig, PassScheduler,
 };
 
 // Re-export concrete passes
-pub use passes::air::AIRTaintPropagationPass;
+pub use passes::air::TaintPropagationPass;
 
 // Re-export DFA framework
 pub use frameworks::dfa::analyses::{

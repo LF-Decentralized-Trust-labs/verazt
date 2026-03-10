@@ -5,12 +5,12 @@
 //!
 //! ## Responsibility boundaries
 //!
-//! - **`manager`** — owns the pass registry; entry point for callers;
-//!   delegates to scheduler then executor; produces `AnalysisReport`.
+//! - **`manager`** — owns the pass registry; entry point for callers; delegates
+//!   to scheduler then executor; produces `AnalysisReport`.
 //! - **`scheduler`** — pure function: takes registered passes, returns
 //!   `ExecutionSchedule`; must not mutate `AnalysisContext`.
-//! - **`executor`** — takes `ExecutionSchedule` + `AnalysisContext`;
-//!   drives execution and timing; must not mutate the pass registry.
+//! - **`executor`** — takes `ExecutionSchedule` + `AnalysisContext`; drives
+//!   execution and timing; must not mutate the pass registry.
 //! - **`dependency`** — dependency graph + topological sort.
 
 pub mod dependency;

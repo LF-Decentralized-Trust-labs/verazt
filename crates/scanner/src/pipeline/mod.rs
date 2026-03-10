@@ -25,10 +25,8 @@
 //! println!("Found {} bugs", result.bugs.len());
 //! ```
 
-pub mod detector;
 pub mod engine;
 pub mod registry;
 
-pub use detector::{BugDetectionPass, DetectorResult, create_bug};
 pub use engine::{PipelineConfig, PipelineEngine, PipelineResult};
 pub use registry::{DetectorRegistry, register_all_detectors};

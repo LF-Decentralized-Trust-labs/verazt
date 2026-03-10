@@ -4,16 +4,17 @@
 //! Finds contracts with privileged functions that give excessive control
 //! to a single address or entity.
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
     ContractDef, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem,
 };
+use std::any::TypeId;
 
 /// GREP-based detector for centralization risks.
 #[derive(Debug, Default)]
@@ -103,10 +104,6 @@ impl CentralizationRiskGrepDetector {
 }
 
 impl Pass for CentralizationRiskGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::CentralizationRisk
-    }
-
     fn name(&self) -> &'static str {
         "Centralization Risk"
     }
@@ -123,12 +120,16 @@ impl Pass for CentralizationRiskGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for CentralizationRiskGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::CentralizationRisk
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -191,7 +192,7 @@ mod tests {
     #[test]
     fn test_centralization_risk_grep_detector() {
         let detector = CentralizationRiskGrepDetector::new();
-        assert_eq!(detector.id(), PassId::CentralizationRisk);
+        assert_eq!(detector.detector_id(), DetectorId::CentralizationRisk);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

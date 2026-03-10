@@ -8,16 +8,17 @@
 //! - `.send()` returns not checked
 //! - Low-level calls used as expression statements (return value discarded)
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
     Block, ContractElem, Expr, FuncDef, Loc, SourceUnit, SourceUnitElem, Stmt,
 };
+use std::any::TypeId;
 
 /// AST-based detector for unchecked call return values.
 #[derive(Debug, Default)]
@@ -133,10 +134,6 @@ impl UncheckedCallAstDetector {
 }
 
 impl Pass for UncheckedCallAstDetector {
-    fn id(&self) -> PassId {
-        PassId::UncheckedCall
-    }
-
     fn name(&self) -> &'static str {
         "Unchecked Call Return (AST)"
     }
@@ -153,12 +150,16 @@ impl Pass for UncheckedCallAstDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for UncheckedCallAstDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::UncheckedCall
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -230,7 +231,7 @@ mod tests {
     #[test]
     fn test_unchecked_call_detector() {
         let detector = UncheckedCallAstDetector::new();
-        assert_eq!(detector.id(), PassId::UncheckedCall);
+        assert_eq!(detector.detector_id(), DetectorId::UncheckedCall);
         assert_eq!(detector.swc_ids(), vec![104]);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }

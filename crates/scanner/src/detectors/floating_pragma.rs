@@ -3,14 +3,15 @@
 //! Detects unlocked compiler versions in pragma directives using
 //! pattern matching.
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{PragmaKind, SourceUnit, SourceUnitElem};
+use std::any::TypeId;
 
 /// GREP-based detector for floating pragma.
 ///
@@ -25,10 +26,6 @@ impl FloatingPragmaGrepDetector {
 }
 
 impl Pass for FloatingPragmaGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::FloatingPragma
-    }
-
     fn name(&self) -> &'static str {
         "Floating Pragma"
     }
@@ -45,12 +42,16 @@ impl Pass for FloatingPragmaGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for FloatingPragmaGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::FloatingPragma
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -123,7 +124,7 @@ mod tests {
     #[test]
     fn test_floating_pragma_grep_detector() {
         let detector = FloatingPragmaGrepDetector::new();
-        assert_eq!(detector.id(), PassId::FloatingPragma);
+        assert_eq!(detector.detector_id(), DetectorId::FloatingPragma);
         assert_eq!(detector.swc_ids(), vec![103]);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }

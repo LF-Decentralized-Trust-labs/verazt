@@ -9,8 +9,8 @@
 //!
 //! ## Sub-modules
 //!
-//! - [`domtree`] — dominator and post-dominator trees (Lengauer-Tarjan
-//!   over `petgraph::DiGraph`)
+//! - [`domtree`] — dominator and post-dominator trees (Lengauer-Tarjan over
+//!   `petgraph::DiGraph`)
 //! - [`loops`] — natural-loop detection from the dominator tree
 //! - [`reachability`] — BFS/DFS reachability queries over function CFGs
 //! - [`callgraph`] — inter-procedural call graph built from SIR call sites

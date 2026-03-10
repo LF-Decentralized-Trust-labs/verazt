@@ -3,15 +3,16 @@
 //! Detects dangerous usage of tx.origin for authentication using
 //! declarative pattern matching.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::SourceUnit;
+use std::any::TypeId;
 
 /// GREP-based detector for tx.origin usage.
 ///
@@ -26,10 +27,6 @@ impl TxOriginGrepDetector {
 }
 
 impl Pass for TxOriginGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::TxOrigin
-    }
-
     fn name(&self) -> &'static str {
         "Dangerous use of tx.origin"
     }
@@ -48,12 +45,16 @@ impl Pass for TxOriginGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for TxOriginGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::TxOrigin
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -133,7 +134,7 @@ mod tests {
     #[test]
     fn test_tx_origin_grep_detector() {
         let detector = TxOriginGrepDetector::new();
-        assert_eq!(detector.id(), PassId::TxOrigin);
+        assert_eq!(detector.detector_id(), DetectorId::TxOrigin);
         assert_eq!(detector.swc_ids(), vec![115]);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }

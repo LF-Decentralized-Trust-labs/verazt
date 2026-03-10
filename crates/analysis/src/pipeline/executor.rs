@@ -4,9 +4,9 @@
 //! Must not mutate the pass registry.
 
 use crate::context::AnalysisContext;
-use crate::pass::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
-use crate::pass::id::PassId;
+use crate::passes::base::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
 use crate::pipeline::scheduler::{ExecutionLevel, ExecutionSchedule};
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -72,7 +72,7 @@ pub struct PassExecutor {
     config: ExecutorConfig,
 
     /// Registered passes.
-    passes: HashMap<PassId, Arc<dyn AnalysisPass>>,
+    passes: HashMap<TypeId, Arc<dyn AnalysisPass>>,
 }
 
 impl Default for PassExecutor {
@@ -116,14 +116,14 @@ impl PassExecutor {
                     failed += 1;
                     if let Some(ref error_msg) = result.error {
                         errors.push(PassError::ExecutionFailed(
-                            result.pass_id.to_string(),
+                            format!("{:?}", result.pass_id),
                             error_msg.clone(),
                         ));
                     }
 
                     if self.config.fail_fast {
                         return Err(PassError::ExecutionFailed(
-                            result.pass_id.to_string(),
+                            format!("{:?}", result.pass_id),
                             result.error.unwrap_or_else(|| "Unknown error".to_string()),
                         ));
                     }
@@ -169,7 +169,7 @@ impl PassExecutor {
     /// Execute a single pass.
     fn execute_pass(
         &self,
-        pass_id: PassId,
+        pass_id: TypeId,
         context: &mut AnalysisContext,
     ) -> PassResult<Option<PassExecutionInfo>> {
         // Skip if already completed
@@ -181,12 +181,12 @@ impl PassExecutor {
         let pass = self
             .passes
             .get(&pass_id)
-            .ok_or_else(|| PassError::PassNotFound(pass_id.to_string()))?;
+            .ok_or_else(|| PassError::PassNotFound(format!("{:?}", pass_id)))?;
 
         let start = Instant::now();
         let name = pass.name().to_string();
 
-        log::info!("Running pass: {} ({})", name, pass_id);
+        log::info!("Running pass: {} ({:?})", name, pass_id);
 
         match pass.run(context) {
             Ok(()) => {

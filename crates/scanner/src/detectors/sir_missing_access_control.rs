@@ -2,15 +2,16 @@
 //!
 //! Detects public functions that write to storage without any auth guard.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
-use mlir::sir::utils::query as structural;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
+use mlir::sir::utils::query as structural;
+use std::any::TypeId;
 
 /// SIR structural detector for missing access control.
 #[derive(Debug, Default)]
@@ -23,10 +24,6 @@ impl SirMissingAccessControlDetector {
 }
 
 impl Pass for SirMissingAccessControlDetector {
-    fn id(&self) -> PassId {
-        PassId::SirMissingAccessControl
-    }
-
     fn name(&self) -> &'static str {
         "SIR Missing Access Control"
     }
@@ -43,12 +40,16 @@ impl Pass for SirMissingAccessControlDetector {
         PassRepresentation::Ir
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for SirMissingAccessControlDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::SirMissingAccessControl
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 

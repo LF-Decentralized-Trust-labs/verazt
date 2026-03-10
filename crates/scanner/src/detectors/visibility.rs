@@ -2,16 +2,17 @@
 //!
 //! Detects missing or incorrect visibility specifiers using pattern matching.
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::{
     ContractDef, ContractElem, FuncDef, FuncVis, Loc, SourceUnit, SourceUnitElem,
 };
+use std::any::TypeId;
 
 /// GREP-based detector for visibility issues.
 ///
@@ -64,10 +65,6 @@ impl VisibilityGrepDetector {
 }
 
 impl Pass for VisibilityGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::Visibility
-    }
-
     fn name(&self) -> &'static str {
         "Visibility Issues"
     }
@@ -84,12 +81,16 @@ impl Pass for VisibilityGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for VisibilityGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::Visibility
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -152,7 +153,7 @@ mod tests {
     #[test]
     fn test_visibility_grep_detector() {
         let detector = VisibilityGrepDetector::new();
-        assert_eq!(detector.id(), PassId::Visibility);
+        assert_eq!(detector.detector_id(), DetectorId::Visibility);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

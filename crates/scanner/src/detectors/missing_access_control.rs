@@ -3,10 +3,10 @@
 //! Detects public/external functions that lack proper access control
 //! using pattern matching on function modifiers and state mutations.
 
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
@@ -14,6 +14,7 @@ use frontend::solidity::ast::{
     Block, ContractDef, ContractElem, Expr, FuncDef, FuncVis, Loc, SourceUnit, SourceUnitElem,
     Stmt,
 };
+use std::any::TypeId;
 
 /// GREP-based detector for missing access control.
 ///
@@ -229,10 +230,6 @@ impl MissingAccessControlGrepDetector {
 }
 
 impl Pass for MissingAccessControlGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::MissingAccessControl
-    }
-
     fn name(&self) -> &'static str {
         "Missing Access Control"
     }
@@ -249,12 +246,16 @@ impl Pass for MissingAccessControlGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for MissingAccessControlGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::MissingAccessControl
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -318,7 +319,7 @@ mod tests {
     #[test]
     fn test_missing_access_control_grep_detector() {
         let detector = MissingAccessControlGrepDetector::new();
-        assert_eq!(detector.id(), PassId::MissingAccessControl);
+        assert_eq!(detector.detector_id(), DetectorId::MissingAccessControl);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

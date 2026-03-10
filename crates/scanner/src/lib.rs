@@ -33,6 +33,9 @@ pub mod engines;
 // Bug detectors (grouped by bug category)
 pub mod detectors;
 
+// Detector identity and traits
+pub mod detector;
+
 // Pipeline orchestration framework
 pub mod pipeline;
 
@@ -44,14 +47,14 @@ pub mod config;
 
 // Re-export core analysis types for convenience
 pub use analysis::{
-    AnalysisConfig, AnalysisContext, AnalysisPass, Pass, PassId, PassLevel,
-    PassManager, PassManagerConfig, PassRepresentation,
+    AnalysisConfig, AnalysisContext, AnalysisPass, Pass, PassLevel, PassManager,
+    PassManagerConfig, PassRepresentation,
 };
 
 // Re-export from pipeline framework
+pub use detector::{BugDetectionPass, ConfidenceLevel, DetectorId, DetectorResult, create_bug};
 pub use pipeline::{
-    BugDetectionPass, DetectorRegistry, PipelineConfig, PipelineEngine, PipelineResult,
-    register_all_detectors,
+    DetectorRegistry, PipelineConfig, PipelineEngine, PipelineResult, register_all_detectors,
 };
 
 // Re-export output types

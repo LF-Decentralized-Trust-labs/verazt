@@ -3,8 +3,8 @@
 //! This module defines the core traits for passes in the analysis framework.
 
 use crate::context::AnalysisContext;
-use crate::pass::id::PassId;
-use crate::pass::meta::{PassLevel, PassRepresentation};
+use crate::passes::base::meta::{PassLevel, PassRepresentation};
+use std::any::TypeId;
 use std::fmt::{self, Display};
 use thiserror::Error;
 
@@ -12,11 +12,11 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum PassError {
     /// Pass execution failed.
-    #[error("Pass '{0}' failed: {1}")]
+    #[error("Pass \'{0}\' failed: {1}")]
     ExecutionFailed(String, String),
 
     /// Dependency not satisfied.
-    #[error("Dependency not satisfied: pass '{0}' requires pass '{1}'")]
+    #[error("Dependency not satisfied: pass \'{0}\' requires pass \'{1}\'")]
     DependencyNotSatisfied(String, String),
 
     /// Context missing required data.
@@ -24,7 +24,7 @@ pub enum PassError {
     MissingData(String),
 
     /// IR not available but required.
-    #[error("IR not available: pass '{0}' requires IR generation")]
+    #[error("IR not available: pass \'{0}\' requires IR generation")]
     IrNotAvailable(String),
 
     /// Circular dependency detected.
@@ -47,9 +47,14 @@ pub type PassResult<T> = Result<T, PassError>;
 ///
 /// This trait defines the common interface for both analysis passes
 /// and bug detection passes. All passes must be thread-safe (`Send + Sync`).
-pub trait Pass: Send + Sync {
+///
+/// Pass identity is based on `std::any::TypeId` — each concrete type
+/// gets a compiler-guaranteed unique ID with zero maintenance overhead.
+pub trait Pass: Send + Sync + 'static {
     /// Get the unique identifier for this pass.
-    fn id(&self) -> PassId;
+    fn id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
 
     /// Get a human-readable name for this pass.
     fn name(&self) -> &'static str;
@@ -64,11 +69,11 @@ pub trait Pass: Send + Sync {
     fn representation(&self) -> PassRepresentation;
 
     /// Get the list of passes that must run before this one.
-    fn dependencies(&self) -> Vec<PassId>;
+    fn dependencies(&self) -> Vec<TypeId>;
 
     /// Get the list of passes that this pass invalidates (for future
     /// transformation passes).
-    fn invalidates(&self) -> Vec<PassId> {
+    fn invalidates(&self) -> Vec<TypeId> {
         vec![]
     }
 
@@ -100,7 +105,7 @@ pub trait AnalysisPass: Pass {
 #[derive(Debug, Clone)]
 pub struct PassExecutionInfo {
     /// Pass identifier.
-    pub pass_id: PassId,
+    pub pass_id: TypeId,
     /// Pass name.
     pub name: String,
     /// Execution duration.
@@ -114,13 +119,12 @@ pub struct PassExecutionInfo {
 impl Display for PassExecutionInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.success {
-            write!(f, "Pass {} ({}) completed in {:?}", self.name, self.pass_id, self.duration)
+            write!(f, "Pass {} completed in {:?}", self.name, self.duration)
         } else {
             write!(
                 f,
-                "Pass {} ({}) failed: {}",
+                "Pass {} failed: {}",
                 self.name,
-                self.pass_id,
                 self.error.as_deref().unwrap_or("unknown error")
             )
         }

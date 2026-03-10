@@ -3,6 +3,7 @@
 //! Extends the analysis framework's Pass trait with vulnerability detection
 //! capabilities.
 
+use crate::detector::id::DetectorId;
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
@@ -47,9 +48,10 @@ pub enum DetectorError {
 
 /// Trait for bug detection passes.
 ///
-/// This extends the base Pass trait from the solidity crate with
+/// This extends the base Pass trait from the analysis crate with
 /// vulnerability detection capabilities. Each detector:
 ///
+/// - Has a [`DetectorId`] for CLI filtering and human-readable output
 /// - Operates on analysis artifacts from the AnalysisContext
 /// - Produces zero or more Bug instances
 /// - Has associated metadata (CWE, SWC, risk level, confidence)
@@ -63,17 +65,16 @@ pub enum DetectorError {
 /// struct MyDetector;
 ///
 /// impl Pass for MyDetector {
-///     fn id(&self) -> PassId { PassId::TxOrigin }
 ///     fn name(&self) -> &'static str { "TX Origin" }
 ///     fn description(&self) -> &'static str { "Detects tx.origin usage" }
 ///     fn level(&self) -> PassLevel { PassLevel::Expression }
 ///     fn representation(&self) -> PassRepresentation { PassRepresentation::Ast }
-///     fn dependencies(&self) -> Vec<PassId> { vec![PassId::SymbolTable] }
+///     fn dependencies(&self) -> Vec<TypeId> { vec![] }
 /// }
 ///
 /// impl BugDetectionPass for MyDetector {
+///     fn detector_id(&self) -> DetectorId { DetectorId::TxOrigin }
 ///     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-///         // Detection logic here
 ///         Ok(vec![])
 ///     }
 ///     fn bug_kind(&self) -> BugKind { BugKind::Vulnerability }
@@ -84,6 +85,9 @@ pub enum DetectorError {
 /// }
 /// ```
 pub trait BugDetectionPass: Pass {
+    /// The detector's unique identity for CLI filtering and output.
+    fn detector_id(&self) -> DetectorId;
+
     /// Run detection and return found bugs.
     ///
     /// This is the main entry point for bug detection. The detector should

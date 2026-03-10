@@ -5,10 +5,10 @@
 //! dependency resolution or execution timing.
 
 use crate::context::AnalysisContext;
+use crate::passes::base::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
 use crate::pipeline::executor::{ExecutorConfig, PassExecutor};
-use crate::pass::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
-use crate::pass::id::PassId;
 use crate::pipeline::scheduler::PassScheduler;
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -105,7 +105,7 @@ pub struct PassManager {
     config: PassManagerConfig,
 
     /// Registered analysis passes.
-    passes: HashMap<PassId, Arc<dyn AnalysisPass>>,
+    passes: HashMap<TypeId, Arc<dyn AnalysisPass>>,
 
     /// Pass scheduler.
     scheduler: PassScheduler,
@@ -191,12 +191,12 @@ impl PassManager {
     }
 
     /// Run a specific pass and its dependencies.
-    pub fn run_pass(&mut self, pass_id: PassId, context: &mut AnalysisContext) -> PassResult<()> {
+    pub fn run_pass(&mut self, pass_id: TypeId, context: &mut AnalysisContext) -> PassResult<()> {
         // Get the pass
         let pass = self
             .passes
             .get(&pass_id)
-            .ok_or_else(|| PassError::PassNotFound(pass_id.to_string()))?;
+            .ok_or_else(|| PassError::PassNotFound(format!("{:?}", pass_id)))?;
 
         // Check if already completed
         if context.is_pass_completed(pass_id) {
@@ -219,12 +219,12 @@ impl PassManager {
     }
 
     /// Get a registered pass.
-    pub fn get_pass(&self, pass_id: PassId) -> Option<&Arc<dyn AnalysisPass>> {
+    pub fn get_pass(&self, pass_id: TypeId) -> Option<&Arc<dyn AnalysisPass>> {
         self.passes.get(&pass_id)
     }
 
     /// Check if a pass is registered.
-    pub fn has_pass(&self, pass_id: PassId) -> bool {
+    pub fn has_pass(&self, pass_id: TypeId) -> bool {
         self.passes.contains_key(&pass_id)
     }
 
@@ -234,7 +234,7 @@ impl PassManager {
     }
 
     /// Get all registered pass IDs.
-    pub fn registered_passes(&self) -> Vec<PassId> {
+    pub fn registered_passes(&self) -> Vec<TypeId> {
         self.passes.keys().copied().collect()
     }
 
@@ -254,21 +254,15 @@ impl PassManager {
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
-    use crate::pass::traits::Pass;
-    use crate::pass::meta::{PassLevel, PassRepresentation};
+    use crate::passes::base::meta::{PassLevel, PassRepresentation};
+    use crate::passes::base::traits::Pass;
 
-    // Mock analysis pass for testing
-    struct MockAnalysisPass {
-        id: PassId,
-        deps: Vec<PassId>,
-    }
+    // Each mock pass is its own type so it gets a unique TypeId.
 
-    impl Pass for MockAnalysisPass {
-        fn id(&self) -> PassId {
-            self.id
-        }
+    struct MockPassA; // independent pass
+    impl Pass for MockPassA {
         fn name(&self) -> &'static str {
-            "MockAnalysisPass"
+            "MockPassA"
         }
         fn description(&self) -> &'static str {
             "A mock pass"
@@ -279,20 +273,49 @@ mod tests {
         fn representation(&self) -> PassRepresentation {
             PassRepresentation::Ir
         }
-        fn dependencies(&self) -> Vec<PassId> {
-            self.deps.clone()
+        fn dependencies(&self) -> Vec<TypeId> {
+            vec![]
+        }
+    }
+    impl AnalysisPass for MockPassA {
+        fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
+            #[allow(deprecated)]
+            context.store_artifact("mock-a", true);
+            Ok(())
+        }
+        fn is_completed(&self, context: &AnalysisContext) -> bool {
+            #[allow(deprecated)]
+            context.has_artifact("mock-a")
         }
     }
 
-    impl AnalysisPass for MockAnalysisPass {
+    struct MockPassB; // depends on MockPassA
+    impl Pass for MockPassB {
+        fn name(&self) -> &'static str {
+            "MockPassB"
+        }
+        fn description(&self) -> &'static str {
+            "A mock pass"
+        }
+        fn level(&self) -> PassLevel {
+            PassLevel::Contract
+        }
+        fn representation(&self) -> PassRepresentation {
+            PassRepresentation::Ir
+        }
+        fn dependencies(&self) -> Vec<TypeId> {
+            vec![TypeId::of::<MockPassA>()]
+        }
+    }
+    impl AnalysisPass for MockPassB {
         fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
-            // Store a marker in the context
-            context.store_artifact(&format!("mock-{}", self.id), true);
+            #[allow(deprecated)]
+            context.store_artifact("mock-b", true);
             Ok(())
         }
-
         fn is_completed(&self, context: &AnalysisContext) -> bool {
-            context.has_artifact(&format!("mock-{}", self.id))
+            #[allow(deprecated)]
+            context.has_artifact("mock-b")
         }
     }
 
@@ -306,19 +329,19 @@ mod tests {
     fn test_pass_registration() {
         let mut manager = PassManager::new(PassManagerConfig::default());
 
-        let pass = MockAnalysisPass { id: PassId::Cfg, deps: vec![] };
+        let pass = MockPassA;
 
         manager.register_analysis_pass(Box::new(pass));
         assert_eq!(manager.pass_count(), 1);
-        assert!(manager.has_pass(PassId::Cfg));
+        assert!(manager.has_pass(TypeId::of::<MockPassA>()));
     }
 
     #[test]
     fn test_run_passes() {
         let mut manager = PassManager::new(PassManagerConfig::default());
 
-        let pass1 = MockAnalysisPass { id: PassId::Cfg, deps: vec![] };
-        let pass2 = MockAnalysisPass { id: PassId::IrCfg, deps: vec![PassId::Cfg] };
+        let pass1 = MockPassA;
+        let pass2 = MockPassB;
 
         manager.register_analysis_pass(Box::new(pass1));
         manager.register_analysis_pass(Box::new(pass2));

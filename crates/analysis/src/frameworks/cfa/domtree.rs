@@ -15,7 +15,7 @@
 //!   branches).
 //! - **Taint precision**: dominance-aware def-use annotation in `dfa/`.
 
-use mlir::air::cfg::{AIRFunction, BlockId, Terminator};
+use mlir::air::cfg::{BlockId, Function, Terminator};
 use petgraph::algo::dominators;
 use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
@@ -40,7 +40,7 @@ impl DomTree {
     /// Compute the dominator tree for a function's CFG.
     ///
     /// Returns `None` if the function has no basic blocks.
-    pub fn build(func: &AIRFunction) -> Option<Self> {
+    pub fn build(func: &Function) -> Option<Self> {
         if func.blocks.is_empty() {
             return None;
         }
@@ -123,7 +123,7 @@ impl PostDomTree {
     /// graph from that virtual exit.
     ///
     /// Returns `None` if the function has no basic blocks.
-    pub fn build(func: &AIRFunction) -> Option<Self> {
+    pub fn build(func: &Function) -> Option<Self> {
         if func.blocks.is_empty() {
             return None;
         }
@@ -225,7 +225,7 @@ pub(super) fn terminator_successors(term: &Terminator) -> Vec<BlockId> {
 
 /// Build a petgraph DiGraph from a function's blocks (forward edges).
 fn build_forward_graph(
-    func: &AIRFunction,
+    func: &Function,
 ) -> (DiGraph<BlockId, ()>, HashMap<BlockId, NodeIndex>, HashMap<NodeIndex, BlockId>) {
     let mut graph = DiGraph::<BlockId, ()>::new();
     let mut block_to_node: HashMap<BlockId, NodeIndex> = HashMap::new();
@@ -252,7 +252,7 @@ fn build_forward_graph(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::air::cfg::{AIRFunction, BasicBlock, BlockId, FunctionId, Terminator};
+    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
 
     /// Build a diamond CFG:
     ///
@@ -263,8 +263,8 @@ mod tests {
     ///    \   /
     ///     bb3 (exit)
     /// ```
-    fn diamond_function() -> AIRFunction {
-        let mut func = AIRFunction::new(FunctionId("diamond".into()), true);
+    fn diamond_function() -> Function {
+        let mut func = Function::new(FunctionId("diamond".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term = Terminator::Branch {
@@ -324,14 +324,14 @@ mod tests {
 
     #[test]
     fn test_empty_function() {
-        let func = AIRFunction::new(FunctionId("empty".into()), false);
+        let func = Function::new(FunctionId("empty".into()), false);
         assert!(DomTree::build(&func).is_none());
         assert!(PostDomTree::build(&func).is_none());
     }
 
     #[test]
     fn test_linear_chain() {
-        let mut func = AIRFunction::new(FunctionId("chain".into()), true);
+        let mut func = Function::new(FunctionId("chain".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term = Terminator::Jump(BlockId(1));

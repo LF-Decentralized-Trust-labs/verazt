@@ -1,28 +1,28 @@
-//! AIR Taint Propagation Pass
+//! Taint Propagation Pass
 //!
 //! Iterative forward dataflow over SSA def-use edges to propagate taint labels.
 
 use crate::context::AnalysisContext;
-use crate::pass::{AnalysisPass, Pass, PassResult};
-use crate::pass::id::PassId;
-use crate::pass::meta::{PassLevel, PassRepresentation};
+use crate::passes::base::meta::{PassLevel, PassRepresentation};
+use crate::passes::base::{AnalysisPass, Pass, PassResult};
 use mlir::air::interfaces::TaintLabel;
 use mlir::air::ops::OpId;
+use std::any::TypeId;
 use std::collections::HashMap;
 
 /// Artifact stored in context after taint propagation.
 pub type TaintMap = HashMap<OpId, TaintLabel>;
 
 /// Taint propagation analysis pass.
-pub struct AIRTaintPropagationPass;
+pub struct TaintPropagationPass;
 
-impl Pass for AIRTaintPropagationPass {
-    fn id(&self) -> PassId {
-        PassId::AIRTaintPropagation
+impl Pass for TaintPropagationPass {
+    fn id(&self) -> TypeId {
+        TypeId::of::<Self>()
     }
 
     fn name(&self) -> &'static str {
-        "AIR-taint-propagation"
+        "taint-propagation"
     }
 
     fn description(&self) -> &'static str {
@@ -37,12 +37,12 @@ impl Pass for AIRTaintPropagationPass {
         PassRepresentation::Air
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
-impl AnalysisPass for AIRTaintPropagationPass {
+impl AnalysisPass for TaintPropagationPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut taint_map: TaintMap = HashMap::new();
 

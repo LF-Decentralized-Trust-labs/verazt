@@ -6,20 +6,20 @@
 //! After step 1.8, AIR is always available (eagerly lowered), so the
 //! scheduler no longer tracks a special "IR generation point".
 
+use crate::passes::base::meta::PassRepresentation;
+use crate::passes::base::{Pass, PassResult};
 use crate::pipeline::dependency::DependencyGraph;
-use crate::pass::{Pass, PassResult};
-use crate::pass::id::PassId;
-use crate::pass::meta::PassRepresentation;
+use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
 /// Execution level containing passes grouped by representation.
 #[derive(Debug, Clone, Default)]
 pub struct ExecutionLevel {
     /// SIR passes at this level.
-    pub sir_passes: Vec<PassId>,
+    pub sir_passes: Vec<TypeId>,
 
     /// AIR passes at this level.
-    pub air_passes: Vec<PassId>,
+    pub air_passes: Vec<TypeId>,
 }
 
 impl ExecutionLevel {
@@ -34,7 +34,7 @@ impl ExecutionLevel {
     }
 
     /// Get all passes at this level.
-    pub fn all_passes(&self) -> Vec<PassId> {
+    pub fn all_passes(&self) -> Vec<TypeId> {
         let mut passes = Vec::with_capacity(self.len());
         passes.extend(&self.sir_passes);
         passes.extend(&self.air_passes);
@@ -67,10 +67,10 @@ pub struct PassScheduler {
     dependency_graph: DependencyGraph,
 
     /// Pass representations.
-    representations: HashMap<PassId, PassRepresentation>,
+    representations: HashMap<TypeId, PassRepresentation>,
 
     /// Registered pass IDs.
-    registered_passes: HashSet<PassId>,
+    registered_passes: HashSet<TypeId>,
 }
 
 impl Default for PassScheduler {
@@ -138,7 +138,7 @@ impl PassScheduler {
     }
 
     /// Get passes that can be executed given current completion state.
-    pub fn get_ready_passes(&self, completed: &HashSet<PassId>) -> Vec<PassId> {
+    pub fn get_ready_passes(&self, completed: &HashSet<TypeId>) -> Vec<TypeId> {
         self.registered_passes
             .iter()
             .filter(|&pass_id| {
@@ -172,33 +172,64 @@ impl PassScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pass::meta::PassLevel;
+    use crate::passes::base::meta::PassLevel;
 
-    // Mock pass for testing
-    struct MockPass {
-        id: PassId,
-        representation: PassRepresentation,
-        dependencies: Vec<PassId>,
-    }
+    // Each mock pass is its own type so it gets a unique TypeId.
 
-    impl Pass for MockPass {
-        fn id(&self) -> PassId {
-            self.id
-        }
+    struct MockCfgPass;
+    impl Pass for MockCfgPass {
         fn name(&self) -> &'static str {
-            "MockPass"
+            "MockCfgPass"
         }
         fn description(&self) -> &'static str {
-            "A mock pass for testing"
+            "Mock CFG pass"
         }
         fn level(&self) -> PassLevel {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            self.representation
+            PassRepresentation::Ir
         }
-        fn dependencies(&self) -> Vec<PassId> {
-            self.dependencies.clone()
+        fn dependencies(&self) -> Vec<TypeId> {
+            vec![]
+        }
+    }
+
+    struct MockIrCfgPass;
+    impl Pass for MockIrCfgPass {
+        fn name(&self) -> &'static str {
+            "MockIrCfgPass"
+        }
+        fn description(&self) -> &'static str {
+            "Mock IR CFG pass"
+        }
+        fn level(&self) -> PassLevel {
+            PassLevel::Contract
+        }
+        fn representation(&self) -> PassRepresentation {
+            PassRepresentation::Ir
+        }
+        fn dependencies(&self) -> Vec<TypeId> {
+            vec![TypeId::of::<MockCfgPass>()]
+        }
+    }
+
+    struct MockIrCallGraphPass;
+    impl Pass for MockIrCallGraphPass {
+        fn name(&self) -> &'static str {
+            "MockIrCallGraphPass"
+        }
+        fn description(&self) -> &'static str {
+            "Mock IR call graph pass"
+        }
+        fn level(&self) -> PassLevel {
+            PassLevel::Contract
+        }
+        fn representation(&self) -> PassRepresentation {
+            PassRepresentation::Ir
+        }
+        fn dependencies(&self) -> Vec<TypeId> {
+            vec![TypeId::of::<MockCfgPass>()]
         }
     }
 
@@ -206,21 +237,9 @@ mod tests {
     fn test_schedule_computation() {
         let mut scheduler = PassScheduler::new();
 
-        let cfg = MockPass {
-            id: PassId::Cfg,
-            representation: PassRepresentation::Ir,
-            dependencies: vec![],
-        };
-        let ir_cfg = MockPass {
-            id: PassId::IrCfg,
-            representation: PassRepresentation::Ir,
-            dependencies: vec![PassId::Cfg],
-        };
-        let ir_cg = MockPass {
-            id: PassId::IrCallGraph,
-            representation: PassRepresentation::Ir,
-            dependencies: vec![PassId::Cfg],
-        };
+        let cfg = MockCfgPass;
+        let ir_cfg = MockIrCfgPass;
+        let ir_cg = MockIrCallGraphPass;
 
         scheduler.register_pass(&cfg);
         scheduler.register_pass(&ir_cfg);

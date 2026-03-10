@@ -2,15 +2,16 @@
 //!
 //! Detects dangerous usage of delegatecall using pattern matching.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::SourceUnit;
+use std::any::TypeId;
 
 /// GREP-based detector for delegatecall usage.
 ///
@@ -26,10 +27,6 @@ impl DelegatecallGrepDetector {
 }
 
 impl Pass for DelegatecallGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::Delegatecall
-    }
-
     fn name(&self) -> &'static str {
         "Dangerous Delegatecall"
     }
@@ -46,12 +43,16 @@ impl Pass for DelegatecallGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for DelegatecallGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::Delegatecall
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -131,7 +132,7 @@ mod tests {
     #[test]
     fn test_delegatecall_grep_detector() {
         let detector = DelegatecallGrepDetector::new();
-        assert_eq!(detector.id(), PassId::Delegatecall);
+        assert_eq!(detector.detector_id(), DetectorId::Delegatecall);
         assert_eq!(detector.swc_ids(), vec![112]);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }

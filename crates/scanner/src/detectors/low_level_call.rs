@@ -3,15 +3,16 @@
 //! Detects usage of low-level calls like call, delegatecall, staticcall
 //! using declarative pattern matching.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use crate::engines::pattern::{MatchContext, PatternBuilder, PatternMatcher};
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult, create_bug};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::SourceUnit;
+use std::any::TypeId;
 
 /// GREP-based detector for low-level calls.
 #[derive(Debug, Default)]
@@ -24,10 +25,6 @@ impl LowLevelCallGrepDetector {
 }
 
 impl Pass for LowLevelCallGrepDetector {
-    fn id(&self) -> PassId {
-        PassId::LowLevelCall
-    }
-
     fn name(&self) -> &'static str {
         "Low-Level Calls"
     }
@@ -44,12 +41,16 @@ impl Pass for LowLevelCallGrepDetector {
         PassRepresentation::Ast
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for LowLevelCallGrepDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::LowLevelCall
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 
@@ -136,7 +137,7 @@ mod tests {
     #[test]
     fn test_low_level_call_grep_detector() {
         let detector = LowLevelCallGrepDetector::new();
-        assert_eq!(detector.id(), PassId::LowLevelCall);
+        assert_eq!(detector.detector_id(), DetectorId::LowLevelCall);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

@@ -2,13 +2,14 @@
 //!
 //! Harvests findings from the `AIRArithmeticPass` analysis artifact.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
+use std::any::TypeId;
 
 /// AIR-based arithmetic overflow detector.
 ///
@@ -23,10 +24,6 @@ impl AIRArithmeticDetector {
 }
 
 impl Pass for AIRArithmeticDetector {
-    fn id(&self) -> PassId {
-        PassId::AIRArithmetic
-    }
-
     fn name(&self) -> &'static str {
         "AIR Arithmetic"
     }
@@ -43,7 +40,7 @@ impl Pass for AIRArithmeticDetector {
         PassRepresentation::Air
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         // Note: The upstream AIRArithmeticPass was moved; the detection
         // logic now lives in this detector via artifact harvesting.
         vec![]
@@ -51,6 +48,10 @@ impl Pass for AIRArithmeticDetector {
 }
 
 impl BugDetectionPass for AIRArithmeticDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::AIRArithmetic
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Findings are pre-computed by AIRArithmeticPass
         #[allow(deprecated)]

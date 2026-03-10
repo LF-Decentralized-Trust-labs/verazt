@@ -16,7 +16,7 @@
 //!   re-propagation over unreachable back-edges.
 
 use super::domtree::{DomTree, terminator_successors};
-use mlir::air::cfg::{AIRFunction, BlockId};
+use mlir::air::cfg::{BlockId, Function};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -54,7 +54,7 @@ impl LoopInfo {
     ///
     /// Returns `None` if the dominator tree could not be built (e.g., empty
     /// function).
-    pub fn build(func: &AIRFunction, dom: &DomTree) -> Self {
+    pub fn build(func: &Function, dom: &DomTree) -> Self {
         let mut loops: HashMap<BlockId, NaturalLoop> = HashMap::new();
 
         // Step 1: Identify back-edges.
@@ -171,7 +171,7 @@ impl LoopInfo {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Build a predecessor map from the function's blocks.
-fn build_predecessor_map(func: &AIRFunction) -> HashMap<BlockId, Vec<BlockId>> {
+fn build_predecessor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
     let mut preds: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
     for block in &func.blocks {
         for succ in terminator_successors(&block.term) {
@@ -184,7 +184,7 @@ fn build_predecessor_map(func: &AIRFunction) -> HashMap<BlockId, Vec<BlockId>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::air::cfg::{AIRFunction, BasicBlock, BlockId, FunctionId, Terminator};
+    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
     use mlir::air::ops::{OpId, OpRef};
 
     /// Build a while-loop CFG:
@@ -198,8 +198,8 @@ mod tests {
     ///   │              │
     ///   └──────────────┘
     /// ```
-    fn while_loop_function() -> AIRFunction {
-        let mut func = AIRFunction::new(FunctionId("while_loop".into()), true);
+    fn while_loop_function() -> Function {
+        let mut func = Function::new(FunctionId("while_loop".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term = Terminator::Jump(BlockId(1));
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn test_no_loops() {
         // Linear CFG: bb0 → bb1 → bb2 (exit). No back-edges.
-        let mut func = AIRFunction::new(FunctionId("no_loop".into()), true);
+        let mut func = Function::new(FunctionId("no_loop".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term = Terminator::Jump(BlockId(1));
@@ -288,7 +288,7 @@ mod tests {
         //
         // We'll use: bb0→bb1, bb1→bb2 (branch with exit bb5),
         // bb2→bb3, bb3→bb2(back) or bb4, bb4→bb1(back) or bb5
-        let mut func = AIRFunction::new(FunctionId("nested".into()), true);
+        let mut func = Function::new(FunctionId("nested".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term = Terminator::Jump(BlockId(1));

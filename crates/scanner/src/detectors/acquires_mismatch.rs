@@ -3,15 +3,16 @@
 //! Detects `move.borrow_global<T>` calls where `T` is not listed in the
 //! function's `#move.acquires` attribute.
 
+use crate::detector::id::DetectorId;
+use crate::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use analysis::context::AnalysisContext;
 use analysis::pass::Pass;
-use analysis::pass::id::PassId;
 use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
-use mlir::sir::utils::query as structural;
-use crate::pipeline::detector::{BugDetectionPass, ConfidenceLevel, DetectorResult};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
+use mlir::sir::utils::query as structural;
+use std::any::TypeId;
 
 /// SIR structural detector for Move acquires mismatch.
 #[derive(Debug, Default)]
@@ -24,10 +25,6 @@ impl SirAcquiresMismatchDetector {
 }
 
 impl Pass for SirAcquiresMismatchDetector {
-    fn id(&self) -> PassId {
-        PassId::SirAcquiresMismatch
-    }
-
     fn name(&self) -> &'static str {
         "SIR Acquires Mismatch"
     }
@@ -44,12 +41,16 @@ impl Pass for SirAcquiresMismatchDetector {
         PassRepresentation::Ir
     }
 
-    fn dependencies(&self) -> Vec<PassId> {
+    fn dependencies(&self) -> Vec<TypeId> {
         vec![]
     }
 }
 
 impl BugDetectionPass for SirAcquiresMismatchDetector {
+    fn detector_id(&self) -> DetectorId {
+        DetectorId::SirAcquiresMismatch
+    }
+
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
 

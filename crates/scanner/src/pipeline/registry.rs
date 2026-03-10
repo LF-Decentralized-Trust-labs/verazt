@@ -2,8 +2,7 @@
 //!
 //! Manages registration and discovery of bug detectors.
 
-use crate::pipeline::detector::BugDetectionPass;
-use analysis::pass::id::PassId;
+use crate::detector::BugDetectionPass;
 use std::collections::HashMap;
 
 /// Registry for managing bug detectors.
@@ -30,11 +29,11 @@ impl DetectorRegistry {
     /// Register a detector.
     pub fn register(&mut self, detector: Box<dyn BugDetectionPass>) {
         let name = detector.name().to_string();
-        let pass_id = detector.id().as_str().to_string();
+        let detector_id_str = detector.detector_id().as_str().to_string();
         let idx = self.detectors.len();
         self.detectors.push(detector);
         self.by_id.insert(name.clone(), idx);
-        self.by_id.insert(pass_id, idx);
+        self.by_id.insert(detector_id_str, idx);
     }
 
     /// Get a detector by name or ID.
@@ -60,7 +59,7 @@ impl DetectorRegistry {
     }
 
     /// Get all required analysis passes for all registered detectors.
-    pub fn required_passes(&self) -> Vec<PassId> {
+    pub fn required_passes(&self) -> Vec<std::any::TypeId> {
         let mut passes = std::collections::HashSet::new();
         for detector in &self.detectors {
             for dep in detector.dependencies() {
@@ -71,7 +70,7 @@ impl DetectorRegistry {
     }
 
     /// Get detectors that depend on a specific pass.
-    pub fn detectors_requiring(&self, pass: PassId) -> Vec<&dyn BugDetectionPass> {
+    pub fn detectors_requiring(&self, pass: std::any::TypeId) -> Vec<&dyn BugDetectionPass> {
         self.detectors
             .iter()
             .filter(|d| d.dependencies().contains(&pass))
