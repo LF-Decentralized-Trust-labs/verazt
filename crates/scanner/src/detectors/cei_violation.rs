@@ -16,8 +16,8 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::utils::query as structural;
-use mlir::sir::{Decl, MemberDecl, Stmt};
+use scirs::sir::utils::query as structural;
+use scirs::sir::{Decl, MemberDecl, Stmt};
 use std::any::TypeId;
 
 /// SIR structural detector for CEI (Checks-Effects-Interactions) pattern

@@ -3,7 +3,7 @@
 // Hack to print log when running unit test
 pub mod ast;
 
-pub use mlir::sir;
+pub use scirs::sir;
 
 pub mod lower;
 pub mod parser;

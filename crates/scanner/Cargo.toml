@@ -17,7 +17,7 @@ common = { workspace = true }
 env_logger = { workspace = true }
 frontend = { workspace = true }
 log = { workspace = true }
-mlir = { workspace = true }
+scirs = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

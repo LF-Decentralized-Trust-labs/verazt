@@ -11,9 +11,9 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::dialect::evm::EvmExpr;
-use mlir::sir::utils::query as structural;
-use mlir::sir::{Decl, DialectExpr, Expr, MemberDecl};
+use scirs::sir::dialect::evm::EvmExpr;
+use scirs::sir::utils::query as structural;
+use scirs::sir::{Decl, DialectExpr, Expr, MemberDecl};
 use std::any::TypeId;
 
 /// SIR structural detector for delegatecall usage.

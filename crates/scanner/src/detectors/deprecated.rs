@@ -11,8 +11,8 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::utils::query as structural;
-use mlir::sir::{Decl, Expr, MemberDecl};
+use scirs::sir::utils::query as structural;
+use scirs::sir::{Decl, Expr, MemberDecl};
 use std::any::TypeId;
 
 /// Deprecated Solidity constructs with their replacements.

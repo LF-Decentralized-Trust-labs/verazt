@@ -8,7 +8,7 @@ pub mod normalize;
 
 use crate::vyper::ast::source_unit::SourceUnit;
 use common::error::Result;
-use mlir::sir::Module;
+use scirs::sir::Module;
 
 pub use lower::IrGen;
 

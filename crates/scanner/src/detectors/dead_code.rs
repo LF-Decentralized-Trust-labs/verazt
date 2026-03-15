@@ -13,7 +13,7 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::{Decl, MemberDecl, Stmt};
+use scirs::sir::{Decl, MemberDecl, Stmt};
 use std::any::TypeId;
 
 /// SIR structural detector for dead code (unreachable statements).

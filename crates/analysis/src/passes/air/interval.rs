@@ -7,9 +7,9 @@
 use crate::context::{AnalysisContext, ArtifactKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use mlir::air::cfg::{BlockId, Terminator};
-use mlir::air::ops::{OpId, OpKind, OpRef};
-use mlir::sir::{BinOp, Lit};
+use scirs::air::cfg::{BlockId, Terminator};
+use scirs::air::ops::{OpId, OpKind, OpRef};
+use scirs::sir::{BinOp, Lit};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -303,7 +303,7 @@ fn eval_op(kind: &OpKind, state: &HashMap<OpId, Interval>) -> Interval {
 fn lit_to_i128(lit: &Lit) -> Option<i128> {
     match lit {
         Lit::Num(n) => {
-            use mlir::sir::lits::Num;
+            use scirs::sir::lits::Num;
             match &n.value {
                 Num::Int(i) => {
                     use num_traits::ToPrimitive;

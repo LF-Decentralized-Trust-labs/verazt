@@ -60,13 +60,13 @@ impl BugDetectionPass for SirTxOriginAuthDetector {
             let has_evm = module.attrs.iter().any(|a| {
                 a.namespace == "sir"
                     && a.key == "loaded_dialects"
-                    && matches!(&a.value, mlir::sir::AttrValue::String(s) if s.contains("evm"))
+                    && matches!(&a.value, scirs::sir::AttrValue::String(s) if s.contains("evm"))
             });
             if !has_evm {
                 // Also check if any contract has EVM dialect member decls
                 let has_evm_decls = module.decls.iter().any(|d| {
-                    matches!(d, mlir::sir::Decl::Contract(c) if c.members.iter().any(|m|
-                        matches!(m, mlir::sir::MemberDecl::Dialect(mlir::sir::DialectMemberDecl::Evm(_)))
+                    matches!(d, scirs::sir::Decl::Contract(c) if c.members.iter().any(|m|
+                        matches!(m, scirs::sir::MemberDecl::Dialect(scirs::sir::DialectMemberDecl::Evm(_)))
                     ))
                 });
                 if !has_evm_decls {
@@ -76,9 +76,9 @@ impl BugDetectionPass for SirTxOriginAuthDetector {
             }
 
             for decl in &module.decls {
-                if let mlir::sir::Decl::Contract(contract) = decl {
+                if let scirs::sir::Decl::Contract(contract) = decl {
                     for member in &contract.members {
-                        if let mlir::sir::MemberDecl::Function(func) = member {
+                        if let scirs::sir::MemberDecl::Function(func) = member {
                             if let Some(body) = &func.body {
                                 // Note: EVM doesn't have a TxOrigin expr in
                                 // the current dialect definition.  The plan

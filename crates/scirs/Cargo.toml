@@ -1,5 +1,5 @@
 [package]
-name = "mlir"
+name = "scirs"
 version.workspace = true
 authors.workspace = true
 license.workspace = true

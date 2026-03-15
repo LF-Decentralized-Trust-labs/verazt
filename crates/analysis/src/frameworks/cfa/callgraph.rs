@@ -4,14 +4,14 @@
 //! for `Expr::FunctionCall` nodes. The result is a `petgraph::DiGraph`
 //! that can be queried for callers, callees, SCCs, etc.
 //!
-//! This complements the AIR-level `mlir::air::call_graph::CallGraph` (which
+//! This complements the AIR-level `scirs::air::call_graph::CallGraph` (which
 //! is produced during SIR→AIR lowering) by providing a SIR-native view
 //! usable before AIR is available or for SIR-only analyses.
 
-use mlir::sir::defs::{FunctionDecl, MemberDecl};
-use mlir::sir::exprs::Expr;
-use mlir::sir::module::{Decl, Module};
-use mlir::sir::stmts::Stmt;
+use scirs::sir::defs::{FunctionDecl, MemberDecl};
+use scirs::sir::exprs::Expr;
+use scirs::sir::module::{Decl, Module};
+use scirs::sir::stmts::Stmt;
 use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
 
@@ -299,10 +299,10 @@ fn expr_name(expr: &Expr) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::sir::defs::*;
-    use mlir::sir::exprs::*;
-    use mlir::sir::stmts::*;
-    use mlir::sir::types::Type;
+    use scirs::sir::defs::*;
+    use scirs::sir::exprs::*;
+    use scirs::sir::stmts::*;
+    use scirs::sir::types::Type;
 
     fn make_call_expr(name: &str) -> Expr {
         Expr::FunctionCall(CallExpr {

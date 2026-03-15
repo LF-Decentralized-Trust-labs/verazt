@@ -15,7 +15,7 @@
 //!   branches).
 //! - **Taint precision**: dominance-aware def-use annotation in `dfa/`.
 
-use mlir::air::cfg::{BlockId, Function, Terminator};
+use scirs::air::cfg::{BlockId, Function, Terminator};
 use petgraph::algo::dominators;
 use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
@@ -252,7 +252,7 @@ fn build_forward_graph(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
 
     /// Build a diamond CFG:
     ///
@@ -268,7 +268,7 @@ mod tests {
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term = Terminator::Branch {
-            cond: mlir::air::ops::OpRef(mlir::air::ops::OpId(0)),
+            cond: scirs::air::ops::OpRef(scirs::air::ops::OpId(0)),
             then_bb: BlockId(1),
             else_bb: BlockId(2),
         };

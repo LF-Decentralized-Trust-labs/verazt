@@ -10,7 +10,7 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::utils::query as structural;
+use scirs::sir::utils::query as structural;
 use std::any::TypeId;
 
 /// SIR structural detector for missing access control.
@@ -59,14 +59,14 @@ impl BugDetectionPass for SirMissingAccessControlDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let mlir::sir::Decl::Contract(contract) = decl {
+                if let scirs::sir::Decl::Contract(contract) = decl {
                     let storage_vars = structural::storage_names(contract);
                     if storage_vars.is_empty() {
                         continue;
                     }
 
                     for member in &contract.members {
-                        if let mlir::sir::MemberDecl::Function(func) = member {
+                        if let scirs::sir::MemberDecl::Function(func) = member {
                             if !structural::is_public_function(func) {
                                 continue;
                             }

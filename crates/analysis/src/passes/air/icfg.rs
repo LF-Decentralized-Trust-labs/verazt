@@ -7,9 +7,9 @@
 use crate::context::{AnalysisContext, ArtifactKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use mlir::air::cfg::{EdgeKind, FunctionId, ICFG, ICFGNode};
-use mlir::air::interfaces::CallTarget;
-use mlir::air::ops::OpKind;
+use scirs::air::cfg::{EdgeKind, FunctionId, ICFG, ICFGNode};
+use scirs::air::interfaces::CallTarget;
+use scirs::air::ops::OpKind;
 use std::any::TypeId;
 
 // ═══════════════════════════════════════════════════════════════════

@@ -12,8 +12,8 @@ use analysis::pass::meta::PassRepresentation;
 use analysis::passes::sir::WriteSetArtifact;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::utils::query as structural;
-use mlir::sir::{Decl, MemberDecl};
+use scirs::sir::utils::query as structural;
+use scirs::sir::{Decl, MemberDecl};
 use std::any::TypeId;
 
 /// Risky function name patterns indicating privileged operations.

@@ -123,10 +123,10 @@ pub struct AnalysisContext {
     // Source Representations
     // ========================================
     /// SIR modules.
-    pub ir_units: Option<Vec<mlir::sir::Module>>,
+    pub ir_units: Option<Vec<scirs::sir::Module>>,
 
     /// AIR modules (eagerly lowered from SIR).
-    pub air_units: Option<Vec<mlir::air::Module>>,
+    pub air_units: Option<Vec<scirs::air::Module>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -166,7 +166,7 @@ impl AnalysisContext {
     ///
     /// AIR modules are **eagerly** lowered from SIR so that all AIR
     /// passes can run without an explicit `AIRGeneration` dependency.
-    pub fn new(sir_modules: Vec<mlir::sir::Module>, config: AnalysisConfig) -> Self {
+    pub fn new(sir_modules: Vec<scirs::sir::Module>, config: AnalysisConfig) -> Self {
         let input_language = config.input_language;
 
         // Eager lowering: SIR → CIR → AIR
@@ -177,8 +177,8 @@ impl AnalysisContext {
             let air = sir_modules
                 .iter()
                 .filter_map(|m| {
-                    let cir = mlir::cir::lower::lower_module(m).ok()?;
-                    mlir::air::lower::lower_module(&cir).ok()
+                    let cir = scirs::cir::lower::lower_module(m).ok()?;
+                    scirs::air::lower::lower_module(&cir).ok()
                 })
                 .collect::<Vec<_>>();
             let _elapsed = start.elapsed();
@@ -214,18 +214,18 @@ impl AnalysisContext {
     }
 
     /// Get IR units (panics if not available).
-    pub fn ir_units(&self) -> &Vec<mlir::sir::Module> {
+    pub fn ir_units(&self) -> &Vec<scirs::sir::Module> {
         self.ir_units.as_ref().expect("IR not generated")
     }
 
     /// Set IR units and eagerly lower to AIR.
-    pub fn set_ir_units(&mut self, ir_units: Vec<mlir::sir::Module>) {
+    pub fn set_ir_units(&mut self, ir_units: Vec<scirs::sir::Module>) {
         // Eagerly lower SIR → CIR → AIR
         let air = ir_units
             .iter()
             .filter_map(|m| {
-                let cir = mlir::cir::lower::lower_module(m).ok()?;
-                mlir::air::lower::lower_module(&cir).ok()
+                let cir = scirs::cir::lower::lower_module(m).ok()?;
+                scirs::air::lower::lower_module(&cir).ok()
             })
             .collect::<Vec<_>>();
         if !air.is_empty() {
@@ -244,12 +244,12 @@ impl AnalysisContext {
     }
 
     /// Get AIR units. Returns an empty slice if AIR is not available.
-    pub fn air_units(&self) -> &[mlir::air::Module] {
+    pub fn air_units(&self) -> &[scirs::air::Module] {
         self.air_units.as_deref().unwrap_or(&[])
     }
 
     /// Set AIR units directly (escape hatch).
-    pub fn set_air_units(&mut self, units: Vec<mlir::air::Module>) {
+    pub fn set_air_units(&mut self, units: Vec<scirs::air::Module>) {
         self.air_units = Some(units);
     }
 

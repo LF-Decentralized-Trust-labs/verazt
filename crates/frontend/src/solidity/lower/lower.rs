@@ -4,9 +4,9 @@ use crate::solidity::ast;
 use crate::solidity::ast::Loc;
 use common::{error::Result, fail};
 use log::trace;
-use mlir::sir::attrs::{Attr, AttrValue, sir_attrs};
-use mlir::sir::dialect::evm::*;
-use mlir::sir::*;
+use scirs::sir::attrs::{Attr, AttrValue, sir_attrs};
+use scirs::sir::dialect::evm::*;
+use scirs::sir::*;
 
 /// Convert AST source location to SIR span.
 fn loc_to_span(loc: Option<Loc>) -> Option<Span> {

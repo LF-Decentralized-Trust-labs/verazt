@@ -11,7 +11,7 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::utils::query as structural;
+use scirs::sir::utils::query as structural;
 use std::any::TypeId;
 
 /// SIR structural detector for Move acquires mismatch.
@@ -60,18 +60,18 @@ impl BugDetectionPass for SirAcquiresMismatchDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let mlir::sir::Decl::Contract(contract) = decl {
+                if let scirs::sir::Decl::Contract(contract) = decl {
                     for member in &contract.members {
-                        if let mlir::sir::MemberDecl::Function(func) = member {
+                        if let scirs::sir::MemberDecl::Function(func) = member {
                             // Get #move.acquires attribute
                             let acquires_attr = func.attrs.iter().find(|a| {
                                 a.namespace == "move"
-                                    && a.key == mlir::sir::attrs::move_attrs::ACQUIRES
+                                    && a.key == scirs::sir::attrs::move_attrs::ACQUIRES
                             });
 
                             let declared_acquires: Vec<String> = match acquires_attr {
                                 Some(attr) => match &attr.value {
-                                    mlir::sir::AttrValue::String(s) => {
+                                    scirs::sir::AttrValue::String(s) => {
                                         s.split(',').map(|t| t.trim().to_string()).collect()
                                     }
                                     _ => vec![],
@@ -82,12 +82,12 @@ impl BugDetectionPass for SirAcquiresMismatchDetector {
                             if let Some(body) = &func.body {
                                 // Walk body for borrow_global / borrow_global_mut
                                 structural::walk_dialect_exprs(body, &mut |dexpr| {
-                                    if let mlir::sir::DialectExpr::Move(me) = dexpr {
+                                    if let scirs::sir::DialectExpr::Move(me) = dexpr {
                                         let borrowed_ty = match me {
-                                            mlir::sir::dialect::move_lang::MoveExpr::BorrowGlobal { ty, .. } => {
+                                            scirs::sir::dialect::move_lang::MoveExpr::BorrowGlobal { ty, .. } => {
                                                 Some(ty.to_string())
                                             }
-                                            mlir::sir::dialect::move_lang::MoveExpr::BorrowGlobalMut { ty, .. } => {
+                                            scirs::sir::dialect::move_lang::MoveExpr::BorrowGlobalMut { ty, .. } => {
                                                 Some(ty.to_string())
                                             }
                                             _ => None,

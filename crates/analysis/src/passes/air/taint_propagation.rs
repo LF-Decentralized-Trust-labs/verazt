@@ -5,8 +5,8 @@
 use crate::context::AnalysisContext;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use mlir::air::interfaces::TaintLabel;
-use mlir::air::ops::OpId;
+use scirs::air::interfaces::TaintLabel;
+use scirs::air::ops::OpId;
 use std::any::TypeId;
 use std::collections::HashMap;
 

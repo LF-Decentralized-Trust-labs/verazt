@@ -2,14 +2,14 @@
 //!
 //! This pass builds control flow graphs for all functions in the IR.
 //! The underlying data types (`ControlFlowGraph`, `BasicBlock`, etc.)
-//! live in `mlir::sir::cfg`.
+//! live in `scirs::sir::cfg`.
 
 use crate::context::AnalysisContext;
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
 use std::any::TypeId;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 
-pub use mlir::sir::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph, Terminator};
+pub use scirs::sir::cfg::{BasicBlock, BasicBlockId, ControlFlowGraph, Terminator};
 
 /// CFG construction pass.
 ///
@@ -25,7 +25,7 @@ impl CfgPass {
     /// Build CFG for a single IR function.
     fn _build_cfg_for_function(
         &self,
-        _func: &mlir::sir::FunctionDecl,
+        _func: &scirs::sir::FunctionDecl,
     ) -> PassResult<ControlFlowGraph> {
         // For now, create a simple single-block CFG
         // TODO: Implement full CFG construction from IR statements
@@ -101,7 +101,7 @@ impl AnalysisPass for CfgPass {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::sir::{BoolLit, Expr, Lit};
+    use scirs::sir::{BoolLit, Expr, Lit};
 
     #[test]
     fn test_basic_block_creation() {

@@ -16,7 +16,7 @@
 //!   re-propagation over unreachable back-edges.
 
 use super::domtree::{DomTree, terminator_successors};
-use mlir::air::cfg::{BlockId, Function};
+use scirs::air::cfg::{BlockId, Function};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -184,8 +184,8 @@ fn build_predecessor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use mlir::air::ops::{OpId, OpRef};
+    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::air::ops::{OpId, OpRef};
 
     /// Build a while-loop CFG:
     ///

@@ -80,8 +80,8 @@ impl AnalysisPass for DominancePass {
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
-    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use mlir::air::ops::{OpId, OpRef};
+    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::air::ops::{OpId, OpRef};
 
     #[test]
     fn test_dominance_pass() {
@@ -100,7 +100,7 @@ mod tests {
 
         func.blocks = vec![bb0, bb1, bb2, bb3];
 
-        let mut air_module = mlir::air::Module::new("test".into());
+        let mut air_module = scirs::air::Module::new("test".into());
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());

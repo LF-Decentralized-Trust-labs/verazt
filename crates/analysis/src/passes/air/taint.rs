@@ -10,8 +10,8 @@ use crate::context::{AnalysisContext, ArtifactKey};
 use crate::passes::air::icfg::ICFGPass;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use mlir::air::interfaces::TaintLabel;
-use mlir::air::ops::{OpId, OpKind};
+use scirs::air::interfaces::TaintLabel;
+use scirs::air::ops::{OpId, OpKind};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
@@ -178,9 +178,9 @@ impl AnalysisPass for TaintPass {
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
-    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use mlir::air::ops::{Op, OpId, OpKind, OpRef, SsaName, TaintSourceOp};
-    use mlir::sir::Type;
+    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::air::ops::{Op, OpId, OpKind, OpRef, SsaName, TaintSourceOp};
+    use scirs::sir::Type;
 
     #[test]
     fn test_taint_pass_seed_propagation() {
@@ -202,7 +202,7 @@ mod tests {
         bb0.term = Terminator::TxnExit { reverted: false };
         func.blocks = vec![bb0];
 
-        let mut air_module = mlir::air::Module::new("test".into());
+        let mut air_module = scirs::air::Module::new("test".into());
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());

@@ -14,7 +14,7 @@ scanner = { workspace = true }
 verifier = { workspace = true }
 common = { workspace = true }
 frontend = { workspace = true }
-mlir = { workspace = true }
+scirs = { workspace = true }
 
 clap = { workspace = true }
 

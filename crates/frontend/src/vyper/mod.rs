@@ -4,14 +4,14 @@ pub mod ast;
 pub mod lower;
 pub mod parser;
 
-pub use mlir::sir;
+pub use scirs::sir;
 
 use common::error::Result;
 
 /// Compile a Vyper source file into a SIR module.
 ///
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
-pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<mlir::sir::Module> {
+pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<scirs::sir::Module> {
     let source_unit = parser::parse_input_file(input_file, vyper_ver)?;
     lower::lower_source_unit_normalized(&source_unit)
 }
@@ -19,7 +19,7 @@ pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<mlir::s
 /// Compile Vyper source code (string) into a SIR module.
 ///
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
-pub fn compile_source(source_code: &str, vyper_ver: Option<&str>) -> Result<mlir::sir::Module> {
+pub fn compile_source(source_code: &str, vyper_ver: Option<&str>) -> Result<scirs::sir::Module> {
     let source_unit = parser::parse_vyper_source_code(source_code, vyper_ver)?;
     lower::lower_source_unit_normalized(&source_unit)
 }

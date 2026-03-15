@@ -8,7 +8,7 @@ pub mod normalize;
 
 use crate::solidity::ast::SourceUnit;
 use common::error::Result;
-use mlir::sir::Module;
+use scirs::sir::Module;
 
 pub use lower::IrGen;
 

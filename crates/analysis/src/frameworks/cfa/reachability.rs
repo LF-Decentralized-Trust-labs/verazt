@@ -10,7 +10,7 @@
 //! - **Reentrancy**: check whether an external call can *reach* a storage write
 //!   on any path — a direct reachability query, no full DFA pass required.
 
-use mlir::air::cfg::{BlockId, Function, Terminator};
+use scirs::air::cfg::{BlockId, Function, Terminator};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -182,8 +182,8 @@ fn bfs(adj: &HashMap<BlockId, Vec<BlockId>>, start: BlockId) -> HashSet<BlockId>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use mlir::air::ops::{OpId, OpRef};
+    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::air::ops::{OpId, OpRef};
 
     /// Diamond CFG: bb0 → {bb1, bb2} → bb3 (exit)
     fn diamond_function() -> Function {

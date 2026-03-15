@@ -3,8 +3,8 @@
 use crate::vyper::ast;
 use crate::vyper::ast::Loc;
 use common::error::Result;
-use mlir::sir::dialect::evm::*;
-use mlir::sir::*;
+use scirs::sir::dialect::evm::*;
+use scirs::sir::*;
 
 /// Convert Vyper AST source location to SIR span.
 fn loc_to_span(loc: Option<&Loc>) -> Option<Span> {
@@ -172,17 +172,17 @@ impl IrGen {
         // Interfaces become type references; we don't lower them as full contracts
         // for now, just skip or add a placeholder.
         // TODO: more detailed interface lowering
-        Ok(MemberDecl::TypeAlias(mlir::sir::TypeAlias {
+        Ok(MemberDecl::TypeAlias(scirs::sir::TypeAlias {
             name: _iface.name.clone(),
             ty: Type::Dialect(DialectType::Evm(EvmType::Address)),
         }))
     }
 
     fn lower_func_def(&mut self, f: &ast::FuncDef) -> Result<FunctionDecl> {
-        let params: Vec<mlir::sir::Param> = f
+        let params: Vec<scirs::sir::Param> = f
             .params
             .iter()
-            .map(|p| mlir::sir::Param::new(p.name.clone(), self.lower_type(&p.typ)))
+            .map(|p| scirs::sir::Param::new(p.name.clone(), self.lower_type(&p.typ)))
             .collect();
 
         let returns: Vec<Type> = match &f.return_type {
@@ -404,7 +404,7 @@ impl IrGen {
 
                 // cond: target < stop
                 let cond = Expr::BinOp(BinOpExpr {
-                    op: mlir::sir::BinOp::Lt,
+                    op: scirs::sir::BinOp::Lt,
                     lhs: Box::new(Expr::Var(VarExpr {
                         name: target_name.clone(),
                         ty: Type::I256,
@@ -417,7 +417,7 @@ impl IrGen {
 
                 // update: target = target + 1
                 let update = Stmt::AugAssign(AugAssignStmt {
-                    op: mlir::sir::BinOp::Add,
+                    op: scirs::sir::BinOp::Add,
                     lhs: Expr::Var(VarExpr {
                         name: target_name.clone(),
                         ty: Type::I256,
@@ -452,7 +452,7 @@ impl IrGen {
 
                 // cond: idx < len(arr)
                 let cond = Expr::BinOp(BinOpExpr {
-                    op: mlir::sir::BinOp::Lt,
+                    op: scirs::sir::BinOp::Lt,
                     lhs: Box::new(Expr::Var(VarExpr {
                         name: idx_name.clone(),
                         ty: Type::I256,
@@ -467,7 +467,7 @@ impl IrGen {
 
                 // update: idx = idx + 1
                 let update = Stmt::AugAssign(AugAssignStmt {
-                    op: mlir::sir::BinOp::Add,
+                    op: scirs::sir::BinOp::Add,
                     lhs: Expr::Var(VarExpr { name: idx_name, ty: Type::I256, span: None }),
                     rhs: Expr::Lit(Lit::Num(NumLit {
                         value: Num::Int(IntNum { value: 1.into(), typ: Type::I256 }),
@@ -556,8 +556,8 @@ impl IrGen {
 
             ast::Expr::BoolOp(e) => {
                 let op = match e.op {
-                    ast::BoolOp::And => mlir::sir::BinOp::And,
-                    ast::BoolOp::Or => mlir::sir::BinOp::Or,
+                    ast::BoolOp::And => scirs::sir::BinOp::And,
+                    ast::BoolOp::Or => scirs::sir::BinOp::Or,
                 };
                 if e.values.len() >= 2 {
                     let mut result = self.lower_expr(&e.values[0])?;
@@ -610,7 +610,7 @@ impl IrGen {
                     let mut result = parts.remove(0);
                     for part in parts {
                         result = Expr::BinOp(BinOpExpr {
-                            op: mlir::sir::BinOp::And,
+                            op: scirs::sir::BinOp::And,
                             lhs: Box::new(result),
                             rhs: Box::new(part),
                             overflow: OverflowSemantics::Checked,
@@ -624,9 +624,9 @@ impl IrGen {
             ast::Expr::UnaryOp(e) => {
                 let operand = self.lower_expr(&e.operand)?;
                 let op = match e.op {
-                    ast::UnaryOp::Not => mlir::sir::UnOp::Not,
-                    ast::UnaryOp::Neg => mlir::sir::UnOp::Neg,
-                    ast::UnaryOp::Invert => mlir::sir::UnOp::BitNot,
+                    ast::UnaryOp::Not => scirs::sir::UnOp::Not,
+                    ast::UnaryOp::Neg => scirs::sir::UnOp::Neg,
+                    ast::UnaryOp::Invert => scirs::sir::UnOp::BitNot,
                 };
                 Ok(Expr::UnOp(UnOpExpr {
                     op,
@@ -888,32 +888,32 @@ impl IrGen {
 
     // ─── Operator lowering ────────────────────────────────────
 
-    fn lower_binop(&self, op: &ast::BinOp) -> mlir::sir::BinOp {
+    fn lower_binop(&self, op: &ast::BinOp) -> scirs::sir::BinOp {
         match op {
-            ast::BinOp::Add => mlir::sir::BinOp::Add,
-            ast::BinOp::Sub => mlir::sir::BinOp::Sub,
-            ast::BinOp::Mul => mlir::sir::BinOp::Mul,
-            ast::BinOp::Div | ast::BinOp::FloorDiv => mlir::sir::BinOp::Div,
-            ast::BinOp::Mod => mlir::sir::BinOp::Mod,
-            ast::BinOp::Pow => mlir::sir::BinOp::Pow,
-            ast::BinOp::BitAnd => mlir::sir::BinOp::BitAnd,
-            ast::BinOp::BitOr => mlir::sir::BinOp::BitOr,
-            ast::BinOp::BitXor => mlir::sir::BinOp::BitXor,
-            ast::BinOp::Shl => mlir::sir::BinOp::Shl,
-            ast::BinOp::Shr => mlir::sir::BinOp::Shr,
+            ast::BinOp::Add => scirs::sir::BinOp::Add,
+            ast::BinOp::Sub => scirs::sir::BinOp::Sub,
+            ast::BinOp::Mul => scirs::sir::BinOp::Mul,
+            ast::BinOp::Div | ast::BinOp::FloorDiv => scirs::sir::BinOp::Div,
+            ast::BinOp::Mod => scirs::sir::BinOp::Mod,
+            ast::BinOp::Pow => scirs::sir::BinOp::Pow,
+            ast::BinOp::BitAnd => scirs::sir::BinOp::BitAnd,
+            ast::BinOp::BitOr => scirs::sir::BinOp::BitOr,
+            ast::BinOp::BitXor => scirs::sir::BinOp::BitXor,
+            ast::BinOp::Shl => scirs::sir::BinOp::Shl,
+            ast::BinOp::Shr => scirs::sir::BinOp::Shr,
         }
     }
 
-    fn lower_cmpop(&self, op: &ast::CmpOp) -> mlir::sir::BinOp {
+    fn lower_cmpop(&self, op: &ast::CmpOp) -> scirs::sir::BinOp {
         match op {
-            ast::CmpOp::Eq => mlir::sir::BinOp::Eq,
-            ast::CmpOp::NotEq => mlir::sir::BinOp::Ne,
-            ast::CmpOp::Lt => mlir::sir::BinOp::Lt,
-            ast::CmpOp::LtE => mlir::sir::BinOp::Le,
-            ast::CmpOp::Gt => mlir::sir::BinOp::Gt,
-            ast::CmpOp::GtE => mlir::sir::BinOp::Ge,
-            ast::CmpOp::In => mlir::sir::BinOp::Eq, // approximate
-            ast::CmpOp::NotIn => mlir::sir::BinOp::Ne, // approximate
+            ast::CmpOp::Eq => scirs::sir::BinOp::Eq,
+            ast::CmpOp::NotEq => scirs::sir::BinOp::Ne,
+            ast::CmpOp::Lt => scirs::sir::BinOp::Lt,
+            ast::CmpOp::LtE => scirs::sir::BinOp::Le,
+            ast::CmpOp::Gt => scirs::sir::BinOp::Gt,
+            ast::CmpOp::GtE => scirs::sir::BinOp::Ge,
+            ast::CmpOp::In => scirs::sir::BinOp::Eq, // approximate
+            ast::CmpOp::NotIn => scirs::sir::BinOp::Ne, // approximate
         }
     }
 }
@@ -996,18 +996,18 @@ mod tests {
     #[test]
     fn test_lower_binop() {
         let ir = IrGen::new();
-        assert_eq!(ir.lower_binop(&ast::BinOp::Add), mlir::sir::BinOp::Add);
-        assert_eq!(ir.lower_binop(&ast::BinOp::Sub), mlir::sir::BinOp::Sub);
-        assert_eq!(ir.lower_binop(&ast::BinOp::Mul), mlir::sir::BinOp::Mul);
-        assert_eq!(ir.lower_binop(&ast::BinOp::Mod), mlir::sir::BinOp::Mod);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Add), scirs::sir::BinOp::Add);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Sub), scirs::sir::BinOp::Sub);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Mul), scirs::sir::BinOp::Mul);
+        assert_eq!(ir.lower_binop(&ast::BinOp::Mod), scirs::sir::BinOp::Mod);
     }
 
     #[test]
     fn test_lower_cmpop() {
         let ir = IrGen::new();
-        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Eq), mlir::sir::BinOp::Eq);
-        assert_eq!(ir.lower_cmpop(&ast::CmpOp::GtE), mlir::sir::BinOp::Ge);
-        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Lt), mlir::sir::BinOp::Lt);
+        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Eq), scirs::sir::BinOp::Eq);
+        assert_eq!(ir.lower_cmpop(&ast::CmpOp::GtE), scirs::sir::BinOp::Ge);
+        assert_eq!(ir.lower_cmpop(&ast::CmpOp::Lt), scirs::sir::BinOp::Lt);
     }
 
     #[test]

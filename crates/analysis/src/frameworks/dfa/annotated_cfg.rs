@@ -5,7 +5,7 @@
 //! dominance-aware def-use annotation in future analyses.
 
 use crate::frameworks::dfa::var::VarId;
-use mlir::sir::{Expr, Stmt};
+use scirs::sir::{Expr, Stmt};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 

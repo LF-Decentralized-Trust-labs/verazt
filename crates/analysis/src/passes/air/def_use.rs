@@ -6,8 +6,8 @@
 use crate::context::{AnalysisContext, ArtifactKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use mlir::air::cfg::Terminator;
-use mlir::air::ops::{OpId, OpKind, OpRef};
+use scirs::air::cfg::Terminator;
+use scirs::air::ops::{OpId, OpKind, OpRef};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
@@ -128,9 +128,9 @@ fn collect_operands(kind: &OpKind) -> Vec<OpRef> {
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
-    use mlir::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use mlir::air::ops::{Op, OpId, OpKind, OpRef, SsaName};
-    use mlir::sir::{BinOp, Lit, NumLit, OverflowSemantics, Type};
+    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::air::ops::{Op, OpId, OpKind, OpRef, SsaName};
+    use scirs::sir::{BinOp, Lit, NumLit, OverflowSemantics, Type};
 
     #[test]
     fn test_def_use_basic() {
@@ -161,7 +161,7 @@ mod tests {
         bb0.term = Terminator::TxnExit { reverted: false };
         func.blocks = vec![bb0];
 
-        let mut air_module = mlir::air::Module::new("test".into());
+        let mut air_module = scirs::air::Module::new("test".into());
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());

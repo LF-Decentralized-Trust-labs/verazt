@@ -11,8 +11,8 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::AttrValue;
-use mlir::sir::attrs::sir_attrs;
+use scirs::sir::AttrValue;
+use scirs::sir::attrs::sir_attrs;
 use std::any::TypeId;
 
 /// SIR structural detector for floating pragma.
