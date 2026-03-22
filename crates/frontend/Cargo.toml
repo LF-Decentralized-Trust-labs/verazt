@@ -11,8 +11,7 @@ parallel = ["rayon"]
 
 [dependencies]
 backtrace = { workspace = true }
-bat = { workspace = true }
-mlir = { workspace = true }
+scirs = { workspace = true }
 clap = { workspace = true }
 clap-verbosity-flag = { workspace = true }
 codespan-reporting = { workspace = true }

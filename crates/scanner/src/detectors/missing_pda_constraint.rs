@@ -58,12 +58,12 @@ impl BugDetectionPass for SirMissingPdaConstraintDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let mlir::sir::Decl::Contract(contract) = decl {
+                if let scirs::sir::Decl::Contract(contract) = decl {
                     // Find AccountsContext declarations
                     for member in &contract.members {
-                        if let mlir::sir::MemberDecl::Dialect(
-                            mlir::sir::DialectMemberDecl::Anchor(
-                                mlir::sir::dialect::anchor::AnchorMemberDecl::AccountsContext {
+                        if let scirs::sir::MemberDecl::Dialect(
+                            scirs::sir::DialectMemberDecl::Anchor(
+                                scirs::sir::dialect::anchor::AnchorMemberDecl::AccountsContext {
                                     name: ctx_name,
                                     accounts,
                                 },
@@ -75,7 +75,7 @@ impl BugDetectionPass for SirMissingPdaConstraintDetector {
                                 // (Account<T>) without seeds constraint
                                 let is_account_type = matches!(
                                     account.ty,
-                                    mlir::sir::dialect::anchor::AnchorType::Account(_)
+                                    scirs::sir::dialect::anchor::AnchorType::Account(_)
                                 );
 
                                 if is_account_type {

@@ -2,8 +2,8 @@ use crate::frameworks::dfa::annotated_cfg::BasicBlockId;
 use crate::frameworks::dfa::lattice::PowerSetLattice;
 use crate::frameworks::dfa::solver::Transfer;
 use crate::frameworks::dfa::var::VarId;
-use mlir::sir::Span;
-use mlir::sir::Stmt;
+use scirs::sir::Span;
+use scirs::sir::Stmt;
 
 /// A definition point
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]

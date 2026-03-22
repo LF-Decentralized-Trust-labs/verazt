@@ -1,37 +1,38 @@
 //! Vyper smart contract compiler: parses `.vy` sources into SIR.
 
 pub mod ast;
-pub mod lower;
-pub mod parser;
+pub mod lowering;
+pub mod parsing;
 
-pub use mlir::sir;
+pub use scirs::sir;
 
 use common::error::Result;
 
 /// Compile a Vyper source file into a SIR module.
 ///
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
-pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<mlir::sir::Module> {
-    let source_unit = parser::parse_input_file(input_file, vyper_ver)?;
-    lower::lower_source_unit_normalized(&source_unit)
+pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<scirs::sir::Module> {
+    let source_unit = parsing::parse_input_file(input_file, vyper_ver)?;
+    lowering::lower_source_unit_normalized(&source_unit)
 }
 
 /// Compile Vyper source code (string) into a SIR module.
 ///
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
-pub fn compile_source(source_code: &str, vyper_ver: Option<&str>) -> Result<mlir::sir::Module> {
-    let source_unit = parser::parse_vyper_source_code(source_code, vyper_ver)?;
-    lower::lower_source_unit_normalized(&source_unit)
+pub fn compile_source(source_code: &str, vyper_ver: Option<&str>) -> Result<scirs::sir::Module> {
+    let source_unit = parsing::parse_vyper_source_code(source_code, vyper_ver)?;
+    lowering::lower_source_unit_normalized(&source_unit)
 }
 
 /// Parse a Vyper source file into the internal AST (without SIR lowering).
 pub fn parse_file(input_file: &str, vyper_ver: Option<&str>) -> Result<ast::SourceUnit> {
-    parser::parse_input_file(input_file, vyper_ver)
+    parsing::parse_input_file(input_file, vyper_ver)
 }
 
 /// Parse Vyper source from a JSON AST string.
-pub fn parse_json(json_str: &str, file_path: &str) -> Result<ast::SourceUnit> {
-    parser::parse_from_json(json_str, file_path)
+pub fn parse_from_json(json: &str, path: &str) -> Option<ast::SourceUnit> {
+    let source_unit = parsing::parse_from_json(json, path).ok()?;
+    Some(source_unit)
 }
 
 /// Extract the version pragma string from a `.vy` file (e.g. `"^0.3.9"`).
@@ -40,17 +41,17 @@ pub fn parse_json(json_str: &str, file_path: &str) -> Result<ast::SourceUnit> {
 pub fn extract_pragma(file: &str) -> Result<Option<String>> {
     let source = std::fs::read_to_string(file)
         .map_err(|e| common::error::create_error(format!("Failed to read {file}: {e}")))?;
-    Ok(parser::extract_version_pragma(&source))
+    Ok(parsing::extract_version_pragma(&source))
 }
 
 /// Query PyPI and return installable Vyper versions satisfying `pragma`.
 ///
 /// Returns versions sorted newest-first.
 pub fn find_installable_versions(pragma: &str) -> Result<Vec<node_semver::Version>> {
-    parser::find_installable_vyper_versions(pragma)
+    parsing::find_installable_vyper_versions(pragma)
 }
 
 /// Install and activate a specific Vyper version via `vyper-select`.
 pub fn install_version(ver: &node_semver::Version) -> Result<()> {
-    parser::configure_vyper_compiler(ver)
+    parsing::configure_vyper_compiler(ver)
 }

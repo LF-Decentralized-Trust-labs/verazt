@@ -11,8 +11,8 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::attrs::sir_attrs;
-use mlir::sir::{Decl, MemberDecl};
+use scirs::sir::attrs::sir_attrs;
+use scirs::sir::{Decl, MemberDecl};
 use std::any::TypeId;
 
 /// SIR structural detector for visibility issues.

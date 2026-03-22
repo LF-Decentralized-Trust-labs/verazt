@@ -1,4 +1,4 @@
-//! AIR Access Control Detector
+//! BIR Access Control Detector
 //!
 //! Harvests findings from the `AIRAccessControlPass` analysis artifact.
 
@@ -11,7 +11,7 @@ use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use std::any::TypeId;
 
-/// AIR-based access control detector.
+/// BIR-based access control detector.
 ///
 /// Harvests pre-computed findings from the `AIRAccessControlPass`.
 #[derive(Debug, Default)]
@@ -25,7 +25,7 @@ impl AIRAccessControlDetector {
 
 impl Pass for AIRAccessControlDetector {
     fn name(&self) -> &'static str {
-        "AIR Access Control"
+        "BIR Access Control"
     }
 
     fn description(&self) -> &'static str {
@@ -55,7 +55,7 @@ impl BugDetectionPass for AIRAccessControlDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Findings are pre-computed by AIRAccessControlPass
         #[allow(deprecated)]
-        if let Some(findings) = context.get_artifact::<Vec<Bug>>("AIR.access_control_findings") {
+        if let Some(findings) = context.get_artifact::<Vec<Bug>>("BIR.access_control_findings") {
             Ok(findings.clone())
         } else {
             Ok(vec![])

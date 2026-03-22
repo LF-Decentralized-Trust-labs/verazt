@@ -3,10 +3,10 @@
 // Hack to print log when running unit test
 pub mod ast;
 
-pub use mlir::sir;
+pub use scirs::sir;
 
-pub mod lower;
-pub mod parser;
+pub mod lowering;
+pub mod parsing;
 
 use common::error::Result;
 
@@ -31,5 +31,5 @@ pub fn find_installable_versions(pragma: &str) -> Result<Vec<node_semver::Versio
 
 /// Install a specific solc version via `solc-select`.
 pub fn install_version(ver: &node_semver::Version) -> Result<()> {
-    parser::configure_solc_compiler(ver)
+    parsing::configure_solc_compiler(ver)
 }

@@ -34,7 +34,7 @@ pub enum DetectorId {
     SirAcquiresMismatch,
     SirMissingPdaConstraint,
 
-    // ── AIR dataflow detectors ───────────────────────────────────
+    // ── BIR dataflow detectors ───────────────────────────────────
     AIRReentrancy,
     AIRAccessControl,
     AIRArithmetic,
@@ -66,9 +66,9 @@ impl DetectorId {
             Self::SirTxOriginAuth => "sir-tx-origin-auth",
             Self::SirAcquiresMismatch => "sir-acquires-mismatch",
             Self::SirMissingPdaConstraint => "sir-missing-pda-constraint",
-            Self::AIRReentrancy => "air-reentrancy",
-            Self::AIRAccessControl => "air-access-control",
-            Self::AIRArithmetic => "air-arithmetic",
+            Self::AIRReentrancy => "bir-reentrancy",
+            Self::AIRAccessControl => "bir-access-control",
+            Self::AIRArithmetic => "bir-arithmetic",
         }
     }
 }

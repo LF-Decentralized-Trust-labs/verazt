@@ -19,7 +19,7 @@ impl Display for YulBlock {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "{{").ok();
         for stmt in self.body.iter() {
-            writeln!(f, "{}", format!("{stmt}").indent(4)).ok();
+            writeln!(f, "{}", format!("{stmt}").indent(2)).ok();
         }
         write!(f, "}}")
     }

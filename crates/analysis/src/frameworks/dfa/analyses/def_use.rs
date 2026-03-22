@@ -1,7 +1,7 @@
 use crate::frameworks::dfa::analyses::reaching_defs::Definition;
 use crate::frameworks::dfa::annotated_cfg::BasicBlockId;
 use crate::frameworks::dfa::var::VarId;
-use mlir::sir::Span;
+use scirs::sir::Span;
 use std::collections::{HashMap, HashSet};
 
 /// A use point

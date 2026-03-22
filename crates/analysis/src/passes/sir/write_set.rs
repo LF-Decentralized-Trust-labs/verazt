@@ -7,8 +7,8 @@
 use crate::context::{AnalysisContext, ArtifactKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use mlir::sir::utils::query::{expr_references_storage, storage_names};
-use mlir::sir::{Decl, Expr, MemberDecl, Stmt};
+use scirs::sir::utils::query::{expr_references_storage, storage_names};
+use scirs::sir::{Decl, Expr, MemberDecl, Stmt};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
@@ -188,7 +188,7 @@ fn extract_storage_name(expr: &Expr) -> Option<String> {
 /// Collect names of internal (same-contract) function calls from statement
 /// body.
 fn collect_internal_calls(stmts: &[Stmt], out: &mut HashSet<String>) {
-    mlir::sir::utils::query::walk_function_calls(stmts, &mut |call| {
+    scirs::sir::utils::query::walk_function_calls(stmts, &mut |call| {
         // Internal calls are typically Var(name) callees
         if let Expr::Var(v) = &*call.callee {
             out.insert(v.name.clone());
@@ -200,9 +200,9 @@ fn collect_internal_calls(stmts: &[Stmt], out: &mut HashSet<String>) {
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
-    use mlir::sir::*;
+    use scirs::sir::*;
 
-    fn make_module_with_writes() -> mlir::sir::Module {
+    fn make_module_with_writes() -> scirs::sir::Module {
         // Contract "C" with storage var "x" and two functions:
         // - `write_x` which assigns to x
         // - `indirect` which calls write_x
@@ -262,7 +262,7 @@ mod tests {
             span: None,
         };
 
-        mlir::sir::Module {
+        scirs::sir::Module {
             id: "test".to_string(),
             attrs: vec![],
             decls: vec![Decl::Contract(contract)],

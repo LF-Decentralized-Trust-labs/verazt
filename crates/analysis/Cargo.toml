@@ -8,7 +8,7 @@ edition.workspace = true
 
 [dependencies]
 log = { workspace = true }
-mlir = { workspace = true }
+scirs = { workspace = true }
 num-traits = { workspace = true }
 petgraph = { workspace = true }
 rayon = { workspace = true }

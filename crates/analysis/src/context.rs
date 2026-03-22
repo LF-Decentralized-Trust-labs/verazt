@@ -1,7 +1,7 @@
 //! Analysis Context
 //!
 //! This module provides the central storage for analysis artifacts,
-//! supporting SIR and AIR representations. AST (frontend) types have
+//! supporting SIR and BIR representations. AST (frontend) types have
 //! been removed — all input is via SIR `Module`.
 
 /// The input source language.
@@ -100,7 +100,7 @@ pub struct AnalysisStats {
     /// Time spent on IR analysis.
     pub ir_analysis_time: Duration,
 
-    /// Time spent on AIR lowering.
+    /// Time spent on BIR lowering.
     pub air_lowering_time: Duration,
 
     /// Total passes executed.
@@ -114,7 +114,7 @@ pub struct AnalysisStats {
 ///
 /// This context stores:
 /// - SIR modules (always available when provided)
-/// - AIR modules (eagerly lowered from SIR — step 1.8)
+/// - BIR modules (eagerly lowered from SIR — step 1.8)
 /// - Analysis artifacts from all passes
 /// - Execution statistics
 #[derive(Debug)]
@@ -123,10 +123,10 @@ pub struct AnalysisContext {
     // Source Representations
     // ========================================
     /// SIR modules.
-    pub ir_units: Option<Vec<mlir::sir::Module>>,
+    pub ir_units: Option<Vec<scirs::sir::Module>>,
 
-    /// AIR modules (eagerly lowered from SIR).
-    pub air_units: Option<Vec<mlir::air::Module>>,
+    /// BIR modules (eagerly lowered from SIR).
+    pub air_units: Option<Vec<scirs::bir::Module>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -164,25 +164,25 @@ pub struct AnalysisContext {
 impl AnalysisContext {
     /// Create a new analysis context from SIR modules.
     ///
-    /// AIR modules are **eagerly** lowered from SIR so that all AIR
+    /// BIR modules are **eagerly** lowered from SIR so that all BIR
     /// passes can run without an explicit `AIRGeneration` dependency.
-    pub fn new(sir_modules: Vec<mlir::sir::Module>, config: AnalysisConfig) -> Self {
+    pub fn new(sir_modules: Vec<scirs::sir::Module>, config: AnalysisConfig) -> Self {
         let input_language = config.input_language;
 
-        // Eager lowering: SIR → CIR → AIR
+        // Eager lowering: SIR → CIR → BIR
         let air_units = if sir_modules.is_empty() {
             None
         } else {
             let start = std::time::Instant::now();
-            let air = sir_modules
+            let bir = sir_modules
                 .iter()
                 .filter_map(|m| {
-                    let cir = mlir::cir::lower::lower_module(m).ok()?;
-                    mlir::air::lower::lower_module(&cir).ok()
+                    let cir = scirs::cir::lower::lower_module(m).ok()?;
+                    scirs::bir::lower::lower_module(&cir).ok()
                 })
                 .collect::<Vec<_>>();
             let _elapsed = start.elapsed();
-            if air.is_empty() { None } else { Some(air) }
+            if bir.is_empty() { None } else { Some(bir) }
         };
 
         let ir_units = if sir_modules.is_empty() {
@@ -214,42 +214,42 @@ impl AnalysisContext {
     }
 
     /// Get IR units (panics if not available).
-    pub fn ir_units(&self) -> &Vec<mlir::sir::Module> {
+    pub fn ir_units(&self) -> &Vec<scirs::sir::Module> {
         self.ir_units.as_ref().expect("IR not generated")
     }
 
-    /// Set IR units and eagerly lower to AIR.
-    pub fn set_ir_units(&mut self, ir_units: Vec<mlir::sir::Module>) {
-        // Eagerly lower SIR → CIR → AIR
-        let air = ir_units
+    /// Set IR units and eagerly lower to BIR.
+    pub fn set_ir_units(&mut self, ir_units: Vec<scirs::sir::Module>) {
+        // Eagerly lower SIR → CIR → BIR
+        let bir = ir_units
             .iter()
             .filter_map(|m| {
-                let cir = mlir::cir::lower::lower_module(m).ok()?;
-                mlir::air::lower::lower_module(&cir).ok()
+                let cir = scirs::cir::lower::lower_module(m).ok()?;
+                scirs::bir::lower::lower_module(&cir).ok()
             })
             .collect::<Vec<_>>();
-        if !air.is_empty() {
-            self.air_units = Some(air);
+        if !bir.is_empty() {
+            self.air_units = Some(bir);
         }
         self.ir_units = Some(ir_units);
     }
 
     // ========================================
-    // AIR Management
+    // BIR Management
     // ========================================
 
-    /// Check if AIR is available.
+    /// Check if BIR is available.
     pub fn has_air(&self) -> bool {
         self.air_units.is_some()
     }
 
-    /// Get AIR units. Returns an empty slice if AIR is not available.
-    pub fn air_units(&self) -> &[mlir::air::Module] {
+    /// Get BIR units. Returns an empty slice if BIR is not available.
+    pub fn air_units(&self) -> &[scirs::bir::Module] {
         self.air_units.as_deref().unwrap_or(&[])
     }
 
-    /// Set AIR units directly (escape hatch).
-    pub fn set_air_units(&mut self, units: Vec<mlir::air::Module>) {
+    /// Set BIR units directly (escape hatch).
+    pub fn set_air_units(&mut self, units: Vec<scirs::bir::Module>) {
         self.air_units = Some(units);
     }
 

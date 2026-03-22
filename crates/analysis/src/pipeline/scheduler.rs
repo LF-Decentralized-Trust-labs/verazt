@@ -3,7 +3,7 @@
 //! Pure function: takes registered passes, returns `ExecutionSchedule`.
 //! Must not mutate `AnalysisContext`.
 //!
-//! After step 1.8, AIR is always available (eagerly lowered), so the
+//! After step 1.8, BIR is always available (eagerly lowered), so the
 //! scheduler no longer tracks a special "IR generation point".
 
 use crate::passes::base::meta::PassRepresentation;
@@ -18,7 +18,7 @@ pub struct ExecutionLevel {
     /// SIR passes at this level.
     pub sir_passes: Vec<TypeId>,
 
-    /// AIR passes at this level.
+    /// BIR passes at this level.
     pub air_passes: Vec<TypeId>,
 }
 

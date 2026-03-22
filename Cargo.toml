@@ -1,11 +1,12 @@
 [workspace]
+resolver = "3"
 members = [
   "crates/analysis",
   "crates/scanner",
   "crates/bugs",
   "crates/common",
   "crates/frontend",
-  "crates/mlir",
+  "crates/scirs",
   "crates/verazt",
   "crates/verifier",
 ]
@@ -24,12 +25,11 @@ analysis = { path = "crates/analysis" }
 scanner = { path = "crates/scanner" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
-mlir = { path = "crates/mlir" }
+scirs = { path = "crates/scirs" }
 frontend = { path = "crates/frontend" }
 verifier = { path = "crates/verifier" }
 
 backtrace = "0.3"
-bat = "0.23"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.1.1", features = ["cargo", "derive"] }
 clap-verbosity-flag = "2.0.1"

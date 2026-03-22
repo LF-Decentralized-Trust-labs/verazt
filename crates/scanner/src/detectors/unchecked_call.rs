@@ -14,8 +14,8 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::utils::query as structural;
-use mlir::sir::{Decl, MemberDecl, Stmt};
+use scirs::sir::utils::query as structural;
+use scirs::sir::{Decl, MemberDecl, Stmt};
 use std::any::TypeId;
 
 /// SIR structural detector for unchecked call return values.
@@ -40,7 +40,7 @@ impl UncheckedCallSirDetector {
             match stmt {
                 // Expression statement — the return value is discarded.
                 Stmt::Expr(expr_stmt) => {
-                    if let mlir::sir::Expr::FunctionCall(call) = &expr_stmt.expr {
+                    if let scirs::sir::Expr::FunctionCall(call) = &expr_stmt.expr {
                         if structural::is_evm_external_call(call) {
                             bugs.push(Bug::new(
                                 self.name(),

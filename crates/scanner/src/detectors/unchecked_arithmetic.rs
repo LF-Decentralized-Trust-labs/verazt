@@ -10,8 +10,8 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use mlir::sir::utils::query as structural;
-use mlir::sir::{BinOp, BinOpExpr, Expr, OverflowSemantics};
+use scirs::sir::utils::query as structural;
+use scirs::sir::{BinOp, BinOpExpr, Expr, OverflowSemantics};
 use std::any::TypeId;
 
 /// SIR structural detector for unchecked arithmetic.
@@ -64,9 +64,9 @@ impl BugDetectionPass for SirUncheckedArithmeticDetector {
 
         for module in context.ir_units() {
             for decl in &module.decls {
-                if let mlir::sir::Decl::Contract(contract) = decl {
+                if let scirs::sir::Decl::Contract(contract) = decl {
                     for member in &contract.members {
-                        if let mlir::sir::MemberDecl::Function(func) = member {
+                        if let scirs::sir::MemberDecl::Function(func) = member {
                             if let Some(body) = &func.body {
                                 structural::walk_binops(body, &mut |binop: &BinOpExpr| {
                                     // Only flag arithmetic ops with Wrapping semantics
