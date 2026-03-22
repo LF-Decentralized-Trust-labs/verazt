@@ -483,9 +483,8 @@ pub fn rename_callees(
 mod tests {
     use super::rename_callees;
     use crate::solidity::{
-        ast::utils::syntactic_comparer::compare_source_units,
-        lower::normalize::{rename_defs, utils::configure_unit_test_env},
-        parser::parse_solidity_source_code,
+        lowering::lower::{rename_defs, utils::configure_unit_test_env},
+        parsing::parse_input_file as parse_solidity_source_code,
     };
     use indoc::indoc;
 

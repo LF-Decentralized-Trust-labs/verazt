@@ -4,7 +4,6 @@
 //! AST and produces SIR.  Callers no longer invoke a separate normalize step.
 
 pub mod lower;
-pub mod normalize;
 
 use crate::vyper::ast::source_unit::SourceUnit;
 use common::error::Result;
@@ -16,7 +15,7 @@ pub use lower::Lowerer;
 ///
 /// Internally runs all normalization passes before lowering.
 pub fn lower_source_unit_normalized(source_unit: &SourceUnit) -> Result<Module> {
-    let normalized = normalize::run_passes(source_unit);
+    let normalized = lower::run_passes(source_unit);
     lower::lower_source_unit(&normalized)
 }
 

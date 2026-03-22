@@ -11,7 +11,7 @@ use crate::{
 use clap::{Parser, Subcommand, crate_version};
 use common::error;
 use frontend::solidity::{
-    ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parser::parse_input_file,
+    ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parsing::parse_input_file,
 };
 use std::fs;
 

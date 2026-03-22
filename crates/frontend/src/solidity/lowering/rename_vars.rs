@@ -179,8 +179,7 @@ impl YulMap for Renamer {
 mod tests {
     use super::rename_vars;
     use crate::solidity::{
-        ast::utils::syntactic_comparer::compare_source_units,
-        lower::normalize::utils::configure_unit_test_env, parser::parse_solidity_source_code,
+        lowering::lower::utils::configure_unit_test_env, parsing::parse_input_file as parse_solidity_source_code,
     };
     use indoc::indoc;
 

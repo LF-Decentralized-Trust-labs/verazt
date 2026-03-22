@@ -13,6 +13,91 @@ fn loc_to_span(loc: Option<Loc>) -> Option<Span> {
     loc.map(|l| Span::new(l.start_line as u32, l.end_line as u32))
 }
 
+pub mod eliminate_imports;
+pub mod eliminate_modifiers;
+pub mod eliminate_named_args;
+pub mod eliminate_using;
+pub mod flatten_expr;
+pub mod flatten_names;
+pub mod merge_pragmas;
+pub mod rename_callees;
+pub mod rename_contracts;
+pub mod rename_defs;
+pub mod rename_vars;
+pub mod resolve_inheritance;
+pub mod substitution;
+pub mod unroll_tuples;
+
+#[macro_use]
+pub mod utils;
+
+pub use eliminate_imports::eliminate_import;
+pub use eliminate_modifiers::eliminate_modifier_invocs;
+pub use eliminate_named_args::eliminate_named_args;
+pub use eliminate_using::eliminate_using_directives;
+pub use flatten_expr::flatten_expr;
+pub use flatten_names::flatten_name;
+pub use merge_pragmas::merge_pragmas;
+pub use rename_callees::rename_callees;
+pub use rename_contracts::rename_contracts;
+pub use rename_defs::rename_defs;
+pub use rename_vars::rename_vars;
+pub use resolve_inheritance::resolve_inheritance;
+pub use unroll_tuples::unroll_unary_tuple;
+
+/// Supporting function to print output source unit of a normalization step.
+fn print_output_source_units(source_units: &[ast::SourceUnit]) {
+    trace!("Output source unit:");
+    for source_unit in source_units {
+        if log::max_level() >= log::Level::Trace {
+            source_unit.print_highlighted_code();
+            println!();
+        }
+    }
+}
+
+/// Run all normalization passes on source units.
+pub fn run_passes(source_units: &[ast::SourceUnit]) -> Vec<ast::SourceUnit> {
+    let source_units = unroll_unary_tuple(source_units);
+    print_output_source_units(&source_units);
+
+    let env = ast::NamingEnv::new();
+    let (source_units, env) = rename_contracts(&source_units, Some(&env));
+    print_output_source_units(&source_units);
+
+    let (source_units, env) = rename_vars(&source_units, Some(&env));
+    print_output_source_units(&source_units);
+
+    let source_units = eliminate_using_directives(&source_units);
+    print_output_source_units(&source_units);
+
+    let (source_units, env) = rename_defs(&source_units, Some(&env));
+    print_output_source_units(&source_units);
+
+    let source_units = eliminate_import(&source_units);
+    print_output_source_units(&source_units);
+
+    let source_units = merge_pragmas(&source_units);
+    print_output_source_units(&source_units);
+
+    let source_units = resolve_inheritance(&source_units);
+    print_output_source_units(&source_units);
+
+    let (source_units, env) = rename_callees(&source_units, Some(&env));
+    print_output_source_units(&source_units);
+
+    let source_units = eliminate_named_args(&source_units);
+    print_output_source_units(&source_units);
+
+    let source_units = eliminate_modifier_invocs(&source_units);
+    print_output_source_units(&source_units);
+
+    let source_units = flatten_expr(&source_units, Some(&env));
+    print_output_source_units(&source_units);
+
+    unroll_unary_tuple(&source_units)
+}
+
 pub fn lower_source_unit(source_unit: &ast::SourceUnit) -> Result<Module> {
     let mut lowerer = Lowerer::new();
     lowerer.lower_source_unit(source_unit)

@@ -4,7 +4,6 @@
 //! ASTs and produces SIR.  Callers no longer invoke a separate normalize step.
 
 pub mod lower;
-pub mod normalize;
 
 use crate::solidity::ast::SourceUnit;
 use common::error::Result;
@@ -16,7 +15,7 @@ pub use lower::Lowerer;
 ///
 /// Internally runs all normalization passes before lowering.
 pub fn lower_source_units(source_units: &[SourceUnit]) -> Result<Vec<Module>> {
-    let normalized = normalize::run_passes(source_units);
+    let normalized = lower::run_passes(source_units);
     normalized
         .iter()
         .map(|su| lower::lower_source_unit(su))
