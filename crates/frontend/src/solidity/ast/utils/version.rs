@@ -1,6 +1,6 @@
 //! Module handling Soldity versions.
 
-use crate::solidity::parser::version_parser::version_parser;
+use crate::solidity::parsing::version_parser::version_parser;
 use common::{error::Result, fail};
 use node_semver::{Range, Version};
 use std::fs;

@@ -2,8 +2,8 @@
 
 use crate::solidity::ast::yul as yast;
 use crate::solidity::ast::{DataLoc, Loc, Name};
-use crate::solidity::parser::yul_parser;
-use crate::solidity::{ast::*, parser::type_parser::type_parser};
+use crate::solidity::parsing::yul_parser;
+use crate::solidity::{ast::*, parsing::type_parser::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
 use common::{error, fail};

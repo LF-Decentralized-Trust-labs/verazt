@@ -3,7 +3,7 @@
 use crate::solidity::ast::{Loc, Name};
 use crate::solidity::{
     ast::yul::*,
-    parser::yul_parser::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
+    parsing::yul_parser::keywords::{YUL_KEYWORDS, YUL_RESERVED_NAMES},
 };
 use Either::{Left, Right};
 use common::{error::Result, fail};
@@ -17,7 +17,7 @@ use std::fs;
 ///
 /// This data structure is automatically derived by [`Pest`] parser.
 #[derive(Parser)]
-#[grammar = "solidity/parser/yul_parser/yul_grammar.pest"]
+#[grammar = "solidity/parsing/yul_parser/yul_grammar.pest"]
 struct YulParser;
 
 impl YulParser {

@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use bugs::bug::BugCategory;
 use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
-use frontend::solidity::parser::parse_input_file;
+use frontend::solidity::parsing::parse_input_file;
 use scanner::artifacts::SourceUnitsArtifact;
 use scanner::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
 

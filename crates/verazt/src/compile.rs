@@ -104,7 +104,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
 
     // Step 1: Parse
     let source_units =
-        solidity::parser::parse_input_file(file, base_path, include_paths, solc_ver)?;
+        solidity::parsing::parse_input_file(file, base_path, include_paths, solc_ver)?;
 
     // Step 2: Print AST if requested (before normalization — source-faithful)
     if args.print_ast || args.debug {

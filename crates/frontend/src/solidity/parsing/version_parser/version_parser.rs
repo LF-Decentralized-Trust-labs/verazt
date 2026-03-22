@@ -7,7 +7,7 @@ use pest_derive::Parser;
 ///
 /// This data structure is automatically derived by [`Pest`] parser.
 #[derive(Parser)]
-#[grammar = "solidity/parser/version_parser/version_grammar.pest"]
+#[grammar = "solidity/parsing/version_parser/version_grammar.pest"]
 struct PragmaParser;
 
 impl PragmaParser {

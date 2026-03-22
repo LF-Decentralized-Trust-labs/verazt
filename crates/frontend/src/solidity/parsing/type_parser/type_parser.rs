@@ -26,7 +26,7 @@ impl ArrayDim {
 ///
 /// This data structure is automatically derived by [`Pest`] parser.
 #[derive(Parser)]
-#[grammar = "solidity/parser/type_parser/type_grammar.pest"]
+#[grammar = "solidity/parsing/type_parser/type_grammar.pest"]
 struct TypeParser;
 
 impl TypeParser {
