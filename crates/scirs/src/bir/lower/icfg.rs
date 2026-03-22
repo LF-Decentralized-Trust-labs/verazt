@@ -3,11 +3,11 @@
 //! Populates the ICFG, AliasMap, and TaintGraph from SSA-renamed,
 //! dialect-lowered functions.
 
-use crate::air::cfg::{EdgeKind, FunctionId, ICFGNode};
-use crate::air::interfaces::{CallOp, StorageOp, TaintLabel, TaintSource};
-use crate::air::module::Module;
-use crate::air::ops::OpKind;
-use crate::air::summary::FunctionSummary;
+use crate::bir::cfg::{EdgeKind, FunctionId, ICFGNode};
+use crate::bir::interfaces::{CallOp, StorageOp, TaintLabel, TaintSource};
+use crate::bir::module::Module;
+use crate::bir::ops::OpKind;
+use crate::bir::summary::FunctionSummary;
 
 /// Build the ICFG, alias sets, and taint graph for the module.
 pub fn build_icfg(module: &mut Module) {
@@ -81,12 +81,12 @@ pub fn build_icfg(module: &mut Module) {
 
                         // Track in call graph
                         match &call_op.callee {
-                            crate::air::interfaces::CallTarget::Static(name) => {
+                            crate::bir::interfaces::CallTarget::Static(name) => {
                                 module
                                     .call_graph
                                     .add_static_edge(func.id.clone(), FunctionId(name.clone()));
                             }
-                            crate::air::interfaces::CallTarget::Dynamic => {
+                            crate::bir::interfaces::CallTarget::Dynamic => {
                                 module
                                     .call_graph
                                     .add_dynamic_edge(op.id, FunctionId("<dynamic>".to_string()));
@@ -122,7 +122,7 @@ pub fn build_icfg(module: &mut Module) {
 
         // Check if function may revert (has any TxnExit(reverted=true) terminator)
         for block in &func.blocks {
-            if let crate::air::cfg::Terminator::TxnExit { reverted: true } = block.term {
+            if let crate::bir::cfg::Terminator::TxnExit { reverted: true } = block.term {
                 summary.may_revert = true;
             }
         }

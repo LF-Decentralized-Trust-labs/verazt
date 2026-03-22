@@ -39,7 +39,7 @@ pub struct Args {
     #[arg(long, visible_alias = "pir")]
     pub print_sir: bool,
 
-    /// Print the Analysis IR (AIR).
+    /// Print the Analysis IR (BIR).
     #[arg(long)]
     pub print_air: bool,
 
@@ -120,13 +120,13 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         let cir_module = scirs::cir::lower::lower_module(sir_module)
             .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
-        // Step 6: Lower CIR → AIR
-        let air_module = scirs::air::lower::lower_module(&cir_module)
-            .map_err(|e| create_error(format!("AIR lowering failed: {e}")))?;
+        // Step 6: Lower CIR → BIR
+        let air_module = scirs::bir::lower::lower_module(&cir_module)
+            .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
-        // Step 7: Print AIR if requested
+        // Step 7: Print BIR if requested
         if args.print_air {
-            println!("=== AIR for {file} ===");
+            println!("=== BIR for {file} ===");
             println!("{air_module}");
         }
     }
@@ -167,13 +167,13 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     let cir_module = scirs::cir::lower::lower_module(&sir_module)
         .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
-    // Step 6: Lower CIR → AIR
-    let air_module = scirs::air::lower::lower_module(&cir_module)
-        .map_err(|e| create_error(format!("AIR lowering failed: {e}")))?;
+    // Step 6: Lower CIR → BIR
+    let air_module = scirs::bir::lower::lower_module(&cir_module)
+        .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
-    // Step 7: Print AIR if requested
+    // Step 7: Print BIR if requested
     if args.print_air {
-        println!("=== AIR for {file} ===");
+        println!("=== BIR for {file} ===");
         println!("{air_module}");
     }
 

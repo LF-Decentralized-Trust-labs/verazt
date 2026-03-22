@@ -1,9 +1,9 @@
-//! SSA Ops for AIR.
+//! SSA Ops for BIR.
 //!
 //! Each SIR statement/expression lowers to one or more `Op` values.
 
-use crate::air::cfg::BlockId;
-use crate::air::interfaces::{
+use crate::bir::cfg::BlockId;
+use crate::bir::interfaces::{
     AliasGroupId, CallRisk, CallTarget, SinkCategory, StorageRef, TaintLabel,
 };
 use crate::sir::{Attr, BinOp, Lit, OverflowSemantics, Span, Type, UnOp};
@@ -62,7 +62,7 @@ impl SsaName {
 // Op
 // ═══════════════════════════════════════════════════════════════════
 
-/// An SSA operation (value node) in AIR.
+/// An SSA operation (value node) in BIR.
 #[derive(Debug, Clone)]
 pub struct Op {
     pub id: OpId,

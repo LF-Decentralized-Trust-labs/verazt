@@ -159,7 +159,7 @@ pub struct ControlFlowGraph {
     /// Reverse postorder traversal (precomputed for efficiency)
     pub reverse_postorder: Vec<BasicBlockId>,
 
-    /// Optional dominator tree from CFA framework (AIR-level).
+    /// Optional dominator tree from CFA framework (BIR-level).
     ///
     /// When set, downstream DFA analyses can use dominance information
     /// for more precise def-use annotation (e.g., dominance-aware
@@ -180,7 +180,7 @@ impl ControlFlowGraph {
         }
     }
 
-    /// Attach an AIR-level dominator tree.
+    /// Attach an BIR-level dominator tree.
     ///
     /// Downstream analyses may use this for dominance-aware annotation.
     pub fn set_domtree(&mut self, dom: crate::frameworks::cfa::domtree::DomTree) {

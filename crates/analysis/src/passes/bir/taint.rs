@@ -7,11 +7,11 @@
 //! Extended sinks:  branch conditions, storage writes, arithmetic operands.
 
 use crate::context::{AnalysisContext, ArtifactKey};
-use crate::passes::air::icfg::ICFGPass;
+use crate::passes::bir::icfg::ICFGPass;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::air::interfaces::TaintLabel;
-use scirs::air::ops::{OpId, OpKind};
+use scirs::bir::interfaces::TaintLabel;
+use scirs::bir::ops::{OpId, OpKind};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
@@ -178,8 +178,8 @@ impl AnalysisPass for TaintPass {
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
-    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use scirs::air::ops::{Op, OpId, OpKind, OpRef, SsaName, TaintSourceOp};
+    use scirs::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::bir::ops::{Op, OpId, OpKind, OpRef, SsaName, TaintSourceOp};
     use scirs::sir::Type;
 
     #[test]
@@ -202,14 +202,14 @@ mod tests {
         bb0.term = Terminator::TxnExit { reverted: false };
         func.blocks = vec![bb0];
 
-        let mut air_module = scirs::air::Module::new("test".into());
+        let mut air_module = scirs::bir::Module::new("test".into());
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
         ctx.set_air_units(vec![air_module]);
 
         // Run ICFGPass first (dependency)
-        crate::passes::air::icfg::ICFGPass.run(&mut ctx).unwrap();
+        crate::passes::bir::icfg::ICFGPass.run(&mut ctx).unwrap();
 
         let pass = TaintPass;
         pass.run(&mut ctx).unwrap();

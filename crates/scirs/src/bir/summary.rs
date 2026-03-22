@@ -1,8 +1,8 @@
 //! Function summary for interprocedural analysis.
 
-use crate::air::cfg::FunctionId;
-use crate::air::interfaces::{StorageRef, TaintLabel};
-use crate::air::ops::{ParamIndex, ReturnIndex};
+use crate::bir::cfg::FunctionId;
+use crate::bir::interfaces::{StorageRef, TaintLabel};
+use crate::bir::ops::{ParamIndex, ReturnIndex};
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 

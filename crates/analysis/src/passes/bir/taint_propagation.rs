@@ -5,8 +5,8 @@
 use crate::context::AnalysisContext;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::air::interfaces::TaintLabel;
-use scirs::air::ops::OpId;
+use scirs::bir::interfaces::TaintLabel;
+use scirs::bir::ops::OpId;
 use std::any::TypeId;
 use std::collections::HashMap;
 
@@ -67,7 +67,7 @@ impl AnalysisPass for TaintPropagationPass {
                 for func in &module.summaries {
                     // Walk ops via the ICFG nodes — for each StmtNode op,
                     // propagate taint through operands.
-                    // Note: in the AIR representation, ops are stored in
+                    // Note: in the BIR representation, ops are stored in
                     // BasicBlocks within AIRFunction.  We iterate over the
                     // icfg nodes to identify ops.
                     let _ = func; // summaries are used for reading
@@ -88,7 +88,7 @@ impl AnalysisPass for TaintPropagationPass {
         }
 
         #[allow(deprecated)]
-        ctx.store_artifact("AIR.taint_map", taint_map);
+        ctx.store_artifact("BIR.taint_map", taint_map);
         ctx.mark_pass_completed(self.id());
         Ok(())
     }

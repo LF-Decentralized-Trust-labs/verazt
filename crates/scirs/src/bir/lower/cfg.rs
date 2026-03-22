@@ -3,8 +3,8 @@
 //! Converts structured SIR statements into basic blocks with explicit
 //! control flow edges (terminators).
 
-use crate::air::cfg::{BasicBlock, BlockId, Terminator};
-use crate::air::ops::{Op, OpId, OpKind, OpRef, SsaName};
+use crate::bir::cfg::{BasicBlock, BlockId, Terminator};
+use crate::bir::ops::{Op, OpId, OpKind, OpRef, SsaName};
 use crate::sir::{Expr, Param, Stmt, Type};
 
 /// State for the CFG builder.
@@ -335,7 +335,7 @@ fn lower_expr_to_opkind(builder: &mut CfgBuilder, block: BlockId, expr: &Expr) -
             // Variables reference the current SSA name — handled by Step 3
             OpKind::PseudoValue {
                 label: expr.to_string(),
-                taint: crate::air::interfaces::TaintLabel::Clean,
+                taint: crate::bir::interfaces::TaintLabel::Clean,
             }
         }
         Expr::BinOp(binop) => {

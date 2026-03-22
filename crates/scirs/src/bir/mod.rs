@@ -1,7 +1,7 @@
-//! AIR — Analysis-oriented Normalized IR
+//! BIR — Basic Block IR
 //!
-//! AIR is a graph-structured, SSA-form IR optimised for static dataflow
-//! analysis. Its key invariant: every dialect construct that reaches AIR
+//! BIR is a graph-structured, SSA-form IR optimised for static dataflow
+//! analysis. Its key invariant: every dialect construct that reaches BIR
 //! implements at least one of `StorageOp`, `CallOp`, `TaintSource`, or
 //! `TaintSink`.
 

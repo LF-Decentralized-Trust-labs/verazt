@@ -1,6 +1,6 @@
-//! CFG and ICFG data structures for AIR.
+//! CFG and ICFG data structures for BIR.
 
-use crate::air::ops::{Op, OpId, OpRef};
+use crate::bir::ops::{Op, OpId, OpRef};
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -187,7 +187,7 @@ impl Display for ICFG {
 // AIRFunction — per-function CFG container
 // ═══════════════════════════════════════════════════════════════════
 
-/// A function in AIR form with SSA-renamed basic blocks.
+/// A function in BIR form with SSA-renamed basic blocks.
 #[derive(Debug, Clone)]
 pub struct Function {
     pub id: FunctionId,

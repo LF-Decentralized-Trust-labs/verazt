@@ -1,11 +1,11 @@
-//! Reentrancy Detector (SIR structural + AIR dataflow)
+//! Reentrancy Detector (SIR structural + BIR dataflow)
 //!
 //! Detects potential reentrancy vulnerabilities.
 //!
 //! SIR detector: walks function bodies to find storage writes after external
 //! calls (without reentrancy guard).
 //!
-//! AIR detector: uses ICFG / alias-set patterns for interprocedural
+//! BIR detector: uses ICFG / alias-set patterns for interprocedural
 //! detection.
 
 use crate::detector::id::DetectorId;
@@ -16,8 +16,8 @@ use analysis::pass::meta::PassLevel;
 use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::air::cfg::ICFGNode;
-use scirs::air::ops::OpId;
+use scirs::bir::cfg::ICFGNode;
+use scirs::bir::ops::OpId;
 use scirs::sir::utils::query as structural;
 use scirs::sir::{Decl, MemberDecl, Stmt};
 use std::any::TypeId;
@@ -266,10 +266,10 @@ impl BugDetectionPass for ReentrancySirDetector {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// AIR dataflow reentrancy detector
+// BIR dataflow reentrancy detector
 // ═══════════════════════════════════════════════════════════════════
 
-/// AIR-based reentrancy detector.
+/// BIR-based reentrancy detector.
 ///
 /// Pattern: StorageOp read → ExternalCallNode → StorageOp write
 /// (same alias group).
@@ -284,7 +284,7 @@ impl AIRReentrancyDetector {
 
 impl Pass for AIRReentrancyDetector {
     fn name(&self) -> &'static str {
-        "AIR Reentrancy"
+        "BIR Reentrancy"
     }
 
     fn description(&self) -> &'static str {
@@ -300,7 +300,7 @@ impl Pass for AIRReentrancyDetector {
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
-        vec![TypeId::of::<analysis::passes::air::TaintPropagationPass>()]
+        vec![TypeId::of::<analysis::passes::bir::TaintPropagationPass>()]
     }
 }
 

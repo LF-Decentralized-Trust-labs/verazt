@@ -1,7 +1,7 @@
-//! Call graph for AIR.
+//! Call graph for BIR.
 
-use crate::air::cfg::FunctionId;
-use crate::air::ops::OpId;
+use crate::bir::cfg::FunctionId;
+use crate::bir::ops::OpId;
 use std::fmt::{self, Display};
 
 /// The call graph tracks static and dynamic call edges.

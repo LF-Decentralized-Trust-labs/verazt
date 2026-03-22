@@ -1,7 +1,7 @@
 //! Control Flow Graph types for SIR.
 //!
 //! These types represent a function-level control flow graph built from
-//! SIR statements.  They mirror the AIR CFG types in `crate::air::cfg`
+//! SIR statements.  They mirror the BIR CFG types in `crate::bir::cfg`
 //! but operate at the SIR (source-level IR) layer.
 
 use crate::sir::{Expr, Stmt};

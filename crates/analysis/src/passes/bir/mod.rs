@@ -1,4 +1,4 @@
-//! AIR-layer analysis passes.
+//! BIR-layer analysis passes.
 
 pub mod def_use;
 pub mod dominance;

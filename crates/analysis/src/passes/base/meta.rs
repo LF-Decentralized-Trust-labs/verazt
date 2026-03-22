@@ -120,7 +120,7 @@ pub enum PassRepresentation {
     /// Operates on IR only (requires IR generation)
     Ir,
 
-    /// Operates on AIR (requires AIR generation)
+    /// Operates on BIR (requires BIR generation)
     Air,
 
     /// Operates on both AST and IR
@@ -133,7 +133,7 @@ impl PassRepresentation {
         match self {
             PassRepresentation::Ast => "AST",
             PassRepresentation::Ir => "IR",
-            PassRepresentation::Air => "AIR",
+            PassRepresentation::Air => "BIR",
             PassRepresentation::Hybrid => "Hybrid",
         }
     }
@@ -146,7 +146,7 @@ impl PassRepresentation {
         )
     }
 
-    /// Check if this representation requires AIR.
+    /// Check if this representation requires BIR.
     pub fn requires_air(&self) -> bool {
         matches!(self, PassRepresentation::Air)
     }

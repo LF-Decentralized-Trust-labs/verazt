@@ -7,8 +7,8 @@
 use crate::context::{AnalysisContext, ArtifactKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::air::cfg::{BlockId, Terminator};
-use scirs::air::ops::{OpId, OpKind, OpRef};
+use scirs::bir::cfg::{BlockId, Terminator};
+use scirs::bir::ops::{OpId, OpKind, OpRef};
 use scirs::sir::{BinOp, Lit};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet, VecDeque};

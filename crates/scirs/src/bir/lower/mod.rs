@@ -1,17 +1,17 @@
-//! Pass 2a: CIR → AIR lowering.
+//! Pass 2a: CIR → BIR lowering.
 //!
 //! This module orchestrates the four-step transformation from
-//! CIR (Canonical IR) into AIR.
+//! CIR (Canonical IR) into BIR.
 
 pub mod cfg;
 pub mod dialect_lower;
 pub mod icfg;
 pub mod ssa;
 
-use crate::air::module::Module;
+use crate::bir::module::Module;
 use thiserror::Error;
 
-/// Errors that can occur during CIR → AIR lowering.
+/// Errors that can occur during CIR → BIR lowering.
 #[derive(Debug, Error)]
 pub enum LowerError {
     #[error("Untagged dialect op after Step 3: {0}")]
@@ -27,7 +27,7 @@ pub enum LowerError {
     IcfgError(String),
 }
 
-/// Lower a CIR CanonModule into an AIR Module.
+/// Lower a CIR CanonModule into an BIR Module.
 ///
 /// This runs the four-step Pass 2a transformation:
 ///   1. CFG Construction
@@ -38,7 +38,7 @@ pub enum LowerError {
 /// NOTE: Modifier expansion (formerly Step 1) is now handled by the
 /// CIR lowering pass.
 pub fn lower_module(cir: &crate::cir::CanonModule) -> Result<Module, LowerError> {
-    use crate::air::cfg::{Function, FunctionId};
+    use crate::bir::cfg::{Function, FunctionId};
 
     let mut air_module = Module::new(cir.id.clone());
 
@@ -89,7 +89,7 @@ pub fn lower_module(cir: &crate::cir::CanonModule) -> Result<Module, LowerError>
                     air_func.blocks = blocks;
                     air_module.functions.push(air_func);
                 }
-                _ => { /* StorageDecl, TypeAlias, etc. — not lowered to AIR functions */ }
+                _ => { /* StorageDecl, TypeAlias, etc. — not lowered to BIR functions */ }
             }
         }
     }

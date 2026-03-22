@@ -1,7 +1,7 @@
 //! Bug Detectors
 //!
 //! All detectors are grouped by bug category. Each file may contain multiple
-//! detector variants (SIR / AIR) that target the same vulnerability class.
+//! detector variants (SIR / BIR) that target the same vulnerability class.
 
 // SIR structural detectors (migrated from AST / GREP)
 pub mod cei_violation;
@@ -29,7 +29,7 @@ pub mod sir_missing_access_control;
 pub mod tx_origin_auth;
 pub mod unchecked_arithmetic;
 
-// AIR dataflow detectors
+// BIR dataflow detectors
 pub mod access_control;
 pub mod arithmetic;
 
@@ -61,7 +61,7 @@ pub use sir_missing_access_control::SirMissingAccessControlDetector;
 pub use tx_origin_auth::SirTxOriginAuthDetector;
 pub use unchecked_arithmetic::SirUncheckedArithmeticDetector;
 
-// AIR dataflow detectors
+// BIR dataflow detectors
 pub use access_control::AIRAccessControlDetector;
 pub use arithmetic::AIRArithmeticDetector;
 pub use reentrancy::AIRReentrancyDetector;

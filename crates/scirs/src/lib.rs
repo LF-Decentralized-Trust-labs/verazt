@@ -1,3 +1,3 @@
-pub mod air;
+pub mod bir;
 pub mod cir;
 pub mod sir;

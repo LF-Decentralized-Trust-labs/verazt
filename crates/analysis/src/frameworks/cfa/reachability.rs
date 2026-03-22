@@ -1,4 +1,4 @@
-//! Reachability Queries over AIR Per-Function CFGs
+//! Reachability Queries over BIR Per-Function CFGs
 //!
 //! Provides BFS/DFS-based reachability queries:
 //!
@@ -10,7 +10,7 @@
 //! - **Reentrancy**: check whether an external call can *reach* a storage write
 //!   on any path — a direct reachability query, no full DFA pass required.
 
-use scirs::air::cfg::{BlockId, Function, Terminator};
+use scirs::bir::cfg::{BlockId, Function, Terminator};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -182,8 +182,8 @@ fn bfs(adj: &HashMap<BlockId, Vec<BlockId>>, start: BlockId) -> HashSet<BlockId>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use scirs::air::ops::{OpId, OpRef};
+    use scirs::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::bir::ops::{OpId, OpRef};
 
     /// Diamond CFG: bb0 → {bb1, bb2} → bb3 (exit)
     fn diamond_function() -> Function {

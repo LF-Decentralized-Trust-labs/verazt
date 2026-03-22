@@ -1,7 +1,7 @@
 //! Alias analysis data structures.
 
-use crate::air::interfaces::AliasGroupId;
-use crate::air::ops::{OpId, OpRef};
+use crate::bir::interfaces::AliasGroupId;
+use crate::bir::ops::{OpId, OpRef};
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 

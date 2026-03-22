@@ -4,9 +4,9 @@
 //! for `Expr::FunctionCall` nodes. The result is a `petgraph::DiGraph`
 //! that can be queried for callers, callees, SCCs, etc.
 //!
-//! This complements the AIR-level `scirs::air::call_graph::CallGraph` (which
-//! is produced during SIR→AIR lowering) by providing a SIR-native view
-//! usable before AIR is available or for SIR-only analyses.
+//! This complements the BIR-level `scirs::bir::call_graph::CallGraph` (which
+//! is produced during SIR→BIR lowering) by providing a SIR-native view
+//! usable before BIR is available or for SIR-only analyses.
 
 use scirs::sir::defs::{FunctionDecl, MemberDecl};
 use scirs::sir::exprs::Expr;

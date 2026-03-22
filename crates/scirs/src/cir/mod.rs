@@ -1,6 +1,6 @@
 //! Canonical IR (CIR) — a normalized, structured intermediate representation.
 //!
-//! CIR sits between SIR and AIR in the compilation pipeline:
+//! CIR sits between SIR and BIR in the compilation pipeline:
 //!
 //! ```text
 //! SIR  (language-neutral, dialect-extensible)
@@ -8,8 +8,8 @@
 //!   ▼ cir::lower (mlir/src/cir/lower/)
 //! CIR  (canonical, normalized, still structured)
 //!   │
-//!   ▼ air::lower (mlir/src/air/lower/)
-//! AIR  (graph/SSA, analysis engine input)
+//!   ▼ bir::lower (mlir/src/bir/lower/)
+//! BIR  (graph/SSA, analysis engine input)
 //! ```
 //!
 //! CIR provides compile-time guarantees that its input is already normalized:

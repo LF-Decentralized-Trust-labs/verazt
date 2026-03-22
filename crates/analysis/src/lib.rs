@@ -8,10 +8,10 @@
 //! - **Pipeline** (`pipeline/`): PassManager, scheduler, executor, dependency
 //!   graph.
 //! - **Passes** (`passes/`): Concrete analysis passes organised by IR layer
-//!   (SIR, AIR, VIR).
+//!   (SIR, BIR, VIR).
 //! - **Frameworks** (`frameworks/`): Reusable analysis infrastructure —
 //!   dataflow analysis (`dfa/`) and control-flow analysis (`cfa/`).
-//! - **AnalysisContext**: Central storage for SIR, AIR, and analysis artifacts.
+//! - **AnalysisContext**: Central storage for SIR, BIR, and analysis artifacts.
 //!
 //! # Usage
 //!
@@ -57,7 +57,7 @@ pub use pipeline::{
 };
 
 // Re-export concrete passes
-pub use passes::air::{
+pub use passes::bir::{
     DefUseArtifact, DefUsePass, DominanceArtifact, DominancePass, ICFGArtifact, ICFGPass,
     Interval, IntervalArtifact, IntervalPass, TaintArtifact, TaintPass, TaintPropagationPass,
 };

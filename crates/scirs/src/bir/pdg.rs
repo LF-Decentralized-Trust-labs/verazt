@@ -1,7 +1,7 @@
-//! Program Dependence Graph (PDG) for AIR.
+//! Program Dependence Graph (PDG) for BIR.
 
-use crate::air::cfg::BlockId;
-use crate::air::ops::OpId;
+use crate::bir::cfg::BlockId;
+use crate::bir::ops::OpId;
 use std::fmt::{self, Display};
 
 /// The Program Dependence Graph.

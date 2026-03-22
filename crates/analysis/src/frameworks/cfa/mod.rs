@@ -1,7 +1,7 @@
 //! Control-Flow Analysis (CFA) Utilities
 //!
 //! A **utility collection** built on `petgraph`, providing higher-level
-//! graph-analysis algorithms over the AIR's ICFG and per-function CFGs.
+//! graph-analysis algorithms over the BIR's ICFG and per-function CFGs.
 //!
 //! Unlike `dfa/` (a parameterizable framework), each sub-module here is a
 //! standalone algorithm producing an answer consumed by downstream passes

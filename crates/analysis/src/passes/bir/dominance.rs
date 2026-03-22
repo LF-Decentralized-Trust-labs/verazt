@@ -1,6 +1,6 @@
 //! Dominance Analysis Pass
 //!
-//! Computes the dominator tree for each AIR function using the existing
+//! Computes the dominator tree for each BIR function using the existing
 //! `DomTree` infrastructure in `frameworks::cfa::domtree`.  The result
 //! is stored as a typed artifact mapping function name → `DomTree`.
 
@@ -38,7 +38,7 @@ impl Pass for DominancePass {
     }
 
     fn description(&self) -> &'static str {
-        "Compute dominator trees for all AIR functions"
+        "Compute dominator trees for all BIR functions"
     }
 
     fn level(&self) -> PassLevel {
@@ -80,12 +80,12 @@ impl AnalysisPass for DominancePass {
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
-    use scirs::air::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use scirs::air::ops::{OpId, OpRef};
+    use scirs::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
+    use scirs::bir::ops::{OpId, OpRef};
 
     #[test]
     fn test_dominance_pass() {
-        // Build a diamond CFG function in an AIR module
+        // Build a diamond CFG function in an BIR module
         let mut func = Function::new(FunctionId("test".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
@@ -100,7 +100,7 @@ mod tests {
 
         func.blocks = vec![bb0, bb1, bb2, bb3];
 
-        let mut air_module = scirs::air::Module::new("test".into());
+        let mut air_module = scirs::bir::Module::new("test".into());
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());

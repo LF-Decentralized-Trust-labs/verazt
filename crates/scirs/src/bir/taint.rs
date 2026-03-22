@@ -1,7 +1,7 @@
 //! Taint graph data structures.
 
-use crate::air::interfaces::TaintLabel;
-use crate::air::ops::OpId;
+use crate::bir::interfaces::TaintLabel;
+use crate::bir::ops::OpId;
 use std::fmt::{self, Display};
 
 /// The taint graph tracks how tainted values flow through the program.
@@ -26,7 +26,7 @@ pub struct TaintSeed {
 #[derive(Debug, Clone)]
 pub struct TaintSinkEntry {
     pub op: OpId,
-    pub category: crate::air::interfaces::SinkCategory,
+    pub category: crate::bir::interfaces::SinkCategory,
 }
 
 impl TaintGraph {
@@ -40,7 +40,7 @@ impl TaintGraph {
     }
 
     /// Register a taint sink.
-    pub fn register_sink(&mut self, op: OpId, category: crate::air::interfaces::SinkCategory) {
+    pub fn register_sink(&mut self, op: OpId, category: crate::bir::interfaces::SinkCategory) {
         self.sinks.push(TaintSinkEntry { op, category });
     }
 

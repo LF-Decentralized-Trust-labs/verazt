@@ -139,10 +139,10 @@ impl PipelineEngine {
             }
         }
 
-        // Phase 3 — AIR dataflow analysis
+        // Phase 3 — BIR dataflow analysis
         if context.has_air() {
             if let Err(e) = self.run_air_phase(context) {
-                log::error!("AIR dataflow phase failed: {}", e);
+                log::error!("BIR dataflow phase failed: {}", e);
             }
         }
         let analysis_duration = analysis_start.elapsed();
@@ -291,17 +291,17 @@ impl PipelineEngine {
     }
 
     // ========================================================================
-    // Phase 3: AIR Dataflow Analysis
+    // Phase 3: BIR Dataflow Analysis
     // ========================================================================
 
-    /// Run AIR generation and dataflow analysis passes.
+    /// Run BIR generation and dataflow analysis passes.
     ///
     /// Dependency order:
     ///   AIRGeneration → AIRTaintPropagation → {AIRReentrancy,
     /// AIRAccessControl, AIRArithmetic, ...}
     fn run_air_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
-        log::info!("AIR dataflow phase");
-        // AIR passes are also registered as analysis passes with the
+        log::info!("BIR dataflow phase");
+        // BIR passes are also registered as analysis passes with the
         // correct dependencies.  The PassManager scheduler will
         // naturally place them after AIRGeneration.
         Ok(())
@@ -373,7 +373,7 @@ impl PipelineEngine {
 
     /// Deduplicate bugs across tiers.
     ///
-    /// When both a lower-tier (AST) and higher-tier (SIR/AIR) detector
+    /// When both a lower-tier (AST) and higher-tier (SIR/BIR) detector
     /// produce findings at the same source location for the same category,
     /// keep only the higher-tier finding to avoid noise.
     fn deduplicate_bugs(mut bugs: Vec<Bug>) -> Vec<Bug> {
@@ -432,8 +432,8 @@ fn run_single_detector(
 ///
 /// This factory function maps TypeIds to their concrete implementations.
 fn create_analysis_pass(pass_id: TypeId) -> Option<Box<dyn AnalysisPass>> {
-    if pass_id == TypeId::of::<analysis::passes::air::TaintPropagationPass>() {
-        Some(Box::new(analysis::passes::air::TaintPropagationPass))
+    if pass_id == TypeId::of::<analysis::passes::bir::TaintPropagationPass>() {
+        Some(Box::new(analysis::passes::bir::TaintPropagationPass))
     } else {
         log::warn!("No analysis pass implementation for {:?}", pass_id);
         None
@@ -485,7 +485,7 @@ mod tests {
     #[test]
     fn test_create_analysis_pass() {
         assert!(
-            create_analysis_pass(TypeId::of::<analysis::passes::air::TaintPropagationPass>())
+            create_analysis_pass(TypeId::of::<analysis::passes::bir::TaintPropagationPass>())
                 .is_some()
         );
     }

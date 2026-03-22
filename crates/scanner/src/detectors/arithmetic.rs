@@ -1,4 +1,4 @@
-//! AIR Arithmetic Detector
+//! BIR Arithmetic Detector
 //!
 //! Harvests findings from the `AIRArithmeticPass` analysis artifact.
 
@@ -11,7 +11,7 @@ use analysis::pass::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use std::any::TypeId;
 
-/// AIR-based arithmetic overflow detector.
+/// BIR-based arithmetic overflow detector.
 ///
 /// Harvests pre-computed findings from the `AIRArithmeticPass`.
 #[derive(Debug, Default)]
@@ -25,11 +25,11 @@ impl AIRArithmeticDetector {
 
 impl Pass for AIRArithmeticDetector {
     fn name(&self) -> &'static str {
-        "AIR Arithmetic"
+        "BIR Arithmetic"
     }
 
     fn description(&self) -> &'static str {
-        "Tainted-operand overflow detection via AIR dataflow"
+        "Tainted-operand overflow detection via BIR dataflow"
     }
 
     fn level(&self) -> PassLevel {
@@ -55,7 +55,7 @@ impl BugDetectionPass for AIRArithmeticDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         // Findings are pre-computed by AIRArithmeticPass
         #[allow(deprecated)]
-        if let Some(findings) = context.get_artifact::<Vec<Bug>>("AIR.arithmetic_findings") {
+        if let Some(findings) = context.get_artifact::<Vec<Bug>>("BIR.arithmetic_findings") {
             Ok(findings.clone())
         } else {
             Ok(vec![])

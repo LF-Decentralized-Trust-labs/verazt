@@ -1,14 +1,14 @@
-//! Module — the top-level AIR container.
+//! Module — the top-level BIR container.
 
-use crate::air::alias::AliasMap;
-use crate::air::call_graph::CallGraph;
-use crate::air::cfg::{Function, ICFG};
-use crate::air::pdg::PDG;
-use crate::air::summary::FunctionSummary;
-use crate::air::taint::TaintGraph;
+use crate::bir::alias::AliasMap;
+use crate::bir::call_graph::CallGraph;
+use crate::bir::cfg::{Function, ICFG};
+use crate::bir::pdg::PDG;
+use crate::bir::summary::FunctionSummary;
+use crate::bir::taint::TaintGraph;
 use std::fmt::{self, Display};
 
-/// The top-level AIR module — one per SIR Module.
+/// The top-level BIR module — one per SIR Module.
 #[derive(Debug, Clone)]
 pub struct Module {
     /// Identifier of the source module.

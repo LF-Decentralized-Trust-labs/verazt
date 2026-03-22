@@ -3,8 +3,8 @@
 //! Standard Cytron et al. pruned SSA construction.
 //! Assigns unique version numbers to each variable definition.
 
-use crate::air::cfg::BasicBlock;
-use crate::air::ops::OpKind;
+use crate::bir::cfg::BasicBlock;
+use crate::bir::ops::OpKind;
 use std::collections::HashMap;
 
 /// Rename all variables in the basic blocks to SSA form.

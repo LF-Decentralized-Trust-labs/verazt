@@ -2,14 +2,14 @@
 //!
 //! Extends the existing per-module ICFG with call/return edges and
 //! external-call re-entry nodes.  The result augments the ICFG that
-//! is already built by the AIR lowering step.
+//! is already built by the BIR lowering step.
 
 use crate::context::{AnalysisContext, ArtifactKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::air::cfg::{EdgeKind, FunctionId, ICFG, ICFGNode};
-use scirs::air::interfaces::CallTarget;
-use scirs::air::ops::OpKind;
+use scirs::bir::cfg::{EdgeKind, FunctionId, ICFG, ICFGNode};
+use scirs::bir::interfaces::CallTarget;
+use scirs::bir::ops::OpKind;
 use std::any::TypeId;
 
 // ═══════════════════════════════════════════════════════════════════

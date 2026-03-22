@@ -1,21 +1,21 @@
 //! Step 4: Dialect Lowering
 //!
-//! Each dialect construct in SIR is lowered to AIR ops that implement
+//! Each dialect construct in SIR is lowered to BIR ops that implement
 //! at least one of the four interfaces: StorageOp, CallOp, TaintSource,
 //! TaintSink.
 
-use crate::air::cfg::BasicBlock;
-use crate::air::interfaces::{
+use crate::bir::cfg::BasicBlock;
+use crate::bir::interfaces::{
     AliasGroupId, CallRisk, CallTarget, SinkCategory, StorageIndex, StorageRef, TaintLabel,
 };
-use crate::air::lower::LowerError;
-use crate::air::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
+use crate::bir::lower::LowerError;
+use crate::bir::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
 use crate::sir::Attr;
 
 /// Lower dialect ops in all basic blocks.
 ///
 /// After this step, every retained dialect op implements at least one
-/// AIR interface. Untagged dialect ops cause `LowerError::UntaggedDialectOp`.
+/// BIR interface. Untagged dialect ops cause `LowerError::UntaggedDialectOp`.
 pub fn lower_dialect_ops(
     blocks: &mut [BasicBlock],
     module_attrs: &[Attr],
@@ -53,7 +53,7 @@ fn detect_dialect(attrs: &[Attr]) -> String {
     String::new()
 }
 
-/// Try to lower an opaque op description into a typed AIR op.
+/// Try to lower an opaque op description into a typed BIR op.
 fn try_lower_opaque(description: &str, dialect: &str) -> Option<OpKind> {
     // EVM dialect lowering
     if dialect.contains("evm") || description.starts_with("evm.") {

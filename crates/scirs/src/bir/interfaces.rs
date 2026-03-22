@@ -1,9 +1,9 @@
-//! Interface traits for AIR ops.
+//! Interface traits for BIR ops.
 //!
-//! Every dialect construct that reaches AIR implements at least one of:
+//! Every dialect construct that reaches BIR implements at least one of:
 //! `StorageOp`, `CallOp`, `TaintSource`, or `TaintSink`.
 
-use crate::air::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
+use crate::bir::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -265,7 +265,7 @@ impl OpKind {
         }
     }
 
-    /// Returns true if this op implements at least one AIR interface.
+    /// Returns true if this op implements at least one BIR interface.
     pub fn has_interface(&self) -> bool {
         matches!(
             self,
