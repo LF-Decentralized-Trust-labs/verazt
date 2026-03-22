@@ -17,7 +17,10 @@ pub use lower::IrGen;
 /// Internally runs all normalization passes before lowering.
 pub fn lower_source_units(source_units: &[SourceUnit]) -> Result<Vec<Module>> {
     let normalized = normalize::run_passes(source_units);
-    normalized.iter().map(|su| lower::lower_source_unit(su)).collect()
+    normalized
+        .iter()
+        .map(|su| lower::lower_source_unit(su))
+        .collect()
 }
 
 /// Lower a **single** (already-normalized) source unit into a SIR module.

@@ -278,8 +278,8 @@ impl PipelineEngine {
 
     /// Run SIR structural analysis passes.
     ///
-    /// These passes operate on `scirs::sir::Module` and detect issues visible in
-    /// the SIR tree structure (missing annotations, wrong overflow
+    /// These passes operate on `scirs::sir::Module` and detect issues visible
+    /// in the SIR tree structure (missing annotations, wrong overflow
     /// semantics, etc.).
     fn run_sir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
         log::info!("SIR structural phase");

@@ -1,6 +1,5 @@
 use crate::solidity::ast::Name;
 use crate::solidity::ast::*;
-use bat::PrettyPrinter;
 use std::{
     collections::HashMap,
     fmt::{self, Display},
@@ -108,14 +107,7 @@ impl SourceUnit {
 
     pub fn print_highlighted_code(&self) {
         let str = &format!("{self}");
-        PrettyPrinter::new()
-            .theme("Visual Studio Dark+")
-            .line_numbers(true)
-            .input_from_bytes(str.as_bytes())
-            .language("solidity")
-            .print()
-            .unwrap_or_default();
-        print!("");
+        println!("{str}");
     }
 }
 

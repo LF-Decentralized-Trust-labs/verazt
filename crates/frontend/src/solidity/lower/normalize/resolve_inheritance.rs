@@ -381,11 +381,11 @@ pub fn resolve_inheritance(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
 mod tests {
     use super::*;
     use crate::solidity::{
+        ast::utils::syntactic_comparer::compare_source_units,
         lower::normalize::{
             flatten_name, rename_callees, rename_contracts, rename_defs,
             utils::configure_unit_test_env,
         },
-        ast::utils::syntactic_comparer::compare_source_units,
         parser::parse_solidity_source_code,
     };
     use indoc::indoc;

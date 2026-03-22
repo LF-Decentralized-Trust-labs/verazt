@@ -1,7 +1,7 @@
 //! Module containing utility functions for unit test.
 use common::{error::Result, fail};
 use frontend::solidity::{
-    ast::SourceUnit, lower::normalize, ast::utils::export::export_source_unit,
+    ast::SourceUnit, ast::utils::export::export_source_unit, lower::normalize,
     parser::parse_input_file,
 };
 use regex::Regex;

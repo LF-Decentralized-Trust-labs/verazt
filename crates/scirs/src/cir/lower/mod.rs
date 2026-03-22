@@ -9,8 +9,8 @@
 //!
 //! 1. Strips the `parents` field (already empty post-normalization).
 //! 2. Drops `ModifierDef` member declarations (already inlined).
-//! 3. Converts `sir::Expr` → `cir::CanonExpr`, mapping Ternary and Tuple
-//!    to their canonical forms (passthrough for now since AST normalization
+//! 3. Converts `sir::Expr` → `cir::CanonExpr`, mapping Ternary and Tuple to
+//!    their canonical forms (passthrough for now since AST normalization
 //!    already handled these).
 //! 4. Converts `sir::Stmt` → `cir::CanonStmt`.
 //!
@@ -101,8 +101,7 @@ impl CirLowerer {
             }
         }
 
-        let mut canon =
-            CanonContractDecl::new(contract.name.clone(), members, contract.span);
+        let mut canon = CanonContractDecl::new(contract.name.clone(), members, contract.span);
         canon.attrs = contract.attrs.clone();
         Ok(canon)
     }
@@ -111,9 +110,7 @@ impl CirLowerer {
     fn is_modifier_def(d: &sir::DialectMemberDecl) -> bool {
         matches!(
             d,
-            sir::DialectMemberDecl::Evm(
-                sir::dialect::evm::EvmMemberDecl::ModifierDef { .. }
-            )
+            sir::DialectMemberDecl::Evm(sir::dialect::evm::EvmMemberDecl::ModifierDef { .. })
         )
     }
 
@@ -177,10 +174,8 @@ impl CirLowerer {
                     .vars
                     .iter()
                     .map(|v| {
-                        v.as_ref().map(|d| CanonLocalVarDecl {
-                            name: d.name.clone(),
-                            ty: d.ty.clone(),
-                        })
+                        v.as_ref()
+                            .map(|d| CanonLocalVarDecl { name: d.name.clone(), ty: d.ty.clone() })
                     })
                     .collect();
                 let init = match &s.init {

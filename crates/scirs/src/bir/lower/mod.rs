@@ -127,13 +127,11 @@ fn cir_stmt_to_sir(stmt: &crate::cir::CanonStmt) -> crate::sir::Stmt {
                 span: s.span,
             })
         }
-        crate::cir::CanonStmt::Assign(s) => {
-            crate::sir::Stmt::Assign(crate::sir::AssignStmt {
-                lhs: cir_expr_to_sir(&s.lhs),
-                rhs: cir_expr_to_sir(&s.rhs),
-                span: s.span,
-            })
-        }
+        crate::cir::CanonStmt::Assign(s) => crate::sir::Stmt::Assign(crate::sir::AssignStmt {
+            lhs: cir_expr_to_sir(&s.lhs),
+            rhs: cir_expr_to_sir(&s.rhs),
+            span: s.span,
+        }),
         crate::cir::CanonStmt::AugAssign(s) => {
             crate::sir::Stmt::AugAssign(crate::sir::AugAssignStmt {
                 op: s.op,
@@ -169,31 +167,23 @@ fn cir_stmt_to_sir(stmt: &crate::cir::CanonStmt) -> crate::sir::Stmt {
             invariant: s.invariant.as_ref().map(cir_expr_to_sir),
             span: s.span,
         }),
-        crate::cir::CanonStmt::Return(s) => {
-            crate::sir::Stmt::Return(crate::sir::ReturnStmt {
-                value: s.value.as_ref().map(cir_expr_to_sir),
-                span: s.span,
-            })
-        }
-        crate::cir::CanonStmt::Revert(s) => {
-            crate::sir::Stmt::Revert(crate::sir::RevertStmt {
-                error: s.error.clone(),
-                args: s.args.iter().map(cir_expr_to_sir).collect(),
-                span: s.span,
-            })
-        }
-        crate::cir::CanonStmt::Assert(s) => {
-            crate::sir::Stmt::Assert(crate::sir::AssertStmt {
-                cond: cir_expr_to_sir(&s.cond),
-                message: s.message.as_ref().map(cir_expr_to_sir),
-                span: s.span,
-            })
-        }
+        crate::cir::CanonStmt::Return(s) => crate::sir::Stmt::Return(crate::sir::ReturnStmt {
+            value: s.value.as_ref().map(cir_expr_to_sir),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::Revert(s) => crate::sir::Stmt::Revert(crate::sir::RevertStmt {
+            error: s.error.clone(),
+            args: s.args.iter().map(cir_expr_to_sir).collect(),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::Assert(s) => crate::sir::Stmt::Assert(crate::sir::AssertStmt {
+            cond: cir_expr_to_sir(&s.cond),
+            message: s.message.as_ref().map(cir_expr_to_sir),
+            span: s.span,
+        }),
         crate::cir::CanonStmt::Break => crate::sir::Stmt::Break,
         crate::cir::CanonStmt::Continue => crate::sir::Stmt::Continue,
-        crate::cir::CanonStmt::Block(stmts) => {
-            crate::sir::Stmt::Block(cir_stmts_to_sir(stmts))
-        }
+        crate::cir::CanonStmt::Block(stmts) => crate::sir::Stmt::Block(cir_stmts_to_sir(stmts)),
         crate::cir::CanonStmt::Dialect(s) => crate::sir::Stmt::Dialect(s.clone()),
     }
 }

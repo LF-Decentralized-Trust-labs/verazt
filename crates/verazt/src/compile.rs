@@ -3,6 +3,7 @@
 
 use clap::{Parser, ValueEnum};
 use common::error::{Result, create_error};
+use common::utils::print_section_header;
 
 /// Supported source languages.
 #[derive(Clone, Debug, ValueEnum)]
@@ -31,6 +32,10 @@ pub struct Args {
     #[arg(long)]
     pub solc_version: Option<String>,
 
+    /// Print debugging information.
+    #[arg(short, long)]
+    pub debug: bool,
+
     /// Print the parsed AST.
     #[arg(long, visible_alias = "pip")]
     pub print_ast: bool,
@@ -38,6 +43,10 @@ pub struct Args {
     /// Print the Source IR (SIR).
     #[arg(long, visible_alias = "pir")]
     pub print_sir: bool,
+
+    /// Print the Core IR (CIR).
+    #[arg(long)]
+    pub print_cir: bool,
 
     /// Print the Analysis IR (BIR).
     #[arg(long)]
@@ -98,8 +107,8 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         solidity::parser::parse_input_file(file, base_path, include_paths, solc_ver)?;
 
     // Step 2: Print AST if requested (before normalization — source-faithful)
-    if args.print_ast {
-        println!("=== Parsed AST for {file} ===");
+    if args.print_ast || args.debug {
+        print_section_header("Solidity AST");
         for su in &source_units {
             su.print_highlighted_code();
             println!();
@@ -111,8 +120,8 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
 
     for sir_module in &sir_modules {
         // Step 4: Print SIR if requested
-        if args.print_sir {
-            println!("=== SIR for {file} ===");
+        if args.print_sir || args.debug {
+            print_section_header("SIR");
             sir_module.print_pretty();
         }
 
@@ -120,19 +129,24 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         let cir_module = scirs::cir::lower::lower_module(sir_module)
             .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
+        if args.print_cir || args.debug {
+            print_section_header("CIR");
+            cir_module.print_pretty();
+        }
+
         // Step 6: Lower CIR → BIR
         let air_module = scirs::bir::lower::lower_module(&cir_module)
             .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
         // Step 7: Print BIR if requested
-        if args.print_air {
-            println!("=== BIR for {file} ===");
+        if args.print_air || args.debug {
+            print_section_header("BIR");
             println!("{air_module}");
         }
     }
 
     // Step 8: VIR (not yet implemented)
-    if args.print_vir {
+    if args.print_vir || args.debug {
         return Err(create_error("VIR lowering is not yet implemented.".to_string()));
     }
 
@@ -148,8 +162,8 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     let source_unit = vyper::parser::parse_input_file(file, None)?;
 
     // Step 2: Print AST if requested (before normalization — source-faithful)
-    if args.print_ast {
-        println!("=== Parsed AST for {file} ===");
+    if args.print_ast || args.debug {
+        print_section_header("Vyper AST");
         println!("{source_unit:#?}");
         println!();
     }
@@ -158,8 +172,8 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     let sir_module = vyper::lower::lower_source_unit_normalized(&source_unit)?;
 
     // Step 4: Print SIR if requested
-    if args.print_sir {
-        println!("=== SIR for {file} ===");
+    if args.print_sir || args.debug {
+        print_section_header("SIR");
         sir_module.print_pretty();
     }
 
@@ -167,18 +181,23 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     let cir_module = scirs::cir::lower::lower_module(&sir_module)
         .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
+    if args.print_cir || args.debug {
+        print_section_header("CIR");
+        cir_module.print_pretty();
+    }
+
     // Step 6: Lower CIR → BIR
     let air_module = scirs::bir::lower::lower_module(&cir_module)
         .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
     // Step 7: Print BIR if requested
-    if args.print_air {
-        println!("=== BIR for {file} ===");
+    if args.print_air || args.debug {
+        print_section_header("BIR");
         println!("{air_module}");
     }
 
     // Step 8: VIR (not yet implemented)
-    if args.print_vir {
+    if args.print_vir || args.debug {
         return Err(create_error("VIR lowering is not yet implemented.".to_string()));
     }
 

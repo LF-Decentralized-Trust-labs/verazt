@@ -5,7 +5,7 @@
 //! - `bir/` — passes operating on the BIR (analysis IR)
 //! - `vir/` — placeholder for future VIR-layer passes
 
-pub mod bir;
 pub mod base;
+pub mod bir;
 pub mod sir;
 pub mod vir;

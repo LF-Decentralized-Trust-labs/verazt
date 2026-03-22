@@ -1,8 +1,8 @@
 //! Module to eliminate `import` directive in Solidity smart contracts.
 
+use super::substitution::NameSubstitutor;
 use crate::solidity::ast::Name;
 use crate::solidity::ast::{utils::*, *};
-use super::substitution::NameSubstitutor;
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -233,10 +233,10 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
 mod tests {
     use super::eliminate_import;
     use crate::solidity::{
+        ast::utils::syntactic_comparer::compare_source_units,
         lower::normalize::{
             rename_callees, rename_defs, rename_vars, utils::configure_unit_test_env,
         },
-        ast::utils::syntactic_comparer::compare_source_units,
         parser::parse_solidity_source_code_list,
     };
     use indoc::indoc;

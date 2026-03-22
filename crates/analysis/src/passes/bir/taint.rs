@@ -7,9 +7,9 @@
 //! Extended sinks:  branch conditions, storage writes, arithmetic operands.
 
 use crate::context::{AnalysisContext, ArtifactKey};
-use crate::passes::bir::icfg::ICFGPass;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
+use crate::passes::bir::icfg::ICFGPass;
 use scirs::bir::interfaces::TaintLabel;
 use scirs::bir::ops::{OpId, OpKind};
 use std::any::TypeId;

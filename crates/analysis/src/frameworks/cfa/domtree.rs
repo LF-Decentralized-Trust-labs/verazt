@@ -15,9 +15,9 @@
 //!   branches).
 //! - **Taint precision**: dominance-aware def-use annotation in `dfa/`.
 
-use scirs::bir::cfg::{BlockId, Function, Terminator};
 use petgraph::algo::dominators;
 use petgraph::graph::{DiGraph, NodeIndex};
+use scirs::bir::cfg::{BlockId, Function, Terminator};
 use std::collections::HashMap;
 
 // ═══════════════════════════════════════════════════════════════════

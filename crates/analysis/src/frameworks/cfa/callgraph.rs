@@ -8,11 +8,11 @@
 //! is produced during SIR→BIR lowering) by providing a SIR-native view
 //! usable before BIR is available or for SIR-only analyses.
 
+use petgraph::graph::{DiGraph, NodeIndex};
 use scirs::sir::defs::{FunctionDecl, MemberDecl};
 use scirs::sir::exprs::Expr;
 use scirs::sir::module::{Decl, Module};
 use scirs::sir::stmts::Stmt;
-use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
 
 // ═══════════════════════════════════════════════════════════════════
