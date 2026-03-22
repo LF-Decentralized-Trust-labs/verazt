@@ -10,7 +10,7 @@ use crate::solidity::ast::SourceUnit;
 use common::error::Result;
 use scirs::sir::Module;
 
-pub use lower::IrGen;
+pub use lower::Lowerer;
 
 /// Lower one or more Solidity source units into SIR modules.
 ///

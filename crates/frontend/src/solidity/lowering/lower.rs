@@ -14,17 +14,17 @@ fn loc_to_span(loc: Option<Loc>) -> Option<Span> {
 }
 
 pub fn lower_source_unit(source_unit: &ast::SourceUnit) -> Result<Module> {
-    let mut ir_gen = IrGen::new();
-    ir_gen.lower_source_unit(source_unit)
+    let mut lowerer = Lowerer::new();
+    lowerer.lower_source_unit(source_unit)
 }
 
-pub struct IrGen {
+pub struct Lowerer {
     tmp_var_index: usize,
 }
 
-impl IrGen {
+impl Lowerer {
     pub fn new() -> Self {
-        IrGen { tmp_var_index: 0 }
+        Lowerer { tmp_var_index: 0 }
     }
 
     fn fresh_var_name(&mut self) -> String {
@@ -1150,7 +1150,7 @@ impl IrGen {
     }
 }
 
-impl Default for IrGen {
+impl Default for Lowerer {
     fn default() -> Self {
         Self::new()
     }

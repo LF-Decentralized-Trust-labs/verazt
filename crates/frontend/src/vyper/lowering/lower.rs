@@ -13,18 +13,18 @@ fn loc_to_span(loc: Option<&Loc>) -> Option<Span> {
 
 /// Lower a Vyper source unit into a SIR Module.
 pub fn lower_source_unit(source_unit: &ast::SourceUnit) -> Result<Module> {
-    let mut ir_gen = IrGen::new();
-    ir_gen.lower_source_unit(source_unit)
+    let mut lowerer = Lowerer::new();
+    lowerer.lower_source_unit(source_unit)
 }
 
 /// IR generator state.
-pub struct IrGen {
+pub struct Lowerer {
     tmp_var_index: usize,
 }
 
-impl IrGen {
+impl Lowerer {
     pub fn new() -> Self {
-        IrGen { tmp_var_index: 0 }
+        Lowerer { tmp_var_index: 0 }
     }
 
     fn fresh_var_name(&mut self) -> String {
@@ -927,13 +927,13 @@ mod tests {
 
     #[test]
     fn test_lower_type_bool() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         assert_eq!(ir.lower_type(&ast::types::Type::Bool), Type::Bool);
     }
 
     #[test]
     fn test_lower_type_address() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         assert_eq!(
             ir.lower_type(&ast::types::Type::Address),
             Type::Dialect(DialectType::Evm(EvmType::Address))
@@ -942,19 +942,19 @@ mod tests {
 
     #[test]
     fn test_lower_type_uint256() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         assert_eq!(ir.lower_type(&ast::types::Type::UInt(UIntType { bits: 256 })), Type::I256);
     }
 
     #[test]
     fn test_lower_type_int128() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         assert_eq!(ir.lower_type(&ast::types::Type::Int(IntType { bits: 128 })), Type::Si128);
     }
 
     #[test]
     fn test_lower_type_bounded_string() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         assert_eq!(
             ir.lower_type(&ast::types::Type::BoundedString(32)),
             Type::Dialect(DialectType::Evm(EvmType::BoundedString(32)))
@@ -963,7 +963,7 @@ mod tests {
 
     #[test]
     fn test_lower_type_hashmap() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         let ty = ast::types::Type::HashMap(
             Box::new(ast::types::Type::Address),
             Box::new(ast::types::Type::UInt(UIntType { bits: 256 })),
@@ -979,7 +979,7 @@ mod tests {
 
     #[test]
     fn test_lower_type_dynarray() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         let ty = ast::types::Type::DynArray {
             elem: Box::new(ast::types::Type::UInt(UIntType { bits: 256 })),
             max_len: 100,
@@ -995,7 +995,7 @@ mod tests {
 
     #[test]
     fn test_lower_binop() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         assert_eq!(ir.lower_binop(&ast::BinOp::Add), scirs::sir::BinOp::Add);
         assert_eq!(ir.lower_binop(&ast::BinOp::Sub), scirs::sir::BinOp::Sub);
         assert_eq!(ir.lower_binop(&ast::BinOp::Mul), scirs::sir::BinOp::Mul);
@@ -1004,7 +1004,7 @@ mod tests {
 
     #[test]
     fn test_lower_cmpop() {
-        let ir = IrGen::new();
+        let ir = Lowerer::new();
         assert_eq!(ir.lower_cmpop(&ast::CmpOp::Eq), scirs::sir::BinOp::Eq);
         assert_eq!(ir.lower_cmpop(&ast::CmpOp::GtE), scirs::sir::BinOp::Ge);
         assert_eq!(ir.lower_cmpop(&ast::CmpOp::Lt), scirs::sir::BinOp::Lt);

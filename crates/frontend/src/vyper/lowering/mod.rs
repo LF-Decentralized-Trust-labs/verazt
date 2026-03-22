@@ -10,7 +10,7 @@ use crate::vyper::ast::source_unit::SourceUnit;
 use common::error::Result;
 use scirs::sir::Module;
 
-pub use lower::IrGen;
+pub use lower::Lowerer;
 
 /// Lower a Vyper source unit into a SIR module.
 ///
