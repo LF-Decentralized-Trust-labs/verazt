@@ -31,6 +31,21 @@ pub enum MemberDecl {
     TypeAlias(TypeAlias),
     GlobalInvariant(Expr),
     Dialect(DialectMemberDecl),
+    /// A `using Library for Type` directive (preserved before SIR → CIR lowering).
+    UsingFor(UsingForDecl),
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Using-for directive
+// ═══════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsingForDecl {
+    /// The library or function name.
+    pub library: String,
+    /// Target type (`None` = `using for *`).
+    pub target_type: Option<crate::sir::types::Type>,
+    pub span: Option<Span>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -59,6 +74,19 @@ pub struct FunctionDecl {
     pub attrs: Vec<Attr>,
     pub spec: Option<FuncSpec>,
     pub body: Option<Vec<Stmt>>,
+    /// Modifier invocations on this function (preserved before SIR → CIR lowering).
+    pub modifier_invocs: Vec<ModifierInvoc>,
+    pub span: Option<Span>,
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Modifier invocation
+// ═══════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModifierInvoc {
+    pub name: String,
+    pub args: Vec<Expr>,
     pub span: Option<Span>,
 }
 
@@ -117,6 +145,7 @@ impl FunctionDecl {
             attrs: vec![],
             spec: None,
             body,
+            modifier_invocs: vec![],
             span,
         }
     }
@@ -162,6 +191,12 @@ impl Display for MemberDecl {
             MemberDecl::TypeAlias(ta) => write!(f, "type {} = {};", ta.name, ta.ty),
             MemberDecl::GlobalInvariant(inv) => write!(f, "@invariant({inv})"),
             MemberDecl::Dialect(d) => write!(f, "{d}"),
+            MemberDecl::UsingFor(u) => {
+                match &u.target_type {
+                    Some(ty) => write!(f, "using {} for {};", u.library, ty),
+                    None => write!(f, "using {} for *;", u.library),
+                }
+            }
         }
     }
 }
@@ -173,6 +208,7 @@ impl MemberDecl {
                 Type::Map(_, _) => 2,
                 _ => 1,
             },
+            MemberDecl::UsingFor(_) => 0,
             MemberDecl::Dialect(_) => 3,
             MemberDecl::Function(_) => 4,
             MemberDecl::TypeAlias(_) => 5,
@@ -209,6 +245,21 @@ impl Display for FunctionDecl {
         if !self.returns.is_empty() {
             let rets: Vec<_> = self.returns.iter().map(|t| t.to_string()).collect();
             write!(f, " returns ({})", rets.join(", "))?;
+        }
+        if !self.modifier_invocs.is_empty() {
+            let mods: Vec<_> = self
+                .modifier_invocs
+                .iter()
+                .map(|m| {
+                    if m.args.is_empty() {
+                        m.name.clone()
+                    } else {
+                        let args: Vec<_> = m.args.iter().map(|a| a.to_string()).collect();
+                        format!("{}({})", m.name, args.join(", "))
+                    }
+                })
+                .collect();
+            write!(f, " {}", mods.join(" "))?;
         }
         match &self.body {
             None => write!(f, ";"),

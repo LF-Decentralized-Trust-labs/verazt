@@ -32,7 +32,6 @@ impl Map<'_> for TupleUnroller {
 /// Function to unroll unary tuples which only have single element in source
 /// units.
 pub fn unroll_unary_tuple(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
-    println!("Normalize AST: unroll single tuples");
     let mut nsource_units = vec![];
     for sunit in source_units {
         let unroller = TupleUnroller {};

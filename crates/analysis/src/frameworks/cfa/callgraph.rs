@@ -228,7 +228,7 @@ fn walk_expr_for_calls(expr: &Expr, contract_name: &str, callees: &mut Vec<Strin
             let callee_name = resolve_callee_name(&call.callee, contract_name);
             callees.push(callee_name);
             // Also walk arguments — they may contain nested calls.
-            for arg in &call.args {
+            for arg in call.args.exprs() {
                 walk_expr_for_calls(arg, contract_name, callees);
             }
         }
@@ -311,7 +311,7 @@ mod tests {
                 ty: Type::None,
                 span: None,
             })),
-            args: vec![],
+            args: CallArgs::Positional(vec![]),
             ty: Type::None,
             span: None,
         })
@@ -326,6 +326,7 @@ mod tests {
             attrs: vec![],
             spec: None,
             body: Some(body),
+            modifier_invocs: vec![],
             span: None,
         }
     }

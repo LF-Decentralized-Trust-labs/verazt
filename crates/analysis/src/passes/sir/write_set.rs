@@ -226,7 +226,7 @@ mod tests {
         let indirect_body = vec![Stmt::Expr(ExprStmt {
             expr: Expr::FunctionCall(CallExpr {
                 callee: Box::new(Expr::Var(VarExpr::new("write_x".to_string(), Type::None, None))),
-                args: vec![],
+                args: CallArgs::Positional(vec![]),
                 ty: Type::None,
                 span: None,
             }),

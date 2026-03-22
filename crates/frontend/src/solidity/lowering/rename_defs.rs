@@ -1,46 +1,110 @@
-//! Module to all definitions, such as contract definitions, function
-//! definitions, modifier definitions, event definitions, error definitions,
-//! enum definitions, struct definitions, etc.
+//! Module to rename overloaded function definitions.
+//!
+//! Only functions that share the same base name (i.e., are overloaded) get
+//! numeric suffixes. Non-overloaded functions keep their original names.
 //!
 //! The renaming is necessary to eliminate the `import` directives later.
 
 use crate::solidity::ast::NamingEnv;
-
 use crate::solidity::{ast::utils::*, ast::*};
+use std::collections::HashMap;
 
 //-------------------------------------------------
-// Rename definitions
+// Pass 1: Count function name occurrences
+//-------------------------------------------------
+
+/// Count how many times each function base name appears across all source units.
+fn count_func_names(source_units: &[SourceUnit]) -> HashMap<String, usize> {
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for su in source_units {
+        for elem in &su.elems {
+            match elem {
+                SourceUnitElem::Contract(c) => {
+                    for member in &c.body {
+                        if let ContractElem::Func(f) = member {
+                            *counts.entry(f.name.base.clone()).or_insert(0) += 1;
+                        }
+                    }
+                }
+                SourceUnitElem::Func(f) => {
+                    *counts.entry(f.name.base.clone()).or_insert(0) += 1;
+                }
+                _ => {}
+            }
+        }
+    }
+    counts
+}
+
+//-------------------------------------------------
+// Pass 2: Rename only overloaded definitions
 //-------------------------------------------------
 
 #[derive(Debug, Clone)]
 struct Renamer {
     env: NamingEnv,
+    /// Set of function base names that are overloaded (appear more than once).
+    overloaded_names: HashMap<String, usize>,
+    /// Name of the contract currently being processed (for naming constructors).
+    current_contract_name: Option<String>,
 }
 
 impl Renamer {
-    pub fn new(env: Option<&NamingEnv>) -> Self {
+    pub fn new(env: Option<&NamingEnv>, overloaded_names: HashMap<String, usize>) -> Self {
         let env = match env {
             Some(env) => env.clone(),
             None => NamingEnv::new(),
         };
-        Renamer { env }
+        Renamer { env, overloaded_names, current_contract_name: None }
     }
 
     pub fn rename_definitions(&mut self, source_units: &[SourceUnit]) -> Vec<SourceUnit> {
-        // Rename all function definitions and return results.
         self.map_source_units(source_units)
     }
 }
 
-/// Implement `Map` utility to rename overloaded functions.
+/// Implement `Map` utility to rename only overloaded functions.
 impl Map<'_> for Renamer {
     /// Override `map_source_unit` to capture the current renaming scope.
     fn map_source_unit(&mut self, source_unit: &SourceUnit) -> SourceUnit {
         map::default::map_source_unit(self, source_unit)
     }
 
+    /// Override `map_contract_def` to track the current contract name.
+    fn map_contract_def(&mut self, contract: &ContractDef) -> ContractDef {
+        let saved = self.current_contract_name.take();
+        self.current_contract_name = Some(contract.name.base.clone());
+        let result = map::default::map_contract_def(self, contract);
+        self.current_contract_name = saved;
+        result
+    }
+
     /// Override `map_func_def` to rename function names.
     fn map_func_def(&mut self, func: &FuncDef) -> FuncDef {
+        // Give constructors the contract name if they don't have one.
+        let is_constructor = func.kind == FuncKind::Constructor && func.name.is_empty();
+        if is_constructor {
+            let mut nfunc = map::default::map_func_def(self, func);
+            if let Some(contract_name) = &self.current_contract_name {
+                nfunc.name = Name::new(contract_name.clone(), None);
+            }
+            return nfunc;
+        }
+
+        // Only rename functions whose base name is overloaded.
+        let is_overloaded = self
+            .overloaded_names
+            .get(&func.name.base)
+            .map_or(false, |&count| count > 1);
+
+        if !is_overloaded {
+            // Non-overloaded: keep original name, still need to register
+            // in the env so rename_callees can find it.
+            let (_, nenv) = self.env.create_new_name(&func.name.base);
+            self.env = nenv;
+            return map::default::map_func_def(self, func);
+        }
+
         // Save the current naming index before transforming the function definition.
         let current_naming_index = self.env.current_naming_index_map.clone();
 
@@ -58,127 +122,24 @@ impl Map<'_> for Renamer {
         // Return result
         nfunc
     }
-
-    /// Override `map_event_def` to rename Event names.
-    fn map_event_def(&mut self, event: &EventDef) -> EventDef {
-        // Save the current naming index before transforming the Event definition.
-        let current_naming_index = self.env.current_naming_index_map.clone();
-
-        // Rename the Event name with a new indexing number.
-        let (nname, nenv) = self.env.create_new_name(&event.name.base);
-        self.env = nenv;
-
-        // Transform the Event definition and update its new name.
-        let mut nevent = map::default::map_event_def(self, event);
-        nevent.name = nname;
-
-        // Restore the current naming index
-        self.env.current_naming_index_map = current_naming_index;
-
-        // Return result
-        nevent
-    }
-
-    /// Override `map_error_def` to rename Error names.
-    fn map_error_def(&mut self, error: &ErrorDef) -> ErrorDef {
-        // Save the current naming index before transforming the Error definition.
-        let current_naming_index = self.env.current_naming_index_map.clone();
-
-        // Rename the Error name with a new indexing number.
-        let (nname, nenv) = self.env.create_new_name(&error.name.base);
-        self.env = nenv;
-
-        // Transform the Error definition and update its new name.
-        let mut nerror = map::default::map_error_def(self, error);
-        nerror.name = nname;
-
-        // Restore the current naming index
-        self.env.current_naming_index_map = current_naming_index;
-
-        // Return result
-        nerror
-    }
-
-    /// Override `map_struct_def` to rename Struct names.
-    fn map_struct_def(&mut self, struct_: &StructDef) -> StructDef {
-        // Save the current naming index before transforming the Struct definition.
-        let current_naming_index = self.env.current_naming_index_map.clone();
-
-        // Rename the Struct name with a new indexing number.
-        let (nname, nenv) = self.env.create_new_name(&struct_.name.base);
-        self.env = nenv;
-
-        // Transform the Struct definition and update its new name.
-        let mut nstruct = map::default::map_struct_def(self, struct_);
-        nstruct.name = nname;
-
-        // Restore the current naming index
-        self.env.current_naming_index_map = current_naming_index;
-
-        // Return result
-        nstruct
-    }
-
-    /// Override `map_enum_def` to rename Enum names.
-    fn map_enum_def(&mut self, enum_: &EnumDef) -> EnumDef {
-        // Save the current naming index before transforming the Enum definition.
-        let current_naming_index = self.env.current_naming_index_map.clone();
-
-        // Rename the Enum name with a new indexing number.
-        let (nname, nenv) = self.env.create_new_name(&enum_.name.base);
-        self.env = nenv;
-
-        // Transform the Enum definition and update its new name.
-        let mut nenum = map::default::map_enum_def(self, enum_);
-        nenum.name = nname;
-
-        // Restore the current naming index
-        self.env.current_naming_index_map = current_naming_index;
-
-        // Return result
-        nenum
-    }
-
-    /// Override `map_user_defined_value_type_def` to rename the type's name.
-    fn map_udv_type_def(&mut self, typ: &TypeDef) -> TypeDef {
-        // Save the current naming index before transforming the Struct definition.
-        let current_naming_index = self.env.current_naming_index_map.clone();
-
-        // Rename the type name with a new indexing number.
-        let (nname, nenv) = self.env.create_new_name(&typ.name.base);
-        self.env = nenv;
-
-        // Transform the type name definition and update its new name.
-        let mut ntyp = map::default::map_udv_type_def(self, typ);
-        ntyp.name = nname;
-
-        // Restore the current naming index
-        self.env.current_naming_index_map = current_naming_index;
-
-        // Return result
-        ntyp
-    }
-
-    /// Override `map_contract_type` to rename contract name.
-    fn map_contract_type(&mut self, typ: &ContractType) -> ContractType {
-        let nname = self.env.get_current_name(typ.name.base.as_str());
-        let mut ntyp = map::default::map_contract_type(self, typ);
-        ntyp.name = nname.clone();
-        ntyp
-    }
 }
 
 //-------------------------------------------------
 // Public functions
 //-------------------------------------------------
 
-/// Rename definitions of contracts, functions, enums, structs, events, errors.
+/// Rename overloaded function definitions. Non-overloaded functions keep
+/// their original names; only functions with duplicate base names get
+/// numeric suffixes.
 pub fn rename_defs(
     source_units: &[SourceUnit],
     env: Option<&NamingEnv>,
 ) -> (Vec<SourceUnit>, NamingEnv) {
-    println!("Normalize AST: renaming definitions");
-    let mut renamer = Renamer::new(env);
+    // Pass 1: count function name occurrences
+    let counts = count_func_names(source_units);
+
+    // Pass 2: rename only overloaded names
+    let mut renamer = Renamer::new(env, counts);
     let nsource_units = renamer.rename_definitions(source_units);
     (nsource_units, renamer.env)
 }
@@ -244,7 +205,7 @@ mod tests {
                     return x;
                 }
 
-                function z_0(uint x) public returns (uint) {
+                function z(uint x) public returns (uint) {
                     uint a = 2;
                     return a;
                 }

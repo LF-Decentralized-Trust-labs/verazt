@@ -122,7 +122,6 @@ pub fn rename_vars(
     source_units: &[SourceUnit],
     env: Option<&NamingEnv>,
 ) -> (Vec<SourceUnit>, NamingEnv) {
-    println!("Normalize AST: renaming variables");
     let mut renamer = Renamer::new(env);
     let nsource_units = renamer.rename_variables(source_units);
     (nsource_units, renamer.env)

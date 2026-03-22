@@ -33,15 +33,6 @@ pub fn run_passes(source_units: &[ast::SourceUnit]) -> Vec<ast::SourceUnit> {
     print_output_source_units(&source_units);
 
     let env = ast::NamingEnv::new();
-    let (source_units, env) = super::rename_contracts::rename_contracts(&source_units, Some(&env));
-    print_output_source_units(&source_units);
-
-    let (source_units, env) = super::rename_vars::rename_vars(&source_units, Some(&env));
-    print_output_source_units(&source_units);
-
-    let source_units = super::eliminate_using::eliminate_using_directives(&source_units);
-    print_output_source_units(&source_units);
-
     let (source_units, env) = super::rename_defs::rename_defs(&source_units, Some(&env));
     print_output_source_units(&source_units);
 
@@ -51,19 +42,7 @@ pub fn run_passes(source_units: &[ast::SourceUnit]) -> Vec<ast::SourceUnit> {
     let source_units = super::merge_pragmas::merge_pragmas(&source_units);
     print_output_source_units(&source_units);
 
-    let source_units = super::resolve_inheritance::resolve_inheritance(&source_units);
-    print_output_source_units(&source_units);
-
-    let (source_units, env) = super::rename_callees::rename_callees(&source_units, Some(&env));
-    print_output_source_units(&source_units);
-
-    let source_units = super::eliminate_named_args::eliminate_named_args(&source_units);
-    print_output_source_units(&source_units);
-
-    let source_units = super::eliminate_modifiers::eliminate_modifier_invocs(&source_units);
-    print_output_source_units(&source_units);
-
-    let source_units = super::flatten_expr::flatten_expr(&source_units, Some(&env));
+    let (source_units, _) = super::rename_callees::rename_callees(&source_units, Some(&env));
     print_output_source_units(&source_units);
 
     super::unroll_tuples::unroll_unary_tuple(&source_units)
@@ -111,8 +90,25 @@ impl Lowerer {
                 ast::SourceUnitElem::Import(_) => {
                     fail!("IR: `import` must be eliminated: {}", elem)
                 }
-                ast::SourceUnitElem::Using(_) => {
-                    fail!("IR: `using` must be eliminated: {}", elem)
+                ast::SourceUnitElem::Using(u) => {
+                    // Preserve using-for directives — will be eliminated at SIR → CIR level.
+                    let target_type = match &u.target_type {
+                        Some(t) => Some(self.lower_type(t)?),
+                        None => None,
+                    };
+                    let library = match &u.kind {
+                        ast::UsingKind::UsingLib(lib) => lib.lib_name.to_string(),
+                        ast::UsingKind::UsingFunc(funcs) => funcs
+                            .iter()
+                            .map(|f| f.func_name.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    };
+                    global_members.push(MemberDecl::UsingFor(UsingForDecl {
+                        library,
+                        target_type,
+                        span: loc_to_span(u.loc),
+                    }));
                 }
                 ast::SourceUnitElem::Error(e) => {
                     global_members.push(self.lower_error_def(e)?);
@@ -161,9 +157,9 @@ impl Lowerer {
     fn lower_contract_def(&mut self, c: &ast::ContractDef) -> Result<ContractDecl> {
         trace!("Lower contract: {}", c.name);
 
-        if !c.base_contracts.is_empty() {
-            fail!("Base contracts must be eliminated before IR lowering!")
-        }
+        // Populate parents from base_contracts — will be resolved at SIR → CIR level.
+        let parents: Vec<String> =
+            c.base_contracts.iter().map(|b| b.name.to_string()).collect();
 
         let mut members = vec![];
         for elem in &c.body {
@@ -172,7 +168,7 @@ impl Lowerer {
 
         Ok(ContractDecl {
             name: c.name.to_string(),
-            parents: vec![],
+            parents,
             attrs: vec![],
             members,
             span: loc_to_span(c.loc),
@@ -181,8 +177,25 @@ impl Lowerer {
 
     fn lower_contract_elem(&mut self, elem: &ast::ContractElem) -> Result<Vec<MemberDecl>> {
         match elem {
-            ast::ContractElem::Using(_) => {
-                fail!("IR: `using` directive must be eliminated: {}", elem)
+            ast::ContractElem::Using(u) => {
+                // Preserve using-for directives — will be eliminated at SIR → CIR level.
+                let target_type = match &u.target_type {
+                    Some(t) => Some(self.lower_type(t)?),
+                    None => None,
+                };
+                let library = match &u.kind {
+                    ast::UsingKind::UsingLib(lib) => lib.lib_name.to_string(),
+                    ast::UsingKind::UsingFunc(funcs) => funcs
+                        .iter()
+                        .map(|f| f.func_name.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                };
+                Ok(vec![MemberDecl::UsingFor(UsingForDecl {
+                    library,
+                    target_type,
+                    span: loc_to_span(u.loc),
+                })])
             }
             ast::ContractElem::Event(e) => Ok(vec![self.lower_event_def(e)?]),
             ast::ContractElem::Error(e) => Ok(vec![self.lower_error_def(e)?]),
@@ -192,7 +205,14 @@ impl Lowerer {
                 fail!("IR: user-defined type must be eliminated!")
             }
             ast::ContractElem::Var(v) => Ok(vec![self.lower_state_var(v)?]),
-            ast::ContractElem::Func(f) => Ok(vec![MemberDecl::Function(self.lower_func_def(f)?)]),
+            ast::ContractElem::Func(f) => {
+                if f.kind == ast::FuncKind::Modifier {
+                    // Lower modifier definitions — will be inlined at SIR → CIR level.
+                    Ok(vec![self.lower_modifier_def(f)?])
+                } else {
+                    Ok(vec![MemberDecl::Function(self.lower_func_def(f)?)])
+                }
+            }
         }
     }
 
@@ -271,7 +291,72 @@ impl Lowerer {
             Some(blk) => Some(self.lower_block(blk)?),
             None => None,
         };
-        Ok(FunctionDecl::new(f.name.to_string(), params, returns, body, loc_to_span(f.loc)))
+        let modifier_invocs = self.lower_modifier_invocations(&f.modifier_invocs)?;
+        let mut decl =
+            FunctionDecl::new(f.name.to_string(), params, returns, body, loc_to_span(f.loc));
+        decl.modifier_invocs = modifier_invocs;
+        Ok(decl)
+    }
+
+    fn lower_modifier_invocations(
+        &mut self,
+        invocs: &[ast::CallExpr],
+    ) -> Result<Vec<ModifierInvoc>> {
+        let mut result = vec![];
+        for invoc in invocs {
+            // Skip base constructor calls — those are handled differently.
+            if invoc.kind == ast::CallKind::BaseConstructorCall {
+                continue;
+            }
+            let callee_name = invoc.callee.to_string();
+            let args = match &invoc.args {
+                ast::CallArgs::Unnamed(args) => {
+                    let mut stmts = vec![];
+                    let mut exprs = vec![];
+                    for e in args {
+                        let (ne, extra) = self.lower_expr(e)?;
+                        stmts.extend(extra);
+                        exprs.push(ne);
+                    }
+                    exprs
+                }
+                ast::CallArgs::Named(_) => {
+                    fail!("Named args in modifier invocations are not supported")
+                }
+            };
+            result.push(ModifierInvoc { name: callee_name, args, span: loc_to_span(invoc.loc) });
+        }
+        Ok(result)
+    }
+
+    fn lower_modifier_def(&mut self, f: &ast::FuncDef) -> Result<MemberDecl> {
+        let params = self.lower_param_list(&f.params)?;
+        let body = match &f.body {
+            Some(blk) => self.lower_block_with_placeholder(blk)?,
+            None => vec![],
+        };
+        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef {
+            name: f.name.to_string(),
+            params: params.iter().map(|p| (p.name.clone(), p.ty.clone())).collect(),
+            body,
+        })))
+    }
+
+    fn lower_block_with_placeholder(&mut self, blk: &ast::Block) -> Result<Vec<Stmt>> {
+        let mut stmts = vec![];
+        for s in &blk.body {
+            stmts.extend(self.lower_stmt_with_placeholder(s)?);
+        }
+        Ok(stmts)
+    }
+
+    fn lower_stmt_with_placeholder(&mut self, stmt: &ast::Stmt) -> Result<Vec<Stmt>> {
+        match stmt {
+            ast::Stmt::Placeholder(_) => {
+                Ok(vec![Stmt::Dialect(DialectStmt::Evm(EvmStmt::Placeholder))])
+            }
+            _ => self.lower_stmt(stmt),
+        }
     }
 
     fn lower_param_list(&mut self, params: &[ast::VarDecl]) -> Result<Vec<Param>> {
@@ -518,7 +603,7 @@ impl Lowerer {
         stmts.extend(extra);
         stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::EmitEvent {
             event,
-            args,
+            args: args.into_positional(),
             span: loc_to_span(s.loc),
         })));
         Ok(stmts)
@@ -537,7 +622,11 @@ impl Lowerer {
         };
         let (args, extra) = self.lower_call_args_exprs(&s.args)?;
         stmts.extend(extra);
-        stmts.push(Stmt::Revert(RevertStmt { error, args, span: loc_to_span(s.loc) }));
+        stmts.push(Stmt::Revert(RevertStmt {
+            error,
+            args: args.into_positional(),
+            span: loc_to_span(s.loc),
+        }));
         Ok(stmts)
     }
 
@@ -844,6 +933,7 @@ impl Lowerer {
 
                     // First arg is the data payload for low-level calls
                     let data = args
+                        .into_positional()
                         .into_iter()
                         .next()
                         .unwrap_or(Expr::Lit(Lit::String(StringLit::new(String::new(), span))));
@@ -895,7 +985,10 @@ impl Lowerer {
         }
     }
 
-    fn lower_call_args_exprs(&mut self, args: &ast::CallArgs) -> Result<(Vec<Expr>, Vec<Stmt>)> {
+    fn lower_call_args_exprs(
+        &mut self,
+        args: &ast::CallArgs,
+    ) -> Result<(CallArgs, Vec<Stmt>)> {
         match args {
             ast::CallArgs::Unnamed(exprs) => {
                 let mut stmts = vec![];
@@ -905,9 +998,19 @@ impl Lowerer {
                     stmts.extend(extra);
                     result.push(ne);
                 }
-                Ok((result, stmts))
+                Ok((CallArgs::Positional(result), stmts))
             }
-            ast::CallArgs::Named(_) => fail!("Named args must be normalized!"),
+            ast::CallArgs::Named(named) => {
+                // Preserve named args — will be converted to positional at SIR → CIR level.
+                let mut stmts = vec![];
+                let mut result = vec![];
+                for n in named {
+                    let (ne, extra) = self.lower_expr(&n.value)?;
+                    stmts.extend(extra);
+                    result.push(NamedArg { name: n.name.clone(), value: ne });
+                }
+                Ok((CallArgs::Named(result), stmts))
+            }
         }
     }
 
@@ -997,7 +1100,7 @@ impl Lowerer {
                 let callee = Expr::Var(VarExpr::new(fname, Type::None, span));
                 let expr = Expr::FunctionCall(CallExpr {
                     callee: Box::new(callee),
-                    args: vec![],
+                    args: CallArgs::Positional(vec![]),
                     ty,
                     span,
                 });

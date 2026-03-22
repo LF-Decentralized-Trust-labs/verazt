@@ -57,6 +57,37 @@ fn construct_source_unit_map<'a>(
     source_unit_map
 }
 
+/// Prefix a source unit element's name with the given alias.
+///
+/// For example, if the alias is `S1` and the element has name `foo`,
+/// the result will be `S1_foo`.
+fn prefix_elem_name(elem: &mut SourceUnitElem, alias: &str) {
+    match elem {
+        SourceUnitElem::Contract(c) => {
+            c.name = Name::new(format!("{}_{}", alias, c.name.base), c.name.index);
+        }
+        SourceUnitElem::Func(f) => {
+            f.name = Name::new(format!("{}_{}", alias, f.name.base), f.name.index);
+        }
+        SourceUnitElem::Var(v) => {
+            v.name = Name::new(format!("{}_{}", alias, v.name.base), v.name.index);
+        }
+        SourceUnitElem::Struct(s) => {
+            s.name = Name::new(format!("{}_{}", alias, s.name.base), s.name.index);
+        }
+        SourceUnitElem::Enum(e) => {
+            e.name = Name::new(format!("{}_{}", alias, e.name.base), e.name.index);
+        }
+        SourceUnitElem::Error(e) => {
+            e.name = Name::new(format!("{}_{}", alias, e.name.base), e.name.index);
+        }
+        SourceUnitElem::UserType(t) => {
+            t.name = Name::new(format!("{}_{}", alias, t.name.base), t.name.index);
+        }
+        SourceUnitElem::Pragma(_) | SourceUnitElem::Import(_) | SourceUnitElem::Using(_) => {}
+    }
+}
+
 /// Unfold the `import` directive that imports a source unit as an alias.
 fn unfold_imported_source_unit(
     imported_elem_names: &mut HashSet<String>,
@@ -74,16 +105,24 @@ fn unfold_imported_source_unit(
     // from the source unit alias.
     for elem in imported_source_unit.elems.iter() {
         if let Some(elem_name) = elem.get_name() {
-            // Use the base name (without indexing) to construct the
+            // Use the base name (without indexing) to construct the alias reference.
             let elem_aliased_name = format!("{}.{}", source_unit_alias, elem_name.base);
-            symbol_aliases.insert(elem_aliased_name, elem_name.clone());
+
+            // Create the prefixed name: {alias}_{original_name}
+            let prefixed_base = format!("{}_{}", source_unit_alias, elem_name.base);
+            let prefixed_name = Name::new(prefixed_base, elem_name.index);
+
+            // Map the member access expression (e.g., S1.foo) to the prefixed name
+            symbol_aliases.insert(elem_aliased_name, prefixed_name.clone());
 
             let imported_elem_name = format!("{}:{}", imported_source_unit.path, &elem_name);
             if !imported_elem_names.contains(&imported_elem_name) {
                 imported_elem_names.insert(imported_elem_name);
-                // TODO: selectively check and import only the elements that are accessed via
-                // the source alias.
-                imported_elems.push(elem.clone());
+
+                // Prefix the imported element's name before adding it.
+                let mut prefixed_elem = elem.clone();
+                prefix_elem_name(&mut prefixed_elem, source_unit_alias);
+                imported_elems.push(prefixed_elem);
             }
         }
     }
@@ -235,7 +274,7 @@ mod tests {
     use crate::solidity::{
         ast::utils::syntactic_comparer::compare_source_units,
         lowering::{
-            rename_callees, rename_defs, rename_vars, utils::configure_unit_test_env,
+            rename_callees, rename_defs, utils::configure_unit_test_env,
         },
         parsing::parse_solidity_source_code_list,
     };
@@ -306,13 +345,12 @@ mod tests {
                 Err(err) => panic!("Failed to parse expected source unit: {}", err),
             };
 
-        // Need to rename variables, definitions, etc before eliminating import
-        // directives.
-        let (output_sunits, env) = rename_vars(&input_sunits, None);
-        let (output_sunits, env) = rename_defs(&output_sunits, Some(&env));
+        // Rename definitions and callees (no rename_vars or rename_contracts).
+        let env = crate::solidity::ast::NamingEnv::new();
+        let (output_sunits, env) = rename_defs(&input_sunits, Some(&env));
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
 
-        // Elimiante import directives
+        // Eliminate import directives
         let output_sunits = eliminate_import(&output_sunits);
 
         if let Err(err) = compare_source_units(&output_sunits, &expected_sunits) {
@@ -374,74 +412,100 @@ mod tests {
             }"###},
         );
 
-        // Expected output contract 1
+        // Expected output contract 1: no variable indexes, only function indexes
         let expected_1 = (
             "import_as_s1.sol",
             indoc! {r###"
-            uint256 constant a_0 = 89;
+            uint256 constant a = 89;
 
             function fre_0() pure returns (uint256) {
-                return a_0;
+                return a;
             }
 
             function bar_0() returns (uint256) {
-                return a_0;
+                return a;
             }"###},
         );
 
-        // Expected output contract 2
+        // Expected output contract 2:
+        //   - Symbol imports ({a as b, fre, fre as foo}): bring names directly, no prefix
+        //   - Aliased import (as S1): prefix with S1_
+        //   - Variables keep original names (no indexes)
+        //   - Only functions get indexes from rename_defs
         let expected_2 = (
             "import_as_s2.sol",
             indoc! {r###"
-            uint256 constant a_0 = 89;
+            uint256 constant a = 89;
 
             function fre_0() pure returns (uint256) {
-                return a_0;
+                return a;
             }
 
             function bar_0() returns (uint256) {
-                return a_0;
+                return a;
             }
 
-            uint256 constant a_1 = 13;
+            uint256 constant S1_a = 89;
 
-            contract C_0 {
+            function S1_fre_0() pure returns (uint256) {
+                return S1_a;
+            }
+
+            function S1_bar_0() returns (uint256) {
+                return S1_a;
+            }
+
+            uint256 constant a = 13;
+
+            contract C {
                 function f_0() public returns (uint256, uint256, uint256, uint256) {
-                    uint256 n_0 = fre_0();
-                    return (a_1, fre_0(), fre_0(), a_0);
+                    uint256 n = fre_0();
+                    return (a, fre_0(), S1_fre_0(), a);
                 }
             }"###},
         );
 
-        // Expected output contract 3
+        // Expected output contract 3:
+        //   - Aliased import (as S2): prefix with S2_
+        //   - Nested aliases flatten: S2.S1.bar -> S2_S1_bar
         let expected_3 = (
             "import_as_s3.sol",
             indoc! {r###"
-            uint256 constant a_0 = 89;
+            uint256 constant S2_a = 89;
 
-            function fre_0() pure returns (uint256) {
-                return a_0;
+            function S2_fre_0() pure returns (uint256) {
+                return S2_a;
             }
 
-            function bar_0() returns (uint256) {
-                return a_0;
+            function S2_bar_0() returns (uint256) {
+                return S2_a;
             }
 
-            uint256 constant a_1 = 13;
+            uint256 constant S2_S1_a = 89;
 
-            contract C_0 {
-                function f_0() public returns (uint256, uint256, uint256, uint256) {
-                    uint256 n_0 = fre_0();
-                    return (a_1, fre_0(), fre_0(), a_0);
+            function S2_S1_fre_0() pure returns (uint256) {
+                return S2_S1_a;
+            }
+
+            function S2_S1_bar_0() returns (uint256) {
+                return S2_S1_a;
+            }
+
+            uint256 constant S2_a = 13;
+
+            contract S2_C {
+                function S2_f_0() public returns (uint256, uint256, uint256, uint256) {
+                    uint256 n = S2_fre_0();
+                    return (S2_a, S2_fre_0(), S2_S1_fre_0(), S2_a);
                 }
             }
 
-            uint256 constant a_2 = 13;
+            uint256 constant a = 13;
 
-            contract C_2 {
+            contract C {
                 function f_1() public returns (uint256, uint256, uint256, uint256) {
-                    uint256 n = fre_0();
-                    return (a_2, fre_0(), bar_0(), a_0);
+                    uint256 n = S2_fre_0();
+                    return (a, S2_fre_0(), S2_S1_bar_0(), S2_a);
                 }
             }"###},
         );
@@ -459,13 +523,12 @@ mod tests {
                 Err(err) => panic!("Failed to parse expected source unit: {}", err),
             };
 
-        // Need to rename variables, definitions, etc before eliminating import
-        // directives.
-        let (output_sunits, env) = rename_vars(&input_sunits, None);
-        let (output_sunits, env) = rename_defs(&output_sunits, Some(&env));
+        // Rename definitions and callees (no rename_vars or rename_contracts).
+        let env = crate::solidity::ast::NamingEnv::new();
+        let (output_sunits, env) = rename_defs(&input_sunits, Some(&env));
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
 
-        // Elimiante import directives
+        // Eliminate import directives
         let output_sunits = eliminate_import(&output_sunits);
 
         if let Err(err) = compare_source_units(&output_sunits, &expected_sunits) {
@@ -473,3 +536,5 @@ mod tests {
         }
     }
 }
+
+

@@ -160,8 +160,6 @@ pub fn rename_contracts(
     source_units: &[SourceUnit],
     env: Option<&NamingEnv>,
 ) -> (Vec<SourceUnit>, NamingEnv) {
-    println!("Normalize AST: renaming base contracts");
-
     // First, rename names of contract definitions.
     let mut renamer = Renamer::new(env);
     renamer.phase = Some(RenamingPhase::RenameDefinitions);

@@ -172,6 +172,7 @@ pub mod default {
             MemberDecl::TypeAlias(_) => T::default(),
             MemberDecl::GlobalInvariant(inv) => folder.fold_expr(inv),
             MemberDecl::Dialect(_) => T::default(),
+            MemberDecl::UsingFor(_) => T::default(),
         }
     }
 
@@ -395,7 +396,8 @@ pub mod default {
         expr: &'a CallExpr,
     ) -> T {
         let mut result = folder.fold_expr(&expr.callee);
-        for arg in &expr.args {
+        let args = expr.args.exprs();
+        for arg in args {
             let r = folder.fold_expr(arg);
             result = folder.combine(result, r);
         }

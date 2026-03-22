@@ -420,7 +420,6 @@ impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
 ///
 /// This function transform all expressions to three-value code.
 pub fn flatten_expr(source_units: &[SourceUnit], env: Option<&NamingEnv>) -> Vec<SourceUnit> {
-    println!("Normalize AST: flattening expressions");
     let mut nsource_units = vec![];
     for sunit in source_units.iter() {
         let mut flattener = ExprFlattener::new(env);

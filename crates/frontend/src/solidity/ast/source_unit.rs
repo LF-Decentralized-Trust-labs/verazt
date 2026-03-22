@@ -113,7 +113,6 @@ impl SourceUnit {
 
 impl Display for SourceUnit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "// File: {}", &self.path).ok();
         match self.elems.is_empty() {
             true => write!(f, "<Empty source unit>"),
             false => {

@@ -227,7 +227,9 @@ fn cir_expr_to_sir(expr: &crate::cir::CanonExpr) -> crate::sir::Expr {
         crate::cir::CanonExpr::FunctionCall(e) => {
             crate::sir::Expr::FunctionCall(crate::sir::CallExpr {
                 callee: Box::new(cir_expr_to_sir(&e.callee)),
-                args: e.args.iter().map(cir_expr_to_sir).collect(),
+                args: crate::sir::CallArgs::Positional(
+                    e.args.iter().map(cir_expr_to_sir).collect(),
+                ),
                 ty: e.ty.clone(),
                 span: e.span,
             })

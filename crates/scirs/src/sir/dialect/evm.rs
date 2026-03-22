@@ -182,6 +182,8 @@ pub enum EvmStmt {
         catch_clauses: Vec<EvmCatchClause>,
         span: Option<Span>,
     },
+    /// `_` — Modifier body injection point; replaced by `elim_modifiers` pass.
+    Placeholder,
 }
 
 /// A catch clause in a Solidity try/catch statement.
@@ -203,6 +205,7 @@ impl Display for EvmStmt {
             EvmStmt::TryCatch { guarded_expr, body: _, .. } => {
                 write!(f, "try {guarded_expr} {{ ... }}")
             }
+            EvmStmt::Placeholder => write!(f, "_;"),
         }
     }
 }

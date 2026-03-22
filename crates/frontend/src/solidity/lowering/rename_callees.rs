@@ -468,7 +468,6 @@ pub fn rename_callees(
     source_units: &[SourceUnit],
     env: Option<&NamingEnv>,
 ) -> (Vec<SourceUnit>, NamingEnv) {
-    println!("Normalize AST: renaming callees");
     let mut renamer = Renamer::new(source_units, env);
     let nsource_units = renamer.rename_callees(source_units);
     (nsource_units, renamer.env)

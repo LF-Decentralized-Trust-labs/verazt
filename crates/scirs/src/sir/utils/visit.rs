@@ -159,6 +159,7 @@ pub mod default {
             MemberDecl::TypeAlias(_) => {}
             MemberDecl::GlobalInvariant(inv) => visitor.visit_expr(inv),
             MemberDecl::Dialect(d) => visitor.visit_dialect_member_decl(d),
+            MemberDecl::UsingFor(_) => {}
         }
     }
 
@@ -361,8 +362,17 @@ pub mod default {
 
     pub fn visit_call_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a CallExpr) {
         visitor.visit_expr(&expr.callee);
-        for arg in &expr.args {
-            visitor.visit_expr(arg);
+        match &expr.args {
+            CallArgs::Positional(args) => {
+                for arg in args {
+                    visitor.visit_expr(arg);
+                }
+            }
+            CallArgs::Named(named) => {
+                for n in named {
+                    visitor.visit_expr(&n.value);
+                }
+            }
         }
     }
 

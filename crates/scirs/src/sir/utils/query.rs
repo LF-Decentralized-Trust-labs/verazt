@@ -214,7 +214,7 @@ fn walk_binops_expr(expr: &Expr, visitor: &mut dyn FnMut(&BinOpExpr)) {
         Expr::FieldAccess(fa) => walk_binops_expr(&fa.base, visitor),
         Expr::FunctionCall(c) => {
             walk_binops_expr(&c.callee, visitor);
-            for arg in &c.args {
+            for arg in c.args.exprs() {
                 walk_binops_expr(arg, visitor);
             }
         }
@@ -323,7 +323,7 @@ fn walk_dialect_exprs_expr(expr: &Expr, visitor: &mut dyn FnMut(&DialectExpr)) {
         Expr::FieldAccess(fa) => walk_dialect_exprs_expr(&fa.base, visitor),
         Expr::FunctionCall(c) => {
             walk_dialect_exprs_expr(&c.callee, visitor);
-            for arg in &c.args {
+            for arg in c.args.exprs() {
                 walk_dialect_exprs_expr(arg, visitor);
             }
         }
@@ -429,7 +429,7 @@ fn walk_exprs_expr(expr: &Expr, visitor: &mut dyn FnMut(&Expr)) {
         Expr::FieldAccess(fa) => walk_exprs_expr(&fa.base, visitor),
         Expr::FunctionCall(c) => {
             walk_exprs_expr(&c.callee, visitor);
-            for arg in &c.args {
+            for arg in c.args.exprs() {
                 walk_exprs_expr(arg, visitor);
             }
         }
