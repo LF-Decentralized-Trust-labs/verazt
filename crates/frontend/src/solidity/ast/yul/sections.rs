@@ -49,11 +49,11 @@ impl YulObject {
 impl Display for YulObject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "object {} {{", self.name).ok();
-        write!(f, "{}", format!("{}", self.code).indent(4)).ok();
+        write!(f, "{}", format!("{}", self.code).indent(2)).ok();
         for child in &self.children {
             let child = match child {
-                Left(object) => format!("{object}").indent(4),
-                Right(data) => format!("{data}").indent(4),
+                Left(object) => format!("{object}").indent(2),
+                Right(data) => format!("{data}").indent(2),
             };
             write!(f, "\n{child}").ok();
         }

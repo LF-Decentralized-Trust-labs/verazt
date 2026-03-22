@@ -162,7 +162,7 @@ impl Display for CanonStmt {
             CanonStmt::Block(stmts) => {
                 writeln!(f, "{{")?;
                 for s in stmts {
-                    writeln!(f, "{}", format!("{s}").indent(4))?;
+                    writeln!(f, "{}", format!("{s}").indent(2))?;
                 }
                 write!(f, "}}")
             }
@@ -220,7 +220,7 @@ impl Display for CanonIfStmt {
         if !self.then_body.is_empty() {
             writeln!(f)?;
             for s in &self.then_body {
-                writeln!(f, "{}", format!("{s}").indent(4))?;
+                writeln!(f, "{}", format!("{s}").indent(2))?;
             }
         }
         write!(f, "}}")?;
@@ -229,7 +229,7 @@ impl Display for CanonIfStmt {
             if !else_body.is_empty() {
                 writeln!(f)?;
                 for s in else_body {
-                    writeln!(f, "{}", format!("{s}").indent(4))?;
+                    writeln!(f, "{}", format!("{s}").indent(2))?;
                 }
             }
             write!(f, "}}")?;
@@ -244,7 +244,7 @@ impl Display for CanonWhileStmt {
         if !self.body.is_empty() {
             writeln!(f)?;
             for s in &self.body {
-                writeln!(f, "{}", format!("{s}").indent(4))?;
+                writeln!(f, "{}", format!("{s}").indent(2))?;
             }
         }
         write!(f, "}}")
@@ -269,7 +269,7 @@ impl Display for CanonForStmt {
         if !self.body.is_empty() {
             writeln!(f)?;
             for s in &self.body {
-                writeln!(f, "{}", format!("{s}").indent(4))?;
+                writeln!(f, "{}", format!("{s}").indent(2))?;
             }
         }
         write!(f, "}}")

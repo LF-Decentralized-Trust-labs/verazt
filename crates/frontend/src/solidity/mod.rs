@@ -5,7 +5,7 @@ pub mod ast;
 
 pub use scirs::sir;
 
-pub mod lower;
+pub mod lowering;
 pub mod parser;
 
 use common::error::Result;

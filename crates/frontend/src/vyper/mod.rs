@@ -1,7 +1,7 @@
 //! Vyper smart contract compiler: parses `.vy` sources into SIR.
 
 pub mod ast;
-pub mod lower;
+pub mod lowering;
 pub mod parser;
 
 pub use scirs::sir;
@@ -13,7 +13,7 @@ use common::error::Result;
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
 pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<scirs::sir::Module> {
     let source_unit = parser::parse_input_file(input_file, vyper_ver)?;
-    lower::lower_source_unit_normalized(&source_unit)
+    lowering::lower_source_unit_normalized(&source_unit)
 }
 
 /// Compile Vyper source code (string) into a SIR module.
@@ -21,7 +21,7 @@ pub fn compile_file(input_file: &str, vyper_ver: Option<&str>) -> Result<scirs::
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
 pub fn compile_source(source_code: &str, vyper_ver: Option<&str>) -> Result<scirs::sir::Module> {
     let source_unit = parser::parse_vyper_source_code(source_code, vyper_ver)?;
-    lower::lower_source_unit_normalized(&source_unit)
+    lowering::lower_source_unit_normalized(&source_unit)
 }
 
 /// Parse a Vyper source file into the internal AST (without SIR lowering).

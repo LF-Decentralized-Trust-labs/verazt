@@ -235,7 +235,7 @@ impl YulSwitchValue {
 impl Display for YulSwitchValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "case {} ", self.literal).ok();
-        write!(f, "{}", format!("{}", self.body).indent(4))
+        write!(f, "{}", format!("{}", self.body).indent(2))
     }
 }
 
@@ -252,6 +252,6 @@ impl YulSwitchDefault {
 impl Display for YulSwitchDefault {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "default ").ok();
-        write!(f, "{}", format!("{}", self.body).indent(4))
+        write!(f, "{}", format!("{}", self.body).indent(2))
     }
 }

@@ -144,7 +144,7 @@ impl Display for CanonContractDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "contract {} {{", self.name)?;
         for m in &self.members {
-            writeln!(f, "{}", format!("{m}").indent(4))?;
+            writeln!(f, "{}", format!("{m}").indent(2))?;
         }
         write!(f, "}}")
     }
@@ -193,7 +193,7 @@ impl Display for CanonFunctionDecl {
         }
         writeln!(f, " {{")?;
         for s in &self.body {
-            writeln!(f, "{}", format!("{s}").indent(4))?;
+            writeln!(f, "{}", format!("{s}").indent(2))?;
         }
         write!(f, "}}")
     }

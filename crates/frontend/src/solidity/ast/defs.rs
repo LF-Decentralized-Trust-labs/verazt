@@ -284,7 +284,7 @@ impl Display for ContractDef {
         let body = self
             .body
             .iter()
-            .map(|elem| format!("{elem}").indent(4))
+            .map(|elem| format!("{elem}").indent(2))
             .collect::<Vec<String>>()
             .join("\n\n");
         write!(f, "{{\n{body}\n}}")
@@ -433,7 +433,7 @@ impl Display for EnumDef {
         let elems = self
             .elems
             .iter()
-            .map(|elem| elem.indent(4))
+            .map(|elem| elem.indent(2))
             .collect::<Vec<String>>()
             .join(",\n");
         write!(f, "{elems}\n}}")
@@ -791,7 +791,7 @@ impl Display for StructDef {
         let fields = self
             .fields
             .iter()
-            .map(|field| format!("{field};").indent(4))
+            .map(|field| format!("{field};").indent(2))
             .collect::<Vec<String>>()
             .join("\n");
         write!(f, "{fields}\n}}")

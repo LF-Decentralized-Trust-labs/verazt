@@ -140,7 +140,7 @@ impl Display for ContractDecl {
         }
         writeln!(f, " {{")?;
         for m in &self.members {
-            writeln!(f, "{}", format!("{m}").indent(4))?;
+            writeln!(f, "{}", format!("{m}").indent(2))?;
         }
         write!(f, "}}")
     }
@@ -192,7 +192,7 @@ impl Display for FunctionDecl {
             Some(stmts) => {
                 writeln!(f, " {{")?;
                 for s in stmts {
-                    writeln!(f, "{}", format!("{s}").indent(4))?;
+                    writeln!(f, "{}", format!("{s}").indent(2))?;
                 }
                 write!(f, "}}")
             }

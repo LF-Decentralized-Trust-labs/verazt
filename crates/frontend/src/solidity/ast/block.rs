@@ -31,7 +31,7 @@ impl Display for Block {
             let stmts = self
                 .body
                 .iter()
-                .map(|stmt| format!("{}", stmt).indent(4))
+                .map(|stmt| format!("{}", stmt).indent(2))
                 .collect::<Vec<String>>()
                 .join("\n");
 

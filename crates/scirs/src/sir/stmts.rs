@@ -220,7 +220,7 @@ impl Display for Stmt {
             Stmt::Block(stmts) => {
                 writeln!(f, "{{")?;
                 for s in stmts {
-                    writeln!(f, "{}", format!("{s}").indent(4))?;
+                    writeln!(f, "{}", format!("{s}").indent(2))?;
                 }
                 write!(f, "}}")
             }
@@ -278,7 +278,7 @@ impl Display for IfStmt {
         if !self.then_body.is_empty() {
             writeln!(f)?;
             for s in &self.then_body {
-                writeln!(f, "{}", format!("{s}").indent(4))?;
+                writeln!(f, "{}", format!("{s}").indent(2))?;
             }
         }
         write!(f, "}}")?;
@@ -287,7 +287,7 @@ impl Display for IfStmt {
             if !else_body.is_empty() {
                 writeln!(f)?;
                 for s in else_body {
-                    writeln!(f, "{}", format!("{s}").indent(4))?;
+                    writeln!(f, "{}", format!("{s}").indent(2))?;
                 }
             }
             write!(f, "}}")?;
@@ -302,7 +302,7 @@ impl Display for WhileStmt {
         if !self.body.is_empty() {
             writeln!(f)?;
             for s in &self.body {
-                writeln!(f, "{}", format!("{s}").indent(4))?;
+                writeln!(f, "{}", format!("{s}").indent(2))?;
             }
         }
         write!(f, "}}")
@@ -327,7 +327,7 @@ impl Display for ForStmt {
         if !self.body.is_empty() {
             writeln!(f)?;
             for s in &self.body {
-                writeln!(f, "{}", format!("{s}").indent(4))?;
+                writeln!(f, "{}", format!("{s}").indent(2))?;
             }
         }
         write!(f, "}}")

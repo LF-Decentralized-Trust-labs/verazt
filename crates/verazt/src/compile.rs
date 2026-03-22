@@ -116,7 +116,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
     }
 
     // Step 3: Normalize + lower to SIR (integrated in sir::lower)
-    let sir_modules = solidity::lower::lower_source_units(&source_units)?;
+    let sir_modules = solidity::lowering::lower_source_units(&source_units)?;
 
     for sir_module in &sir_modules {
         // Step 4: Print SIR if requested
@@ -164,12 +164,13 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     // Step 2: Print AST if requested (before normalization — source-faithful)
     if args.print_ast || args.debug {
         print_section_header("Vyper AST");
-        println!("{source_unit:#?}");
+        let ast_str = format!("{source_unit:#?}");
+        println!("{}", ast_str.replace("    ", "  "));
         println!();
     }
 
     // Step 3: Normalize + lower to SIR (integrated in sir::lower)
-    let sir_module = vyper::lower::lower_source_unit_normalized(&source_unit)?;
+    let sir_module = vyper::lowering::lower_source_unit_normalized(&source_unit)?;
 
     // Step 4: Print SIR if requested
     if args.print_sir || args.debug {

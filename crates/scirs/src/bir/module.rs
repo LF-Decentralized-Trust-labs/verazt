@@ -46,15 +46,11 @@ impl Module {
 
 impl Display for Module {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Module: {}", self.source_module_id)?;
-        writeln!(f, "  functions: {}", self.functions.len())?;
-        writeln!(f, "  {}", self.icfg)?;
-        writeln!(f, "  {}", self.call_graph)?;
-        writeln!(f, "  {}", self.alias_sets)?;
-        writeln!(f, "  {}", self.taint_graph)?;
-        writeln!(f, "  summaries: {}", self.summaries.len())?;
-        for func in &self.functions {
-            write!(f, "\n{func}")?;
+        for (i, func) in self.functions.iter().enumerate() {
+            if i > 0 {
+                writeln!(f)?;
+            }
+            write!(f, "{func}")?;
         }
         Ok(())
     }
