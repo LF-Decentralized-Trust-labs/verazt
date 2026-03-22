@@ -281,12 +281,20 @@ impl Display for ContractDef {
                 .join(", ");
             write!(f, "is {base_contracts} ").ok();
         }
-        let body = self
-            .body
-            .iter()
-            .map(|elem| format!("{elem}").indent(2))
-            .collect::<Vec<String>>()
-            .join("\n\n");
+        let mut body = String::new();
+        let mut prev_category = None;
+        for (i, elem) in self.body.iter().enumerate() {
+            let cat = elem.grouping_category();
+            if i > 0 {
+                if prev_category != Some(cat) || cat == 4 {
+                    body.push_str("\n\n");
+                } else {
+                    body.push('\n');
+                }
+            }
+            body.push_str(&format!("{elem}").indent(2));
+            prev_category = Some(cat);
+        }
         write!(f, "{{\n{body}\n}}")
     }
 }
@@ -346,7 +354,19 @@ impl Display for BaseContract {
 // Implementation for Contract elements
 //-------------------------------------------------------------------------
 
-impl ContractElem {}
+impl ContractElem {
+    pub fn grouping_category(&self) -> u8 {
+        match self {
+            ContractElem::Var(v) => match v.typ {
+                Type::Mapping(_) => 2,
+                _ => 1,
+            },
+            ContractElem::Event(_) | ContractElem::Error(_) => 3,
+            ContractElem::Func(_) | ContractElem::Using(_) => 4,
+            ContractElem::Struct(_) | ContractElem::Enum(_) | ContractElem::Type(_) => 5,
+        }
+    }
+}
 
 impl From<UsingDir> for ContractElem {
     fn from(using: UsingDir) -> Self {

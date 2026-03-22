@@ -43,7 +43,7 @@ impl Module {
     }
 
     pub fn print_pretty(&self) {
-        println!("\nModule: {}", &self.id);
+        println!("{}", &self.id);
         printer::print_ir(&format!("{self}"));
     }
 }

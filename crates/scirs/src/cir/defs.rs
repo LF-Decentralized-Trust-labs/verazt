@@ -143,8 +143,16 @@ impl CanonParam {
 impl Display for CanonContractDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "contract {} {{", self.name)?;
+        let mut prev_category = None;
         for m in &self.members {
+            let cat = m.grouping_category();
+            if let Some(prev) = prev_category {
+                if prev != cat || cat == 4 {
+                    writeln!(f)?;
+                }
+            }
             writeln!(f, "{}", format!("{m}").indent(2))?;
+            prev_category = Some(cat);
         }
         write!(f, "}}")
     }
@@ -158,6 +166,21 @@ impl Display for CanonMemberDecl {
             CanonMemberDecl::TypeAlias(ta) => write!(f, "type {} = {};", ta.name, ta.ty),
             CanonMemberDecl::GlobalInvariant(inv) => write!(f, "@invariant({inv})"),
             CanonMemberDecl::Dialect(d) => write!(f, "{d}"),
+        }
+    }
+}
+
+impl CanonMemberDecl {
+    pub fn grouping_category(&self) -> u8 {
+        match self {
+            CanonMemberDecl::Storage(s) => match &s.ty {
+                Type::Map(_, _) => 2,
+                _ => 1,
+            },
+            CanonMemberDecl::Dialect(_) => 3,
+            CanonMemberDecl::Function(_) => 4,
+            CanonMemberDecl::TypeAlias(_) => 5,
+            CanonMemberDecl::GlobalInvariant(_) => 6,
         }
     }
 }

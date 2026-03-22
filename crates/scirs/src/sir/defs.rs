@@ -139,8 +139,16 @@ impl Display for ContractDecl {
             write!(f, " is {}", self.parents.join(", "))?;
         }
         writeln!(f, " {{")?;
+        let mut prev_category = None;
         for m in &self.members {
+            let cat = m.grouping_category();
+            if let Some(prev) = prev_category {
+                if prev != cat || cat == 4 {
+                    writeln!(f)?;
+                }
+            }
             writeln!(f, "{}", format!("{m}").indent(2))?;
+            prev_category = Some(cat);
         }
         write!(f, "}}")
     }
@@ -154,6 +162,21 @@ impl Display for MemberDecl {
             MemberDecl::TypeAlias(ta) => write!(f, "type {} = {};", ta.name, ta.ty),
             MemberDecl::GlobalInvariant(inv) => write!(f, "@invariant({inv})"),
             MemberDecl::Dialect(d) => write!(f, "{d}"),
+        }
+    }
+}
+
+impl MemberDecl {
+    pub fn grouping_category(&self) -> u8 {
+        match self {
+            MemberDecl::Storage(s) => match &s.ty {
+                Type::Map(_, _) => 2,
+                _ => 1,
+            },
+            MemberDecl::Dialect(_) => 3,
+            MemberDecl::Function(_) => 4,
+            MemberDecl::TypeAlias(_) => 5,
+            MemberDecl::GlobalInvariant(_) => 6,
         }
     }
 }

@@ -74,11 +74,11 @@ impl BasicBlock {
 
 impl Display for BasicBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{}:", self.id)?;
+        writeln!(f, "  {}:", self.id)?;
         for op in &self.ops {
-            writeln!(f, "  {op}")?;
+            writeln!(f, "    {op}")?;
         }
-        writeln!(f, "  {}", self.term)
+        writeln!(f, "    {}", self.term)
     }
 }
 
@@ -205,7 +205,10 @@ impl Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let vis = if self.is_public { "public " } else { "" };
         writeln!(f, "{vis}function {} {{", self.id)?;
-        for bb in &self.blocks {
+        for (i, bb) in self.blocks.iter().enumerate() {
+            if i > 0 {
+                writeln!(f)?;
+            }
             write!(f, "{bb}")?;
         }
         writeln!(f, "}}")
