@@ -382,7 +382,7 @@ mod tests {
     use crate::solidity::{
         ast::utils::syntactic_comparer::compare_source_units,
         lowering::{
-            flatten_name, rename_callees, rename_contracts, rename_defs,
+            rename_callees, rename_defs,
             utils::configure_unit_test_env,
         },
         parsing::parse_solidity_source_code,
@@ -443,41 +443,42 @@ mod tests {
                 }
             }"###};
 
-        // Expected output contract
+        // Expected output contract: contracts keep original names (no rename_contracts),
+        // only functions get indexes from rename_defs.
         let expected_contract = indoc! {r###"
-            contract A_0 {
+            contract A {
                 function foo_0() public pure returns (string memory) {
                     return "A";
                 }
             }
 
-            contract B_0 is A_0 {
+            contract B is A {
                 function foo_1() public pure returns (string memory) {
                     return "B";
                 }
             }
 
-            contract C_0 is A_0 {
+            contract C is A {
                 function foo_2() public pure returns (string memory) {
                     return "C";
                 }
             }
 
-            contract D_0 is B_0, C_0 {
+            contract D is B, C {
                 function foo_3() public pure returns (string memory) {
-                    return C_0.foo_2();
+                    return C.foo_2();
                 }
             }
 
-            contract E_0 is C_0, B_0 {
+            contract E is C, B {
                 function foo_4() public pure returns (string memory) {
-                    return B_0.foo_1();
+                    return B.foo_1();
                 }
             }
 
-            contract F_0 is A_0, B_0 {
+            contract F is A, B {
                 function foo_5() public pure returns (string memory) {
-                    return B_0.foo_1();
+                    return B.foo_1();
                 }
             }"###};
 
@@ -485,11 +486,11 @@ mod tests {
             Ok(sunits) => sunits,
             Err(err) => panic!("Failed to parse input source unit: {err}"),
         };
-        let (output_sunits, env) = rename_contracts(&input_sunits, None);
-        let (output_sunits, env) = rename_defs(&output_sunits, Some(&env));
+        // No rename_contracts call — contracts keep original names.
+        let env = crate::solidity::ast::NamingEnv::new();
+        let (output_sunits, env) = rename_defs(&input_sunits, Some(&env));
         let (output_sunits, _) = rename_callees(&output_sunits, Some(&env));
         let output_sunits = resolve_inheritance(&output_sunits);
-        let output_sunits = flatten_name(&output_sunits);
 
         let expected_sunits = match parse_solidity_source_code(expected_contract, "0.8.17") {
             Ok(sunits) => sunits,

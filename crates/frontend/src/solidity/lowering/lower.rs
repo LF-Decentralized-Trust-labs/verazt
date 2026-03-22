@@ -33,12 +33,6 @@ pub fn run_passes(source_units: &[ast::SourceUnit]) -> Vec<ast::SourceUnit> {
     print_output_source_units(&source_units);
 
     let env = ast::NamingEnv::new();
-    let (source_units, env) = super::rename_contracts::rename_contracts(&source_units, Some(&env));
-    print_output_source_units(&source_units);
-
-    let (source_units, env) = super::rename_vars::rename_vars(&source_units, Some(&env));
-    print_output_source_units(&source_units);
-
     let (source_units, env) = super::rename_defs::rename_defs(&source_units, Some(&env));
     print_output_source_units(&source_units);
 
