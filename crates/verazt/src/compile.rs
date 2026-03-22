@@ -159,7 +159,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     use frontend::vyper;
 
     // Step 1: Parse
-    let source_unit = vyper::parser::parse_input_file(file, None)?;
+    let source_unit = vyper::parsing::parse_input_file(file, None)?;
 
     // Step 2: Print AST if requested (before normalization — source-faithful)
     if args.print_ast || args.debug {
