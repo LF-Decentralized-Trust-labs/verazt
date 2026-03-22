@@ -25,116 +25,6 @@ impl UsedFunc {
     }
 }
 
-#[derive(Clone)]
-struct UsedFuncFinder<'a> {
-    current_contract: Option<&'a ContractDef>,
-    source_unit: &'a SourceUnit,
-}
-
-impl<'a> UsedFuncFinder<'a> {
-    pub fn new(source_unit: &'a SourceUnit) -> Self {
-        UsedFuncFinder { current_contract: None, source_unit }
-    }
-
-    fn find_used_funcs_in_using_library_directive(
-        &self,
-        _uldir: &UsingLib,
-        _target_typ: &Type,
-    ) -> Vec<UsedFunc> {
-        // TODO: Find the library definition first
-        vec![]
-    }
-
-    fn find_used_funcs_in_using_function_directive(
-        &self,
-        ufdir: &UsingFunc,
-        target_typ: &Type,
-    ) -> Vec<UsedFunc> {
-        debug!("Using Func Directive: {ufdir}");
-        for elem in self.source_unit.elems.iter() {
-            if let SourceUnitElem::Func(func) = elem {
-                // FIXME: need to find function by scopes
-                if func.name == ufdir.func_name {
-                    return vec![UsedFunc::new(func.name.clone(), Some(target_typ.clone()))];
-                }
-            }
-        }
-        vec![]
-    }
-
-    fn find_used_funcs_in_using(&self, udir: &UsingDir) -> Vec<UsedFunc> {
-        debug!("Finding used functions");
-        let target_typ = match &udir.target_type {
-            Some(typ) => typ.clone(),
-            None => todo!(),
-        };
-        match &udir.kind {
-            UsingKind::UsingLib(ulib) => {
-                self.find_used_funcs_in_using_library_directive(ulib, &target_typ)
-            }
-            UsingKind::UsingFunc(ufuncs) => ufuncs
-                .iter()
-                .flat_map(|ufunc| {
-                    self.find_used_funcs_in_using_function_directive(ufunc, &target_typ)
-                })
-                .collect(),
-        }
-    }
-
-    fn _find_used_funcs(&self) -> Vec<UsedFunc> {
-        self.source_unit
-            .elems
-            .iter()
-            .flat_map(|elem| match elem {
-                SourceUnitElem::Using(udir) => self.find_used_funcs_in_using(udir),
-                _ => vec![],
-            })
-            .collect()
-    }
-}
-
-impl<'a> Fold<'a, Vec<UsedFunc>> for UsedFuncFinder<'a> {
-    /// Override `fold_source_unit_elem` to find data types' implementation
-    /// functions in `using` directives.
-    fn fold_source_unit_elem(
-        &mut self,
-        acc: Vec<UsedFunc>,
-        elem: &'a SourceUnitElem,
-    ) -> Vec<UsedFunc> {
-        if let SourceUnitElem::Using(udir) = elem {
-            return self.find_used_funcs_in_using(udir);
-        }
-        fold::default::fold_source_unit_elem(self, acc, elem)
-    }
-
-    /// Override `fold_contract_def` to capture the current contract definition.
-    fn fold_contract_def(
-        &mut self,
-        acc: Vec<UsedFunc>,
-        contract: &'a ContractDef,
-    ) -> Vec<UsedFunc> {
-        // Save the current contract scope
-        let saved_contract_scope = self.current_contract;
-
-        // Update the new contract scope
-        self.current_contract = Some(contract);
-        let acc = fold::default::fold_contract_def(self, acc, contract);
-
-        // Restore the contract scope
-        self.current_contract = saved_contract_scope;
-        acc
-    }
-
-    /// Override `fold_contract_elem` to find data types' implementation
-    /// functions in `using` directives.
-    fn fold_contract_elem(&mut self, acc: Vec<UsedFunc>, elem: &'a ContractElem) -> Vec<UsedFunc> {
-        if let ContractElem::Using(udir) = elem {
-            return self.find_used_funcs_in_using(udir);
-        }
-        fold::default::fold_contract_elem(self, acc, elem)
-    }
-}
-
 /// Data structure modelling a function and its associated library.
 #[derive(PartialEq, Eq, Debug, Clone)]
 struct LibFunc {
@@ -143,12 +33,6 @@ struct LibFunc {
 
     /// Definition of the function.
     pub func_def: FuncDef,
-}
-
-impl LibFunc {
-    pub fn _new(lib_name: Option<Name>, func_def: FuncDef) -> Self {
-        LibFunc { lib_name, func_def }
-    }
 }
 
 /// Data structure for removing using directives.
