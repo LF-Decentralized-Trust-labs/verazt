@@ -382,11 +382,11 @@ mod tests {
     use super::*;
     use crate::solidity::{
         ast::utils::syntactic_comparer::compare_source_units,
-        lowering::lower::{
+        lowering::{
             flatten_name, rename_callees, rename_contracts, rename_defs,
             utils::configure_unit_test_env,
         },
-        parsing::parse_input_file as parse_solidity_source_code,
+        parsing::parse_solidity_source_code,
     };
     use indoc::indoc;
 

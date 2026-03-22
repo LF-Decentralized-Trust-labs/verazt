@@ -5,6 +5,14 @@
 
 pub mod lower;
 
+pub mod flatten_expr;
+pub mod rename_defs;
+pub mod rename_vars;
+
+pub use flatten_expr::flatten_expr;
+pub use rename_defs::rename_defs;
+pub use rename_vars::rename_vars;
+
 use crate::vyper::ast::source_unit::SourceUnit;
 use common::error::Result;
 use scirs::sir::Module;

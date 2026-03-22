@@ -234,10 +234,10 @@ mod tests {
     use super::eliminate_import;
     use crate::solidity::{
         ast::utils::syntactic_comparer::compare_source_units,
-        lowering::lower::{
+        lowering::{
             rename_callees, rename_defs, rename_vars, utils::configure_unit_test_env,
         },
-        parsing::parse_input_file as parse_solidity_source_code,_list,
+        parsing::parse_solidity_source_code_list,
     };
     use indoc::indoc;
 

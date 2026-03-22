@@ -5,6 +5,39 @@
 
 pub mod lower;
 
+pub mod eliminate_imports;
+pub mod eliminate_modifiers;
+pub mod eliminate_named_args;
+pub mod eliminate_using;
+pub mod flatten_expr;
+pub mod flatten_names;
+pub mod merge_pragmas;
+pub mod rename_callees;
+pub mod rename_contracts;
+pub mod rename_defs;
+pub mod rename_vars;
+pub mod resolve_inheritance;
+pub mod substitution;
+pub mod unroll_tuples;
+
+#[macro_use]
+pub mod utils;
+
+pub use eliminate_imports::eliminate_import;
+pub use eliminate_modifiers::eliminate_modifier_invocs;
+pub use eliminate_named_args::eliminate_named_args;
+pub use eliminate_using::eliminate_using_directives;
+pub use flatten_expr::flatten_expr;
+pub use flatten_names::flatten_name;
+pub use merge_pragmas::merge_pragmas;
+pub use rename_callees::rename_callees;
+pub use rename_contracts::rename_contracts;
+pub use rename_defs::rename_defs;
+pub use rename_vars::rename_vars;
+pub use resolve_inheritance::resolve_inheritance;
+pub use unroll_tuples::unroll_unary_tuple;
+
+
 use crate::solidity::ast::SourceUnit;
 use common::error::Result;
 use scirs::sir::Module;

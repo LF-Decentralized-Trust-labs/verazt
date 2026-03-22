@@ -1,8 +1,8 @@
 //! Module containing utility functions for unit test.
 use common::{error::Result, fail};
 use frontend::solidity::{
-    ast::SourceUnit, ast::utils::export::export_source_unit, lower::normalize,
-    parser::parse_input_file,
+    ast::SourceUnit, ast::utils::export::export_source_unit, lowering::lower,
+    parsing::parse_input_file,
 };
 use regex::Regex;
 use std::{
@@ -214,10 +214,10 @@ fn test_compiling_solidity_file(
         }
 
         // Now compile all the exported files to test if they are valid Solidity files.
-        for file in exported_files {
-            info!("- Test compilation: {file}");
-            if let Err(err) = parse_input_file(&file, Some(parsed_dir), &[], Some(solc_ver)) {
-                panic!("Failed to compile: {file}\n\nError: {err}");
+        for file in exported_files.iter() {
+            info!("- Test compilation: {}", file);
+            if let Err(err) = parse_input_file(file, Some(parsed_dir), &[], Some(solc_ver)) {
+                panic!("Failed to compile: {}\n\nError: {}", file, err);
             }
         }
     }
@@ -228,7 +228,7 @@ fn test_compiling_solidity_file(
         let normalized_dir_path: PathBuf = root_test_dir.join("normalized");
         let normalized_dir = normalized_dir_path.to_str().unwrap_or("");
 
-        let normalized_source_units = normalize::run_passes(&parsed_source_units);
+        let normalized_source_units = lower::run_passes(&parsed_source_units);
 
         // Test compiling all normalized source units
         let mut exported_files = vec![];
@@ -247,11 +247,11 @@ fn test_compiling_solidity_file(
             exported_files.push(output_file);
         }
 
-        for file in exported_files {
+        for file in exported_files.iter() {
             // Compile the normalized Solidity file by Solc again
-            info!("- Test compilation: {file}");
-            if let Err(err) = parse_input_file(&file, Some(normalized_dir), &[], Some(solc_ver)) {
-                panic!("Failed to compile: {file}\n\nError: {err}");
+            info!("- Test compilation: {}", file);
+            if let Err(err) = parse_input_file(file, Some(normalized_dir), &[], Some(solc_ver)) {
+                panic!("Failed to compile: {}\n\nError: {}", file, err);
             }
         }
     }

@@ -3,13 +3,14 @@
 //! These tests exercise the full pipeline:
 //! JSON AST string → internal AST → normalization → SIR Module
 
-use frontend::vyper::lower;
-use frontend::vyper::parser;
+use frontend::solidity::lowering as solidity_lowering;
+use frontend::vyper::lowering as vyper_lowering;
+use frontend::vyper::parsing;
 
 /// Helper: run the full pipeline from JSON AST string.
 fn compile_json(json: &str, path: &str) -> scirs::sir::Module {
-    let su = parser::parse_from_json(json, path).expect("parse_from_json failed");
-    lower::lower_source_unit_normalized(&su).expect("lower_source_unit_normalized failed")
+    let su = parsing::parse_from_json(json, path).expect("parse_from_json failed");
+    vyper_lowering::lower_source_unit_normalized(&su).expect("lower_source_unit_normalized failed")
 }
 
 // ─── JSON AST fragments for testing ───────────────────────────

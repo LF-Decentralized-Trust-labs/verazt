@@ -186,8 +186,9 @@ pub fn rename_contracts(
 mod tests {
     use super::rename_contracts;
     use crate::solidity::{
-        lowering::lower::{flatten_name, utils::configure_unit_test_env},
-        parsing::parse_input_file as parse_solidity_source_code,
+        ast::utils::syntactic_comparer::compare_source_units,
+        lowering::{flatten_name, utils::configure_unit_test_env},
+        parsing::parse_solidity_source_code,
     };
     use indoc::indoc;
 

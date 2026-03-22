@@ -168,9 +168,8 @@ impl UsingEliminator {
     }
 
     /// Eliminate the `using` directives from source unit.
-    pub fn eliminate_using(&self, source_unit: &SourceUnit) -> SourceUnit {
-        let mut _finder = UsedFuncFinder::new(source_unit);
-        source_unit.clone()
+    pub fn eliminate_using(&mut self, source_unit: &SourceUnit) -> SourceUnit {
+        self.map_source_unit(source_unit)
     }
 }
 
@@ -282,7 +281,7 @@ pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit
     println!("Normalize AST: eliminate using directives");
     let mut nsource_units = vec![];
     for sunit in source_units.iter() {
-        let eliminator = UsingEliminator::new(sunit);
+        let mut eliminator = UsingEliminator::new(sunit);
         nsource_units.push(eliminator.eliminate_using(sunit));
     }
     nsource_units
@@ -296,8 +295,9 @@ pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit
 #[cfg(test)]
 mod tests {
     use crate::solidity::{
-        lowering::lower::{eliminate_using_directives, utils::configure_unit_test_env},
-        parsing::parse_input_file as parse_solidity_source_code,
+        ast::utils::syntactic_comparer::compare_source_units,
+        lowering::{eliminate_using_directives, utils::configure_unit_test_env},
+        parsing::parse_solidity_source_code,
     };
     use indoc::indoc;
 
