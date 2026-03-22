@@ -87,9 +87,47 @@ pub struct FieldAccessExpr {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallExpr {
     pub callee: Box<Expr>,
-    pub args: Vec<Expr>,
+    pub args: CallArgs,
     pub ty: Type,
     pub span: Option<Span>,
+}
+
+/// Call arguments: either positional (evaluated in order) or named.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CallArgs {
+    Positional(Vec<Expr>),
+    Named(Vec<NamedArg>),
+}
+
+/// A single named argument in a call.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedArg {
+    pub name: String,
+    pub value: Expr,
+}
+
+impl CallArgs {
+    pub fn positional(args: Vec<Expr>) -> Self {
+        CallArgs::Positional(args)
+    }
+
+    pub fn exprs(&self) -> Vec<&Expr> {
+        match self {
+            CallArgs::Positional(args) => args.iter().collect(),
+            CallArgs::Named(named) => named.iter().map(|n| &n.value).collect(),
+        }
+    }
+
+    pub fn into_positional(self) -> Vec<Expr> {
+        match self {
+            CallArgs::Positional(args) => args,
+            CallArgs::Named(named) => named.into_iter().map(|n| n.value).collect(),
+        }
+    }
+
+    pub fn is_named(&self) -> bool {
+        matches!(self, CallArgs::Named(_))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -340,7 +378,12 @@ impl Display for FieldAccessExpr {
 
 impl Display for CallExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let args: Vec<_> = self.args.iter().map(|a| a.to_string()).collect();
+        let args: Vec<_> = match &self.args {
+            CallArgs::Positional(args) => args.iter().map(|a| a.to_string()).collect(),
+            CallArgs::Named(named) => {
+                named.iter().map(|n| format!("{}: {}", n.name, n.value)).collect()
+            }
+        };
         write!(f, "{}({})", self.callee, args.join(", "))
     }
 }

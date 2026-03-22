@@ -162,7 +162,6 @@ impl Map<'_> for UsingEliminator {
 
 /// Function to remove modifier invocations from function definitions.
 pub fn eliminate_using_directives(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
-    println!("Normalize AST: eliminate using directives");
     let mut nsource_units = vec![];
     for sunit in source_units.iter() {
         let mut eliminator = UsingEliminator::new(sunit);

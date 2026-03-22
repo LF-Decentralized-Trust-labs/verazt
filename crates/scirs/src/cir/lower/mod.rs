@@ -2,20 +2,26 @@
 //!
 //! Orchestrates the conversion from `sir::Module` to `cir::CanonModule`.
 //!
-//! Currently the heavy semantic normalization (inheritance resolution,
-//! modifier inlining, expression flattening, etc.) is performed at the AST
-//! level inside `sir::lower/normalize/`.  This module performs a structural
-//! conversion that:
+//! The pipeline runs 5 semantic normalization passes on the SIR module before
+//! performing the structural conversion to CIR:
 //!
-//! 1. Strips the `parents` field (already empty post-normalization).
-//! 2. Drops `ModifierDef` member declarations (already inlined).
-//! 3. Converts `sir::Expr` → `cir::CanonExpr`, mapping Ternary and Tuple to
-//!    their canonical forms (passthrough for now since AST normalization
-//!    already handled these).
-//! 4. Converts `sir::Stmt` → `cir::CanonStmt`.
+//! 1. `elim_named_args`  — convert named call arguments to positional form.
+//! 2. `elim_using`       — strip `UsingFor` member declarations.
+//! 3. `resolve_inheritance` — flatten inheritance, merge parent members.
+//! 4. `elim_modifiers`   — inline modifier bodies into function bodies.
+//! 5. `flatten_expr`     — introduce temporaries so call args are atoms.
 //!
-//! As the CIR-level reimplementations of the semantic passes are added
-//! (Steps 3–6 in the plan), they will be invoked here.
+//! After normalization the structural conversion:
+//! - Strips the now-empty `parents` field.
+//! - Drops `ModifierDef` member declarations (already inlined).
+//! - Converts `sir::Expr` → `cir::CanonExpr`.
+//! - Converts `sir::Stmt` → `cir::CanonStmt`.
+
+mod elim_modifiers;
+mod elim_named_args;
+mod elim_using;
+mod flatten_expr;
+mod resolve_inheritance;
 
 use crate::cir::defs::*;
 use crate::cir::exprs::*;
@@ -35,8 +41,16 @@ pub enum CirLowerError {
 ///
 /// This is the main entry point for SIR → CIR conversion.
 pub fn lower_module(sir_module: &sir::Module) -> Result<CanonModule, CirLowerError> {
+    // Phase 1: Semantic normalization (SIR → SIR)
+    let module = elim_named_args::run(sir_module)?;
+    let module = elim_using::run(&module)?;
+    let module = resolve_inheritance::run(&module)?;
+    let module = elim_modifiers::run(&module)?;
+    let module = flatten_expr::run(&module)?;
+
+    // Phase 2: Structural conversion (SIR → CIR)
     let mut lowerer = CirLowerer::new();
-    lowerer.lower_module(sir_module)
+    lowerer.lower_module(&module)
 }
 
 /// Internal state for the SIR → CIR lowering.
@@ -97,6 +111,11 @@ impl CirLowerer {
                         continue;
                     }
                     members.push(CanonMemberDecl::Dialect(d.clone()));
+                }
+                sir::MemberDecl::UsingFor(_) => {
+                    // UsingFor declarations must be eliminated by the
+                    // elim_using pass before reaching here.
+                    continue;
                 }
             }
         }
@@ -319,11 +338,18 @@ impl CirLowerer {
                 span: e.span,
             })),
             sir::Expr::FunctionCall(e) => {
-                let args = e
-                    .args
-                    .iter()
-                    .map(|a| self.lower_expr(a))
-                    .collect::<Result<Vec<_>, _>>()?;
+                let args = match &e.args {
+                    sir::CallArgs::Positional(args) => args
+                        .iter()
+                        .map(|a| self.lower_expr(a))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    sir::CallArgs::Named(_) => {
+                        return Err(CirLowerError::General(
+                            "Named arguments must be eliminated before CIR lowering"
+                                .into(),
+                        ))
+                    }
+                };
                 Ok(CanonExpr::FunctionCall(CanonCallExpr {
                     callee: Box::new(self.lower_expr(&e.callee)?),
                     args,

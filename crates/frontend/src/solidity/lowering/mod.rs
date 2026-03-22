@@ -24,17 +24,14 @@ pub mod unroll_tuples;
 pub mod utils;
 
 pub use eliminate_imports::eliminate_import;
-pub use eliminate_modifiers::eliminate_modifier_invocs;
-pub use eliminate_named_args::eliminate_named_args;
 pub use eliminate_using::eliminate_using_directives;
-pub use flatten_expr::flatten_expr;
 pub use flatten_names::flatten_name;
+pub use flatten_expr::flatten_expr;
 pub use merge_pragmas::merge_pragmas;
 pub use rename_callees::rename_callees;
 pub use rename_contracts::rename_contracts;
 pub use rename_defs::rename_defs;
 pub use rename_vars::rename_vars;
-pub use resolve_inheritance::resolve_inheritance;
 pub use unroll_tuples::unroll_unary_tuple;
 
 
@@ -62,3 +59,4 @@ pub fn lower_source_units(source_units: &[SourceUnit]) -> Result<Vec<Module>> {
 pub fn lower_source_unit(source_unit: &SourceUnit) -> Result<Module> {
     lower::lower_source_unit(source_unit)
 }
+

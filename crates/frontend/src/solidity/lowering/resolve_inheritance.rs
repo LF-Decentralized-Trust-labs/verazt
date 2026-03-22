@@ -363,7 +363,6 @@ impl<'a> InheritanceFlattener<'a> {
 }
 
 pub fn resolve_inheritance(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
-    println!("Normalize AST: resolve inheritance");
     let mut nsource_units = vec![];
     for sunit in source_units.iter() {
         let flattener = InheritanceFlattener::new(sunit);

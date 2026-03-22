@@ -22,7 +22,6 @@ impl Map<'_> for NameIdxFlattener {
 }
 
 pub fn flatten_name(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
-    println!("Normalize AST: flattening name indices");
     let mut flattener = NameIdxFlattener::new();
     flattener.flatten_name(source_units)
 }

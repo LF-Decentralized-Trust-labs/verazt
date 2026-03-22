@@ -125,7 +125,7 @@ fn collect_used_vars_expr(expr: &Expr, vars: &mut Vec<VarId>) {
         }
         Expr::FunctionCall(c) => {
             collect_used_vars_expr(&c.callee, vars);
-            for arg in &c.args {
+            for arg in c.args.exprs() {
                 collect_used_vars_expr(arg, vars);
             }
         }

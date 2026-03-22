@@ -177,7 +177,6 @@ pub fn rename_defs(
     source_units: &[SourceUnit],
     env: Option<&NamingEnv>,
 ) -> (Vec<SourceUnit>, NamingEnv) {
-    println!("Normalize AST: renaming definitions");
     let mut renamer = Renamer::new(env);
     let nsource_units = renamer.rename_definitions(source_units);
     (nsource_units, renamer.env)

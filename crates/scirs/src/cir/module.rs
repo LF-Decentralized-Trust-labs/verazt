@@ -45,7 +45,6 @@ impl CanonModule {
     }
 
     pub fn print_pretty(&self) {
-        println!("{}", &self.id);
         printer::print_ir(&format!("{self}"));
     }
 }

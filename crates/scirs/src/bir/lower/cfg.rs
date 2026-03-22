@@ -351,7 +351,8 @@ fn lower_expr_to_opkind(builder: &mut CfgBuilder, block: BlockId, expr: &Expr) -
             // Function calls are treated as opaque until Step 4
             let _args: Vec<OpRef> = call
                 .args
-                .iter()
+                .exprs()
+                .into_iter()
                 .map(|a| lower_expr(builder, block, a))
                 .collect();
             OpKind::Opaque { description: format!("{expr}") }

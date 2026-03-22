@@ -210,6 +210,7 @@ impl Lowerer {
             type_params: vec![],
             params,
             returns,
+            modifier_invocs: vec![],
             attrs,
             spec: None,
             body: Some(body),
@@ -543,7 +544,7 @@ impl Lowerer {
                     .collect::<Result<Vec<_>>>()?;
                 Ok(Expr::FunctionCall(CallExpr {
                     callee: Box::new(callee),
-                    args,
+                    args: CallArgs::Positional(args),
                     ty: Type::None,
                     span: loc_to_span(call.loc.as_ref()),
                 }))
@@ -719,7 +720,7 @@ impl Lowerer {
                         ty: Type::FixedBytes(32),
                         span: None,
                     })),
-                    args: vec![inner_expr],
+                    args: CallArgs::Positional(vec![inner_expr]),
                     ty: Type::FixedBytes(32),
                     span: None,
                 }))
@@ -733,7 +734,7 @@ impl Lowerer {
                         ty: Type::FixedBytes(32),
                         span: None,
                     })),
-                    args: vec![inner_expr],
+                    args: CallArgs::Positional(vec![inner_expr]),
                     ty: Type::FixedBytes(32),
                     span: None,
                 }))

@@ -167,6 +167,7 @@ pub mod default {
             MemberDecl::TypeAlias(ta) => MemberDecl::TypeAlias(ta.clone()),
             MemberDecl::GlobalInvariant(inv) => MemberDecl::GlobalInvariant(mapper.map_expr(inv)),
             MemberDecl::Dialect(d) => MemberDecl::Dialect(d.clone()),
+            MemberDecl::UsingFor(u) => MemberDecl::UsingFor(u.clone()),
         }
     }
 
@@ -195,6 +196,15 @@ pub mod default {
             attrs: func.attrs.clone(),
             spec: func.spec.clone(),
             body: func.body.as_ref().map(|b| mapper.map_stmts(b)),
+            modifier_invocs: func
+                .modifier_invocs
+                .iter()
+                .map(|m| ModifierInvoc {
+                    name: m.name.clone(),
+                    args: m.args.iter().map(|a| mapper.map_expr(a)).collect(),
+                    span: m.span,
+                })
+                .collect(),
             span: func.span,
         }
     }
@@ -398,10 +408,20 @@ pub mod default {
         }
     }
 
-    pub fn map_call_expr<'a, T: Map<'a> + ?Sized>(mapper: &mut T, expr: &'a CallExpr) -> CallExpr {
+    pub fn map_call_expr<'a, T: Map<'a> + ?Sized>(mapper: &mut T, expr: &'a CallExpr) -> CallExpr {        let args = match &expr.args {
+            CallArgs::Positional(args) => {
+                CallArgs::Positional(args.iter().map(|a| mapper.map_expr(a)).collect())
+            }
+            CallArgs::Named(named) => CallArgs::Named(
+                named
+                    .iter()
+                    .map(|n| NamedArg { name: n.name.clone(), value: mapper.map_expr(&n.value) })
+                    .collect(),
+            ),
+        };
         CallExpr {
             callee: Box::new(mapper.map_expr(&expr.callee)),
-            args: expr.args.iter().map(|a| mapper.map_expr(a)).collect(),
+            args,
             ty: mapper.map_type(&expr.ty),
             span: expr.span,
         }
