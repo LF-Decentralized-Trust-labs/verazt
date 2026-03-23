@@ -7,14 +7,17 @@
 //! Phi nodes are eliminated into function parameters.
 //! Terminators are converted to tail calls.
 
-use crate::bir::cfg::{BasicBlock, BlockId, Function, FunctionId};
+use crate::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
 use crate::bir::ops::{Op, OpKind, OpRef, SsaName};
 use crate::fir;
 use crate::sir::Type;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Lift all basic blocks in a BIR function into FIR functions.
 pub fn lift_function(bir_func: &Function) -> Vec<fir::Function> {
+    // Compute reachable blocks from entry (bb0) to skip dead blocks.
+    let reachable = compute_reachable_blocks(&bir_func.blocks);
+
     let block_func_ids = compute_block_func_ids(bir_func);
     let phi_params = collect_phi_params(&bir_func.blocks);
     let live_ins = compute_live_in_sets(&bir_func.blocks, &phi_params);
@@ -22,6 +25,11 @@ pub fn lift_function(bir_func: &Function) -> Vec<fir::Function> {
     let mut fir_functions = Vec::new();
 
     for block in &bir_func.blocks {
+        // Skip unreachable blocks — they would produce orphan FIR functions.
+        if !reachable.contains(&block.id) {
+            continue;
+        }
+
         let func_id = block_func_ids[&block.id].clone();
 
         // Parameters = phi params + live-in variables
@@ -38,15 +46,26 @@ pub fn lift_function(bir_func: &Function) -> Vec<fir::Function> {
             }
         }
 
-        // Body = ops excluding phis
+        // Body = ops excluding phis and Return ops.
+        // Return ops are extracted and folded into the FIR terminator.
+        let mut return_vals: Option<Vec<OpRef>> = None;
         let body: Vec<Op> = block
             .ops
             .iter()
-            .filter(|op| !matches!(op.kind, OpKind::Phi(_)))
+            .filter(|op| {
+                if matches!(op.kind, OpKind::Phi(_)) {
+                    return false;
+                }
+                if let OpKind::Return(vals) = &op.kind {
+                    return_vals = Some(vals.clone());
+                    return false;
+                }
+                true
+            })
             .cloned()
             .collect();
 
-        // Convert terminator
+        // Convert terminator, using extracted return values if present.
         let term = convert_terminator(
             &block.term,
             &block_func_ids,
@@ -54,12 +73,49 @@ pub fn lift_function(bir_func: &Function) -> Vec<fir::Function> {
             &live_ins,
             &bir_func.blocks,
             block.id,
+            return_vals,
         );
 
         fir_functions.push(fir::Function::new(func_id, params, body, term));
     }
 
     fir_functions
+}
+
+/// Compute reachable blocks from entry block (`%bb0`) via BFS over
+/// Jump/Branch edges. Blocks unreachable from entry are dead code
+/// (e.g., blocks created after `return`/`revert` statements).
+fn compute_reachable_blocks(blocks: &[BasicBlock]) -> HashSet<BlockId> {
+    let mut reachable = HashSet::new();
+    if blocks.is_empty() {
+        return reachable;
+    }
+
+    let mut queue = VecDeque::new();
+    let entry = blocks[0].id;
+    reachable.insert(entry);
+    queue.push_back(entry);
+
+    // Build a quick lookup: BlockId → Terminator
+    let term_map: HashMap<BlockId, &Terminator> =
+        blocks.iter().map(|b| (b.id, &b.term)).collect();
+
+    while let Some(id) = queue.pop_front() {
+        if let Some(term) = term_map.get(&id) {
+            let successors: Vec<BlockId> = match term {
+                Terminator::Jump(target) => vec![*target],
+                Terminator::Branch { then_bb, else_bb, .. } => vec![*then_bb, *else_bb],
+                Terminator::TxnExit { .. } | Terminator::Unreachable => vec![],
+            };
+            for succ in successors {
+                if reachable.insert(succ) {
+                    queue.push_back(succ);
+                }
+            }
+        }
+    }
+
+    reachable
 }
 
 /// Compute the FIR function IDs for each block.
@@ -212,21 +268,26 @@ fn resolve_opref_to_name(opref: OpRef, blocks: &[BasicBlock]) -> Option<SsaName>
 }
 
 /// Convert a BIR terminator into a FIR terminator.
+///
+/// If `return_vals` is `Some`, we have extracted an `OpKind::Return` from the
+/// block body and should use its values for `Terminator::Return` instead of
+/// the default empty return.
 fn convert_terminator(
-    term: &crate::bir::cfg::Terminator,
+    term: &Terminator,
     block_func_ids: &HashMap<BlockId, FunctionId>,
     phi_params: &HashMap<BlockId, Vec<(SsaName, Type)>>,
     live_ins: &HashMap<BlockId, Vec<(SsaName, Type)>>,
     blocks: &[BasicBlock],
     _current_block: BlockId,
+    return_vals: Option<Vec<OpRef>>,
 ) -> fir::Terminator {
     match term {
-        crate::bir::cfg::Terminator::Jump(target) => {
+        Terminator::Jump(target) => {
             let callee = block_func_ids[target].clone();
             let args = build_tail_call_args(*target, phi_params, live_ins, blocks);
             fir::Terminator::TailCall(fir::TailCallData { callee, args })
         }
-        crate::bir::cfg::Terminator::Branch { cond, then_bb, else_bb } => {
+        Terminator::Branch { cond, then_bb, else_bb } => {
             let then_callee = block_func_ids[then_bb].clone();
             let then_args = build_tail_call_args(*then_bb, phi_params, live_ins, blocks);
             let else_callee = block_func_ids[else_bb].clone();
@@ -237,14 +298,16 @@ fn convert_terminator(
                 else_call: fir::TailCallData { callee: else_callee, args: else_args },
             }
         }
-        crate::bir::cfg::Terminator::TxnExit { reverted } => {
+        Terminator::TxnExit { reverted } => {
             if *reverted {
                 fir::Terminator::Revert
             } else {
-                fir::Terminator::Return(vec![])
+                // Use extracted return values from OpKind::Return if present,
+                // otherwise fall back to empty return.
+                fir::Terminator::Return(return_vals.unwrap_or_default())
             }
         }
-        crate::bir::cfg::Terminator::Unreachable => fir::Terminator::Unreachable,
+        Terminator::Unreachable => fir::Terminator::Unreachable,
     }
 }
 
