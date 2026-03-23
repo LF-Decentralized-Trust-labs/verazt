@@ -139,8 +139,8 @@ impl AnalysisContext {
             let bir = sir_modules
                 .iter()
                 .filter_map(|m| {
-                    let cir = scirs::cir::lower::lower_module(m).ok()?;
-                    scirs::bir::lower::lower_module(&cir).ok()
+                    let cir = scirs::sir::lower::lower_module(m).ok()?;
+                    scirs::cir::lower::lower_module(&cir).ok()
                 })
                 .collect::<Vec<_>>();
             let _elapsed = start.elapsed();
@@ -185,8 +185,8 @@ impl AnalysisContext {
         let bir = ir_units
             .iter()
             .filter_map(|m| {
-                let cir = scirs::cir::lower::lower_module(m).ok()?;
-                scirs::bir::lower::lower_module(&cir).ok()
+                let cir = scirs::sir::lower::lower_module(m).ok()?;
+                scirs::cir::lower::lower_module(&cir).ok()
             })
             .collect::<Vec<_>>();
         if !bir.is_empty() {

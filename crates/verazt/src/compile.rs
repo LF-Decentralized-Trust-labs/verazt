@@ -3,7 +3,8 @@
 
 use clap::{Parser, ValueEnum};
 use common::error::{Result, create_error};
-use common::utils::print_section_header;
+use common::utils::{print_section_header, print_subsection_header};
+use scirs::verify::VerifyError;
 
 /// Supported source languages.
 #[derive(Clone, Debug, ValueEnum)]
@@ -52,9 +53,9 @@ pub struct Args {
     #[arg(long)]
     pub print_air: bool,
 
-    /// Print the Verification IR (VIR).
+    /// Print the Functional IR (FIR).
     #[arg(long)]
-    pub print_vir: bool,
+    pub print_fir: bool,
 }
 
 /// Detect the language from the file extension.
@@ -94,6 +95,50 @@ pub fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
+/// Print the verification header before running passes.
+fn print_verify_header(ir_name: &str) {
+    println!("Running {ir_name} Verification passes:\n");
+}
+
+/// Report verification results after passes have been printed.
+/// Returns Ok(()) if no errors, or Err with a formatted message.
+fn report_verify_result(
+    ir_name: &str,
+    result: std::result::Result<(), Vec<VerifyError>>,
+) -> Result<()> {
+    println!();
+    match result {
+        Ok(()) => {
+            println!("All {ir_name} verification passes succeed!");
+            Ok(())
+        }
+        Err(errors) => {
+            println!("Error Details:");
+            // Group errors by pass name, preserving insertion order.
+            let mut grouped: Vec<(&str, Vec<&str>)> = Vec::new();
+            for e in &errors {
+                if let Some((_pass, msgs)) = grouped.iter_mut().find(|(p, _)| *p == e.pass) {
+                    msgs.push(&e.message);
+                } else {
+                    grouped.push((e.pass, vec![&e.message]));
+                }
+            }
+            for (pass, msgs) in &grouped {
+                println!();
+                println!("{pass}:");
+                for (i, msg) in msgs.iter().enumerate() {
+                    println!("  {}. {msg}", i + 1);
+                }
+            }
+            println!();
+            Err(create_error(format!(
+                "{ir_name} verification failed with {} errors",
+                errors.len()
+            )))
+        }
+    }
+}
+
 /// Run the Solidity compilation pipeline for one file.
 fn compile_solidity(file: &str, args: &Args) -> Result<()> {
     use frontend::solidity;
@@ -115,6 +160,16 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         }
     }
 
+    // Verify AST
+    if args.debug {
+        print_subsection_header("Solidity AST Verification");
+        print_verify_header("AST");
+        report_verify_result(
+            "AST",
+            frontend::solidity::ast::verifier::verify(&source_units, true),
+        )?;
+    }
+
     // Step 3: Normalize + lower to SIR (integrated in sir::lower)
     let sir_modules = solidity::lowering::lower_source_units(&source_units)?;
 
@@ -125,8 +180,15 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
             sir_module.print_pretty();
         }
 
+        // Verify SIR
+        if args.debug {
+            print_subsection_header("SIR Verification");
+            print_verify_header("SIR");
+            report_verify_result("SIR", scirs::sir::verifier::verify(sir_module, true))?;
+        }
+
         // Step 5: Lower SIR → CIR
-        let cir_module = scirs::cir::lower::lower_module(sir_module)
+        let cir_module = scirs::sir::lower::lower_module(sir_module)
             .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
         if args.print_cir || args.debug {
@@ -134,20 +196,44 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
             cir_module.print_pretty();
         }
 
+        // Verify CIR
+        if args.debug {
+            print_subsection_header("CIR Verification");
+            print_verify_header("CIR");
+            report_verify_result("CIR", scirs::cir::verifier::verify(&cir_module, true))?;
+        }
+
         // Step 6: Lower CIR → BIR
-        let air_module = scirs::bir::lower::lower_module(&cir_module)
+        let air_module = scirs::cir::lower::lower_module(&cir_module)
             .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
         // Step 7: Print BIR if requested
         if args.print_air || args.debug {
             print_section_header("BIR");
-            println!("{air_module}");
+            print!("{air_module}");
         }
-    }
 
-    // Step 8: VIR (not yet implemented)
-    if args.print_vir || args.debug {
-        return Err(create_error("VIR lowering is not yet implemented.".to_string()));
+        // Verify BIR
+        if args.debug {
+            print_subsection_header("BIR Verification");
+            print_verify_header("BIR");
+            report_verify_result("BIR", scirs::bir::verifier::verify(&air_module, true))?;
+        }
+
+        // Step 8: Lower BIR → FIR
+        let fir_module = scirs::bir::lower::lower_module(&air_module);
+
+        if args.print_fir || args.debug {
+            print_section_header("FIR");
+            print!("{fir_module}");
+        }
+
+        // Verify FIR
+        if args.debug {
+            print_subsection_header("FIR Verification");
+            print_verify_header("FIR");
+            report_verify_result("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
+        }
     }
 
     println!("Successfully compiled {file}");
@@ -178,8 +264,15 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
         sir_module.print_pretty();
     }
 
+    // Verify SIR
+    if args.debug {
+        print_subsection_header("SIR Verification");
+        print_verify_header("SIR");
+        report_verify_result("SIR", scirs::sir::verifier::verify(&sir_module, true))?;
+    }
+
     // Step 5: Lower SIR → CIR
-    let cir_module = scirs::cir::lower::lower_module(&sir_module)
+    let cir_module = scirs::sir::lower::lower_module(&sir_module)
         .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
     if args.print_cir || args.debug {
@@ -187,19 +280,43 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
         cir_module.print_pretty();
     }
 
+    // Verify CIR
+    if args.debug {
+        print_subsection_header("CIR Verification");
+        print_verify_header("CIR");
+        report_verify_result("CIR", scirs::cir::verifier::verify(&cir_module, true))?;
+    }
+
     // Step 6: Lower CIR → BIR
-    let air_module = scirs::bir::lower::lower_module(&cir_module)
+    let air_module = scirs::cir::lower::lower_module(&cir_module)
         .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
     // Step 7: Print BIR if requested
     if args.print_air || args.debug {
         print_section_header("BIR");
-        println!("{air_module}");
+        print!("{air_module}");
     }
 
-    // Step 8: VIR (not yet implemented)
-    if args.print_vir || args.debug {
-        return Err(create_error("VIR lowering is not yet implemented.".to_string()));
+    // Verify BIR
+    if args.debug {
+        print_subsection_header("BIR Verification");
+        print_verify_header("BIR");
+        report_verify_result("BIR", scirs::bir::verifier::verify(&air_module, true))?;
+    }
+
+    // Step 8: Lower BIR → FIR
+    let fir_module = scirs::bir::lower::lower_module(&air_module);
+
+    if args.print_fir || args.debug {
+        print_section_header("FIR");
+        print!("{fir_module}");
+    }
+
+    // Verify FIR
+    if args.debug {
+        print_subsection_header("FIR Verification");
+        print_verify_header("FIR");
+        report_verify_result("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
     }
 
     println!("Successfully compiled {file}");

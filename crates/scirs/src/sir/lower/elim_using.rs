@@ -5,8 +5,8 @@
 //! `FunctionCall(FieldAccess(balance, "add"), [x])` and are left to the
 //! later pipeline stages.
 
-use crate::cir::lower::CirLowerError;
 use crate::sir;
+use crate::sir::lower::CirLowerError;
 
 /// Strip all `UsingFor` member declarations.
 pub fn run(module: &sir::Module) -> Result<sir::Module, CirLowerError> {

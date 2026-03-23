@@ -109,6 +109,86 @@ pub enum EvmExpr {
         gas: Option<Box<Expr>>,
         span: Option<Span>,
     },
+
+    // ── Global builtin functions (Fix 7) ──────────────────────
+    /// `keccak256(data)` — Keccak-256 hash.
+    Keccak256(Box<Expr>),
+    /// `sha256(data)` — SHA-256 hash.
+    Sha256(Box<Expr>),
+    /// `ripemd160(data)` — RIPEMD-160 hash.
+    Ripemd160(Box<Expr>),
+    /// `ecrecover(hash, v, r, s)` — recover signer address.
+    Ecrecover {
+        hash: Box<Expr>,
+        v: Box<Expr>,
+        r: Box<Expr>,
+        s: Box<Expr>,
+    },
+    /// `addmod(x, y, k)` — (x + y) % k.
+    Addmod {
+        x: Box<Expr>,
+        y: Box<Expr>,
+        k: Box<Expr>,
+    },
+    /// `mulmod(x, y, k)` — (x * y) % k.
+    Mulmod {
+        x: Box<Expr>,
+        y: Box<Expr>,
+        k: Box<Expr>,
+    },
+    /// `gasleft()` — remaining gas.
+    Gasleft,
+    /// `blockhash(blockNumber)` — hash of given block.
+    Blockhash(Box<Expr>),
+
+    // ── ABI encoding/decoding (Fix 8) ─────────────────────────
+    /// `abi.encode(args...)` — ABI-encode arguments.
+    AbiEncode(Vec<Expr>),
+    /// `abi.encodePacked(args...)` — Packed ABI encoding.
+    AbiEncodePacked(Vec<Expr>),
+    /// `abi.decode(data, (types...))` — ABI decode.
+    AbiDecode { data: Box<Expr>, types: Vec<Type> },
+    /// `abi.encodeWithSelector(sel, args...)` — encode with function selector.
+    AbiEncodeWithSelector {
+        selector: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    /// `abi.encodeWithSignature(sig, args...)` — encode with string signature.
+    AbiEncodeWithSignature {
+        signature: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    /// `abi.encodeCall(func, args...)` — encode a function call.
+    AbiEncodeCall { func: Box<Expr>, args: Vec<Expr> },
+
+    // ── Transfer/send (Fix 9) ─────────────────────────────────
+    /// `addr.transfer(amount)` — transfer Ether, reverts on failure.
+    Transfer {
+        target: Box<Expr>,
+        amount: Box<Expr>,
+    },
+
+    // ── this/super (Fix 10) ───────────────────────────────────
+    /// `this` — reference to the current contract instance (as address).
+    This,
+    /// `super` — reference to the parent contract for method dispatch.
+    Super,
+
+    // ── Additional block/msg/tx globals (Fix 11) ──────────────
+    /// `msg.data` — complete calldata.
+    MsgData,
+    /// `msg.sig` — first 4 bytes of calldata (function selector).
+    MsgSig,
+    /// `block.difficulty` / `block.prevrandao` — previous block's RANDAO.
+    BlockDifficulty,
+    /// `block.gaslimit` — block gas limit.
+    BlockGaslimit,
+    /// `block.coinbase` — current block miner's address.
+    BlockCoinbase,
+    /// `block.chainid` — current chain ID.
+    BlockChainid,
+    /// `block.basefee` — current block's base fee.
+    BlockBasefee,
 }
 
 impl Display for EvmExpr {
@@ -157,6 +237,114 @@ impl Display for EvmExpr {
                 }
                 write!(f, ")")
             }
+            // Fix 7: crypto/math builtins
+            EvmExpr::Keccak256(e) => write!(f, "evm.keccak256({e})"),
+            EvmExpr::Sha256(e) => write!(f, "evm.sha256({e})"),
+            EvmExpr::Ripemd160(e) => write!(f, "evm.ripemd160({e})"),
+            EvmExpr::Ecrecover { hash, v, r, s } => {
+                write!(f, "evm.ecrecover({hash}, {v}, {r}, {s})")
+            }
+            EvmExpr::Addmod { x, y, k } => write!(f, "evm.addmod({x}, {y}, {k})"),
+            EvmExpr::Mulmod { x, y, k } => write!(f, "evm.mulmod({x}, {y}, {k})"),
+            EvmExpr::Gasleft => write!(f, "evm.gasleft()"),
+            EvmExpr::Blockhash(e) => write!(f, "evm.blockhash({e})"),
+            // Fix 8: abi.* builtins
+            EvmExpr::AbiEncode(args) => {
+                let a: Vec<_> = args.iter().map(|e| e.to_string()).collect();
+                write!(f, "evm.abi_encode({})", a.join(", "))
+            }
+            EvmExpr::AbiEncodePacked(args) => {
+                let a: Vec<_> = args.iter().map(|e| e.to_string()).collect();
+                write!(f, "evm.abi_encode_packed({})", a.join(", "))
+            }
+            EvmExpr::AbiDecode { data, types } => {
+                let ts: Vec<_> = types.iter().map(|t| t.to_string()).collect();
+                write!(f, "evm.abi_decode({data}, ({}))", ts.join(", "))
+            }
+            EvmExpr::AbiEncodeWithSelector { selector, args } => {
+                let a: Vec<_> = args.iter().map(|e| e.to_string()).collect();
+                write!(f, "evm.abi_encode_with_selector({selector}, {})", a.join(", "))
+            }
+            EvmExpr::AbiEncodeWithSignature { signature, args } => {
+                let a: Vec<_> = args.iter().map(|e| e.to_string()).collect();
+                write!(f, "evm.abi_encode_with_signature({signature}, {})", a.join(", "))
+            }
+            EvmExpr::AbiEncodeCall { func, args } => {
+                let a: Vec<_> = args.iter().map(|e| e.to_string()).collect();
+                write!(f, "evm.abi_encode_call({func}, {})", a.join(", "))
+            }
+            // Fix 9: transfer
+            EvmExpr::Transfer { target, amount } => write!(f, "evm.transfer({target}, {amount})"),
+            // Fix 10: this/super
+            EvmExpr::This => write!(f, "evm.this"),
+            EvmExpr::Super => write!(f, "evm.super"),
+            // Fix 11: additional globals
+            EvmExpr::MsgData => write!(f, "evm.msg_data()"),
+            EvmExpr::MsgSig => write!(f, "evm.msg_sig()"),
+            EvmExpr::BlockDifficulty => write!(f, "evm.block_difficulty()"),
+            EvmExpr::BlockGaslimit => write!(f, "evm.block_gaslimit()"),
+            EvmExpr::BlockCoinbase => write!(f, "evm.block_coinbase()"),
+            EvmExpr::BlockChainid => write!(f, "evm.block_chainid()"),
+            EvmExpr::BlockBasefee => write!(f, "evm.block_basefee()"),
+        }
+    }
+}
+
+impl EvmExpr {
+    /// Return type of this EVM dialect expression.
+    pub fn typ(&self) -> Type {
+        use crate::sir::dialect::DialectType;
+        match self {
+            EvmExpr::MsgSender => Type::Dialect(DialectType::Evm(EvmType::Address)),
+            EvmExpr::MsgValue => Type::I256,
+            EvmExpr::Timestamp => Type::I256,
+            EvmExpr::BlockNumber => Type::I256,
+            EvmExpr::TxOrigin => Type::Dialect(DialectType::Evm(EvmType::Address)),
+            EvmExpr::InlineAsm { .. } => Type::None,
+            EvmExpr::Convert { to, .. } => to.clone(),
+            EvmExpr::Slice { .. } => Type::Bytes,
+            EvmExpr::Len(_) => Type::I256,
+            EvmExpr::RawCall { .. } => Type::Bytes,
+            EvmExpr::Send { .. } => Type::Bool,
+            EvmExpr::SelfBalance => Type::I256,
+            EvmExpr::Empty(ty) => ty.clone(),
+            EvmExpr::Concat(_) => Type::Bytes,
+            EvmExpr::Delegatecall { .. } => Type::Tuple(vec![Type::Bool, Type::Bytes]),
+            EvmExpr::LowLevelCall { .. } => Type::Tuple(vec![Type::Bool, Type::Bytes]),
+            // Fix 7: crypto/math builtins
+            EvmExpr::Keccak256(_) => Type::FixedBytes(32),
+            EvmExpr::Sha256(_) => Type::FixedBytes(32),
+            EvmExpr::Ripemd160(_) => Type::FixedBytes(20),
+            EvmExpr::Ecrecover { .. } => Type::Dialect(DialectType::Evm(EvmType::Address)),
+            EvmExpr::Addmod { .. } | EvmExpr::Mulmod { .. } => Type::I256,
+            EvmExpr::Gasleft => Type::I256,
+            EvmExpr::Blockhash(_) => Type::FixedBytes(32),
+            // Fix 8: abi.* builtins
+            EvmExpr::AbiEncode(_)
+            | EvmExpr::AbiEncodePacked(_)
+            | EvmExpr::AbiEncodeWithSelector { .. }
+            | EvmExpr::AbiEncodeWithSignature { .. }
+            | EvmExpr::AbiEncodeCall { .. } => Type::Bytes,
+            EvmExpr::AbiDecode { types, .. } => {
+                if types.len() == 1 {
+                    types[0].clone()
+                } else {
+                    Type::Tuple(types.clone())
+                }
+            }
+            // Fix 9: transfer
+            EvmExpr::Transfer { .. } => Type::None,
+            // Fix 10: this/super
+            EvmExpr::This => Type::Dialect(DialectType::Evm(EvmType::Address)),
+            EvmExpr::Super => Type::None,
+            // Fix 11: additional globals
+            EvmExpr::MsgData => Type::Bytes,
+            EvmExpr::MsgSig => Type::FixedBytes(4),
+            EvmExpr::BlockDifficulty => Type::I256,
+            EvmExpr::BlockGaslimit => Type::I256,
+            EvmExpr::BlockCoinbase => Type::Dialect(DialectType::Evm(EvmType::Address)),
+            EvmExpr::BlockChainid => Type::I256,
+            EvmExpr::BlockBasefee => Type::I256,
         }
     }
 }
@@ -184,6 +372,8 @@ pub enum EvmStmt {
     },
     /// `_` — Modifier body injection point; replaced by `elim_modifiers` pass.
     Placeholder,
+    /// `selfdestruct(recipient)` — destroy contract and send funds.
+    Selfdestruct { recipient: Expr, span: Option<Span> },
 }
 
 /// A catch clause in a Solidity try/catch statement.
@@ -206,6 +396,7 @@ impl Display for EvmStmt {
                 write!(f, "try {guarded_expr} {{ ... }}")
             }
             EvmStmt::Placeholder => write!(f, "_;"),
+            EvmStmt::Selfdestruct { recipient, .. } => write!(f, "selfdestruct({recipient});"),
         }
     }
 }

@@ -15,7 +15,6 @@ fn loc_to_span(loc: Option<Loc>) -> Option<Span> {
 
 // Modules moved to mod.rs
 
-
 /// Supporting function to print output source unit of a normalization step.
 fn print_output_source_units(source_units: &[ast::SourceUnit]) {
     trace!("Output source unit:");
@@ -158,8 +157,11 @@ impl Lowerer {
         trace!("Lower contract: {}", c.name);
 
         // Populate parents from base_contracts — will be resolved at SIR → CIR level.
-        let parents: Vec<String> =
-            c.base_contracts.iter().map(|b| b.name.to_string()).collect();
+        let parents: Vec<String> = c
+            .base_contracts
+            .iter()
+            .map(|b| b.name.to_string())
+            .collect();
 
         let mut members = vec![];
         for elem in &c.body {
@@ -337,7 +339,10 @@ impl Lowerer {
         };
         Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef {
             name: f.name.to_string(),
-            params: params.iter().map(|p| (p.name.clone(), p.ty.clone())).collect(),
+            params: params
+                .iter()
+                .map(|p| (p.name.clone(), p.ty.clone()))
+                .collect(),
             body,
         })))
     }
@@ -434,6 +439,30 @@ impl Lowerer {
     fn lower_expr_stmt(&mut self, s: &ast::ExprStmt) -> Result<Vec<Stmt>> {
         match &s.expr {
             ast::Expr::Assign(a) => self.lower_assign_expr_as_stmt(a, loc_to_span(s.loc)),
+            // ── assert(cond) → Stmt::Assert ──────────────────────
+            ast::Expr::Call(call) if call.callee.to_string() == "assert" => {
+                self.lower_assert(call, loc_to_span(s.loc))
+            }
+            // ── require(cond, msg?) → if !cond { revert(msg) } ──
+            ast::Expr::Call(call) if call.callee.to_string() == "require" => {
+                self.lower_require(call, loc_to_span(s.loc))
+            }
+            // ── selfdestruct(recipient) → EvmStmt::Selfdestruct ──
+            ast::Expr::Call(call) if call.callee.to_string() == "selfdestruct" => {
+                let (args, extra) = self.lower_call_args_exprs(&call.args)?;
+                let mut stmts = extra;
+                let mut pos = args.into_positional();
+                let recipient = if pos.is_empty() {
+                    Expr::Lit(Lit::Bool(BoolLit::new(false, loc_to_span(s.loc))))
+                } else {
+                    pos.remove(0)
+                };
+                stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::Selfdestruct {
+                    recipient,
+                    span: loc_to_span(s.loc),
+                })));
+                Ok(stmts)
+            }
             _ => {
                 let mut stmts = vec![];
                 let (expr, extra) = self.lower_expr(&s.expr)?;
@@ -442,6 +471,49 @@ impl Lowerer {
                 Ok(stmts)
             }
         }
+    }
+
+    /// Lower `assert(cond)` → `Stmt::Assert { cond, message: None }`.
+    fn lower_assert(&mut self, call: &ast::CallExpr, span: Option<Span>) -> Result<Vec<Stmt>> {
+        let mut stmts = vec![];
+        let (args, extra) = self.lower_call_args_exprs(&call.args)?;
+        stmts.extend(extra);
+        let mut pos = args.into_positional();
+        let cond = if pos.is_empty() {
+            Expr::Lit(Lit::Bool(BoolLit::new(true, span)))
+        } else {
+            pos.remove(0)
+        };
+        let message = if pos.is_empty() {
+            None
+        } else {
+            Some(pos.remove(0))
+        };
+        stmts.push(Stmt::Assert(AssertStmt { cond, message, span }));
+        Ok(stmts)
+    }
+
+    /// Lower `require(cond, msg?)` → `if !cond { revert(msg) }`.
+    fn lower_require(&mut self, call: &ast::CallExpr, span: Option<Span>) -> Result<Vec<Stmt>> {
+        let mut stmts = vec![];
+        let (args, extra) = self.lower_call_args_exprs(&call.args)?;
+        stmts.extend(extra);
+        let mut pos = args.into_positional();
+        let cond = if pos.is_empty() {
+            Expr::Lit(Lit::Bool(BoolLit::new(true, span)))
+        } else {
+            pos.remove(0)
+        };
+        let revert_args = pos; // remaining args become revert message
+        let negated_cond = Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(cond), span });
+        let revert_stmt = Stmt::Revert(RevertStmt { error: None, args: revert_args, span });
+        stmts.push(Stmt::If(IfStmt {
+            cond: negated_cond,
+            then_body: vec![revert_stmt],
+            else_body: None,
+            span,
+        }));
+        Ok(stmts)
     }
 
     //-------------------------------------------------
@@ -722,10 +794,17 @@ impl Lowerer {
     fn lower_expr(&mut self, expr: &ast::Expr) -> Result<(Expr, Vec<Stmt>)> {
         match expr {
             ast::Expr::Lit(l) => Ok((Expr::Lit(self.lower_lit(l)?), vec![])),
-            ast::Expr::Ident(id) => {
-                let ty = self.lower_type(&id.typ)?;
-                Ok((Expr::Var(VarExpr::new(id.name.to_string(), ty, loc_to_span(id.loc))), vec![]))
-            }
+            ast::Expr::Ident(id) => match id.name.base.as_str() {
+                "this" => Ok((Expr::Dialect(DialectExpr::Evm(EvmExpr::This)), vec![])),
+                "super" => Ok((Expr::Dialect(DialectExpr::Evm(EvmExpr::Super)), vec![])),
+                _ => {
+                    let ty = self.lower_type(&id.typ)?;
+                    Ok((
+                        Expr::Var(VarExpr::new(id.name.to_string(), ty, loc_to_span(id.loc))),
+                        vec![],
+                    ))
+                }
+            },
             ast::Expr::Unary(e) => self.lower_unary_expr(e),
             ast::Expr::Binary(e) => self.lower_binary_expr(e),
             ast::Expr::Assign(e) => {
@@ -884,6 +963,153 @@ impl Lowerer {
         let mut stmts = vec![];
         let ty = self.lower_type(&e.typ)?;
         let span = loc_to_span(e.loc);
+
+        // ── Fix 2: Type conversion: address(0), uint256(x) → TypeCast ──
+        if e.kind == ast::CallKind::TypeConversionCall {
+            let (args, extra) = self.lower_call_args_exprs(&e.args)?;
+            stmts.extend(extra);
+            let mut positional = args.into_positional();
+            if positional.len() == 1 {
+                let inner = positional.remove(0);
+                return Ok((
+                    Expr::TypeCast(TypeCastExpr { ty, expr: Box::new(inner), span }),
+                    stmts,
+                ));
+            }
+            // Multi-arg type conversion — fall through to generic call
+        }
+
+        // ── Fix 7: EVM builtin functions ─────────────────────────
+        if let ast::Expr::Ident(id) = &*e.callee {
+            let name = id.name.base.as_str();
+            match name {
+                "keccak256" | "sha256" | "ripemd160" | "ecrecover" | "addmod" | "mulmod"
+                | "gasleft" | "blockhash" => {
+                    let (args, extra) = self.lower_call_args_exprs(&e.args)?;
+                    stmts.extend(extra);
+                    let mut pos = args.into_positional();
+                    let evm = match name {
+                        "keccak256" => EvmExpr::Keccak256(Box::new(pos.remove(0))),
+                        "sha256" => EvmExpr::Sha256(Box::new(pos.remove(0))),
+                        "ripemd160" => EvmExpr::Ripemd160(Box::new(pos.remove(0))),
+                        "ecrecover" => {
+                            let hash = Box::new(pos.remove(0));
+                            let v = Box::new(pos.remove(0));
+                            let r = Box::new(pos.remove(0));
+                            let s = Box::new(pos.remove(0));
+                            EvmExpr::Ecrecover { hash, v, r, s }
+                        }
+                        "addmod" => {
+                            let x = Box::new(pos.remove(0));
+                            let y = Box::new(pos.remove(0));
+                            let k = Box::new(pos.remove(0));
+                            EvmExpr::Addmod { x, y, k }
+                        }
+                        "mulmod" => {
+                            let x = Box::new(pos.remove(0));
+                            let y = Box::new(pos.remove(0));
+                            let k = Box::new(pos.remove(0));
+                            EvmExpr::Mulmod { x, y, k }
+                        }
+                        "gasleft" => EvmExpr::Gasleft,
+                        "blockhash" => EvmExpr::Blockhash(Box::new(pos.remove(0))),
+                        _ => unreachable!(),
+                    };
+                    return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
+                }
+                _ => {}
+            }
+        }
+
+        // ── Fix 8: abi.* builtins ────────────────────────────────
+        if let ast::Expr::Member(mem) = &*e.callee {
+            if let ast::Expr::Ident(base) = &*mem.base {
+                if base.name.base.as_str() == "abi" {
+                    let method = mem.member.to_string();
+                    let (args, extra) = self.lower_call_args_exprs(&e.args)?;
+                    stmts.extend(extra);
+                    let pos = args.into_positional();
+                    let evm = match method.as_str() {
+                        "encode" => Some(EvmExpr::AbiEncode(pos)),
+                        "encodePacked" => Some(EvmExpr::AbiEncodePacked(pos)),
+                        "decode" => {
+                            let mut p = pos;
+                            let data = if p.is_empty() {
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                            } else {
+                                p.remove(0)
+                            };
+                            // The rest of the args represent the types to decode to
+                            // In the AST, `abi.decode(data, (uint, address))` passes types
+                            // We use the expression's return type from the AST
+                            let types = match &ty {
+                                Type::Tuple(ts) => ts.clone(),
+                                Type::None => vec![],
+                                t => vec![t.clone()],
+                            };
+                            Some(EvmExpr::AbiDecode { data: Box::new(data), types })
+                        }
+                        "encodeWithSelector" => {
+                            let mut p = pos;
+                            let selector = Box::new(if p.is_empty() {
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                            } else {
+                                p.remove(0)
+                            });
+                            Some(EvmExpr::AbiEncodeWithSelector { selector, args: p })
+                        }
+                        "encodeWithSignature" => {
+                            let mut p = pos;
+                            let signature = Box::new(if p.is_empty() {
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                            } else {
+                                p.remove(0)
+                            });
+                            Some(EvmExpr::AbiEncodeWithSignature { signature, args: p })
+                        }
+                        "encodeCall" => {
+                            let mut p = pos;
+                            let func = Box::new(if p.is_empty() {
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                            } else {
+                                p.remove(0)
+                            });
+                            Some(EvmExpr::AbiEncodeCall { func, args: p })
+                        }
+                        _ => None,
+                    };
+                    if let Some(evm) = evm {
+                        return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
+                    }
+                }
+            }
+
+            // ── Fix 9: addr.transfer(amt) / addr.send(amt) ─────────
+            let method = mem.member.to_string();
+            if method == "transfer" || method == "send" {
+                // Only intercept single-argument calls (address.transfer/send take 1 arg)
+                if let ast::CallArgs::Unnamed(uargs) = &e.args {
+                    if uargs.len() == 1 {
+                        let (base_e, extra) = self.lower_expr(&mem.base)?;
+                        stmts.extend(extra);
+                        let (args, extra) = self.lower_call_args_exprs(&e.args)?;
+                        stmts.extend(extra);
+                        let mut pos = args.into_positional();
+                        let amount = pos.remove(0);
+                        let evm = if method == "transfer" {
+                            EvmExpr::Transfer {
+                                target: Box::new(base_e),
+                                amount: Box::new(amount),
+                            }
+                        } else {
+                            EvmExpr::Send { target: Box::new(base_e), value: Box::new(amount) }
+                        };
+                        return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
+                    }
+                }
+            }
+        }
+
         let (callee, extra) = self.lower_expr(&e.callee)?;
         stmts.extend(extra);
         let (args, extra) = self.lower_call_args_exprs(&e.args)?;
@@ -985,10 +1211,7 @@ impl Lowerer {
         }
     }
 
-    fn lower_call_args_exprs(
-        &mut self,
-        args: &ast::CallArgs,
-    ) -> Result<(CallArgs, Vec<Stmt>)> {
+    fn lower_call_args_exprs(&mut self, args: &ast::CallArgs) -> Result<(CallArgs, Vec<Stmt>)> {
         match args {
             ast::CallArgs::Unnamed(exprs) => {
                 let mut stmts = vec![];
@@ -1097,7 +1320,9 @@ impl Lowerer {
                     ast::CallArgs::Unnamed(args) => format!("{member}__type__{}", args[0]),
                     _ => fail!("Expected unnamed args in type query"),
                 };
-                let callee = Expr::Var(VarExpr::new(fname, Type::None, span));
+                // Fix 6: give callee a proper Function type
+                let callee_ty = Type::Function { params: vec![], returns: vec![ty.clone()] };
+                let callee = Expr::Var(VarExpr::new(fname, callee_ty, span));
                 let expr = Expr::FunctionCall(CallExpr {
                     callee: Box::new(callee),
                     args: CallArgs::Positional(vec![]),
@@ -1109,17 +1334,23 @@ impl Lowerer {
         }
 
         // ── EVM global member accesses ──────────────────────────────
-        // Recognize `msg.sender`, `msg.value`, `tx.origin`,
-        // `block.timestamp`, `block.number` and lower them to
-        // dedicated dialect expressions.
         if let ast::Expr::Ident(base_id) = &*e.base {
             let base_name = base_id.name.base.as_str();
             let evm_expr = match (base_name, member.as_str()) {
                 ("msg", "sender") => Some(EvmExpr::MsgSender),
                 ("msg", "value") => Some(EvmExpr::MsgValue),
+                ("msg", "data") => Some(EvmExpr::MsgData),
+                ("msg", "sig") => Some(EvmExpr::MsgSig),
                 ("tx", "origin") => Some(EvmExpr::TxOrigin),
                 ("block", "timestamp") => Some(EvmExpr::Timestamp),
                 ("block", "number") => Some(EvmExpr::BlockNumber),
+                ("block", "difficulty") | ("block", "prevrandao") => {
+                    Some(EvmExpr::BlockDifficulty)
+                }
+                ("block", "gaslimit") => Some(EvmExpr::BlockGaslimit),
+                ("block", "coinbase") => Some(EvmExpr::BlockCoinbase),
+                ("block", "chainid") => Some(EvmExpr::BlockChainid),
+                ("block", "basefee") => Some(EvmExpr::BlockBasefee),
                 _ => None,
             };
             if let Some(evm) = evm_expr {
@@ -1180,8 +1411,9 @@ impl Lowerer {
     fn lower_new_expr(&mut self, e: &ast::NewExpr) -> Result<(Expr, Vec<Stmt>)> {
         let ty = self.lower_type(&e.typ)?;
         let span = loc_to_span(e.loc);
-        let name = format!("new {ty}");
-        let callee = Expr::Var(VarExpr::new(name, Type::None, span));
+        let name = format!("new__{ty}");
+        let callee_ty = Type::Function { params: vec![], returns: vec![ty.clone()] };
+        let callee = Expr::Var(VarExpr::new(name, callee_ty, span));
         Ok((callee, vec![]))
     }
 

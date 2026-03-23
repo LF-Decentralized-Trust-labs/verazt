@@ -241,7 +241,7 @@ impl Expr {
             Expr::Old(inner) => inner.typ(),
             Expr::Result(_) => Type::None, // determined by function signature
             Expr::Forall { .. } | Expr::Exists { .. } => Type::Bool,
-            Expr::Dialect(_) => Type::None,
+            Expr::Dialect(d) => d.typ(),
         }
     }
 
@@ -380,9 +380,10 @@ impl Display for CallExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let args: Vec<_> = match &self.args {
             CallArgs::Positional(args) => args.iter().map(|a| a.to_string()).collect(),
-            CallArgs::Named(named) => {
-                named.iter().map(|n| format!("{}: {}", n.name, n.value)).collect()
-            }
+            CallArgs::Named(named) => named
+                .iter()
+                .map(|n| format!("{}: {}", n.name, n.value))
+                .collect(),
         };
         write!(f, "{}({})", self.callee, args.join(", "))
     }

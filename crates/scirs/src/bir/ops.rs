@@ -48,7 +48,7 @@ impl Display for OpRef {
 
 impl Display for SsaName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}_{}", self.base, self.version)
+        write!(f, "%v{}", self.version)
     }
 }
 

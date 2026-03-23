@@ -13,7 +13,8 @@ use std::collections::HashMap;
 // Pass 1: Count function name occurrences
 //-------------------------------------------------
 
-/// Count how many times each function base name appears across all source units.
+/// Count how many times each function base name appears across all source
+/// units.
 fn count_func_names(source_units: &[SourceUnit]) -> HashMap<String, usize> {
     let mut counts: HashMap<String, usize> = HashMap::new();
     for su in source_units {
@@ -45,7 +46,8 @@ struct Renamer {
     env: NamingEnv,
     /// Set of function base names that are overloaded (appear more than once).
     overloaded_names: HashMap<String, usize>,
-    /// Name of the contract currently being processed (for naming constructors).
+    /// Name of the contract currently being processed (for naming
+    /// constructors).
     current_contract_name: Option<String>,
 }
 

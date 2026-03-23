@@ -15,6 +15,8 @@ pub mod ops;
 pub mod pdg;
 pub mod summary;
 pub mod taint;
+pub mod utils;
+pub mod verifier;
 
 // Re-exports for convenient access
 pub use alias::*;

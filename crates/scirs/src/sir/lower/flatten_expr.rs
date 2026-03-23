@@ -12,12 +12,16 @@
 //! f(tmp1, 1)
 //! ```
 
-use crate::cir::lower::CirLowerError;
 use crate::sir;
+use crate::sir::lower::CirLowerError;
 
 /// Flatten all call arguments to atoms.
 pub fn run(module: &sir::Module) -> Result<sir::Module, CirLowerError> {
-    let decls = module.decls.iter().map(flatten_decl).collect::<Result<Vec<_>, _>>()?;
+    let decls = module
+        .decls
+        .iter()
+        .map(flatten_decl)
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(sir::Module { id: module.id.clone(), attrs: module.attrs.clone(), decls })
 }
 
@@ -28,9 +32,7 @@ fn flatten_decl(decl: &sir::Decl) -> Result<sir::Decl, CirLowerError> {
     }
 }
 
-fn flatten_contract(
-    contract: &sir::ContractDecl,
-) -> Result<sir::ContractDecl, CirLowerError> {
+fn flatten_contract(contract: &sir::ContractDecl) -> Result<sir::ContractDecl, CirLowerError> {
     let members = contract
         .members
         .iter()
@@ -50,7 +52,8 @@ fn flatten_member(member: &sir::MemberDecl) -> Result<sir::MemberDecl, CirLowerE
                 }
                 None => (vec![], None),
             };
-            // pre-stmts in storage init are unusual; just drop them (no body to insert into).
+            // pre-stmts in storage init are unusual; just drop them (no body to insert
+            // into).
             let _ = pre;
             Ok(sir::MemberDecl::Storage(sir::StorageDecl { init, ..s.clone() }))
         }
@@ -118,10 +121,7 @@ fn flatten_stmt(stmt: &sir::Stmt, counter: &mut usize) -> (Vec<sir::Stmt>, sir::
             let (pre_cond, cond) = flatten_call_args_in_expr(&s.cond, counter);
             let then_body = flatten_stmts(&s.then_body, counter);
             let else_body = s.else_body.as_ref().map(|b| flatten_stmts(b, counter));
-            (
-                pre_cond,
-                sir::Stmt::If(sir::IfStmt { cond, then_body, else_body, ..s.clone() }),
-            )
+            (pre_cond, sir::Stmt::If(sir::IfStmt { cond, then_body, else_body, ..s.clone() }))
         }
         sir::Stmt::While(s) => {
             let (pre_cond, cond) = flatten_call_args_in_expr(&s.cond, counter);
@@ -130,10 +130,7 @@ fn flatten_stmt(stmt: &sir::Stmt, counter: &mut usize) -> (Vec<sir::Stmt>, sir::
                 let (_, e2) = flatten_call_args_in_expr(e, counter);
                 e2
             });
-            (
-                pre_cond,
-                sir::Stmt::While(sir::WhileStmt { cond, body, invariant, ..s.clone() }),
-            )
+            (pre_cond, sir::Stmt::While(sir::WhileStmt { cond, body, invariant, ..s.clone() }))
         }
         sir::Stmt::For(s) => {
             let init = s.init.as_ref().map(|i| {
@@ -164,10 +161,7 @@ fn flatten_stmt(stmt: &sir::Stmt, counter: &mut usize) -> (Vec<sir::Stmt>, sir::
                 }
             });
             let body = flatten_stmts(&s.body, counter);
-            (
-                pre_cond,
-                sir::Stmt::For(sir::ForStmt { init, cond, update, body, ..s.clone() }),
-            )
+            (pre_cond, sir::Stmt::For(sir::ForStmt { init, cond, update, body, ..s.clone() }))
         }
         sir::Stmt::Return(s) => {
             let (pre, value) = match &s.value {
@@ -264,10 +258,7 @@ fn flatten_call_args_in_expr(
         }
         sir::Expr::UnOp(e) => {
             let (pre, operand) = flatten_call_args_in_expr(&e.operand, counter);
-            (
-                pre,
-                sir::Expr::UnOp(sir::UnOpExpr { operand: Box::new(operand), ..e.clone() }),
-            )
+            (pre, sir::Expr::UnOp(sir::UnOpExpr { operand: Box::new(operand), ..e.clone() }))
         }
         sir::Expr::IndexAccess(e) => {
             let (pre_base, base) = flatten_call_args_in_expr(&e.base, counter);
@@ -293,18 +284,12 @@ fn flatten_call_args_in_expr(
             let (pre, base) = flatten_call_args_in_expr(&e.base, counter);
             (
                 pre,
-                sir::Expr::FieldAccess(sir::FieldAccessExpr {
-                    base: Box::new(base),
-                    ..e.clone()
-                }),
+                sir::Expr::FieldAccess(sir::FieldAccessExpr { base: Box::new(base), ..e.clone() }),
             )
         }
         sir::Expr::TypeCast(e) => {
             let (pre, inner) = flatten_call_args_in_expr(&e.expr, counter);
-            (
-                pre,
-                sir::Expr::TypeCast(sir::TypeCastExpr { expr: Box::new(inner), ..e.clone() }),
-            )
+            (pre, sir::Expr::TypeCast(sir::TypeCastExpr { expr: Box::new(inner), ..e.clone() }))
         }
         sir::Expr::Ternary(e) => {
             let (pre_cond, cond) = flatten_call_args_in_expr(&e.cond, counter);
@@ -344,25 +329,11 @@ fn flatten_call_args_in_expr(
         }
         sir::Expr::Forall { var, ty, body } => {
             let (pre, body2) = flatten_call_args_in_expr(body, counter);
-            (
-                pre,
-                sir::Expr::Forall {
-                    var: var.clone(),
-                    ty: ty.clone(),
-                    body: Box::new(body2),
-                },
-            )
+            (pre, sir::Expr::Forall { var: var.clone(), ty: ty.clone(), body: Box::new(body2) })
         }
         sir::Expr::Exists { var, ty, body } => {
             let (pre, body2) = flatten_call_args_in_expr(body, counter);
-            (
-                pre,
-                sir::Expr::Exists {
-                    var: var.clone(),
-                    ty: ty.clone(),
-                    body: Box::new(body2),
-                },
-            )
+            (pre, sir::Expr::Exists { var: var.clone(), ty: ty.clone(), body: Box::new(body2) })
         }
         // Atoms — no flattening needed.
         sir::Expr::Var(_) | sir::Expr::Lit(_) | sir::Expr::Result(_) | sir::Expr::Dialect(_) => {
@@ -373,11 +344,7 @@ fn flatten_call_args_in_expr(
 
 /// Flatten an expression and, if the result is still complex (not an atom),
 /// introduce a `LocalVar` temp.  The temp is appended to `pre`.
-fn lift_to_atom(
-    expr: &sir::Expr,
-    pre: &mut Vec<sir::Stmt>,
-    counter: &mut usize,
-) -> sir::Expr {
+fn lift_to_atom(expr: &sir::Expr, pre: &mut Vec<sir::Stmt>, counter: &mut usize) -> sir::Expr {
     let (p, e) = flatten_call_args_in_expr(expr, counter);
     pre.extend(p);
 
@@ -385,7 +352,7 @@ fn lift_to_atom(
         e
     } else {
         *counter += 1;
-        let tmp_name = format!("__flat_{counter}__");
+        let tmp_name = format!("__tmp_{counter}");
         let ty = e.typ();
         let span = e.span();
         let decl = sir::LocalVarDecl { name: tmp_name.clone(), ty: ty.clone() };

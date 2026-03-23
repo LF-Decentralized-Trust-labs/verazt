@@ -2,28 +2,26 @@
 //!
 //! Standard Cytron et al. pruned SSA construction.
 //! Assigns unique version numbers to each variable definition.
+//!
+//! Uses a single global counter so that every SSA name gets a unique
+//! `%vN` identifier across the entire function.
 
 use crate::bir::cfg::BasicBlock;
 use crate::bir::ops::OpKind;
-use std::collections::HashMap;
 
 /// Rename all variables in the basic blocks to SSA form.
 ///
-/// This is a simplified SSA renaming pass that assigns version numbers
-/// to variable definitions. A full implementation would compute dominance
-/// frontiers and insert phi functions; this version uses a simple
-/// sequential numbering scheme per-variable.
+/// Uses a single global counter so that every definition receives a
+/// unique, monotonically increasing ID displayed as `%vN`.
 pub fn rename_to_ssa(blocks: &mut [BasicBlock]) {
-    let mut version_map: HashMap<String, u32> = HashMap::new();
+    let mut next_id: u32 = 0;
 
     for block in blocks.iter_mut() {
         for op in &mut block.ops {
-            // If this op has a result, rename it with a new version
+            // If this op has a result, assign the next global ID
             if let Some((ssa_name, _ty)) = &mut op.result {
-                let base = ssa_name.base.clone();
-                let version = version_map.entry(base.clone()).or_insert(0);
-                ssa_name.version = *version;
-                *version += 1;
+                ssa_name.version = next_id;
+                next_id += 1;
             }
 
             // For phi nodes, ensure each incoming value has a proper version

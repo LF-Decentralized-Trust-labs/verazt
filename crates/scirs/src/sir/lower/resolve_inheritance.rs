@@ -3,14 +3,15 @@
 //! For each contract with non-empty `parents`, this pass:
 //! 1. Performs C3 linearization of the inheritance chain.
 //! 2. Copies storage / function / dialect members from parent contracts into
-//!    the derived contract (parents first, then own members — most-derived wins).
+//!    the derived contract (parents first, then own members — most-derived
+//!    wins).
 //! 3. Clears the `parents` field so CIR sees a flat contract.
 //!
 //! `super.method()` calls are left as-is; they are resolved by `elim_modifiers`
 //! or future passes that have full call-graph information.
 
-use crate::cir::lower::CirLowerError;
 use crate::sir;
+use crate::sir::lower::CirLowerError;
 use std::collections::HashMap;
 
 /// Resolve inheritance and flatten contracts.
@@ -32,9 +33,7 @@ pub fn run(module: &sir::Module) -> Result<sir::Module, CirLowerError> {
         .decls
         .iter()
         .map(|d| match d {
-            sir::Decl::Contract(c) => {
-                Ok(sir::Decl::Contract(flatten_contract(c, &contract_map)?))
-            }
+            sir::Decl::Contract(c) => Ok(sir::Decl::Contract(flatten_contract(c, &contract_map)?)),
             sir::Decl::Dialect(d) => Ok(sir::Decl::Dialect(d.clone())),
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -88,9 +87,10 @@ fn add_member(members: &mut Vec<sir::MemberDecl>, member: &sir::MemberDecl) {
     match member {
         sir::MemberDecl::Function(f) => {
             // Replace existing function with same name (most-derived wins).
-            if let Some(pos) = members.iter().position(|m| {
-                matches!(m, sir::MemberDecl::Function(g) if g.name == f.name)
-            }) {
+            if let Some(pos) = members
+                .iter()
+                .position(|m| matches!(m, sir::MemberDecl::Function(g) if g.name == f.name))
+            {
                 members[pos] = member.clone();
             } else {
                 members.push(member.clone());
@@ -98,9 +98,10 @@ fn add_member(members: &mut Vec<sir::MemberDecl>, member: &sir::MemberDecl) {
         }
         sir::MemberDecl::Storage(s) => {
             // Don't duplicate storage slots with the same name.
-            if !members.iter().any(|m| {
-                matches!(m, sir::MemberDecl::Storage(t) if t.name == s.name)
-            }) {
+            if !members
+                .iter()
+                .any(|m| matches!(m, sir::MemberDecl::Storage(t) if t.name == s.name))
+            {
                 members.push(member.clone());
             }
         }
@@ -129,7 +130,8 @@ fn linearize(
         return Ok(vec![name.to_string()]);
     }
 
-    // Build the lists required by C3: L(contract) = contract + merge(L(p1), ..., L(pn), [p1,...,pn])
+    // Build the lists required by C3: L(contract) = contract + merge(L(p1), ...,
+    // L(pn), [p1,...,pn])
     let mut lists: Vec<Vec<String>> = Vec::new();
     for parent in &contract.parents {
         lists.push(linearize(parent, map)?);

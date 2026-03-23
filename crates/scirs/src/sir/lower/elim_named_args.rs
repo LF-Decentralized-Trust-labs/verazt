@@ -1,11 +1,12 @@
-//! Eliminate named arguments — convert `f({a: x, b: y})` to positional `f(x, y)`.
+//! Eliminate named arguments — convert `f({a: x, b: y})` to positional `f(x,
+//! y)`.
 //!
 //! The pass collects parameter names for every function, event and error in
 //! the module, then rewrites `CallArgs::Named` to `CallArgs::Positional` in
 //! the correct order by matching argument names against parameter names.
 
-use crate::cir::lower::CirLowerError;
 use crate::sir;
+use crate::sir::lower::CirLowerError;
 use std::collections::HashMap;
 
 /// Convert all named-argument call-sites to positional form.
@@ -95,11 +96,18 @@ fn rewrite_contract(
     contract: &sir::ContractDecl,
     map: &HashMap<String, Vec<String>>,
 ) -> sir::ContractDecl {
-    let members = contract.members.iter().map(|m| rewrite_member(m, map)).collect();
+    let members = contract
+        .members
+        .iter()
+        .map(|m| rewrite_member(m, map))
+        .collect();
     sir::ContractDecl { members, ..contract.clone() }
 }
 
-fn rewrite_member(member: &sir::MemberDecl, map: &HashMap<String, Vec<String>>) -> sir::MemberDecl {
+fn rewrite_member(
+    member: &sir::MemberDecl,
+    map: &HashMap<String, Vec<String>>,
+) -> sir::MemberDecl {
     match member {
         sir::MemberDecl::Function(f) => sir::MemberDecl::Function(rewrite_function(f, map)),
         sir::MemberDecl::Storage(s) => {
@@ -177,10 +185,9 @@ fn rewrite_stmt(stmt: &sir::Stmt, map: &HashMap<String, Vec<String>>) -> sir::St
             value: s.value.as_ref().map(|e| rewrite_expr(e, map)),
             ..s.clone()
         }),
-        sir::Stmt::Revert(s) => sir::Stmt::Revert(sir::RevertStmt {
-            args: rewrite_exprs(&s.args, map),
-            ..s.clone()
-        }),
+        sir::Stmt::Revert(s) => {
+            sir::Stmt::Revert(sir::RevertStmt { args: rewrite_exprs(&s.args, map), ..s.clone() })
+        }
         sir::Stmt::Assert(s) => sir::Stmt::Assert(sir::AssertStmt {
             cond: rewrite_expr(&s.cond, map),
             message: s.message.as_ref().map(|e| rewrite_expr(e, map)),
@@ -259,10 +266,9 @@ fn rewrite_expr(expr: &sir::Expr, map: &HashMap<String, Vec<String>>) -> sir::Ex
             ty: ty.clone(),
             body: Box::new(rewrite_expr(body, map)),
         },
-        sir::Expr::Var(_)
-        | sir::Expr::Lit(_)
-        | sir::Expr::Result(_)
-        | sir::Expr::Dialect(_) => expr.clone(),
+        sir::Expr::Var(_) | sir::Expr::Lit(_) | sir::Expr::Result(_) | sir::Expr::Dialect(_) => {
+            expr.clone()
+        }
     }
 }
 

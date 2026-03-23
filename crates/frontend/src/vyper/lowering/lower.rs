@@ -11,7 +11,6 @@ fn loc_to_span(loc: Option<&Loc>) -> Option<Span> {
     loc.map(|l| Span::new(l.lineno, l.end_lineno))
 }
 
-
 /// Run all normalization passes on a Vyper source unit.
 pub fn run_passes(source_unit: &ast::SourceUnit) -> ast::SourceUnit {
     let su = super::rename_vars::rename_vars(source_unit);
