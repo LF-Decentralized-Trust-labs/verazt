@@ -92,9 +92,9 @@ impl Display for Function {
         let params: Vec<_> = self.params.iter().map(|(name, ty)| format!("{name}: {ty}")).collect();
         writeln!(f, "function {}({}) {{", self.id, params.join(", "))?;
         for op in &self.body {
-            writeln!(f, "    {op}")?;
+            writeln!(f, "  {op}")?;
         }
-        writeln!(f, "    {}", self.term)?;
+        writeln!(f, "  {}", self.term)?;
         writeln!(f, "}}")
     }
 }
