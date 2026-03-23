@@ -13,6 +13,7 @@ pub mod source_unit;
 pub mod stmts;
 pub mod types;
 pub mod utils;
+pub mod verifier;
 pub mod yul;
 
 pub use block::*;

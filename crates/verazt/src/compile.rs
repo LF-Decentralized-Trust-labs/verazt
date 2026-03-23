@@ -111,9 +111,21 @@ fn report_verify_result(ir_name: &str, result: std::result::Result<(), Vec<Verif
         }
         Err(errors) => {
             println!("Error Details:");
-            println!();
-            for (i, e) in errors.iter().enumerate() {
-                println!("{}. {}: {}", i + 1, e.pass, e.message);
+            // Group errors by pass name, preserving insertion order.
+            let mut grouped: Vec<(&str, Vec<&str>)> = Vec::new();
+            for e in &errors {
+                if let Some((_pass, msgs)) = grouped.iter_mut().find(|(p, _)| *p == e.pass) {
+                    msgs.push(&e.message);
+                } else {
+                    grouped.push((e.pass, vec![&e.message]));
+                }
+            }
+            for (pass, msgs) in &grouped {
+                println!();
+                println!("{pass}:");
+                for (i, msg) in msgs.iter().enumerate() {
+                    println!("  {}. {msg}", i + 1);
+                }
             }
             println!();
             Err(create_error(format!(
@@ -145,6 +157,16 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         }
     }
 
+    // Verify AST
+    if args.debug {
+        print_subsection_header("Solidity AST Verification");
+        print_verify_header("AST");
+        report_verify_result(
+            "AST",
+            frontend::solidity::ast::verifier::verify(&source_units, true),
+        )?;
+    }
+
     // Step 3: Normalize + lower to SIR (integrated in sir::lower)
     let sir_modules = solidity::lowering::lower_source_units(&source_units)?;
 
@@ -153,6 +175,13 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         if args.print_sir || args.debug {
             print_section_header("SIR");
             sir_module.print_pretty();
+        }
+
+        // Verify SIR
+        if args.debug {
+            print_subsection_header("SIR Verification");
+            print_verify_header("SIR");
+            report_verify_result("SIR", scirs::sir::verifier::verify(sir_module, true))?;
         }
 
         // Step 5: Lower SIR → CIR
@@ -230,6 +259,13 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     if args.print_sir || args.debug {
         print_section_header("SIR");
         sir_module.print_pretty();
+    }
+
+    // Verify SIR
+    if args.debug {
+        print_subsection_header("SIR Verification");
+        print_verify_header("SIR");
+        report_verify_result("SIR", scirs::sir::verifier::verify(&sir_module, true))?;
     }
 
     // Step 5: Lower SIR → CIR
