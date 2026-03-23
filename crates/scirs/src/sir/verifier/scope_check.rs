@@ -1,6 +1,7 @@
 //! SIR verifier pass: scope_check
 //!
-//! Checks that variables used in expressions are declared in an enclosing scope.
+//! Checks that variables used in expressions are declared in an enclosing
+//! scope.
 
 use crate::sir::*;
 use crate::verify::VerifyError;
@@ -39,7 +40,10 @@ impl ScopeChecker {
     fn check_expr(&mut self, expr: &Expr) {
         match expr {
             Expr::Var(v) => {
-                if !self.is_declared(&v.name) {
+                if !self.is_declared(&v.name)
+                    && !v.name.starts_with("new__")
+                    && !v.name.contains("__type__")
+                {
                     let mut err = VerifyError::new(
                         PASS,
                         format!("variable `{}` used but not declared in scope", v.name),

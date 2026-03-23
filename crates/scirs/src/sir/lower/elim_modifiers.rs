@@ -3,14 +3,15 @@
 //! For each function that has non-empty `modifier_invocs`, this pass:
 //! 1. Looks up the modifier definition in the contract's `ModifierDef` members.
 //! 2. Substitutes modifier parameters with the call-site arguments.
-//! 3. Replaces `EvmStmt::Placeholder` (`_;`) with the accumulated function body.
+//! 3. Replaces `EvmStmt::Placeholder` (`_;`) with the accumulated function
+//!    body.
 //! 4. Repeats for each modifier in order (outermost modifier applied last).
 //! 5. Removes all `ModifierDef` member declarations from contracts.
 //! 6. Clears `modifier_invocs` from all functions.
 
-use crate::sir::lower::CirLowerError;
 use crate::sir;
 use crate::sir::dialect::evm::{EvmMemberDecl, EvmStmt};
+use crate::sir::lower::CirLowerError;
 use std::collections::HashMap;
 
 /// Inline all modifier invocations.
@@ -93,10 +94,12 @@ fn inline_modifiers(
     // Start with the original function body.
     let mut current_body: Vec<sir::Stmt> = func.body.clone().unwrap_or_default();
 
-    // Apply modifiers in reverse order so the first modifier is the outermost wrapper.
+    // Apply modifiers in reverse order so the first modifier is the outermost
+    // wrapper.
     for invoc in func.modifier_invocs.iter().rev() {
         let Some((params, modifier_body)) = modifier_map.get(&invoc.name) else {
-            // Unknown modifier — skip (it may be inherited; handled by resolve_inheritance).
+            // Unknown modifier — skip (it may be inherited; handled by
+            // resolve_inheritance).
             continue;
         };
 
@@ -111,11 +114,7 @@ fn inline_modifiers(
         current_body = inline_modifier_body(modifier_body, &current_body, &subst);
     }
 
-    Ok(sir::FunctionDecl {
-        body: Some(current_body),
-        modifier_invocs: vec![],
-        ..func.clone()
-    })
+    Ok(sir::FunctionDecl { body: Some(current_body), modifier_invocs: vec![], ..func.clone() })
 }
 
 /// Expand one modifier body by:
@@ -138,10 +137,7 @@ fn inline_modifier_body(
 }
 
 fn is_placeholder(stmt: &sir::Stmt) -> bool {
-    matches!(
-        stmt,
-        sir::Stmt::Dialect(sir::DialectStmt::Evm(EvmStmt::Placeholder))
-    )
+    matches!(stmt, sir::Stmt::Dialect(sir::DialectStmt::Evm(EvmStmt::Placeholder)))
 }
 
 // ─── Substitution of parameter variables ─────────────────────────────────────
@@ -168,7 +164,10 @@ fn subst_stmt(stmt: &sir::Stmt, subst: &HashMap<String, sir::Expr>) -> sir::Stmt
         sir::Stmt::If(s) => sir::Stmt::If(sir::IfStmt {
             cond: subst_expr(&s.cond, subst),
             then_body: s.then_body.iter().map(|st| subst_stmt(st, subst)).collect(),
-            else_body: s.else_body.as_ref().map(|b| b.iter().map(|st| subst_stmt(st, subst)).collect()),
+            else_body: s
+                .else_body
+                .as_ref()
+                .map(|b| b.iter().map(|st| subst_stmt(st, subst)).collect()),
             ..s.clone()
         }),
         sir::Stmt::While(s) => sir::Stmt::While(sir::WhileStmt {

@@ -38,7 +38,12 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
     }
 }
 
-fn check_ref(op_ref: &OpRef, defined: &HashSet<OpId>, span: Option<crate::sir::Span>, errors: &mut Vec<VerifyError>) {
+fn check_ref(
+    op_ref: &OpRef,
+    defined: &HashSet<OpId>,
+    span: Option<crate::sir::Span>,
+    errors: &mut Vec<VerifyError>,
+) {
     if !defined.contains(&op_ref.0) {
         let mut err = VerifyError::new(
             PASS,

@@ -78,7 +78,8 @@ fn compute_block_func_ids(bir_func: &Function) -> HashMap<BlockId, FunctionId> {
 
 /// Collect phi parameters for each block.
 ///
-/// Returns a map from BlockId to the list of (SsaName, Type) defined by phi nodes.
+/// Returns a map from BlockId to the list of (SsaName, Type) defined by phi
+/// nodes.
 fn collect_phi_params(blocks: &[BasicBlock]) -> HashMap<BlockId, Vec<(SsaName, Type)>> {
     let mut params = HashMap::new();
     for block in blocks {
@@ -181,12 +182,20 @@ fn collect_oprefs(op: &Op) -> Vec<OpRef> {
         OpKind::Call(c) => c.args.clone(),
         OpKind::Storage(s) => {
             let mut refs = Vec::new();
-            if let Some(k) = s.key_operand { refs.push(k); }
-            if let Some(v) = s.value_operand { refs.push(v); }
+            if let Some(k) = s.key_operand {
+                refs.push(k);
+            }
+            if let Some(v) = s.value_operand {
+                refs.push(v);
+            }
             refs
         }
-        OpKind::Const(_) | OpKind::Param { .. } | OpKind::TaintSrc(_)
-        | OpKind::TaintSnk(_) | OpKind::PseudoValue { .. } | OpKind::Opaque { .. } => vec![],
+        OpKind::Const(_)
+        | OpKind::Param { .. }
+        | OpKind::TaintSrc(_)
+        | OpKind::TaintSnk(_)
+        | OpKind::PseudoValue { .. }
+        | OpKind::Opaque { .. } => vec![],
     }
 }
 

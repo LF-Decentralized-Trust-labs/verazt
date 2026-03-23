@@ -17,10 +17,20 @@ pub fn verify(module: &Module, verbose: bool) -> Result<(), Vec<VerifyError>> {
     run_pass(3, "spec_check", spec_check::check(module), verbose, &mut errors);
     run_pass(4, "no_orphan_dialect", no_orphan_dialect::check(module), verbose, &mut errors);
 
-    if errors.is_empty() { Ok(()) } else { Err(errors) }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
 }
 
-fn run_pass(idx: usize, name: &str, result: Vec<VerifyError>, verbose: bool, errors: &mut Vec<VerifyError>) {
+fn run_pass(
+    idx: usize,
+    name: &str,
+    result: Vec<VerifyError>,
+    verbose: bool,
+    errors: &mut Vec<VerifyError>,
+) {
     if verbose {
         if result.is_empty() {
             println!("{idx}. {name}: ✓");

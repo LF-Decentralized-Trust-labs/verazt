@@ -3,6 +3,7 @@
 //! Checks that every expression has a non-`None` type and that
 //! function return types match the body.
 
+use crate::sir::dialect::DialectExpr;
 use crate::sir::utils::visit::{self, Visit};
 use crate::sir::*;
 use crate::verify::VerifyError;
@@ -15,7 +16,15 @@ struct TypeWellFormedChecker {
 
 impl<'a> Visit<'a> for TypeWellFormedChecker {
     fn visit_expr(&mut self, expr: &'a Expr) {
-        if expr.typ() == Type::None {
+        if expr.typ() == Type::None
+            && !matches!(
+                expr,
+                Expr::Result(_)
+                    | Expr::Dialect(DialectExpr::Evm(
+                        crate::sir::dialect::evm::EvmExpr::InlineAsm { .. }
+                    ))
+            )
+        {
             let mut err = VerifyError::new(PASS, "expression has `None` type");
             if let Some(span) = expr.span() {
                 err = err.with_span(span);

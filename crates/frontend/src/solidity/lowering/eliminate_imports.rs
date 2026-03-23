@@ -273,9 +273,7 @@ mod tests {
     use super::eliminate_import;
     use crate::solidity::{
         ast::utils::syntactic_comparer::compare_source_units,
-        lowering::{
-            rename_callees, rename_defs, utils::configure_unit_test_env,
-        },
+        lowering::{rename_callees, rename_defs, utils::configure_unit_test_env},
         parsing::parse_solidity_source_code_list,
     };
     use indoc::indoc;
@@ -428,7 +426,8 @@ mod tests {
         );
 
         // Expected output contract 2:
-        //   - Symbol imports ({a as b, fre, fre as foo}): bring names directly, no prefix
+        //   - Symbol imports ({a as b, fre, fre as foo}): bring names directly, no
+        //     prefix
         //   - Aliased import (as S1): prefix with S1_
         //   - Variables keep original names (no indexes)
         //   - Only functions get indexes from rename_defs
@@ -536,5 +535,3 @@ mod tests {
         }
     }
 }
-
-

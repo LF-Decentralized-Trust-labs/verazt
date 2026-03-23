@@ -28,7 +28,13 @@ pub fn verify(module: &Module, verbose: bool) -> Result<(), Vec<VerifyError>> {
     }
 }
 
-fn run_pass(idx: usize, name: &str, result: Vec<VerifyError>, verbose: bool, errors: &mut Vec<VerifyError>) {
+fn run_pass(
+    idx: usize,
+    name: &str,
+    result: Vec<VerifyError>,
+    verbose: bool,
+    errors: &mut Vec<VerifyError>,
+) {
     if verbose {
         if result.is_empty() {
             println!("{idx}. {name}: ✓");

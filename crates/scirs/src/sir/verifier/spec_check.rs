@@ -1,6 +1,7 @@
 //! SIR verifier pass: spec_check
 //!
-//! Checks that `requires`/`ensures` clauses reference only params, `old()`, and `result`.
+//! Checks that `requires`/`ensures` clauses reference only params, `old()`, and
+//! `result`.
 
 use crate::sir::utils::visit::{self, Visit};
 use crate::sir::*;

@@ -102,7 +102,10 @@ fn print_verify_header(ir_name: &str) {
 
 /// Report verification results after passes have been printed.
 /// Returns Ok(()) if no errors, or Err with a formatted message.
-fn report_verify_result(ir_name: &str, result: std::result::Result<(), Vec<VerifyError>>) -> Result<()> {
+fn report_verify_result(
+    ir_name: &str,
+    result: std::result::Result<(), Vec<VerifyError>>,
+) -> Result<()> {
     println!();
     match result {
         Ok(()) => {

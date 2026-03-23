@@ -105,10 +105,7 @@ pub mod default {
         folder.combine(result, t)
     }
 
-    pub fn fold_op<'a, T: Default, F: Fold<'a, T> + ?Sized>(
-        folder: &mut F,
-        op: &'a Op,
-    ) -> T {
+    pub fn fold_op<'a, T: Default, F: Fold<'a, T> + ?Sized>(folder: &mut F, op: &'a Op) -> T {
         match &op.kind {
             OpKind::Const(lit) => folder.fold_const_op(lit),
             OpKind::BinOp { op: binop, lhs, rhs, .. } => folder.fold_binop_op(binop, lhs, rhs),

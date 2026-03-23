@@ -62,6 +62,16 @@ pub enum DialectDecl {
     Move(move_lang::MoveDecl),
 }
 
+impl DialectExpr {
+    pub fn typ(&self) -> crate::sir::types::Type {
+        match self {
+            DialectExpr::Evm(e) => e.typ(),
+            DialectExpr::Anchor(_) => crate::sir::types::Type::None,
+            DialectExpr::Move(_) => crate::sir::types::Type::None,
+        }
+    }
+}
+
 // ─── Display implementations ──────────────────────────────────────
 
 impl Display for DialectExpr {

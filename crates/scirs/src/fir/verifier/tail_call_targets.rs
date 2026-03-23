@@ -11,11 +11,7 @@ const PASS: &str = "fir::tail_call_targets";
 pub fn check(module: &Module) -> Vec<VerifyError> {
     let mut errors = Vec::new();
 
-    let func_ids: HashSet<&str> = module
-        .functions
-        .iter()
-        .map(|f| f.id.0.as_str())
-        .collect();
+    let func_ids: HashSet<&str> = module.functions.iter().map(|f| f.id.0.as_str()).collect();
 
     for func in &module.functions {
         check_terminator(&func.term, &func_ids, &mut errors);
@@ -33,11 +29,7 @@ fn check_tail_call(tc: &TailCallData, func_ids: &HashSet<&str>, errors: &mut Vec
     }
 }
 
-fn check_terminator(
-    term: &Terminator,
-    func_ids: &HashSet<&str>,
-    errors: &mut Vec<VerifyError>,
-) {
+fn check_terminator(term: &Terminator, func_ids: &HashSet<&str>, errors: &mut Vec<VerifyError>) {
     match term {
         Terminator::TailCall(tc) => check_tail_call(tc, func_ids, errors),
         Terminator::Branch { then_call, else_call, .. } => {

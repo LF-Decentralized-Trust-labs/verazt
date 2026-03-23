@@ -31,7 +31,8 @@ pub enum MemberDecl {
     TypeAlias(TypeAlias),
     GlobalInvariant(Expr),
     Dialect(DialectMemberDecl),
-    /// A `using Library for Type` directive (preserved before SIR → CIR lowering).
+    /// A `using Library for Type` directive (preserved before SIR → CIR
+    /// lowering).
     UsingFor(UsingForDecl),
 }
 
@@ -74,7 +75,8 @@ pub struct FunctionDecl {
     pub attrs: Vec<Attr>,
     pub spec: Option<FuncSpec>,
     pub body: Option<Vec<Stmt>>,
-    /// Modifier invocations on this function (preserved before SIR → CIR lowering).
+    /// Modifier invocations on this function (preserved before SIR → CIR
+    /// lowering).
     pub modifier_invocs: Vec<ModifierInvoc>,
     pub span: Option<Span>,
 }
@@ -191,12 +193,10 @@ impl Display for MemberDecl {
             MemberDecl::TypeAlias(ta) => write!(f, "type {} = {};", ta.name, ta.ty),
             MemberDecl::GlobalInvariant(inv) => write!(f, "@invariant({inv})"),
             MemberDecl::Dialect(d) => write!(f, "{d}"),
-            MemberDecl::UsingFor(u) => {
-                match &u.target_type {
-                    Some(ty) => write!(f, "using {} for {};", u.library, ty),
-                    None => write!(f, "using {} for *;", u.library),
-                }
-            }
+            MemberDecl::UsingFor(u) => match &u.target_type {
+                Some(ty) => write!(f, "using {} for {};", u.library, ty),
+                None => write!(f, "using {} for *;", u.library),
+            },
         }
     }
 }

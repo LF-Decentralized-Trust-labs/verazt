@@ -203,10 +203,7 @@ pub mod default {
         visitor.visit_expr(&stmt.rhs);
     }
 
-    pub fn visit_expr_stmt<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        stmt: &'a CanonExprStmt,
-    ) {
+    pub fn visit_expr_stmt<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, stmt: &'a CanonExprStmt) {
         visitor.visit_expr(&stmt.expr);
     }
 
@@ -218,10 +215,7 @@ pub mod default {
         }
     }
 
-    pub fn visit_while_stmt<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        stmt: &'a CanonWhileStmt,
-    ) {
+    pub fn visit_while_stmt<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, stmt: &'a CanonWhileStmt) {
         visitor.visit_expr(&stmt.cond);
         visitor.visit_stmts(&stmt.body);
         if let Some(inv) = &stmt.invariant {
@@ -293,18 +287,12 @@ pub mod default {
         }
     }
 
-    pub fn visit_binop_expr<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        expr: &'a CanonBinOpExpr,
-    ) {
+    pub fn visit_binop_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a CanonBinOpExpr) {
         visitor.visit_expr(&expr.lhs);
         visitor.visit_expr(&expr.rhs);
     }
 
-    pub fn visit_unop_expr<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        expr: &'a CanonUnOpExpr,
-    ) {
+    pub fn visit_unop_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a CanonUnOpExpr) {
         visitor.visit_expr(&expr.operand);
     }
 
@@ -325,10 +313,7 @@ pub mod default {
         visitor.visit_expr(&expr.base);
     }
 
-    pub fn visit_call_expr<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        expr: &'a CanonCallExpr,
-    ) {
+    pub fn visit_call_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a CanonCallExpr) {
         visitor.visit_expr(&expr.callee);
         for arg in &expr.args {
             visitor.visit_expr(arg);

@@ -13,11 +13,11 @@ pub mod dialect;
 pub mod exprs;
 pub mod lits;
 pub mod loc;
+pub mod lower;
 pub mod module;
 pub mod spec;
 pub mod stmts;
 pub mod types;
-pub mod lower;
 pub mod utils;
 pub mod verifier;
 

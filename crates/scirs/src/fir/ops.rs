@@ -66,7 +66,12 @@ impl Module {
 }
 
 impl Function {
-    pub fn new(id: FunctionId, params: Vec<(SsaName, Type)>, body: Vec<Op>, term: Terminator) -> Self {
+    pub fn new(
+        id: FunctionId,
+        params: Vec<(SsaName, Type)>,
+        body: Vec<Op>,
+        term: Terminator,
+    ) -> Self {
         Function { id, params, body, term }
     }
 }
@@ -89,7 +94,11 @@ impl Display for Module {
 
 impl Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params: Vec<_> = self.params.iter().map(|(name, ty)| format!("{name}: {ty}")).collect();
+        let params: Vec<_> = self
+            .params
+            .iter()
+            .map(|(name, ty)| format!("{name}: {ty}"))
+            .collect();
         writeln!(f, "function {}({}) {{", self.id, params.join(", "))?;
         for op in &self.body {
             writeln!(f, "  {op}")?;

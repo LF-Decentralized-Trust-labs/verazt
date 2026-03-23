@@ -24,17 +24,11 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
         if first.id.0 != 0 {
             errors.push(VerifyError::new(
                 PASS,
-                format!(
-                    "in {}, first block is {} but expected %bb0",
-                    func.id, first.id
-                ),
+                format!("in {}, first block is {} but expected %bb0", func.id, first.id),
             ));
         }
     } else {
-        errors.push(VerifyError::new(
-            PASS,
-            format!("in {}, function has no blocks", func.id),
-        ));
+        errors.push(VerifyError::new(PASS, format!("in {}, function has no blocks", func.id)));
     }
 
     // Check TxnExit blocks have no successors (this is structural:
@@ -42,20 +36,15 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
     // We still verify that only terminal blocks use TxnExit, by noting
     // there's nothing else to check here structurally.
     // Additionally, check that there's at least one exit (TxnExit or Unreachable).
-    let has_exit = func.blocks.iter().any(|b| {
-        matches!(
-            b.term,
-            Terminator::TxnExit { .. } | Terminator::Unreachable
-        )
-    });
+    let has_exit = func
+        .blocks
+        .iter()
+        .any(|b| matches!(b.term, Terminator::TxnExit { .. } | Terminator::Unreachable));
 
     if !has_exit && !func.blocks.is_empty() {
         errors.push(VerifyError::new(
             PASS,
-            format!(
-                "in {}, no exit block (TxnExit or Unreachable) found",
-                func.id
-            ),
+            format!("in {}, no exit block (TxnExit or Unreachable) found", func.id),
         ));
     }
 }

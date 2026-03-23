@@ -27,10 +27,7 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
             if !seen.insert(op.id.0) {
                 let mut err = VerifyError::new(
                     PASS,
-                    format!(
-                        "in {}, duplicate OpId {} in block {}",
-                        func.id, op.id, block.id
-                    ),
+                    format!("in {}, duplicate OpId {} in block {}", func.id, op.id, block.id),
                 );
                 if let Some(span) = op.span {
                     err = err.with_span(span);

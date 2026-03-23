@@ -17,7 +17,13 @@ pub fn verify(module: &Module, verbose: bool) -> Result<(), Vec<VerifyError>> {
     run_pass(2, "tail_call_targets", tail_call_targets::check(module), verbose, &mut errors);
     run_pass(3, "param_arity", param_arity::check(module), verbose, &mut errors);
     run_pass(4, "no_orphan_blocks", no_orphan_blocks::check(module), verbose, &mut errors);
-    run_pass(5, "terminal_completeness", terminal_completeness::check(module), verbose, &mut errors);
+    run_pass(
+        5,
+        "terminal_completeness",
+        terminal_completeness::check(module),
+        verbose,
+        &mut errors,
+    );
 
     if errors.is_empty() {
         Ok(())
@@ -26,7 +32,13 @@ pub fn verify(module: &Module, verbose: bool) -> Result<(), Vec<VerifyError>> {
     }
 }
 
-fn run_pass(idx: usize, name: &str, result: Vec<VerifyError>, verbose: bool, errors: &mut Vec<VerifyError>) {
+fn run_pass(
+    idx: usize,
+    name: &str,
+    result: Vec<VerifyError>,
+    verbose: bool,
+    errors: &mut Vec<VerifyError>,
+) {
     if verbose {
         if result.is_empty() {
             println!("{idx}. {name}: ✓");

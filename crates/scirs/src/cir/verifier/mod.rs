@@ -21,10 +21,20 @@ pub fn verify(module: &CanonModule, verbose: bool) -> Result<(), Vec<VerifyError
     run_pass(5, "no_ternary", no_ternary::check(module), verbose, &mut errors);
     run_pass(6, "no_inheritance", no_inheritance::check(module), verbose, &mut errors);
 
-    if errors.is_empty() { Ok(()) } else { Err(errors) }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
 }
 
-fn run_pass(idx: usize, name: &str, result: Vec<VerifyError>, verbose: bool, errors: &mut Vec<VerifyError>) {
+fn run_pass(
+    idx: usize,
+    name: &str,
+    result: Vec<VerifyError>,
+    verbose: bool,
+    errors: &mut Vec<VerifyError>,
+) {
     if verbose {
         if result.is_empty() {
             println!("{idx}. {name}: ✓");

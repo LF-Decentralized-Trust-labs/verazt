@@ -408,7 +408,8 @@ pub mod default {
         }
     }
 
-    pub fn map_call_expr<'a, T: Map<'a> + ?Sized>(mapper: &mut T, expr: &'a CallExpr) -> CallExpr {        let args = match &expr.args {
+    pub fn map_call_expr<'a, T: Map<'a> + ?Sized>(mapper: &mut T, expr: &'a CallExpr) -> CallExpr {
+        let args = match &expr.args {
             CallArgs::Positional(args) => {
                 CallArgs::Positional(args.iter().map(|a| mapper.map_expr(a)).collect())
             }

@@ -381,10 +381,7 @@ mod tests {
     use super::*;
     use crate::solidity::{
         ast::utils::syntactic_comparer::compare_source_units,
-        lowering::{
-            rename_callees, rename_defs,
-            utils::configure_unit_test_env,
-        },
+        lowering::{rename_callees, rename_defs, utils::configure_unit_test_env},
         parsing::parse_solidity_source_code,
     };
     use indoc::indoc;
@@ -443,8 +440,8 @@ mod tests {
                 }
             }"###};
 
-        // Expected output contract: contracts keep original names (no rename_contracts),
-        // only functions get indexes from rename_defs.
+        // Expected output contract: contracts keep original names (no
+        // rename_contracts), only functions get indexes from rename_defs.
         let expected_contract = indoc! {r###"
             contract A {
                 function foo_0() public pure returns (string memory) {

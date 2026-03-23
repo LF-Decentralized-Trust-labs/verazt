@@ -345,9 +345,8 @@ impl CirLowerer {
                         .collect::<Result<Vec<_>, _>>()?,
                     sir::CallArgs::Named(_) => {
                         return Err(CirLowerError::General(
-                            "Named arguments must be eliminated before CIR lowering"
-                                .into(),
-                        ))
+                            "Named arguments must be eliminated before CIR lowering".into(),
+                        ));
                     }
                 };
                 Ok(CanonExpr::FunctionCall(CanonCallExpr {

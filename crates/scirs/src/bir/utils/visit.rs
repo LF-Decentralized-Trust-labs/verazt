@@ -22,13 +22,7 @@ pub trait Visit<'a> {
         default::visit_op(self, op)
     }
     fn visit_const_op(&mut self, _lit: &'a crate::sir::Lit) {}
-    fn visit_binop_op(
-        &mut self,
-        _op: &'a crate::sir::BinOp,
-        _lhs: &'a OpRef,
-        _rhs: &'a OpRef,
-    ) {
-    }
+    fn visit_binop_op(&mut self, _op: &'a crate::sir::BinOp, _lhs: &'a OpRef, _rhs: &'a OpRef) {}
     fn visit_unop_op(&mut self, _op: &'a crate::sir::UnOp, _operand: &'a OpRef) {}
     fn visit_phi_op(&mut self, _entries: &'a [(crate::bir::cfg::BlockId, OpRef)]) {}
     fn visit_assert_op(&mut self, _cond: &'a OpRef) {}
@@ -75,10 +69,7 @@ pub mod default {
         }
     }
 
-    pub fn visit_basic_block<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        block: &'a BasicBlock,
-    ) {
+    pub fn visit_basic_block<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, block: &'a BasicBlock) {
         for op in &block.ops {
             visitor.visit_op(op)
         }
@@ -104,10 +95,7 @@ pub mod default {
         }
     }
 
-    pub fn visit_terminator<'a, T: Visit<'a> + ?Sized>(
-        visitor: &mut T,
-        term: &'a Terminator,
-    ) {
+    pub fn visit_terminator<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, term: &'a Terminator) {
         match term {
             Terminator::Branch { cond, then_bb, else_bb } => {
                 visitor.visit_branch_term(cond, then_bb, else_bb)
