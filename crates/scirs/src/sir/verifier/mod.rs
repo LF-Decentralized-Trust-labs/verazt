@@ -9,13 +9,24 @@ use crate::sir::Module;
 use crate::verify::VerifyError;
 
 /// Run all SIR verification passes on a module.
-pub fn verify(module: &Module) -> Result<(), Vec<VerifyError>> {
+pub fn verify(module: &Module, verbose: bool) -> Result<(), Vec<VerifyError>> {
     let mut errors = Vec::new();
 
-    errors.extend(type_well_formed::check(module));
-    errors.extend(scope_check::check(module));
-    errors.extend(spec_check::check(module));
-    errors.extend(no_orphan_dialect::check(module));
+    run_pass("type_well_formed", type_well_formed::check(module), verbose, &mut errors);
+    run_pass("scope_check", scope_check::check(module), verbose, &mut errors);
+    run_pass("spec_check", spec_check::check(module), verbose, &mut errors);
+    run_pass("no_orphan_dialect", no_orphan_dialect::check(module), verbose, &mut errors);
 
     if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
+fn run_pass(name: &str, result: Vec<VerifyError>, verbose: bool, errors: &mut Vec<VerifyError>) {
+    if verbose {
+        if result.is_empty() {
+            println!("- {name}: ✓");
+        } else {
+            println!("- {name}: ✗ ({} error(s))", result.len());
+        }
+    }
+    errors.extend(result);
 }

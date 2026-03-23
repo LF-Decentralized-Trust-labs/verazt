@@ -11,19 +11,30 @@ pub mod ssa_single_def;
 pub mod ssa_use_def;
 
 /// Run all BIR verification passes and return collected errors.
-pub fn verify(module: &Module) -> Result<(), Vec<VerifyError>> {
+pub fn verify(module: &Module, verbose: bool) -> Result<(), Vec<VerifyError>> {
     let mut errors = Vec::new();
 
-    errors.extend(ssa_single_def::check(module));
-    errors.extend(ssa_use_def::check(module));
-    errors.extend(cfg_well_formed::check(module));
-    errors.extend(cfg_entry_exit::check(module));
-    errors.extend(phi_consistency::check(module));
-    errors.extend(op_id_unique::check(module));
+    run_pass("ssa_single_def", ssa_single_def::check(module), verbose, &mut errors);
+    run_pass("ssa_use_def", ssa_use_def::check(module), verbose, &mut errors);
+    run_pass("cfg_well_formed", cfg_well_formed::check(module), verbose, &mut errors);
+    run_pass("cfg_entry_exit", cfg_entry_exit::check(module), verbose, &mut errors);
+    run_pass("phi_consistency", phi_consistency::check(module), verbose, &mut errors);
+    run_pass("op_id_unique", op_id_unique::check(module), verbose, &mut errors);
 
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
     }
+}
+
+fn run_pass(name: &str, result: Vec<VerifyError>, verbose: bool, errors: &mut Vec<VerifyError>) {
+    if verbose {
+        if result.is_empty() {
+            println!("- {name}: ✓");
+        } else {
+            println!("- {name}: ✗ ({} error(s))", result.len());
+        }
+    }
+    errors.extend(result);
 }

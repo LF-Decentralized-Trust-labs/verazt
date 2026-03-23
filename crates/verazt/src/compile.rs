@@ -100,11 +100,11 @@ pub fn run(args: Args) -> Result<()> {
 fn run_verify(ir_name: &str, result: std::result::Result<(), Vec<VerifyError>>) -> Result<()> {
     match result {
         Ok(()) => {
-            println!("✓ {ir_name} verification passed");
+            println!("{ir_name} verification passed");
             Ok(())
         }
         Err(errors) => {
-            eprintln!("✗ {ir_name} verification failed ({} error(s)):", errors.len());
+            eprintln!("{ir_name} verification failed ({} error(s)):", errors.len());
             for e in &errors {
                 eprintln!("[{ir_name}::{}] {}", e.pass, e.message);
             }
@@ -156,7 +156,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         // Verify CIR
         if args.debug {
             print_subsection_header("CIR Verification");
-            run_verify("CIR", scirs::cir::verifier::verify(&cir_module))?;
+            run_verify("CIR", scirs::cir::verifier::verify(&cir_module, true))?;
         }
 
         // Step 6: Lower CIR → BIR
@@ -172,7 +172,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         // Verify BIR
         if args.debug {
             print_subsection_header("BIR Verification");
-            run_verify("BIR", scirs::bir::verifier::verify(&air_module))?;
+            run_verify("BIR", scirs::bir::verifier::verify(&air_module, true))?;
         }
 
         // Step 8: Lower BIR → FIR
@@ -186,7 +186,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         // Verify FIR
         if args.debug {
             print_subsection_header("FIR Verification");
-            run_verify("FIR", scirs::fir::verifier::verify(&fir_module))?;
+            run_verify("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
         }
     }
 
@@ -230,7 +230,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     // Verify CIR
     if args.debug {
         print_subsection_header("CIR Verification");
-        run_verify("CIR", scirs::cir::verifier::verify(&cir_module))?;
+        run_verify("CIR", scirs::cir::verifier::verify(&cir_module, true))?;
     }
 
     // Step 6: Lower CIR → BIR
@@ -246,7 +246,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     // Verify BIR
     if args.debug {
         print_subsection_header("BIR Verification");
-        run_verify("BIR", scirs::bir::verifier::verify(&air_module))?;
+        run_verify("BIR", scirs::bir::verifier::verify(&air_module, true))?;
     }
 
     // Step 8: Lower BIR → FIR
@@ -260,7 +260,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     // Verify FIR
     if args.debug {
         print_subsection_header("FIR Verification");
-        run_verify("FIR", scirs::fir::verifier::verify(&fir_module))?;
+        run_verify("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
     }
 
     println!("Successfully compiled {file}");
