@@ -27,6 +27,8 @@ pub mod exprs;
 pub mod lower;
 pub mod module;
 pub mod stmts;
+pub mod utils;
+pub mod verifier;
 
 // Re-exports for convenient access.
 pub use defs::*;

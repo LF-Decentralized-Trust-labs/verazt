@@ -18,6 +18,7 @@ pub mod spec;
 pub mod stmts;
 pub mod types;
 pub mod utils;
+pub mod verifier;
 
 // Re-exports for convenient access
 pub use attrs::*;

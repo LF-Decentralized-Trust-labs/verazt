@@ -21,13 +21,13 @@ pub struct ICFGNodeId(pub usize);
 
 impl Display for BlockId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "bb{}", self.0)
+        write!(f, "%bb{}", self.0)
     }
 }
 
 impl Display for FunctionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "@{}", self.0)
     }
 }
 

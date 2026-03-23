@@ -385,7 +385,7 @@ fn lift_to_atom(
         e
     } else {
         *counter += 1;
-        let tmp_name = format!("__flat_{counter}__");
+        let tmp_name = format!("__tmp_{counter}");
         let ty = e.typ();
         let span = e.span();
         let decl = sir::LocalVarDecl { name: tmp_name.clone(), ty: ty.clone() };
