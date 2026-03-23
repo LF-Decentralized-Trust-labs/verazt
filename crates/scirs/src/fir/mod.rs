@@ -4,7 +4,6 @@
 //! becomes a function in parameter-passing form. Phi nodes are eliminated
 //! into function parameters, and terminators become tail calls.
 
-pub mod lower;
 pub mod ops;
 pub mod utils;
 pub mod verifier;

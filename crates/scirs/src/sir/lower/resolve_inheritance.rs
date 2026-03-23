@@ -9,7 +9,7 @@
 //! `super.method()` calls are left as-is; they are resolved by `elim_modifiers`
 //! or future passes that have full call-graph information.
 
-use crate::cir::lower::CirLowerError;
+use crate::sir::lower::CirLowerError;
 use crate::sir;
 use std::collections::HashMap;
 

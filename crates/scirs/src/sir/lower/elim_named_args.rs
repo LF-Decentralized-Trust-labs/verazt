@@ -4,7 +4,7 @@
 //! the module, then rewrites `CallArgs::Named` to `CallArgs::Positional` in
 //! the correct order by matching argument names against parameter names.
 
-use crate::cir::lower::CirLowerError;
+use crate::sir::lower::CirLowerError;
 use crate::sir;
 use std::collections::HashMap;
 

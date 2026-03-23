@@ -8,7 +8,7 @@
 //! 5. Removes all `ModifierDef` member declarations from contracts.
 //! 6. Clears `modifier_invocs` from all functions.
 
-use crate::cir::lower::CirLowerError;
+use crate::sir::lower::CirLowerError;
 use crate::sir;
 use crate::sir::dialect::evm::{EvmMemberDecl, EvmStmt};
 use std::collections::HashMap;

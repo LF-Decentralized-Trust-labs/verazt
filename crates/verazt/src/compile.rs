@@ -126,7 +126,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         }
 
         // Step 5: Lower SIR → CIR
-        let cir_module = scirs::cir::lower::lower_module(sir_module)
+        let cir_module = scirs::sir::lower::lower_module(sir_module)
             .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
         if args.print_cir || args.debug {
@@ -135,7 +135,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         }
 
         // Step 6: Lower CIR → BIR
-        let air_module = scirs::bir::lower::lower_module(&cir_module)
+        let air_module = scirs::cir::lower::lower_module(&cir_module)
             .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
         // Step 7: Print BIR if requested
@@ -179,7 +179,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     }
 
     // Step 5: Lower SIR → CIR
-    let cir_module = scirs::cir::lower::lower_module(&sir_module)
+    let cir_module = scirs::sir::lower::lower_module(&sir_module)
         .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
     if args.print_cir || args.debug {
@@ -188,7 +188,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     }
 
     // Step 6: Lower CIR → BIR
-    let air_module = scirs::bir::lower::lower_module(&cir_module)
+    let air_module = scirs::cir::lower::lower_module(&cir_module)
         .map_err(|e| create_error(format!("BIR lowering failed: {e}")))?;
 
     // Step 7: Print BIR if requested

@@ -1,423 +1,260 @@
-//! SIR → CIR lowering.
+//! Pass 2a: CIR → BIR lowering.
 //!
-//! Orchestrates the conversion from `sir::Module` to `cir::CanonModule`.
-//!
-//! The pipeline runs 5 semantic normalization passes on the SIR module before
-//! performing the structural conversion to CIR:
-//!
-//! 1. `elim_named_args`  — convert named call arguments to positional form.
-//! 2. `elim_using`       — strip `UsingFor` member declarations.
-//! 3. `resolve_inheritance` — flatten inheritance, merge parent members.
-//! 4. `elim_modifiers`   — inline modifier bodies into function bodies.
-//! 5. `flatten_expr`     — introduce temporaries so call args are atoms.
-//!
-//! After normalization the structural conversion:
-//! - Strips the now-empty `parents` field.
-//! - Drops `ModifierDef` member declarations (already inlined).
-//! - Converts `sir::Expr` → `cir::CanonExpr`.
-//! - Converts `sir::Stmt` → `cir::CanonStmt`.
+//! This module orchestrates the four-step transformation from
+//! CIR (Canonical IR) into BIR.
 
-mod elim_modifiers;
-mod elim_named_args;
-mod elim_using;
-mod flatten_expr;
-mod resolve_inheritance;
+pub mod cfg;
+pub mod dialect_lower;
+pub mod icfg;
+pub mod ssa;
 
-use crate::cir::defs::*;
-use crate::cir::exprs::*;
-use crate::cir::module::*;
-use crate::cir::stmts::*;
-use crate::sir;
+use crate::bir::module::Module;
 use thiserror::Error;
 
-/// Errors that can occur during SIR → CIR lowering.
+/// Errors that can occur during CIR → BIR lowering.
 #[derive(Debug, Error)]
-pub enum CirLowerError {
-    #[error("CIR lowering error: {0}")]
-    General(String),
+pub enum LowerError {
+    #[error("Untagged dialect op after Step 3: {0}")]
+    UntaggedDialectOp(String),
+
+    #[error("SSA renaming error: {0}")]
+    SsaError(String),
+
+    #[error("CFG construction error: {0}")]
+    CfgError(String),
+
+    #[error("ICFG construction error: {0}")]
+    IcfgError(String),
 }
 
-/// Lower a SIR Module into a CIR CanonModule.
+/// Lower a CIR CanonModule into an BIR Module.
 ///
-/// This is the main entry point for SIR → CIR conversion.
-pub fn lower_module(sir_module: &sir::Module) -> Result<CanonModule, CirLowerError> {
-    // Phase 1: Semantic normalization (SIR → SIR)
-    let module = elim_named_args::run(sir_module)?;
-    let module = elim_using::run(&module)?;
-    let module = resolve_inheritance::run(&module)?;
-    let module = elim_modifiers::run(&module)?;
-    let module = flatten_expr::run(&module)?;
+/// This runs the four-step Pass 2a transformation:
+///   1. CFG Construction
+///   2. SSA Renaming
+///   3. Dialect Lowering
+///   4. ICFG + Alias + Taint init
+///
+/// NOTE: Modifier expansion (formerly Step 1) is now handled by the
+/// CIR lowering pass.
+pub fn lower_module(cir: &crate::cir::CanonModule) -> Result<Module, LowerError> {
+    use crate::bir::cfg::{Function, FunctionId};
 
-    // Phase 2: Structural conversion (SIR → CIR)
-    let mut lowerer = CirLowerer::new();
-    lowerer.lower_module(&module)
-}
+    let mut air_module = Module::new(cir.id.clone());
 
-/// Internal state for the SIR → CIR lowering.
-struct CirLowerer {
-    _tmp_var_index: usize,
-}
+    // Iterate over each contract declaration
+    for decl in &cir.decls {
+        let contract = match decl {
+            crate::cir::CanonDecl::Contract(c) => c,
+            crate::cir::CanonDecl::Dialect(_) => continue,
+        };
 
-impl CirLowerer {
-    fn new() -> Self {
-        CirLowerer { _tmp_var_index: 0 }
-    }
-
-    fn lower_module(&mut self, module: &sir::Module) -> Result<CanonModule, CirLowerError> {
-        let mut decls = Vec::new();
-
-        for decl in &module.decls {
-            match decl {
-                sir::Decl::Contract(c) => {
-                    decls.push(CanonDecl::Contract(self.lower_contract(c)?));
-                }
-                sir::Decl::Dialect(d) => {
-                    decls.push(CanonDecl::Dialect(d.clone()));
-                }
-            }
-        }
-
-        let mut canon_module = CanonModule::new(&module.id, decls);
-        canon_module.attrs = module.attrs.clone();
-        Ok(canon_module)
-    }
-
-    fn lower_contract(
-        &mut self,
-        contract: &sir::ContractDecl,
-    ) -> Result<CanonContractDecl, CirLowerError> {
-        let mut members = Vec::new();
-
+        // Process each member declaration
         for member in &contract.members {
             match member {
-                sir::MemberDecl::Storage(s) => {
-                    members.push(CanonMemberDecl::Storage(self.lower_storage(s)?));
+                crate::cir::CanonMemberDecl::Function(func_decl) => {
+                    // CIR guarantees modifiers are already inlined — no Step 1.
+                    let body = &func_decl.body;
+
+                    // Convert CIR body to SIR stmts for CFG construction.
+                    // (CFG construction still operates on sir::Stmt internally.)
+                    let sir_body = cir_stmts_to_sir(body);
+
+                    // Convert CIR params to SIR params for CFG construction.
+                    let sir_params: Vec<crate::sir::Param> = func_decl
+                        .params
+                        .iter()
+                        .map(|p| crate::sir::Param::new(p.name.clone(), p.ty.clone()))
+                        .collect();
+
+                    // Determine visibility
+                    let is_public = func_decl.attrs.iter().any(|a| {
+                        a.namespace == "sir"
+                            && a.key == "visibility"
+                            && matches!(&a.value, crate::sir::AttrValue::String(s) if s == "public" || s == "external")
+                    });
+
+                    let func_id = FunctionId(format!("{}.{}", contract.name, func_decl.name));
+
+                    // Step 1: CFG construction
+                    let mut blocks = cfg::build_cfg(&sir_body, &sir_params);
+
+                    // Step 2: SSA renaming
+                    ssa::rename_to_ssa(&mut blocks);
+
+                    // Step 3: Dialect lowering
+                    dialect_lower::lower_dialect_ops(&mut blocks, &cir.attrs)?;
+
+                    let mut air_func = Function::new(func_id, is_public);
+                    air_func.blocks = blocks;
+                    air_module.functions.push(air_func);
                 }
-                sir::MemberDecl::Function(f) => {
-                    members.push(CanonMemberDecl::Function(self.lower_function(f)?));
-                }
-                sir::MemberDecl::TypeAlias(ta) => {
-                    members.push(CanonMemberDecl::TypeAlias(CanonTypeAlias {
-                        name: ta.name.clone(),
-                        ty: ta.ty.clone(),
-                    }));
-                }
-                sir::MemberDecl::GlobalInvariant(inv) => {
-                    members.push(CanonMemberDecl::GlobalInvariant(self.lower_expr(inv)?));
-                }
-                sir::MemberDecl::Dialect(d) => {
-                    // Filter out modifier definitions (already inlined).
-                    if Self::is_modifier_def(d) {
-                        continue;
-                    }
-                    members.push(CanonMemberDecl::Dialect(d.clone()));
-                }
-                sir::MemberDecl::UsingFor(_) => {
-                    // UsingFor declarations must be eliminated by the
-                    // elim_using pass before reaching here.
-                    continue;
-                }
+                _ => { /* StorageDecl, TypeAlias, etc. — not lowered to BIR functions */ }
             }
         }
-
-        let mut canon = CanonContractDecl::new(contract.name.clone(), members, contract.span);
-        canon.attrs = contract.attrs.clone();
-        Ok(canon)
     }
 
-    /// Check if a dialect member declaration is a modifier definition.
-    fn is_modifier_def(d: &sir::DialectMemberDecl) -> bool {
-        matches!(
-            d,
-            sir::DialectMemberDecl::Evm(sir::dialect::evm::EvmMemberDecl::ModifierDef { .. })
-        )
-    }
+    // Step 4: ICFG, alias sets, and taint graph initialization
+    icfg::build_icfg(&mut air_module);
 
-    fn lower_storage(
-        &mut self,
-        storage: &sir::StorageDecl,
-    ) -> Result<CanonStorageDecl, CirLowerError> {
-        let init = match &storage.init {
-            Some(e) => Some(self.lower_expr(e)?),
-            None => None,
-        };
-        let mut canon =
-            CanonStorageDecl::new(storage.name.clone(), storage.ty.clone(), init, storage.span);
-        canon.attrs = storage.attrs.clone();
-        Ok(canon)
-    }
+    Ok(air_module)
+}
 
-    fn lower_function(
-        &mut self,
-        func: &sir::FunctionDecl,
-    ) -> Result<CanonFunctionDecl, CirLowerError> {
-        let params: Vec<CanonParam> = func
-            .params
-            .iter()
-            .map(|p| CanonParam::new(p.name.clone(), p.ty.clone()))
-            .collect();
+/// Convert CIR canonical statements back to SIR statements.
+///
+/// This is a temporary bridge while the CFG construction still operates
+/// on `sir::Stmt`. In the future, CFG construction will be updated to
+/// work directly on `cir::CanonStmt`.
+fn cir_stmts_to_sir(stmts: &[crate::cir::CanonStmt]) -> Vec<crate::sir::Stmt> {
+    stmts.iter().map(cir_stmt_to_sir).collect()
+}
 
-        let body = match &func.body {
-            Some(stmts) => self.lower_stmts(stmts)?,
-            None => vec![],
-        };
-
-        let mut canon = CanonFunctionDecl::new(
-            func.name.clone(),
-            params,
-            func.returns.clone(),
-            body,
-            func.span,
-        );
-        canon.attrs = func.attrs.clone();
-        canon.spec = func.spec.clone();
-        canon.type_params = func
-            .type_params
-            .iter()
-            .map(|tp| CanonTypeParam { name: tp.name.clone() })
-            .collect();
-
-        Ok(canon)
-    }
-
-    // ─── Statement lowering ──────────────────────────────────────
-
-    fn lower_stmts(&mut self, stmts: &[sir::Stmt]) -> Result<Vec<CanonStmt>, CirLowerError> {
-        stmts.iter().map(|s| self.lower_stmt(s)).collect()
-    }
-
-    fn lower_stmt(&mut self, stmt: &sir::Stmt) -> Result<CanonStmt, CirLowerError> {
-        match stmt {
-            sir::Stmt::LocalVar(s) => {
-                let vars = s
+fn cir_stmt_to_sir(stmt: &crate::cir::CanonStmt) -> crate::sir::Stmt {
+    match stmt {
+        crate::cir::CanonStmt::LocalVar(s) => {
+            crate::sir::Stmt::LocalVar(crate::sir::LocalVarStmt {
+                vars: s
                     .vars
                     .iter()
                     .map(|v| {
-                        v.as_ref()
-                            .map(|d| CanonLocalVarDecl { name: d.name.clone(), ty: d.ty.clone() })
+                        v.as_ref().map(|d| crate::sir::LocalVarDecl {
+                            name: d.name.clone(),
+                            ty: d.ty.clone(),
+                        })
                     })
-                    .collect();
-                let init = match &s.init {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                Ok(CanonStmt::LocalVar(CanonLocalVarStmt { vars, init, span: s.span }))
-            }
-            sir::Stmt::Assign(s) => Ok(CanonStmt::Assign(CanonAssignStmt {
-                lhs: self.lower_expr(&s.lhs)?,
-                rhs: self.lower_expr(&s.rhs)?,
+                    .collect(),
+                init: s.init.as_ref().map(cir_expr_to_sir),
                 span: s.span,
-            })),
-            sir::Stmt::AugAssign(s) => Ok(CanonStmt::AugAssign(CanonAugAssignStmt {
-                op: s.op,
-                lhs: self.lower_expr(&s.lhs)?,
-                rhs: self.lower_expr(&s.rhs)?,
-                span: s.span,
-            })),
-            sir::Stmt::Expr(s) => Ok(CanonStmt::Expr(CanonExprStmt {
-                expr: self.lower_expr(&s.expr)?,
-                span: s.span,
-            })),
-            sir::Stmt::If(s) => {
-                let cond = self.lower_expr(&s.cond)?;
-                let then_body = self.lower_stmts(&s.then_body)?;
-                let else_body = match &s.else_body {
-                    Some(stmts) => Some(self.lower_stmts(stmts)?),
-                    None => None,
-                };
-                Ok(CanonStmt::If(CanonIfStmt { cond, then_body, else_body, span: s.span }))
-            }
-            sir::Stmt::While(s) => {
-                let cond = self.lower_expr(&s.cond)?;
-                let body = self.lower_stmts(&s.body)?;
-                let invariant = match &s.invariant {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                Ok(CanonStmt::While(CanonWhileStmt { cond, body, invariant, span: s.span }))
-            }
-            sir::Stmt::For(s) => {
-                let init = match &s.init {
-                    Some(stmt) => Some(Box::new(self.lower_stmt(stmt)?)),
-                    None => None,
-                };
-                let cond = match &s.cond {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                let update = match &s.update {
-                    Some(stmt) => Some(Box::new(self.lower_stmt(stmt)?)),
-                    None => None,
-                };
-                let body = self.lower_stmts(&s.body)?;
-                let invariant = match &s.invariant {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                Ok(CanonStmt::For(CanonForStmt {
-                    init,
-                    cond,
-                    update,
-                    body,
-                    invariant,
-                    span: s.span,
-                }))
-            }
-            sir::Stmt::Return(s) => {
-                let value = match &s.value {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                Ok(CanonStmt::Return(CanonReturnStmt { value, span: s.span }))
-            }
-            sir::Stmt::Revert(s) => {
-                let args = s
-                    .args
-                    .iter()
-                    .map(|e| self.lower_expr(e))
-                    .collect::<Result<Vec<_>, _>>()?;
-                Ok(CanonStmt::Revert(CanonRevertStmt {
-                    error: s.error.clone(),
-                    args,
-                    span: s.span,
-                }))
-            }
-            sir::Stmt::Assert(s) => {
-                let cond = self.lower_expr(&s.cond)?;
-                let message = match &s.message {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                Ok(CanonStmt::Assert(CanonAssertStmt { cond, message, span: s.span }))
-            }
-            sir::Stmt::Break => Ok(CanonStmt::Break),
-            sir::Stmt::Continue => Ok(CanonStmt::Continue),
-            sir::Stmt::Block(stmts) => Ok(CanonStmt::Block(self.lower_stmts(stmts)?)),
-            sir::Stmt::Dialect(s) => Ok(CanonStmt::Dialect(s.clone())),
+            })
         }
+        crate::cir::CanonStmt::Assign(s) => crate::sir::Stmt::Assign(crate::sir::AssignStmt {
+            lhs: cir_expr_to_sir(&s.lhs),
+            rhs: cir_expr_to_sir(&s.rhs),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::AugAssign(s) => {
+            crate::sir::Stmt::AugAssign(crate::sir::AugAssignStmt {
+                op: s.op,
+                lhs: cir_expr_to_sir(&s.lhs),
+                rhs: cir_expr_to_sir(&s.rhs),
+                span: s.span,
+            })
+        }
+        crate::cir::CanonStmt::Expr(s) => crate::sir::Stmt::Expr(crate::sir::ExprStmt {
+            expr: cir_expr_to_sir(&s.expr),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::If(s) => crate::sir::Stmt::If(crate::sir::IfStmt {
+            cond: cir_expr_to_sir(&s.cond),
+            then_body: cir_stmts_to_sir(&s.then_body),
+            else_body: s.else_body.as_ref().map(|stmts| cir_stmts_to_sir(stmts)),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::While(s) => crate::sir::Stmt::While(crate::sir::WhileStmt {
+            cond: cir_expr_to_sir(&s.cond),
+            body: cir_stmts_to_sir(&s.body),
+            invariant: s.invariant.as_ref().map(cir_expr_to_sir),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::For(s) => crate::sir::Stmt::For(crate::sir::ForStmt {
+            init: s.init.as_ref().map(|stmt| Box::new(cir_stmt_to_sir(stmt))),
+            cond: s.cond.as_ref().map(cir_expr_to_sir),
+            update: s
+                .update
+                .as_ref()
+                .map(|stmt| Box::new(cir_stmt_to_sir(stmt))),
+            body: cir_stmts_to_sir(&s.body),
+            invariant: s.invariant.as_ref().map(cir_expr_to_sir),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::Return(s) => crate::sir::Stmt::Return(crate::sir::ReturnStmt {
+            value: s.value.as_ref().map(cir_expr_to_sir),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::Revert(s) => crate::sir::Stmt::Revert(crate::sir::RevertStmt {
+            error: s.error.clone(),
+            args: s.args.iter().map(cir_expr_to_sir).collect(),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::Assert(s) => crate::sir::Stmt::Assert(crate::sir::AssertStmt {
+            cond: cir_expr_to_sir(&s.cond),
+            message: s.message.as_ref().map(cir_expr_to_sir),
+            span: s.span,
+        }),
+        crate::cir::CanonStmt::Break => crate::sir::Stmt::Break,
+        crate::cir::CanonStmt::Continue => crate::sir::Stmt::Continue,
+        crate::cir::CanonStmt::Block(stmts) => crate::sir::Stmt::Block(cir_stmts_to_sir(stmts)),
+        crate::cir::CanonStmt::Dialect(s) => crate::sir::Stmt::Dialect(s.clone()),
     }
+}
 
-    // ─── Expression lowering ─────────────────────────────────────
-
-    fn lower_expr(&mut self, expr: &sir::Expr) -> Result<CanonExpr, CirLowerError> {
-        match expr {
-            sir::Expr::Var(v) => Ok(CanonExpr::Var(CanonVarExpr {
-                name: v.name.clone(),
-                ty: v.ty.clone(),
-                span: v.span,
-            })),
-            sir::Expr::Lit(l) => Ok(CanonExpr::Lit(l.clone())),
-            sir::Expr::BinOp(e) => Ok(CanonExpr::BinOp(CanonBinOpExpr {
-                op: e.op,
-                lhs: Box::new(self.lower_expr(&e.lhs)?),
-                rhs: Box::new(self.lower_expr(&e.rhs)?),
-                overflow: e.overflow,
+fn cir_expr_to_sir(expr: &crate::cir::CanonExpr) -> crate::sir::Expr {
+    match expr {
+        crate::cir::CanonExpr::Var(v) => crate::sir::Expr::Var(crate::sir::VarExpr {
+            name: v.name.clone(),
+            ty: v.ty.clone(),
+            span: v.span,
+        }),
+        crate::cir::CanonExpr::Lit(l) => crate::sir::Expr::Lit(l.clone()),
+        crate::cir::CanonExpr::BinOp(e) => crate::sir::Expr::BinOp(crate::sir::BinOpExpr {
+            op: e.op,
+            lhs: Box::new(cir_expr_to_sir(&e.lhs)),
+            rhs: Box::new(cir_expr_to_sir(&e.rhs)),
+            overflow: e.overflow,
+            span: e.span,
+        }),
+        crate::cir::CanonExpr::UnOp(e) => crate::sir::Expr::UnOp(crate::sir::UnOpExpr {
+            op: e.op,
+            operand: Box::new(cir_expr_to_sir(&e.operand)),
+            span: e.span,
+        }),
+        crate::cir::CanonExpr::IndexAccess(e) => {
+            crate::sir::Expr::IndexAccess(crate::sir::IndexAccessExpr {
+                base: Box::new(cir_expr_to_sir(&e.base)),
+                index: e.index.as_ref().map(|idx| Box::new(cir_expr_to_sir(idx))),
+                ty: e.ty.clone(),
                 span: e.span,
-            })),
-            sir::Expr::UnOp(e) => Ok(CanonExpr::UnOp(CanonUnOpExpr {
-                op: e.op,
-                operand: Box::new(self.lower_expr(&e.operand)?),
-                span: e.span,
-            })),
-            sir::Expr::IndexAccess(e) => {
-                let index = match &e.index {
-                    Some(idx) => Some(Box::new(self.lower_expr(idx)?)),
-                    None => None,
-                };
-                Ok(CanonExpr::IndexAccess(CanonIndexAccessExpr {
-                    base: Box::new(self.lower_expr(&e.base)?),
-                    index,
-                    ty: e.ty.clone(),
-                    span: e.span,
-                }))
-            }
-            sir::Expr::FieldAccess(e) => Ok(CanonExpr::FieldAccess(CanonFieldAccessExpr {
-                base: Box::new(self.lower_expr(&e.base)?),
+            })
+        }
+        crate::cir::CanonExpr::FieldAccess(e) => {
+            crate::sir::Expr::FieldAccess(crate::sir::FieldAccessExpr {
+                base: Box::new(cir_expr_to_sir(&e.base)),
                 field: e.field.clone(),
                 ty: e.ty.clone(),
                 span: e.span,
-            })),
-            sir::Expr::FunctionCall(e) => {
-                let args = match &e.args {
-                    sir::CallArgs::Positional(args) => args
-                        .iter()
-                        .map(|a| self.lower_expr(a))
-                        .collect::<Result<Vec<_>, _>>()?,
-                    sir::CallArgs::Named(_) => {
-                        return Err(CirLowerError::General(
-                            "Named arguments must be eliminated before CIR lowering"
-                                .into(),
-                        ))
-                    }
-                };
-                Ok(CanonExpr::FunctionCall(CanonCallExpr {
-                    callee: Box::new(self.lower_expr(&e.callee)?),
-                    args,
-                    ty: e.ty.clone(),
-                    span: e.span,
-                }))
-            }
-            sir::Expr::TypeCast(e) => Ok(CanonExpr::TypeCast(CanonTypeCastExpr {
-                ty: e.ty.clone(),
-                expr: Box::new(self.lower_expr(&e.expr)?),
-                span: e.span,
-            })),
-            sir::Expr::Ternary(e) => {
-                // Ternary is still allowed at this stage — the AST-level
-                // normalization may not have eliminated all of them yet.
-                // We lower it as a BinOp placeholder for now; in the future
-                // this should be lowered to an if-statement at the CIR level.
-                // For now, preserve it as a function call pattern.
-                let cond = self.lower_expr(&e.cond)?;
-                let then_expr = self.lower_expr(&e.then_expr)?;
-                let else_expr = self.lower_expr(&e.else_expr)?;
-                // Represent ternary as: __ternary__(cond, then, else)
-                let callee = CanonExpr::Var(CanonVarExpr::new(
-                    "__ternary__".to_string(),
-                    then_expr.typ(),
-                    e.span,
-                ));
-                Ok(CanonExpr::FunctionCall(CanonCallExpr {
-                    callee: Box::new(callee),
-                    args: vec![cond, then_expr, else_expr],
-                    ty: expr.typ(),
-                    span: e.span,
-                }))
-            }
-            sir::Expr::Tuple(e) => {
-                // Tuples should be unrolled by AST normalization.
-                // If one still appears, convert it to a function call pattern.
-                let elems = e
-                    .elems
-                    .iter()
-                    .filter_map(|elem| elem.as_ref())
-                    .map(|elem| self.lower_expr(elem))
-                    .collect::<Result<Vec<_>, _>>()?;
-                let callee = CanonExpr::Var(CanonVarExpr::new(
-                    "__tuple__".to_string(),
-                    e.ty.clone(),
-                    e.span,
-                ));
-                Ok(CanonExpr::FunctionCall(CanonCallExpr {
-                    callee: Box::new(callee),
-                    args: elems,
-                    ty: e.ty.clone(),
-                    span: e.span,
-                }))
-            }
-            sir::Expr::Old(inner) => Ok(CanonExpr::Old(Box::new(self.lower_expr(inner)?))),
-            sir::Expr::Result(idx) => Ok(CanonExpr::Result(*idx)),
-            sir::Expr::Forall { var, ty, body } => Ok(CanonExpr::Forall {
-                var: var.clone(),
-                ty: ty.clone(),
-                body: Box::new(self.lower_expr(body)?),
-            }),
-            sir::Expr::Exists { var, ty, body } => Ok(CanonExpr::Exists {
-                var: var.clone(),
-                ty: ty.clone(),
-                body: Box::new(self.lower_expr(body)?),
-            }),
-            sir::Expr::Dialect(d) => Ok(CanonExpr::Dialect(d.clone())),
+            })
         }
+        crate::cir::CanonExpr::FunctionCall(e) => {
+            crate::sir::Expr::FunctionCall(crate::sir::CallExpr {
+                callee: Box::new(cir_expr_to_sir(&e.callee)),
+                args: crate::sir::CallArgs::Positional(
+                    e.args.iter().map(cir_expr_to_sir).collect(),
+                ),
+                ty: e.ty.clone(),
+                span: e.span,
+            })
+        }
+        crate::cir::CanonExpr::TypeCast(e) => {
+            crate::sir::Expr::TypeCast(crate::sir::TypeCastExpr {
+                ty: e.ty.clone(),
+                expr: Box::new(cir_expr_to_sir(&e.expr)),
+                span: e.span,
+            })
+        }
+        crate::cir::CanonExpr::Old(inner) => {
+            crate::sir::Expr::Old(Box::new(cir_expr_to_sir(inner)))
+        }
+        crate::cir::CanonExpr::Result(idx) => crate::sir::Expr::Result(*idx),
+        crate::cir::CanonExpr::Forall { var, ty, body } => crate::sir::Expr::Forall {
+            var: var.clone(),
+            ty: ty.clone(),
+            body: Box::new(cir_expr_to_sir(body)),
+        },
+        crate::cir::CanonExpr::Exists { var, ty, body } => crate::sir::Expr::Exists {
+            var: var.clone(),
+            ty: ty.clone(),
+            body: Box::new(cir_expr_to_sir(body)),
+        },
+        crate::cir::CanonExpr::Dialect(d) => crate::sir::Expr::Dialect(d.clone()),
     }
 }

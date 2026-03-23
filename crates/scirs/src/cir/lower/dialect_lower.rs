@@ -8,7 +8,7 @@ use crate::bir::cfg::BasicBlock;
 use crate::bir::interfaces::{
     AliasGroupId, CallRisk, CallTarget, SinkCategory, StorageIndex, StorageRef, TaintLabel,
 };
-use crate::bir::lower::LowerError;
+use crate::cir::lower::LowerError;
 use crate::bir::ops::{CallDialectOp, OpKind, StorageDialectOp, TaintSinkOp, TaintSourceOp};
 use crate::sir::Attr;
 

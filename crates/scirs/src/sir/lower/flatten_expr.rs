@@ -12,7 +12,7 @@
 //! f(tmp1, 1)
 //! ```
 
-use crate::cir::lower::CirLowerError;
+use crate::sir::lower::CirLowerError;
 use crate::sir;
 
 /// Flatten all call arguments to atoms.

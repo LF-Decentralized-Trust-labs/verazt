@@ -5,10 +5,10 @@
 //! ```text
 //! SIR  (language-neutral, dialect-extensible)
 //!   │
-//!   ▼ cir::lower (mlir/src/cir/lower/)
+//!   ▼ sir::lower (scirs/src/sir/lower/)
 //! CIR  (canonical, normalized, still structured)
 //!   │
-//!   ▼ bir::lower (mlir/src/bir/lower/)
+//!   ▼ cir::lower (scirs/src/cir/lower/)
 //! BIR  (graph/SSA, analysis engine input)
 //! ```
 //!

@@ -348,6 +348,84 @@ verifier/
 
 ---
 
+## 6. Relocate lowering modules into source IR
+
+Each lowering pass should live in the **source** IR module, not the target.
+This follows the convention that the producer knows how to emit the next IR.
+
+### 6.1 Current vs target layout
+
+| Lowering | Current location | Target location |
+|----------|-----------------|-----------------|
+| SIR → CIR | `cir/lower/` | `sir/lower/` |
+| CIR → BIR | `bir/lower/` | `cir/lower/` |
+| BIR → FIR | `fir/lower/` (planned) | `bir/lower/` |
+
+### 6.2 SIR → CIR: move `cir/lower/` → `sir/lower/`
+
+Move all files currently in `crates/scirs/src/cir/lower/`:
+
+| File | Description |
+|------|-------------|
+| `mod.rs` | Orchestration + structural SIR→CIR conversion |
+| `elim_named_args.rs` | Named → positional call args |
+| `elim_using.rs` | Strip UsingFor declarations |
+| `elim_modifiers.rs` | Inline modifier bodies |
+| `resolve_inheritance.rs` | Flatten inheritance hierarchy |
+| `flatten_expr.rs` | Introduce temporaries for call args |
+
+After move:
+- `sir/mod.rs` gets `pub mod lower;`
+- `cir/mod.rs` removes `pub mod lower;`
+- All `use crate::cir::lower::…` imports elsewhere update to `use crate::sir::lower::…`
+
+### 6.3 CIR → BIR: move `bir/lower/` → `cir/lower/`
+
+Move all files currently in `crates/scirs/src/bir/lower/`:
+
+| File | Description |
+|------|-------------|
+| `mod.rs` | Four-step CIR→BIR orchestration |
+| `cfg.rs` | CFG construction |
+| `ssa.rs` | SSA renaming |
+| `dialect_lower.rs` | Dialect op lowering |
+| `icfg.rs` | ICFG + alias + taint init |
+
+After move:
+- `cir/mod.rs` gets `pub mod lower;` (re-purposed for CIR→BIR)
+- `bir/mod.rs` removes `pub mod lower;`
+- All `use crate::bir::lower::…` imports update to `use crate::cir::lower::…`
+
+### 6.4 BIR → FIR: create in `bir/lower/` directly
+
+The planned FIR lowering (section 3) should be created as `bir/lower/`
+instead of `fir/lower/`:
+
+| File | Description |
+|------|-------------|
+| `mod.rs` | BIR→FIR orchestration |
+| `lift_blocks.rs` | Block-to-function lifting |
+
+After creation:
+- `bir/mod.rs` gets `pub mod lower;` (now for BIR→FIR)
+
+### 6.5 Dependency direction
+
+```
+sir  ──lower──▸  cir  ──lower──▸  bir  ──lower──▸  fir
+ │                │                │                │
+ ▼                ▼                ▼                ▼
+sir::lower     cir::lower     bir::lower        (pure data)
+ produces        produces        produces
+  cir::*          bir::*          fir::*
+```
+
+Each `lower` module depends on both its own IR types and the target IR types.
+The target IR module remains a pure data + utils + verifier module with no
+`lower` sub-module of its own (except when it too is a source for the next stage).
+
+---
+
 ## Files summary
 
 | File | Changes |
@@ -356,7 +434,7 @@ verifier/
 | `crates/scirs/src/bir/cfg.rs` | `FunctionId` display → `@…`, `BlockId` display → `%bb…` |
 | `crates/scirs/src/bir/ops.rs` | `SsaName` display → `%v{N}` |
 | `crates/scirs/src/bir/lower/ssa.rs` | Use global counter for unique `%vN` IDs |
-| `crates/scirs/src/fir/` | **[NEW]** FIR module: data structures + BIR → FIR lowering |
+| `crates/scirs/src/fir/` | **[NEW]** FIR module: data structures (no lower/) |
 | `crates/scirs/src/cir/utils/` | **[NEW]** `Visit` + `Fold` traits for CIR |
 | `crates/scirs/src/bir/utils/` | **[NEW]** `Visit` + `Fold` traits for BIR |
 | `crates/scirs/src/fir/utils/` | **[NEW]** `Visit` + `Fold` traits for FIR |
@@ -364,6 +442,9 @@ verifier/
 | `crates/scirs/src/cir/verifier/` | **[NEW]** CIR verification passes |
 | `crates/scirs/src/bir/verifier/` | **[NEW]** BIR verification passes |
 | `crates/scirs/src/fir/verifier/` | **[NEW]** FIR verification passes |
+| `crates/scirs/src/sir/lower/` | **[MOVE]** SIR→CIR lowering (from `cir/lower/`) |
+| `crates/scirs/src/cir/lower/` | **[MOVE]** CIR→BIR lowering (from `bir/lower/`) |
+| `crates/scirs/src/bir/lower/` | **[NEW]** BIR→FIR lowering (was planned in `fir/lower/`) |
 | `crates/scirs/src/lib.rs` | Add `pub mod fir;` |
 
 ## Verification
@@ -383,6 +464,8 @@ verifier/
 7. Run each IR verifier on a sample module and confirm all passes return `Ok`.
 8. Add unit tests for each verifier pass with intentionally malformed IR
    inputs to confirm errors are detected.
+9. Grep for stale `crate::cir::lower` and `crate::bir::lower` imports to
+   confirm all references point to the new locations.
 
 ---
 
@@ -468,3 +551,24 @@ verifier/
   - [x] 5.25 `mod.rs` — orchestrate all FIR passes
 - [x] `cargo build` + `cargo test`
 - [ ] Unit tests with malformed IR for each pass
+
+### 6. Relocate lowering modules
+
+- [ ] 6.1 Move `cir/lower/` → `sir/lower/` (SIR→CIR lowering)
+  - [ ] Move all 6 files
+  - [ ] Add `pub mod lower;` to `sir/mod.rs`
+  - [ ] Remove `pub mod lower;` from `cir/mod.rs`
+  - [ ] Update all import paths (`crate::cir::lower` → `crate::sir::lower`)
+- [ ] 6.2 Move `bir/lower/` → `cir/lower/` (CIR→BIR lowering)
+  - [ ] Move all 5 files
+  - [ ] Add `pub mod lower;` to `cir/mod.rs` (for CIR→BIR)
+  - [ ] Remove `pub mod lower;` from `bir/mod.rs`
+  - [ ] Update all import paths (`crate::bir::lower` → `crate::cir::lower`)
+- [ ] 6.3 Move `fir/lower/` → `bir/lower/` (BIR→FIR lowering)
+  - [ ] Move the lowering files
+  - [ ] Add `pub mod lower;` to `bir/mod.rs` (for BIR→FIR)
+  - [ ] Remove `pub mod lower;` from `fir/mod.rs`
+  - [ ] Update all import paths
+- [ ] `cargo build` + `cargo test`
+- [ ] Grep for stale import paths
+
