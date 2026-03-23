@@ -3,7 +3,6 @@
 //! These tests exercise the full pipeline:
 //! JSON AST string → internal AST → normalization → SIR Module
 
-use frontend::solidity::lowering as solidity_lowering;
 use frontend::vyper::lowering as vyper_lowering;
 use frontend::vyper::parsing;
 
