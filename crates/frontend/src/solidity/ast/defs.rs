@@ -276,7 +276,7 @@ impl Display for ContractDef {
             let base_contracts = self
                 .base_contracts
                 .iter()
-                .map(|base| format!("{}", base.name))
+                .map(|base| format!("{base}"))
                 .collect::<Vec<String>>()
                 .join(", ");
             write!(f, "is {base_contracts} ").ok();
@@ -480,7 +480,7 @@ impl Display for ErrorDef {
         let params = self
             .params
             .iter()
-            .map(|p| p.name.to_string())
+            .map(|p| format!("{p}"))
             .collect::<Vec<String>>()
             .join(", ");
         write!(f, "error {} ({});", self.name, params)
@@ -502,7 +502,7 @@ impl Display for EventDef {
         let params = self
             .params
             .iter()
-            .map(|p| p.name.to_string())
+            .map(|p| format!("{p}"))
             .collect::<Vec<String>>()
             .join(", ");
 
@@ -539,7 +539,7 @@ impl Display for Overriding {
             Overriding::None => write!(f, "").ok(),
             Overriding::All => write!(f, "override").ok(),
             Overriding::Some(names) => {
-                let names: Vec<String> = names.iter().map(|n| n.to_string()).collect();
+                let names: Vec<&str> = names.iter().map(|n| n.base.as_str()).collect();
                 write!(f, "override({})", names.join(", ")).ok()
             }
         };
@@ -619,18 +619,31 @@ impl Display for FuncDef {
             } else {
                 write!(f, "{}", self.kind).ok();
             }
+        } else if self.is_fallback_function() {
+            // When sol_ver is unknown, default to `function` for fallback
+            // for backward compatibility with pre-0.6.0 syntax.
+            write!(f, "function").ok();
         } else {
             write!(f, "{}", self.kind).ok();
         }
 
-        if !self.name.is_empty() {
+        // Skip printing name for constructors using modern syntax (`constructor(...)`)
+        // but print it for old-style constructors (pre-0.6.0: `function ContractName(...)`)
+        let is_old_style_constructor = self.kind == FuncKind::Constructor
+            && self
+                .sol_ver
+                .as_ref()
+                .map_or(false, |r| !version::check_range_constraint(r, ">=0.6.0"));
+        if !self.name.is_empty()
+            && (self.kind != FuncKind::Constructor || is_old_style_constructor)
+        {
             write!(f, " {}", self.name).ok();
         }
 
         let params = self
             .params
             .iter()
-            .map(|p| p.name.to_string())
+            .map(|p| format!("{p}"))
             .collect::<Vec<String>>()
             .join(", ");
         write!(f, "({params})").ok();
@@ -957,15 +970,21 @@ impl VarDecl {
 
 impl Display for VarDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.typ).ok();
+        // Print type WITHOUT embedded data_loc to avoid duplication
+        unsafe {
+            let saved = super::types::PRINT_DATA_LOC;
+            super::types::PRINT_DATA_LOC = false;
+            write!(f, "{}", self.typ).ok();
+            super::types::PRINT_DATA_LOC = saved;
+        }
 
-        // Decide if data location of the variable declaration needs to be printed.
+        // Print data_loc from VarDecl (single source of truth)
         let need_to_print_data_loc = match &self.typ {
             Type::Array(_) | Type::Struct(_) | Type::Mapping(_) | Type::String(_) => true,
             Type::Bytes(typ) => !self.is_state_var && typ.length.is_none(),
             _ => false,
         };
-        if self.typ.data_loc() != DataLoc::None && need_to_print_data_loc {
+        if need_to_print_data_loc {
             if let Some(data_loc) = &self.data_loc {
                 write!(f, " {data_loc}").ok();
             }

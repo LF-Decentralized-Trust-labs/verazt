@@ -85,9 +85,30 @@ fn fetch_available_solc_versions() -> Vec<Version> {
     init_solc_version_groups().into_iter().flatten().collect()
 }
 
+/// Normalize a pragma version constraint string.
+///
+/// Inserts a space before comparison operators (`<`, `<=`, `>`, `>=`, `^`, `~`)
+/// when they are directly preceded by a digit, e.g. `>=0.4.0<0.9.0` becomes
+/// `>=0.4.0 <0.9.0`.
+pub fn normalize_version_constraint(constraint: &str) -> String {
+    let mut result = String::with_capacity(constraint.len() + 4);
+    let chars: Vec<char> = constraint.chars().collect();
+    for (i, &ch) in chars.iter().enumerate() {
+        if (ch == '<' || ch == '>' || ch == '^' || ch == '~')
+            && i > 0
+            && chars[i - 1].is_ascii_digit()
+        {
+            result.push(' ');
+        }
+        result.push(ch);
+    }
+    result
+}
+
 /// Check if a version satisfies a semantic version constraints.
 pub fn check_version_constraint(version: &Version, constraint: &str) -> bool {
-    match Range::parse(constraint) {
+    let constraint = normalize_version_constraint(constraint);
+    match Range::parse(&constraint) {
         Err(_) => false,
         Ok(constraint) => constraint.satisfies(version),
     }
@@ -143,6 +164,7 @@ pub fn find_compatible_solc_versions(solc_ver: &Option<String>) -> Result<Vec<Ve
             return Ok(latest_solc_vers);
         }
         Some(constraint) => {
+            let constraint = normalize_version_constraint(constraint);
             let range = match Range::parse(&constraint) {
                 Ok(range) => range,
                 Err(_) => fail!("Invalid Solidity version constraint: {}!", constraint),

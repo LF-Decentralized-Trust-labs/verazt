@@ -13,28 +13,51 @@ use std::collections::HashMap;
 // Pass 1: Count function name occurrences
 //-------------------------------------------------
 
-/// Count how many times each function base name appears across all source
-/// units.
+/// Count how many times each function base name appears, per scope.
+///
+/// For contract-level functions, the scope is the individual contract.
+/// For free functions, the scope is global (across all source units),
+/// because `eliminate_imports` will merge them into the same unit later.
+///
+/// A name is considered "overloaded" only if it appears more than once
+/// within a single scope.  Functions with the same name in *different*
+/// contracts (e.g. interface declaration + implementation) are overrides,
+/// not overloads, and must keep the same base name so that Solidity's
+/// override mechanism works after normalization.
 fn count_func_names(source_units: &[SourceUnit]) -> HashMap<String, usize> {
-    let mut counts: HashMap<String, usize> = HashMap::new();
+    let mut max_counts: HashMap<String, usize> = HashMap::new();
+
+    // Count free functions globally (across all source units), because
+    // eliminate_imports will merge them into the same scope.
+    let mut free_counts: HashMap<String, usize> = HashMap::new();
     for su in source_units {
         for elem in &su.elems {
             match elem {
                 SourceUnitElem::Contract(c) => {
+                    // Count functions per contract.
+                    let mut contract_counts: HashMap<String, usize> = HashMap::new();
                     for member in &c.body {
                         if let ContractElem::Func(f) = member {
-                            *counts.entry(f.name.base.clone()).or_insert(0) += 1;
+                            *contract_counts.entry(f.name.base.clone()).or_insert(0) += 1;
                         }
+                    }
+                    for (name, count) in contract_counts {
+                        let entry = max_counts.entry(name).or_insert(0);
+                        *entry = (*entry).max(count);
                     }
                 }
                 SourceUnitElem::Func(f) => {
-                    *counts.entry(f.name.base.clone()).or_insert(0) += 1;
+                    *free_counts.entry(f.name.base.clone()).or_insert(0) += 1;
                 }
                 _ => {}
             }
         }
     }
-    counts
+    for (name, count) in free_counts {
+        let entry = max_counts.entry(name).or_insert(0);
+        *entry = (*entry).max(count);
+    }
+    max_counts
 }
 
 //-------------------------------------------------

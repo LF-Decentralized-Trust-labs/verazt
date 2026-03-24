@@ -210,19 +210,20 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
 
         let nelems = ncontract.body.iter().filter_map(|elem| match elem {
             ContractElem::Func(func) => {
-                // Remove all virtual functions which don't have a body
-                if func.is_virtual && func.body.is_none() {
-                    None
+                // Special functions (fallback, receive) cannot be renamed and
+                // still legitimately override each other — keep them as-is.
+                let is_special = matches!(
+                    func.kind,
+                    FuncKind::Fallback | FuncKind::Receive
+                );
+
+                if is_special {
+                    // Keep special functions unchanged
+                    Some(ContractElem::Func(func.clone()))
                 } else {
-                    // Reset the `virtual` and `override` properties of the function, since all
-                    // functions now have unique names
-                    let nfunc = FuncDef {
-                        id: None,
-                        is_virtual: false,
-                        overriding: Overriding::None,
-                        ..func.clone()
-                    };
-                    Some(ContractElem::Func(nfunc))
+                    // Keep function as-is. Virtual/override stripping is
+                    // handled by `strip_specifiers` later.
+                    Some(ContractElem::Func(FuncDef { id: None, ..func.clone() }))
                 }
             }
             _ => Some(elem.clone()),
@@ -266,8 +267,7 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
             .as_ref()
             .map(|func| match &func.overriding {
                 Overriding::Some(overrides) => overrides.to_vec(),
-                Overriding::None => vec![],
-                Overriding::All => panic!("TODO: implement!"),
+                Overriding::None | Overriding::All => vec![],
             })
             .unwrap_or_default();
 
@@ -285,6 +285,11 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
 
         // Start to resolve the keyword `super` referring to a base contracts.
         let member = expr.member.clone();
+        let is_func_member = expr.typ.is_func_type();
+
+        // First pass: type-aware matching for function overloads.
+        // Skip unimplemented (bodyless) functions — super should resolve
+        // to the nearest *implemented* version in the linearization order.
         for base_contract_name in base_contract_names {
             if let Some(base_contract) = self.contract_map.get(base_contract_name) {
                 if base_contract.name == current_contract_name {
@@ -294,7 +299,22 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
                 for base_contract_elem in base_contract.body.iter() {
                     let nmember = match base_contract_elem {
                         ContractElem::Var(v) if v.name.base == member.base => Some(&v.name),
-                        ContractElem::Func(f) if f.name.base == member.base => Some(&f.name),
+                        ContractElem::Func(f)
+                            if f.name.base == member.base && f.body.is_some() =>
+                        {
+                            // When the member expression is a function type,
+                            // verify type compatibility to select the correct
+                            // overload.
+                            if is_func_member {
+                                if super::rename_callees::check_call_type(&expr.typ, &f.typ()) {
+                                    Some(&f.name)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                Some(&f.name)
+                            }
+                        }
                         _ => None,
                     };
 
@@ -312,6 +332,37 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
                             member: nmember.clone(),
                             ..expr.clone()
                         };
+                    }
+                }
+            }
+        }
+
+        // Fallback pass: if type-aware matching failed (e.g. incomplete type
+        // info), pick the first base contract function matching by base name.
+        // Skip unimplemented (bodyless) functions.
+        if is_func_member {
+            for base_contract_name in base_contract_names {
+                if let Some(base_contract) = self.contract_map.get(base_contract_name) {
+                    if base_contract.name == current_contract_name {
+                        continue;
+                    }
+                    for base_contract_elem in base_contract.body.iter() {
+                        if let ContractElem::Func(f) = base_contract_elem {
+                            if f.name.base == member.base && f.body.is_some() {
+                                let nbase: Expr = Identifier::new(
+                                    None,
+                                    base_contract.name.clone(),
+                                    base.typ(),
+                                    base.loc(),
+                                )
+                                .into();
+                                return MemberExpr {
+                                    base: Box::new(nbase),
+                                    member: f.name.clone(),
+                                    ..expr.clone()
+                                };
+                            }
+                        }
                     }
                 }
             }
@@ -441,41 +492,44 @@ mod tests {
             }"###};
 
         // Expected output contract: contracts keep original names (no
-        // rename_contracts), only functions get indexes from rename_defs.
+        // rename_contracts).  `foo` appears once per contract so it is NOT
+        // overloaded and keeps its original name.  Virtual/override
+        // specifiers are preserved by resolve_inheritance (stripping is
+        // deferred to strip_specifiers).
         let expected_contract = indoc! {r###"
             contract A {
-                function foo_0() public pure returns (string memory) {
+                function foo() public pure virtual returns (string memory) {
                     return "A";
                 }
             }
 
             contract B is A {
-                function foo_1() public pure returns (string memory) {
+                function foo() public pure virtual override returns (string memory) {
                     return "B";
                 }
             }
 
             contract C is A {
-                function foo_2() public pure returns (string memory) {
+                function foo() public pure virtual override returns (string memory) {
                     return "C";
                 }
             }
 
             contract D is B, C {
-                function foo_3() public pure returns (string memory) {
-                    return C.foo_2();
+                function foo() public pure override(B, C) returns (string memory) {
+                    return C.foo();
                 }
             }
 
             contract E is C, B {
-                function foo_4() public pure returns (string memory) {
-                    return B.foo_1();
+                function foo() public pure override(C, B) returns (string memory) {
+                    return B.foo();
                 }
             }
 
             contract F is A, B {
-                function foo_5() public pure returns (string memory) {
-                    return B.foo_1();
+                function foo() public pure override(A, B) returns (string memory) {
+                    return B.foo();
                 }
             }"###};
 

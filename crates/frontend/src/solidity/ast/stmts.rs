@@ -673,6 +673,9 @@ impl Display for CatchClause {
                 [] => write!(f, "{}", self.body),
                 _ => write!(f, "({}) {}", params, self.body),
             },
+            Some(error) if error.is_empty() && self.params.is_empty() => {
+                write!(f, "{}", self.body)
+            }
             Some(error) => write!(f, "{}({}) {}", error, params, self.body),
         }
     }
@@ -708,6 +711,9 @@ impl Display for VarDeclStmt {
                 Some(v) => write!(f, "{v}").ok(),
             }
         } else {
+            // Preserve trailing None entries to maintain valid destructuring
+            // syntax, e.g. (bool success, ) must stay as (bool success, )
+            // because solc requires matching component counts.
             let var_decls = self
                 .var_decls
                 .iter()

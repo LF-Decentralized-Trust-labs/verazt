@@ -4,6 +4,15 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 edition = { workspace = true }
+autotests = false
+
+[[test]]
+name = "compile_libsolidity"
+path = "tests/compile_libsolidity.rs"
+
+[[test]]
+name = "compile_smartbugs"
+path = "tests/compile_smartbugs.rs"
 
 [features]
 default = []
