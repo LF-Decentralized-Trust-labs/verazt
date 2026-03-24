@@ -281,8 +281,23 @@ fn extract_import(elems: &[SourceUnitElem]) -> Option<(ImportDir, Vec<SourceUnit
 pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
     let mut finished = false;
     let mut nsource_units = source_units.to_vec();
-    let mut imported_elem_names: HashSet<String> = HashSet::new();
+    // Per-source-unit tracking of imported element names to avoid duplicates.
+    let mut imported_elem_names: HashMap<String, HashSet<String>> = HashMap::new();
+    // Per-source-unit tracking of resolved import paths to detect cycles.
+    let mut resolved_imports: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut iterations = 0;
+    const MAX_ITERATIONS: usize = 100;
+
     while !finished {
+        iterations += 1;
+        if iterations > MAX_ITERATIONS {
+            log::warn!(
+                "eliminate_import: reached max iterations ({}), stopping",
+                MAX_ITERATIONS
+            );
+            break;
+        }
+
         // Initialize data for each elimination iteration
         let all_source_units: Vec<SourceUnit> = nsource_units;
         let source_unit_map = construct_source_unit_map(&all_source_units);
@@ -304,16 +319,39 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                     None => imported_path.clone(),
                 };
 
+                // Initialize the resolved set with the source unit's own path.
+                let sunit_resolved = resolved_imports
+                    .entry(sunit.path.clone())
+                    .or_insert_with(|| {
+                        let mut s = HashSet::new();
+                        s.insert(sunit.path.clone());
+                        s
+                    });
+
+                // Skip if this import path was already resolved for this source unit
+                // (cycle detection: prevents infinite loops from circular imports).
+                if sunit_resolved.contains(&imported_full_path) {
+                    let nsunit = SourceUnit { elems: other_elems, ..sunit.clone() };
+                    nsource_units.push(nsunit);
+                    continue;
+                }
+                sunit_resolved.insert(imported_full_path.clone());
+
                 let imported_sunit = match source_unit_map.get(&imported_full_path) {
                     Some(sunit) => sunit,
                     None => return vec![],
                 };
 
+                // Per-source-unit element deduplication set.
+                let sunit_elem_names = imported_elem_names
+                    .entry(sunit.path.clone())
+                    .or_default();
+
                 let nelems = match &import.kind {
                     ImportKind::ImportSourceUnit(import_unit) => match &import_unit.alias {
                         Some(unit_alias) => {
                             let (mut output_elems, subsituted_elems) = unfold_imported_source_unit(
-                                &mut imported_elem_names,
+                                sunit_elem_names,
                                 imported_sunit,
                                 unit_alias,
                                 &other_elems,
@@ -331,24 +369,25 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                                         "{}:{}",
                                         imported_sunit.path, elem_name
                                     );
-                                    if imported_elem_names.contains(&imported_elem_name) {
+                                    if sunit_elem_names.contains(&imported_elem_name) {
                                         continue;
                                     }
-                                    imported_elem_names.insert(imported_elem_name);
+                                    sunit_elem_names.insert(imported_elem_name);
                                 } else if matches!(elem, SourceUnitElem::Import(_)) {
-                                    // Skip import directives that reference the
-                                    // current source unit to prevent circular imports.
+                                    // Skip import directives that reference any
+                                    // already-resolved path to prevent circular imports.
                                     if let SourceUnitElem::Import(import_dir) = elem {
                                         let import_path = import_dir.get_import_path();
-                                        let imported_full = match Path::new(&sunit.path).parent() {
-                                            Some(parent) => parent
-                                                .join(&import_path)
-                                                .to_str()
-                                                .unwrap_or(&import_path)
-                                                .to_string(),
-                                            None => import_path.clone(),
-                                        };
-                                        if imported_full == sunit.path {
+                                        let imported_full =
+                                            match Path::new(&imported_sunit.path).parent() {
+                                                Some(parent) => parent
+                                                    .join(&import_path)
+                                                    .to_str()
+                                                    .unwrap_or(&import_path)
+                                                    .to_string(),
+                                                None => import_path.clone(),
+                                            };
+                                        if sunit_resolved.contains(&imported_full) {
                                             continue;
                                         }
                                     }
@@ -361,7 +400,7 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                     },
                     ImportKind::ImportSymbols(import_symbols) => {
                         let (mut output_elems, substituted_elems) = unfold_imported_symbols(
-                            &mut imported_elem_names,
+                            sunit_elem_names,
                             imported_sunit,
                             &import_symbols.imported_symbols,
                             &other_elems,
