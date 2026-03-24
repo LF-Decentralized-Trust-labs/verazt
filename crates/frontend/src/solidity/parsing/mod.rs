@@ -9,7 +9,7 @@ use self::json_ast_parser::{AstParser, JsonAst};
 use crate::solidity::{
     ast::utils::version::{
         check_range_constraint, check_version_constraint, find_compatible_solc_versions,
-        find_pragma_solidity_versions,
+        find_pragma_solidity_versions, normalize_version_constraint,
     },
     ast::{self, SourceUnit, utils::export},
 };
@@ -132,7 +132,8 @@ pub fn parse_input_file(
         _ => None,
     };
     if let Some(ver) = &pragma_solc_ver {
-        let pragma_solc_range = node_semver::Range::parse(ver)
+        let ver = normalize_version_constraint(ver);
+        let pragma_solc_range = node_semver::Range::parse(&ver)
             .or_else(|_| fail!("Failed to parse pragma version: '{}'", ver))?;
         if !check_range_constraint(&pragma_solc_range, ">=0.4.12") {
             fail!("Only support Solidity versions >=0.4.12, but found: {}", ver);

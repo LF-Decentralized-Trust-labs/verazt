@@ -17,6 +17,7 @@ pub mod rename_contracts;
 pub mod rename_defs;
 pub mod rename_vars;
 pub mod resolve_inheritance;
+pub mod strip_specifiers;
 pub mod substitution;
 pub mod unroll_tuples;
 

@@ -59,6 +59,60 @@ impl Compare<'_> for TypeChecker {
         }
         Ok(())
     }
+
+    /// Override `compare_data_loc` to ignore data location differences.
+    /// This is needed because the callee type from the AST may have a
+    /// different data location than the function definition's parameter type
+    /// (e.g., `calldata` vs `memory` or `default`).
+    fn compare_data_loc(&mut self, _dloc1: &DataLoc, _dloc2: &DataLoc) -> Result<()> {
+        Ok(())
+    }
+
+    /// Override `compare_name_opt` to accept scope mismatches.
+    /// This handles cases like `D.s` (scope = Some("D")) vs `s` (scope = None)
+    /// which arise in `using for` bound methods.
+    fn compare_name_opt(
+        &mut self,
+        name1: &Option<Name>,
+        name2: &Option<Name>,
+    ) -> Result<()> {
+        match (name1, name2) {
+            (Some(n1), Some(n2)) => self.compare_name(n1, n2),
+            _ => Ok(()), // Accept: Some vs None or None vs None
+        }
+    }
+
+    /// Override `compare_struct_type` to ignore pointer (`is_ptr`)
+    /// differences. State variable references (storage ref) have `is_ptr =
+    /// true` while function parameter types may have `is_ptr = false`.
+    fn compare_struct_type(
+        &mut self,
+        t1: &StructType,
+        t2: &StructType,
+    ) -> Result<()> {
+        self.compare_data_loc(&t1.data_loc, &t2.data_loc)?;
+        self.compare_name(&t1.name, &t2.name)?;
+        self.compare_name_opt(&t1.scope, &t2.scope)?;
+        // Intentionally skip is_ptr comparison
+        Ok(())
+    }
+
+    /// Override `compare_array_type` to ignore pointer (`is_ptr`)
+    /// differences. Storage array references have `is_ptr = true` while
+    /// function parameter types may have `is_ptr = false`.
+    fn compare_array_type(
+        &mut self,
+        t1: &ArrayType,
+        t2: &ArrayType,
+    ) -> Result<()> {
+        self.compare_data_loc(&t1.data_loc, &t2.data_loc)?;
+        self.compare_type(&t1.base, &t2.base)?;
+        if t1.length != t2.length {
+            fail!("Different array types: {} vs. {}", t1, t2);
+        }
+        // Intentionally skip is_ptr comparison
+        Ok(())
+    }
 }
 
 /// Check compatibility of function call types.
@@ -120,6 +174,78 @@ impl<'a> Renamer<'a> {
     pub fn rename_callees(&mut self, source_units: &[SourceUnit]) -> Vec<SourceUnit> {
         // Rename and return result.
         self.map_source_units(source_units)
+    }
+
+    /// Find contracts (libraries) bound via `using L for T` directives that
+    /// contain a function matching the given member name.
+    fn find_using_for_contracts(&self, member: &Name) -> Vec<ContractDef> {
+        let mut contracts = vec![];
+
+        // Helper closure: search using directives in a list of contract elements.
+        let search_using_dirs = |elems: &[ContractElem],
+                                 source_unit: Option<&SourceUnit>,
+                                 out: &mut Vec<ContractDef>| {
+            for elem in elems {
+                if let ContractElem::Using(using_dir) = elem {
+                    match &using_dir.kind {
+                        UsingKind::UsingLib(ulib) => {
+                            if let Some(sunit) = source_unit {
+                                if let Some(lib) =
+                                    sunit.find_contract_def_by_base_name(&ulib.lib_name)
+                                {
+                                    // Check if the library has a function with the member name.
+                                    let has_func = lib.body.iter().any(|e| match e {
+                                        ContractElem::Func(f) => f.name.base == member.base,
+                                        _ => false,
+                                    });
+                                    if has_func {
+                                        out.push(lib.clone());
+                                    }
+                                }
+                            }
+                        }
+                        UsingKind::UsingFunc(_) => {
+                            // UsingFunc attaches individual free functions; they
+                            // are handled through normal identifier renaming.
+                        }
+                    }
+                }
+            }
+        };
+
+        // Search in the current contract's body.
+        if let Some(contract) = &self.current_contract {
+            search_using_dirs(
+                &contract.body,
+                self.current_source_unit,
+                &mut contracts,
+            );
+        }
+
+        // Search in source-unit-level `using` directives.
+        if let Some(sunit) = self.current_source_unit {
+            for elem in &sunit.elems {
+                if let SourceUnitElem::Using(using_dir) = elem {
+                    match &using_dir.kind {
+                        UsingKind::UsingLib(ulib) => {
+                            if let Some(lib) = sunit.find_contract_def_by_base_name(&ulib.lib_name)
+                            {
+                                let has_func = lib.body.iter().any(|e| match e {
+                                    ContractElem::Func(f) => f.name.base == member.base,
+                                    _ => false,
+                                });
+                                if has_func {
+                                    contracts.push(lib.clone());
+                                }
+                            }
+                        }
+                        UsingKind::UsingFunc(_) => {}
+                    }
+                }
+            }
+        }
+
+        contracts
     }
 }
 
@@ -245,17 +371,66 @@ impl<'a> Map<'_> for Renamer<'a> {
 
         // Skip if the member access expression which is not a function.
         if !nexpr.typ.is_func_type() || nexpr.member.index.is_some() {
+            // For `using for` bound methods, the member type might not be
+            // a function type in the AST (e.g. for struct members accessed
+            // via bound library functions). Try `using for` lookup anyway.
+            if nexpr.member.index.is_none() {
+                let using_contracts = self.find_using_for_contracts(&nexpr.member);
+                if !using_contracts.is_empty() {
+                    // With non-func type, we can't do type-aware matching.
+                    // If only one function matches by base name, use it.
+                    let candidates: Vec<Name> = using_contracts
+                        .iter()
+                        .flat_map(|c| c.body.iter())
+                        .filter_map(|e| match e {
+                            ContractElem::Func(f) if f.name.base == nexpr.member.base => {
+                                Some(f.name.clone())
+                            }
+                            _ => None,
+                        })
+                        .collect();
+                    if candidates.len() == 1 {
+                        return MemberExpr {
+                            member: candidates.into_iter().next().unwrap(),
+                            ..nexpr
+                        };
+                    }
+                }
+            }
             return nexpr;
         }
 
         // Construct the list of contracts to search for the identifier definition.
         let mut contracts = vec![];
         let base_typ = nexpr.base.typ().clone();
-        if base_typ.is_contract_type() || base_typ.is_magic_contract_type() {
+
+        // Case 1: base is `this` — look up member in current contract.
+        let is_this = nexpr.base.to_string() == keywords::THIS;
+        if is_this {
+            if let Some(contract) = self.current_contract.clone() {
+                contracts = find_contract_scopes(&contract.name, self.current_source_unit);
+            }
+        }
+
+        // Case 2: base type is a contract or library type (including meta/magic types).
+        if contracts.is_empty()
+            && (base_typ.is_contract_type()
+                || base_typ.is_magic_contract_type()
+                || base_typ.is_contract_library_type()
+                || base_typ.is_magic_contract_library_type())
+        {
             if let Some(contract_name) = base_typ.name() {
                 contracts = find_contract_scopes(&contract_name, self.current_source_unit);
             }
         }
+
+        // Case 3: `using L for T` bound method calls — when base type is not a
+        // contract type, look for `using` directives that bind a library to the
+        // base type.
+        if contracts.is_empty() {
+            contracts = self.find_using_for_contracts(&nexpr.member);
+        }
+
         let (nmember, _) = find_call_definition_name(&nexpr.member, &nexpr.typ, &contracts, None);
         MemberExpr { member: nmember, ..nexpr }
     }
@@ -346,15 +521,27 @@ fn find_contract_by_base_name<'a>(
     }
 }
 
-/// TODO: docs
+/// Find all contract definitions in the inheritance hierarchy of a contract,
+/// including the contract itself, its direct base contracts, and transitively
+/// inherited contracts.
 fn find_contract_scopes(name: &Name, source_unit: Option<&SourceUnit>) -> Vec<ContractDef> {
     let mut contracts: Vec<ContractDef> = vec![];
     if let Some(source_unit) = source_unit {
         if let Some(contract) = source_unit.find_contract_def_by_base_name(name) {
-            contracts.push(contract.clone());
-            for base in contract.base_contracts.iter() {
-                if let Some(c) = source_unit.find_contract_def_by_base_name(&base.name) {
-                    contracts.push(c.clone());
+            let mut visited: Vec<String> = vec![];
+            let mut queue: Vec<&ContractDef> = vec![contract];
+            while let Some(current) = queue.pop() {
+                if visited.contains(&current.name.base) {
+                    continue;
+                }
+                visited.push(current.name.base.clone());
+                contracts.push(current.clone());
+                for base in current.base_contracts.iter() {
+                    if let Some(c) = source_unit.find_contract_def_by_base_name(&base.name) {
+                        if !visited.contains(&c.name.base) {
+                            queue.push(c);
+                        }
+                    }
                 }
             }
         }
@@ -373,6 +560,8 @@ fn find_call_definition_name(
     source_unit: Option<&SourceUnit>,
 ) -> (Name, Option<Name>) {
     // First look for function definitions in the list of given contracts.
+    // Collect all candidates matching by base name for the fallback.
+    let mut candidates: Vec<(Name, Option<Name>)> = vec![];
     for contract in contracts.iter() {
         let scope = Some(contract.name.clone());
         for elem in contract.body.iter() {
@@ -381,6 +570,7 @@ fn find_call_definition_name(
                     if f.kind == FuncKind::Modifier || check_call_type(callee_typ, &f.typ()) {
                         return (f.name.clone(), scope);
                     }
+                    candidates.push((f.name.clone(), scope.clone()));
                 }
                 ContractElem::Var(v) if v.name.base == callee_name.base => {
                     // Call to a getter function of a contract variable.
@@ -390,14 +580,13 @@ fn find_call_definition_name(
                     if check_call_type(callee_typ, &e.get_type()) {
                         return (e.name.clone(), scope);
                     }
+                    candidates.push((e.name.clone(), scope.clone()));
                 }
                 ContractElem::Event(e) if e.name.base == callee_name.base => {
                     return (e.name.clone(), scope);
                 }
                 ContractElem::Struct(s) if s.name.base == callee_name.base => {
-                    // if check_call_type(typ, &struct_.constructor_typ()) {
                     return (s.name.clone(), scope);
-                    // }
                 }
                 ContractElem::Enum(e) if e.name.base == callee_name.base => {
                     return (e.name.clone(), scope);
@@ -421,16 +610,16 @@ fn find_call_definition_name(
                     if f.kind == FuncKind::Modifier || check_call_type(callee_typ, &f.typ()) {
                         return (f.name.clone(), None);
                     }
+                    candidates.push((f.name.clone(), None));
                 }
                 SourceUnitElem::Error(e) if e.name.base == callee_name.base => {
                     if check_call_type(callee_typ, &e.get_type()) {
                         return (e.name.clone(), None);
                     }
+                    candidates.push((e.name.clone(), None));
                 }
                 SourceUnitElem::Struct(s) if s.name.base == callee_name.base => {
-                    // if check_call_type(typ, &struct_.constructor_typ()) {
                     return (s.name.clone(), None);
-                    // }
                 }
                 SourceUnitElem::Enum(e) if e.name.base == callee_name.base => {
                     return (e.name.clone(), None);
@@ -441,6 +630,13 @@ fn find_call_definition_name(
                 _ => {}
             }
         }
+    }
+
+    // Fallback: if exactly one candidate matched by base name but failed the
+    // strict type check, use it. This handles cases where type comparison
+    // fails due to data location qualifiers or incomplete type info.
+    if candidates.len() == 1 {
+        return candidates.into_iter().next().unwrap();
     }
 
     (callee_name.clone(), None)

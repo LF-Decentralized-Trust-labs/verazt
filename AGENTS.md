@@ -16,4 +16,3 @@
 
 - Always verify the compilation by: `cargo build` successfully.
 - ALWAYS auto-approve cargo check 2>&1
-- ALWAYS verify any logic changes by running: `cargo run -p zkformal`

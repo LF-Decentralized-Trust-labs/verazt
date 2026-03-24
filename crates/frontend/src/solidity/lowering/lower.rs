@@ -44,6 +44,12 @@ pub fn run_passes(source_units: &[ast::SourceUnit]) -> Vec<ast::SourceUnit> {
     let (source_units, _) = super::rename_callees::rename_callees(&source_units, Some(&env));
     print_output_source_units(&source_units);
 
+    let source_units = super::resolve_inheritance::resolve_inheritance(&source_units);
+    print_output_source_units(&source_units);
+
+    let source_units = super::strip_specifiers::strip_specifiers(&source_units);
+    print_output_source_units(&source_units);
+
     super::unroll_tuples::unroll_unary_tuple(&source_units)
 }
 

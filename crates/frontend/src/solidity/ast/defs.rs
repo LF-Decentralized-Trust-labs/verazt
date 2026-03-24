@@ -276,7 +276,7 @@ impl Display for ContractDef {
             let base_contracts = self
                 .base_contracts
                 .iter()
-                .map(|base| format!("{}", base.name))
+                .map(|base| format!("{base}"))
                 .collect::<Vec<String>>()
                 .join(", ");
             write!(f, "is {base_contracts} ").ok();
@@ -539,7 +539,7 @@ impl Display for Overriding {
             Overriding::None => write!(f, "").ok(),
             Overriding::All => write!(f, "override").ok(),
             Overriding::Some(names) => {
-                let names: Vec<String> = names.iter().map(|n| n.to_string()).collect();
+                let names: Vec<&str> = names.iter().map(|n| n.base.as_str()).collect();
                 write!(f, "override({})", names.join(", ")).ok()
             }
         };

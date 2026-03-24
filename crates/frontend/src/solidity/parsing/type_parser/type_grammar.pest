@@ -196,7 +196,7 @@ rational_const_type = {
 // String type
 string_type = { string_var_type | string_const_type }
 string_var_type = { STRING ~ data_location? ~ pointer_type? }
-string_const_type = { LITERAL_STRING ~ ANY*}
+string_const_type = { LITERAL_STRING ~ (hex_literal | string_literal) }
 
 // Boolean type
 bool_type = { BOOL }
