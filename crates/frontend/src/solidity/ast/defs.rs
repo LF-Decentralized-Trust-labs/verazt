@@ -480,7 +480,7 @@ impl Display for ErrorDef {
         let params = self
             .params
             .iter()
-            .map(|p| p.name.to_string())
+            .map(|p| format!("{p}"))
             .collect::<Vec<String>>()
             .join(", ");
         write!(f, "error {} ({});", self.name, params)
@@ -502,7 +502,7 @@ impl Display for EventDef {
         let params = self
             .params
             .iter()
-            .map(|p| p.name.to_string())
+            .map(|p| format!("{p}"))
             .collect::<Vec<String>>()
             .join(", ");
 
@@ -623,14 +623,15 @@ impl Display for FuncDef {
             write!(f, "{}", self.kind).ok();
         }
 
-        if !self.name.is_empty() {
+        // Skip printing name for constructors (Solidity syntax: `constructor(...)`)
+        if !self.name.is_empty() && self.kind != FuncKind::Constructor {
             write!(f, " {}", self.name).ok();
         }
 
         let params = self
             .params
             .iter()
-            .map(|p| p.name.to_string())
+            .map(|p| format!("{p}"))
             .collect::<Vec<String>>()
             .join(", ");
         write!(f, "({params})").ok();
@@ -957,15 +958,21 @@ impl VarDecl {
 
 impl Display for VarDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.typ).ok();
+        // Print type WITHOUT embedded data_loc to avoid duplication
+        unsafe {
+            let saved = super::types::PRINT_DATA_LOC;
+            super::types::PRINT_DATA_LOC = false;
+            write!(f, "{}", self.typ).ok();
+            super::types::PRINT_DATA_LOC = saved;
+        }
 
-        // Decide if data location of the variable declaration needs to be printed.
+        // Print data_loc from VarDecl (single source of truth)
         let need_to_print_data_loc = match &self.typ {
             Type::Array(_) | Type::Struct(_) | Type::Mapping(_) | Type::String(_) => true,
             Type::Bytes(typ) => !self.is_state_var && typ.length.is_none(),
             _ => false,
         };
-        if self.typ.data_loc() != DataLoc::None && need_to_print_data_loc {
+        if need_to_print_data_loc {
             if let Some(data_loc) = &self.data_loc {
                 write!(f, " {data_loc}").ok();
             }

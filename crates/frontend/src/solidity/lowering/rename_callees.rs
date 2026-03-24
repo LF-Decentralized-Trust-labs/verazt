@@ -533,7 +533,7 @@ mod tests {
                     return x;
                 }
 
-                function z_0(uint x) public returns (uint) {
+                function z(uint x) public returns (uint) {
                     uint a = g_1(x);
                     return a;
                 }
