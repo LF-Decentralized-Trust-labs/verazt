@@ -43,6 +43,93 @@ impl Map<'_> for SubstituteImportedExpr {
             map::default::map_expr(self, expr)
         }
     }
+
+    fn map_using_func(&mut self, ufunc: &UsingFunc) -> UsingFunc {
+        let path_str = format!("{}", ufunc.func_path);
+        if let Some(symbol_name) = self.symbol_name_map.get(&path_str) {
+            // Replace the multi-segment path (e.g., A.f) with a single-name
+            // path using the prefixed name (e.g., A_f).
+            UsingFunc {
+                func_name: symbol_name.clone(),
+                func_path: NamePath::new(vec![symbol_name.clone()]),
+                ..ufunc.clone()
+            }
+        } else {
+            map::default::map_using_func(self, ufunc)
+        }
+    }
+
+    fn map_using_lib(&mut self, ulib: &UsingLib) -> UsingLib {
+        let path_str = format!("{}", ulib.lib_path);
+        if let Some(symbol_name) = self.symbol_name_map.get(&path_str) {
+            UsingLib {
+                lib_name: symbol_name.clone(),
+                lib_path: NamePath::new(vec![symbol_name.clone()]),
+                ..ulib.clone()
+            }
+        } else {
+            // Also check if just the lib_name matches as a single-segment alias
+            let name_str = format!("{}", ulib.lib_name);
+            if let Some(symbol_name) = self.symbol_name_map.get(&name_str) {
+                UsingLib {
+                    lib_name: symbol_name.clone(),
+                    lib_path: NamePath::new(vec![symbol_name.clone()]),
+                    ..ulib.clone()
+                }
+            } else {
+                map::default::map_using_lib(self, ulib)
+            }
+        }
+    }
+
+    fn map_base_contract(&mut self, base: &BaseContract) -> BaseContract {
+        let name_str = format!("{}", base.name);
+        if let Some(symbol_name) = self.symbol_name_map.get(&name_str) {
+            let symbol_name = symbol_name.clone();
+            let nargs = base.args.iter().map(|arg| self.map_expr(arg)).collect();
+            BaseContract { name: symbol_name, args: nargs, ..base.clone() }
+        } else {
+            map::default::map_base_contract(self, base)
+        }
+    }
+
+    fn map_name_path(&mut self, name_path: &NamePath) -> NamePath {
+        let path_str = format!("{}", name_path);
+        if let Some(symbol_name) = self.symbol_name_map.get(&path_str) {
+            NamePath::new(vec![symbol_name.clone()])
+        } else {
+            map::default::map_path(self, name_path)
+        }
+    }
+
+    fn map_struct_type(&mut self, typ: &StructType) -> StructType {
+        // Handle scoped struct references like A.MyStruct -> A_MyStruct
+        if let Some(ref scope) = typ.scope {
+            let scoped_name = format!("{}.{}", scope, typ.name);
+            if let Some(symbol_name) = self.symbol_name_map.get(&scoped_name) {
+                return StructType {
+                    name: symbol_name.clone(),
+                    scope: None,
+                    ..typ.clone()
+                };
+            }
+        }
+        map::default::map_struct_type(self, typ)
+    }
+
+    fn map_enum_type(&mut self, typ: &EnumType) -> EnumType {
+        // Handle scoped enum references like A.MyEnum -> A_MyEnum
+        if let Some(ref scope) = typ.scope {
+            let scoped_name = format!("{}.{}", scope, typ.name);
+            if let Some(symbol_name) = self.symbol_name_map.get(&scoped_name) {
+                return EnumType {
+                    name: symbol_name.clone(),
+                    scope: None,
+                };
+            }
+        }
+        map::default::map_enum_type(self, typ)
+    }
 }
 
 /// Construct a hash table mapping the file path of a [`SourceUnit`] to the
@@ -195,9 +282,6 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
     let mut finished = false;
     let mut nsource_units = source_units.to_vec();
     let mut imported_elem_names: HashSet<String> = HashSet::new();
-    // Track processed (source_unit_path, imported_path) pairs to detect and
-    // break circular import chains.
-    let mut processed_imports: HashSet<(String, String)> = HashSet::new();
     while !finished {
         // Initialize data for each elimination iteration
         let all_source_units: Vec<SourceUnit> = nsource_units;
@@ -206,6 +290,7 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
         finished = true;
         for sunit in all_source_units.iter() {
             if let Some((import, other_elems)) = extract_import(&sunit.elems) {
+                finished = false;
                 let source_unit_path = Path::new(&sunit.path);
                 let imported_path = import.get_import_path();
 
@@ -218,24 +303,6 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                         .to_string(),
                     None => imported_path.clone(),
                 };
-
-                let import_key = (sunit.path.clone(), imported_full_path.clone());
-
-                // If this (source, import) pair was already processed, skip it
-                // to break circular import chains.
-                if !processed_imports.insert(import_key) {
-                    // Already processed — drop the import directive and keep
-                    // the remaining elements.
-                    let nsunit = SourceUnit { elems: other_elems, ..sunit.clone() };
-                    // There may still be other imports to process.
-                    if extract_import(&nsunit.elems).is_some() {
-                        finished = false;
-                    }
-                    nsource_units.push(nsunit);
-                    continue;
-                }
-
-                finished = false;
 
                 let imported_sunit = match source_unit_map.get(&imported_full_path) {
                     Some(sunit) => sunit,
@@ -255,7 +322,39 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                             output_elems
                         }
                         None => {
-                            let mut output_elems = imported_sunit.elems.clone();
+                            // Deduplicate: only add elements from the imported
+                            // source unit that haven't been imported already.
+                            let mut output_elems: Vec<SourceUnitElem> = vec![];
+                            for elem in imported_sunit.elems.iter() {
+                                if let Some(elem_name) = elem.get_name() {
+                                    let imported_elem_name = format!(
+                                        "{}:{}",
+                                        imported_sunit.path, elem_name
+                                    );
+                                    if imported_elem_names.contains(&imported_elem_name) {
+                                        continue;
+                                    }
+                                    imported_elem_names.insert(imported_elem_name);
+                                } else if matches!(elem, SourceUnitElem::Import(_)) {
+                                    // Skip import directives that reference the
+                                    // current source unit to prevent circular imports.
+                                    if let SourceUnitElem::Import(import_dir) = elem {
+                                        let import_path = import_dir.get_import_path();
+                                        let imported_full = match Path::new(&sunit.path).parent() {
+                                            Some(parent) => parent
+                                                .join(&import_path)
+                                                .to_str()
+                                                .unwrap_or(&import_path)
+                                                .to_string(),
+                                            None => import_path.clone(),
+                                        };
+                                        if imported_full == sunit.path {
+                                            continue;
+                                        }
+                                    }
+                                }
+                                output_elems.push(elem.clone());
+                            }
                             output_elems.extend(other_elems);
                             output_elems
                         }

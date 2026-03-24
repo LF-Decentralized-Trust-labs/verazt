@@ -28,6 +28,19 @@ pub const TEST_PARSING_AST: bool = true;
 /// the ASTs to Solidity files and invoke Solc to compile them.
 pub const TEST_NORMALIZING_AST: bool = true;
 
+/// Sanitize a source name extracted from test files so that it can be used as
+/// a safe file path component. Replaces path separators and strips leading
+/// slashes to prevent path traversal or root-relative paths.
+fn sanitize_source_name(name: &str) -> String {
+    // Strip leading path separators, then replace remaining separators
+    let trimmed = name.trim_start_matches('/').trim_start_matches('\\');
+    if trimmed.is_empty() {
+        // Entirely composed of separators (e.g., "////") — use a safe fallback
+        return "_unnamed_source_.sol".to_string();
+    }
+    trimmed.to_string()
+}
+
 /// Export source file.
 fn export_source_file(
     source_path: &str,
@@ -85,7 +98,8 @@ fn preprocess_solidity_file(file_path: PathBuf) -> common::error::Result<(String
 
             // Start to record content of the new source file.
             content = vec![];
-            source_name = captures.get(1).map_or("", |m| m.as_str()).to_string();
+            let raw_name = captures.get(1).map_or("", |m| m.as_str()).to_string();
+            source_name = sanitize_source_name(&raw_name);
         } else {
             content.push(line.clone());
         }

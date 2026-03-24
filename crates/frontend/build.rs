@@ -136,9 +136,7 @@ const EXCLUDED_FILE_NAMES: &[&str] = &[
     // Category G: Function type in conditional expression edge case
     "conditional_with_arguments.sol",
     // Multi-source tests — require cross-file import resolution
-    "circular_import.sol",
     "circular_import_2.sol",
-    "constants_with_dependencies_on_library_constants_multi_file.sol",
     "circular_reimport.sol",
     "circular_reimport_2.sol",
     "free_different_interger_types.sol",

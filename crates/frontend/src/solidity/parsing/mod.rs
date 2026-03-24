@@ -135,8 +135,8 @@ pub fn parse_input_file(
         let ver = normalize_version_constraint(ver);
         let pragma_solc_range = node_semver::Range::parse(&ver)
             .or_else(|_| fail!("Failed to parse pragma version: '{}'", ver))?;
-        if !check_range_constraint(&pragma_solc_range, ">=0.4.12") {
-            fail!("Only support Solidity versions >=0.4.12, but found: {}", ver);
+        if !check_range_constraint(&pragma_solc_range, ">=0.4.9") {
+            fail!("Only support Solidity versions >=0.4.9, but found: {}", ver);
         }
     }
 
@@ -188,6 +188,7 @@ pub fn parse_input_file(
         }
 
         // Solc 0.8.10 and newer don't need the flag `compact-format`
+        // compact-format was introduced in Solc 0.4.12
         match check_version_constraint(solc_ver, ">=0.4.12 <= 0.8.9") {
             true => args += " --combined-json ast,compact-format",
             false => args += " --combined-json ast",
@@ -223,7 +224,7 @@ pub fn parse_input_file(
                 let mut file = File::create(output_file_path)?;
                 file.write_all(json_data.as_bytes())?;
                 let json_ast = JsonAst::new(json_data, Some(input_file), base_path);
-                let mut parser = AstParser::new(&json_ast);
+                let mut parser = AstParser::new(&json_ast, Some(solc_ver));
                 match parser.parse_solidity_json() {
                     Ok(source_units) => return Ok(source_units),
                     Err(err) => fail!(err),

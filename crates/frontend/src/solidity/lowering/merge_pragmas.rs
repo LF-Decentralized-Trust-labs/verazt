@@ -36,7 +36,7 @@ pub fn merge_pragma_elems(source_unit_elems: &[SourceUnitElem]) -> Vec<SourceUni
                 _ => None,
             })
             .collect::<Vec<String>>()
-            .join(", ");
+            .join(" ");
         let loc = match &solidity_pragmas[..] {
             [p] => p.loc,
             _ => None,

@@ -8,13 +8,25 @@
 
 use crate::solidity::ast::utils::map::Map;
 use crate::solidity::ast::*;
+use std::collections::HashSet;
 
-struct StripSpecifiers;
+struct StripSpecifiers {
+    /// Base contract names of the contract currently being processed.
+    current_base_names: HashSet<String>,
+}
 
 impl<'a> Map<'a> for StripSpecifiers {
     fn map_contract_def(&mut self, contract: &'a ContractDef) -> ContractDef {
+        // Record the base contracts for the contract currently being processed
+        // so that map_var_decl can check if an override reference is valid.
+        self.current_base_names = contract
+            .base_contracts
+            .iter()
+            .map(|b| b.name.base.clone())
+            .collect();
         let contract =
             crate::solidity::ast::utils::map::default::map_contract_def(self, contract);
+        self.current_base_names.clear();
         // Preserve `is_abstract` — contracts may need to remain abstract for
         // valid Solidity output (e.g. contracts with internal constructors, or
         // contracts that don't call parent constructors).
@@ -55,12 +67,21 @@ impl<'a> Map<'a> for StripSpecifiers {
 
     fn map_var_decl(&mut self, vdecl: &'a VarDecl) -> VarDecl {
         let mut vdecl = crate::solidity::ast::utils::map::default::map_var_decl(self, vdecl);
-        // For state variables, sanitize `Overriding::Some(names)` to
-        // `Overriding::All` to avoid stale contract name references, but
-        // keep the override marker since state variables may override
-        // virtual functions in base contracts.
-        if matches!(vdecl.overriding, Overriding::Some(_)) {
-            vdecl.overriding = Overriding::All;
+        // For state variables with override(A, B), keep the explicit contract
+        // list when those base contracts still exist in the inheritance chain.
+        // If some referenced contracts were removed by inheritance resolution,
+        // filter them out. If none remain, clear the override entirely.
+        if let Overriding::Some(ref names) = vdecl.overriding {
+            let valid_names: Vec<Name> = names
+                .iter()
+                .filter(|n| self.current_base_names.contains(&n.base))
+                .cloned()
+                .collect();
+            vdecl.overriding = if valid_names.is_empty() {
+                Overriding::None
+            } else {
+                Overriding::Some(valid_names)
+            };
         }
         vdecl
     }
@@ -69,6 +90,6 @@ impl<'a> Map<'a> for StripSpecifiers {
 /// Strip `override` and `virtual` specifiers from renamed definitions in
 /// the given source units.
 pub fn strip_specifiers(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
-    let mut mapper = StripSpecifiers;
+    let mut mapper = StripSpecifiers { current_base_names: HashSet::new() };
     mapper.map_source_units(source_units)
 }

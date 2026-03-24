@@ -619,12 +619,24 @@ impl Display for FuncDef {
             } else {
                 write!(f, "{}", self.kind).ok();
             }
+        } else if self.is_fallback_function() {
+            // When sol_ver is unknown, default to `function` for fallback
+            // for backward compatibility with pre-0.6.0 syntax.
+            write!(f, "function").ok();
         } else {
             write!(f, "{}", self.kind).ok();
         }
 
-        // Skip printing name for constructors (Solidity syntax: `constructor(...)`)
-        if !self.name.is_empty() && self.kind != FuncKind::Constructor {
+        // Skip printing name for constructors using modern syntax (`constructor(...)`)
+        // but print it for old-style constructors (pre-0.6.0: `function ContractName(...)`)
+        let is_old_style_constructor = self.kind == FuncKind::Constructor
+            && self
+                .sol_ver
+                .as_ref()
+                .map_or(false, |r| !version::check_range_constraint(r, ">=0.6.0"));
+        if !self.name.is_empty()
+            && (self.kind != FuncKind::Constructor || is_old_style_constructor)
+        {
             write!(f, " {}", self.name).ok();
         }
 
