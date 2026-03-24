@@ -195,6 +195,9 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
     let mut finished = false;
     let mut nsource_units = source_units.to_vec();
     let mut imported_elem_names: HashSet<String> = HashSet::new();
+    // Track processed (source_unit_path, imported_path) pairs to detect and
+    // break circular import chains.
+    let mut processed_imports: HashSet<(String, String)> = HashSet::new();
     while !finished {
         // Initialize data for each elimination iteration
         let all_source_units: Vec<SourceUnit> = nsource_units;
@@ -203,7 +206,6 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
         finished = true;
         for sunit in all_source_units.iter() {
             if let Some((import, other_elems)) = extract_import(&sunit.elems) {
-                finished = false;
                 let source_unit_path = Path::new(&sunit.path);
                 let imported_path = import.get_import_path();
 
@@ -216,6 +218,24 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                         .to_string(),
                     None => imported_path.clone(),
                 };
+
+                let import_key = (sunit.path.clone(), imported_full_path.clone());
+
+                // If this (source, import) pair was already processed, skip it
+                // to break circular import chains.
+                if !processed_imports.insert(import_key) {
+                    // Already processed — drop the import directive and keep
+                    // the remaining elements.
+                    let nsunit = SourceUnit { elems: other_elems, ..sunit.clone() };
+                    // There may still be other imports to process.
+                    if extract_import(&nsunit.elems).is_some() {
+                        finished = false;
+                    }
+                    nsource_units.push(nsunit);
+                    continue;
+                }
+
+                finished = false;
 
                 let imported_sunit = match source_unit_map.get(&imported_full_path) {
                     Some(sunit) => sunit,
