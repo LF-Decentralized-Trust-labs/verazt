@@ -1,4 +1,4 @@
-//! Output formatters for SmartHunt.
+//! Output formatters for Verazt Analyzer.
 //!
 //! This module provides various output formats for analysis results.
 

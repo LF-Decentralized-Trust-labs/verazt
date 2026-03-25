@@ -14,7 +14,7 @@ pub struct AnalysisReport {
     /// Analysis duration
     pub duration: Duration,
 
-    /// SmartHunt version
+    /// Verazt Analyzer version
     pub version: String,
 
     /// Analysis timestamp

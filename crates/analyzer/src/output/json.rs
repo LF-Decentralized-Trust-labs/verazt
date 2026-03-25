@@ -41,7 +41,7 @@ impl OutputFormatter for JsonFormatter {
 /// JSON-serializable report structure.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonReport {
-    /// SmartHunt version
+    /// Verazt Analyzer version
     pub version: String,
 
     /// Analysis timestamp

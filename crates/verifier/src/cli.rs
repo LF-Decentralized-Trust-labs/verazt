@@ -4,7 +4,7 @@ use clap::{Parser, crate_version};
 #[command(author,
           version = crate_version!(),
           term_width = 80,
-          about="Smartproof: smart contract formal verification system.",
+          about="Verazt: smart contract formal verification system.",
           long_about=None)]
 pub struct Arguments {
     /// Input Solidity files to be compiled.

@@ -1,6 +1,6 @@
 //! Pipeline Engine
 //!
-//! The main orchestrator for SmartHunt's two-phase execution:
+//! The main orchestrator for Verazt Analyzer's two-phase execution:
 //!
 //! 1. **Analysis Phase**: Run required analysis passes in parallel by
 //!    dependency level

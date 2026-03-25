@@ -227,7 +227,7 @@ impl From<&AnalysisReport> for SarifLog {
             runs: vec![SarifRun {
                 tool: SarifTool {
                     driver: SarifToolDriver {
-                        name: "SmartHunt".to_string(),
+                        name: "Verazt Analyzer".to_string(),
                         version: report.version.clone(),
                         information_uri: "https://github.com/example/analyze".to_string(),
                         rules,

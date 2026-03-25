@@ -1,4 +1,4 @@
-//! Integration tests for SmartHunt.
+//! Integration tests for Verazt Analyzer.
 
 use analyzer::{
     AnalysisReport, Config, JsonFormatter, MarkdownFormatter, OutputFormatter, SarifFormatter,
@@ -62,7 +62,7 @@ fn test_markdown_formatter() {
     let formatter = MarkdownFormatter::new();
     let output = formatter.format(&report);
 
-    assert!(output.contains("# SmartHunt Analysis Report"));
+    assert!(output.contains("# Verazt Analyzer Analysis Report"));
     assert!(output.contains("No issues found"));
 }
 
@@ -79,5 +79,5 @@ fn test_sarif_formatter() {
 
     assert!(output.contains("\"$schema\""));
     assert!(output.contains("\"version\": \"2.1.0\""));
-    assert!(output.contains("SmartHunt"));
+    assert!(output.contains("Verazt Analyzer"));
 }

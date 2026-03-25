@@ -1,6 +1,6 @@
-//! Integration tests for Vyper support in SmartHunt.
+//! Integration tests for Vyper support in Verazt Analyzer.
 //!
-//! These tests verify that the SmartHunt pipeline correctly handles Vyper
+//! These tests verify that the Verazt Analyzer pipeline correctly handles Vyper
 //! contracts through the compile → SIR → detection path.
 
 use analyzer::{
@@ -8,7 +8,7 @@ use analyzer::{
     OutputFormatter, PipelineConfig, PipelineEngine,
 };
 
-/// Helper: run the full SmartHunt pipeline on a Vyper file (via
+/// Helper: run the full Verazt Analyzer pipeline on a Vyper file (via
 /// `frontend::vyper::compile_file`) and return the pipeline result.
 ///
 /// Skipped at runtime when the Vyper compiler is not available (CI

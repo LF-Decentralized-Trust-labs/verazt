@@ -1,4 +1,4 @@
-//! Configuration module for SmartHunt CLI
+//! Configuration module for Verazt Analyzer CLI
 //!
 //! Provides basic configuration for the CLI tool.
 
