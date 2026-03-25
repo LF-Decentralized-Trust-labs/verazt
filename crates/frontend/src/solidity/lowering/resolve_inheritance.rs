@@ -212,10 +212,7 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
             ContractElem::Func(func) => {
                 // Special functions (fallback, receive) cannot be renamed and
                 // still legitimately override each other — keep them as-is.
-                let is_special = matches!(
-                    func.kind,
-                    FuncKind::Fallback | FuncKind::Receive
-                );
+                let is_special = matches!(func.kind, FuncKind::Fallback | FuncKind::Receive);
 
                 if is_special {
                     // Keep special functions unchanged

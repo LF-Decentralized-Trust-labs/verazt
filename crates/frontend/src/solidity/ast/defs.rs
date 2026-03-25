@@ -628,7 +628,8 @@ impl Display for FuncDef {
         }
 
         // Skip printing name for constructors using modern syntax (`constructor(...)`)
-        // but print it for old-style constructors (pre-0.6.0: `function ContractName(...)`)
+        // but print it for old-style constructors (pre-0.6.0: `function
+        // ContractName(...)`)
         let is_old_style_constructor = self.kind == FuncKind::Constructor
             && self
                 .sol_ver

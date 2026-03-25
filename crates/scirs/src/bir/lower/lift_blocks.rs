@@ -97,8 +97,7 @@ fn compute_reachable_blocks(blocks: &[BasicBlock]) -> HashSet<BlockId> {
     queue.push_back(entry);
 
     // Build a quick lookup: BlockId → Terminator
-    let term_map: HashMap<BlockId, &Terminator> =
-        blocks.iter().map(|b| (b.id, &b.term)).collect();
+    let term_map: HashMap<BlockId, &Terminator> = blocks.iter().map(|b| (b.id, &b.term)).collect();
 
     while let Some(id) = queue.pop_front() {
         if let Some(term) = term_map.get(&id) {

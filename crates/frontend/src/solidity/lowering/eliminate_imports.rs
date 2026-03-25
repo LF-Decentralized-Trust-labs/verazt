@@ -107,11 +107,7 @@ impl Map<'_> for SubstituteImportedExpr {
         if let Some(ref scope) = typ.scope {
             let scoped_name = format!("{}.{}", scope, typ.name);
             if let Some(symbol_name) = self.symbol_name_map.get(&scoped_name) {
-                return StructType {
-                    name: symbol_name.clone(),
-                    scope: None,
-                    ..typ.clone()
-                };
+                return StructType { name: symbol_name.clone(), scope: None, ..typ.clone() };
             }
         }
         map::default::map_struct_type(self, typ)
@@ -122,10 +118,7 @@ impl Map<'_> for SubstituteImportedExpr {
         if let Some(ref scope) = typ.scope {
             let scoped_name = format!("{}.{}", scope, typ.name);
             if let Some(symbol_name) = self.symbol_name_map.get(&scoped_name) {
-                return EnumType {
-                    name: symbol_name.clone(),
-                    scope: None,
-                };
+                return EnumType { name: symbol_name.clone(), scope: None };
             }
         }
         map::default::map_enum_type(self, typ)
@@ -291,10 +284,7 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
     while !finished {
         iterations += 1;
         if iterations > MAX_ITERATIONS {
-            log::warn!(
-                "eliminate_import: reached max iterations ({}), stopping",
-                MAX_ITERATIONS
-            );
+            log::warn!("eliminate_import: reached max iterations ({}), stopping", MAX_ITERATIONS);
             break;
         }
 
@@ -320,13 +310,14 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                 };
 
                 // Initialize the resolved set with the source unit's own path.
-                let sunit_resolved = resolved_imports
-                    .entry(sunit.path.clone())
-                    .or_insert_with(|| {
-                        let mut s = HashSet::new();
-                        s.insert(sunit.path.clone());
-                        s
-                    });
+                let sunit_resolved =
+                    resolved_imports
+                        .entry(sunit.path.clone())
+                        .or_insert_with(|| {
+                            let mut s = HashSet::new();
+                            s.insert(sunit.path.clone());
+                            s
+                        });
 
                 // Skip if this import path was already resolved for this source unit
                 // (cycle detection: prevents infinite loops from circular imports).
@@ -343,9 +334,7 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                 };
 
                 // Per-source-unit element deduplication set.
-                let sunit_elem_names = imported_elem_names
-                    .entry(sunit.path.clone())
-                    .or_default();
+                let sunit_elem_names = imported_elem_names.entry(sunit.path.clone()).or_default();
 
                 let nelems = match &import.kind {
                     ImportKind::ImportSourceUnit(import_unit) => match &import_unit.alias {
@@ -365,10 +354,8 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                             let mut output_elems: Vec<SourceUnitElem> = vec![];
                             for elem in imported_sunit.elems.iter() {
                                 if let Some(elem_name) = elem.get_name() {
-                                    let imported_elem_name = format!(
-                                        "{}:{}",
-                                        imported_sunit.path, elem_name
-                                    );
+                                    let imported_elem_name =
+                                        format!("{}:{}", imported_sunit.path, elem_name);
                                     if sunit_elem_names.contains(&imported_elem_name) {
                                         continue;
                                     }

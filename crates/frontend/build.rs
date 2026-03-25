@@ -77,10 +77,7 @@ fn collect_sol_files_rec(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            let dir_name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             if IGNORED_SUBDIRS.contains(&dir_name) || dir_name == "logs" {
                 continue;
             }
@@ -224,7 +221,10 @@ fn generate_libsolidity_tests(
             .unwrap_or("root")
             .to_string();
         let test_name = make_test_name(&sub_dataset, rel);
-        grouped.entry(sub_dataset.clone()).or_default().push((path, test_name));
+        grouped
+            .entry(sub_dataset.clone())
+            .or_default()
+            .push((path, test_name));
     }
 
     for (sub_dataset, tests) in &grouped {
@@ -276,7 +276,10 @@ fn generate_smartbugs_tests(
             .unwrap_or("root")
             .to_string();
         let test_name = make_test_name_simple(rel);
-        grouped.entry(category.clone()).or_default().push((path, test_name));
+        grouped
+            .entry(category.clone())
+            .or_default()
+            .push((path, test_name));
     }
 
     for (category, tests) in &grouped {
@@ -317,7 +320,13 @@ fn make_test_name(_sub_dataset: &str, rel: &Path) -> String {
         .unwrap_or("unknown")
         .trim_end_matches(".sol")
         .replace(['/', '\\'], "__")
-        .replace(['-', '.', ' ', '(', ')', '+', '=', ',', '\'', '!', '@', '#', '$', '%', '^', '&', '*', '~', '`', '[', ']', '{', '}', '|', ':', ';', '<', '>', '?'], "_");
+        .replace(
+            [
+                '-', '.', ' ', '(', ')', '+', '=', ',', '\'', '!', '@', '#', '$', '%', '^', '&',
+                '*', '~', '`', '[', ']', '{', '}', '|', ':', ';', '<', '>', '?',
+            ],
+            "_",
+        );
     sanitize_ident(&s)
 }
 
@@ -327,7 +336,13 @@ fn make_test_name_simple(rel: &Path) -> String {
         .unwrap_or("unknown")
         .trim_end_matches(".sol")
         .replace(['/', '\\'], "__")
-        .replace(['-', '.', ' ', '(', ')', '+', '=', ',', '\'', '!', '@', '#', '$', '%', '^', '&', '*', '~', '`', '[', ']', '{', '}', '|', ':', ';', '<', '>', '?'], "_");
+        .replace(
+            [
+                '-', '.', ' ', '(', ')', '+', '=', ',', '\'', '!', '@', '#', '$', '%', '^', '&',
+                '*', '~', '`', '[', ']', '{', '}', '|', ':', ';', '<', '>', '?',
+            ],
+            "_",
+        );
     // Skip the first segment (category) since it's used as module name
     let parts: Vec<&str> = s.splitn(2, "__").collect();
     if parts.len() > 1 {
@@ -365,14 +380,13 @@ fn sanitize_ident(s: &str) -> String {
     } else {
         // Handle Rust keywords
         match result.as_str() {
-            "abstract" | "as" | "async" | "await" | "become" | "box" | "break"
-            | "const" | "continue" | "crate" | "do" | "dyn" | "else" | "enum"
-            | "extern" | "false" | "final" | "fn" | "for" | "if" | "impl"
-            | "in" | "let" | "loop" | "macro" | "match" | "mod" | "move"
-            | "mut" | "override" | "priv" | "pub" | "ref" | "return" | "self"
-            | "Self" | "static" | "struct" | "super" | "trait" | "true"
-            | "try" | "type" | "typeof" | "unsafe" | "unsized" | "use"
-            | "virtual" | "where" | "while" | "yield" => format!("{result}_"),
+            "abstract" | "as" | "async" | "await" | "become" | "box" | "break" | "const"
+            | "continue" | "crate" | "do" | "dyn" | "else" | "enum" | "extern" | "false"
+            | "final" | "fn" | "for" | "if" | "impl" | "in" | "let" | "loop" | "macro"
+            | "match" | "mod" | "move" | "mut" | "override" | "priv" | "pub" | "ref"
+            | "return" | "self" | "Self" | "static" | "struct" | "super" | "trait" | "true"
+            | "try" | "type" | "typeof" | "unsafe" | "unsized" | "use" | "virtual" | "where"
+            | "while" | "yield" => format!("{result}_"),
             _ => result,
         }
     }

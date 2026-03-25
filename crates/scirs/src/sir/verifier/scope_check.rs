@@ -1,6 +1,7 @@
 //! SIR verifier pass: scope_check
 //!
-//! Checks that variables used in expressions are declared in an enclosing scope.
+//! Checks that variables used in expressions are declared in an enclosing
+//! scope.
 
 use crate::sir::*;
 use crate::verify::VerifyError;

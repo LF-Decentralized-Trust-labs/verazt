@@ -235,10 +235,7 @@ pub fn test_compiling_solidity_file_standalone(file_path: &str, solc_version: &s
     let _ = color_eyre::install();
 
     let test_file_path = PathBuf::from(file_path);
-    assert!(
-        test_file_path.exists(),
-        "Test file does not exist: {file_path}"
-    );
+    assert!(test_file_path.exists(), "Test file does not exist: {file_path}");
 
     // Create a temporarily directory as the output test directory
     let output_path = match tempfile::tempdir() {
@@ -259,10 +256,7 @@ pub fn test_compiling_solidity_file_standalone(file_path: &str, solc_version: &s
     // Create a dedicated output directory for each test file.
     let root_test_dir = Path::new(root_output_dir).join(test_file_name);
     if !root_test_dir.exists() && std::fs::create_dir_all(&root_test_dir).is_err() {
-        panic!(
-            "Failed to create output test directory: {}",
-            root_test_dir.display()
-        );
+        panic!("Failed to create output test directory: {}", root_test_dir.display());
     }
 
     // Copy file to the temporary directory
