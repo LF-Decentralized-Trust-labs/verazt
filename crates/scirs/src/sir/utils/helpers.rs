@@ -9,7 +9,9 @@
 //! `scirs::sir::utils::visit` instead.
 
 use crate::sir::dialect::evm::EvmExpr;
-use crate::sir::{CallExpr, ContractDecl, DialectExpr, Expr, FunctionDecl, MemberDecl, Stmt, StorageDecl};
+use crate::sir::{
+    CallExpr, ContractDecl, DialectExpr, Expr, FunctionDecl, MemberDecl, Stmt, StorageDecl,
+};
 
 // =========================================================================
 // Function attribute queries

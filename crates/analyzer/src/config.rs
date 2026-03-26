@@ -6,7 +6,7 @@ use std::path::Path;
 
 // Re-export InputLanguage from the analysis crate so existing code using
 // `crate::config::InputLanguage` continues to work without changes.
-pub use crate::analysis::InputLanguage;
+pub use crate::context::InputLanguage;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {

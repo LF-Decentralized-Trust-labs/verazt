@@ -5,8 +5,7 @@
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
-    PipelineEngine, SarifFormatter, SeverityFilter, artifacts::SourceUnitsArtifact,
-    register_all_detectors,
+    PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
 };
 use clap::{Parser, Subcommand, crate_version};
 use common::error;
@@ -358,7 +357,6 @@ fn run_analysis(args: Arguments) {
     // Detect input language
     let input_language = detect_language(&args.input_files, args.language.as_deref());
 
-    let mut all_source_units: Vec<SourceUnit> = Vec::new();
     let mut ir_units: Vec<scirs::sir::Module> = Vec::new();
     let mut files_analyzed: Vec<String> = Vec::new();
 
@@ -405,8 +403,6 @@ fn run_analysis(args: Arguments) {
                         }
                     }
                 }
-
-                all_source_units.extend(source_units);
             }
             InputLanguage::Vyper => match frontend::vyper::compile_file(file, vyper_ver) {
                 Ok(module) => {
@@ -445,11 +441,6 @@ fn run_analysis(args: Arguments) {
     // Create analysis context
     let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
     let mut context = AnalysisContext::new(ir_units, analysis_config);
-
-    // Store AST source units as an artifact for Solidity GREP-tier detectors
-    if !all_source_units.is_empty() {
-        context.store::<SourceUnitsArtifact>(all_source_units);
-    }
 
     // Create and run the pipeline
     let engine = PipelineEngine::new(PipelineConfig {

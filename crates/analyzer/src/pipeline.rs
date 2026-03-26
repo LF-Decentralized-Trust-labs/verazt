@@ -6,13 +6,13 @@
 //!    dependency level
 //! 2. **Detection Phase**: Run all enabled detectors fully in parallel
 
-use crate::analysis::AnalysisPass;
-use crate::analysis::PassRepresentation;
-use crate::analysis::context::AnalysisContext;
-use crate::analysis::pipeline::manager::{PassManager, PassManagerConfig};
 use crate::config::InputLanguage;
+use crate::context::AnalysisContext;
 use crate::detectors::BugDetectionPass;
-use crate::detectors::registry::{DetectorRegistry, register_all_detectors};
+use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
+use crate::pass_manager::manager::{PassManager, PassManagerConfig};
+use crate::passes::base::AnalysisPass;
+use crate::passes::base::meta::PassRepresentation;
 use bugs::bug::Bug;
 use std::any::TypeId;
 use std::collections::HashSet;
@@ -283,7 +283,7 @@ impl PipelineEngine {
     /// semantics, etc.).
     fn run_sir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
         log::info!("SIR structural phase");
-        // SIR structural passes store their findings as artifacts.
+        // SIR structural passes store their findings as context data.
         // They are registered as analysis passes and run via the normal
         // PassManager scheduling.  The create_analysis_pass factory already
         // handles them; this method is a logical grouping marker for now.
@@ -432,8 +432,8 @@ fn run_single_detector(
 ///
 /// This factory function maps TypeIds to their concrete implementations.
 fn create_analysis_pass(pass_id: TypeId) -> Option<Box<dyn AnalysisPass>> {
-    if pass_id == TypeId::of::<crate::analysis::passes::bir::TaintPropagationPass>() {
-        Some(Box::new(crate::analysis::passes::bir::TaintPropagationPass))
+    if pass_id == TypeId::of::<crate::passes::bir::TaintPropagationPass>() {
+        Some(Box::new(crate::passes::bir::TaintPropagationPass))
     } else {
         log::warn!("No analysis pass implementation for {:?}", pass_id);
         None
@@ -485,10 +485,8 @@ mod tests {
     #[test]
     fn test_create_analysis_pass() {
         assert!(
-            create_analysis_pass(
-                TypeId::of::<crate::analysis::passes::bir::TaintPropagationPass>()
-            )
-            .is_some()
+            create_analysis_pass(TypeId::of::<crate::passes::bir::TaintPropagationPass>())
+                .is_some()
         );
     }
 

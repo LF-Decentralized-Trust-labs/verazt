@@ -7,11 +7,9 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use analyzer::artifacts::SourceUnitsArtifact;
 use analyzer::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
 use bugs::bug::BugCategory;
 use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
-use frontend::solidity::parsing::parse_input_file;
 
 /// Represents a bug detected by the local analyzer.
 #[derive(Debug, Clone)]
@@ -93,17 +91,7 @@ fn match_file(
 
 /// Run analyze on a single .sol file and return DetectedBugs.
 fn run_analyze_on_file(file_path: &Path) -> Vec<DetectedBug> {
-    let source_units = match parse_input_file(file_path.to_str().unwrap(), None, &[], None) {
-        Ok(units) => units,
-        Err(_) => return vec![],
-    };
-
-    if source_units.is_empty() {
-        return vec![];
-    }
-
     let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
-    context.store::<SourceUnitsArtifact>(source_units);
     let engine =
         PipelineEngine::new(PipelineConfig { parallel: false, ..PipelineConfig::default() });
 
