@@ -81,7 +81,7 @@ impl BugDetectionPass for TimestampDependenceSirDetector {
             }
 
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
-                if matches!(d, DialectExpr::Evm(EvmExpr::Timestamp)) {
+                if matches!(d, DialectExpr::Evm(EvmExpr::Timestamp(_))) {
                     self.bugs.push(Bug::new(
                         self.detector.name(),
                         Some(&format!(

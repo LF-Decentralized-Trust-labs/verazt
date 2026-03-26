@@ -12,7 +12,7 @@ use crate::passes::base::meta::PassLevel;
 use crate::passes::base::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::sir::utils::helpers as structural;
+
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, FunctionDecl, LocalVarStmt};
 use std::any::TypeId;
@@ -75,7 +75,7 @@ impl BugDetectionPass for ShadowingSirDetector {
         impl<'a, 'b> Visit<'a> for Visitor<'b> {
             fn visit_contract_decl(&mut self, contract: &'a ContractDecl) {
                 self.contract_name = contract.name.clone();
-                self.state_vars = structural::storage_names(contract).into_iter().collect();
+                self.state_vars = contract.storage_names().into_iter().collect();
                 if !self.state_vars.is_empty() {
                     visit::default::visit_contract_decl(self, contract);
                 }

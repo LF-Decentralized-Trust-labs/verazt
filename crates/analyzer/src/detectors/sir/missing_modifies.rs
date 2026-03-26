@@ -11,7 +11,8 @@ use crate::passes::base::meta::PassLevel;
 use crate::passes::base::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::sir::utils::helpers as structural;
+use scirs::sir::ContractDecl;
+use scirs::sir::dialect::EvmFunctionExt;
 use std::any::TypeId;
 
 /// SIR structural detector for missing @modifies annotation.
@@ -61,19 +62,19 @@ impl BugDetectionPass for SirMissingModifiesDetector {
         for module in context.ir_units() {
             for decl in &module.decls {
                 if let scirs::sir::Decl::Contract(contract) = decl {
-                    let storage_vars = structural::storage_names(contract);
+                    let storage_vars = contract.storage_names();
                     if storage_vars.is_empty() {
                         continue;
                     }
 
                     for member in &contract.members {
                         if let scirs::sir::MemberDecl::Function(func) = member {
-                            if !structural::is_public_function(func) {
+                            if !func.is_public() {
                                 continue;
                             }
 
                             if let Some(body) = &func.body {
-                                if !structural::has_storage_write(body, &storage_vars) {
+                                if !ContractDecl::has_storage_write(body, &storage_vars) {
                                     continue;
                                 }
 

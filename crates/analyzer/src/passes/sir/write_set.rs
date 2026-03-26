@@ -7,7 +7,7 @@
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::sir::utils::helpers::{expr_references_storage, storage_names};
+use scirs::sir::ContractDecl;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{CallExpr, Decl, Expr, MemberDecl, Stmt};
 use std::any::TypeId;
@@ -65,7 +65,7 @@ impl AnalysisPass for WriteSetPass {
             for module in modules {
                 for decl in &module.decls {
                     if let Decl::Contract(contract) = decl {
-                        let storage_vars = storage_names(contract);
+                        let storage_vars = contract.storage_names();
                         if storage_vars.is_empty() {
                             continue;
                         }
@@ -169,7 +169,7 @@ fn collect_writes(stmts: &[Stmt], storage_vars: &[String], out: &mut HashSet<Str
 
 /// If a LHS expression references a storage variable, add its name to the set.
 fn collect_written_storage(expr: &Expr, storage_vars: &[String], out: &mut HashSet<String>) {
-    if expr_references_storage(expr, storage_vars) {
+    if ContractDecl::expr_references_storage(expr, storage_vars) {
         if let Some(name) = extract_storage_name(expr) {
             out.insert(name);
         }

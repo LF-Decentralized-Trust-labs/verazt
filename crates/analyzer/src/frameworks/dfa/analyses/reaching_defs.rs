@@ -2,7 +2,7 @@ use crate::frameworks::dfa::annotated_cfg::BasicBlockId;
 use crate::frameworks::dfa::lattice::PowerSetLattice;
 use crate::frameworks::dfa::solver::Transfer;
 use crate::frameworks::dfa::var::VarId;
-use scirs::sir::Span;
+use scirs::sir::Loc;
 use scirs::sir::Stmt;
 
 /// A definition point
@@ -11,7 +11,7 @@ pub struct Definition {
     pub var: VarId,
     pub block: BasicBlockId,
     pub stmt_index: usize,
-    pub loc: Option<Span>,
+    pub loc: Option<Loc>,
 }
 
 /// Reaching definitions lattice (set of definitions)

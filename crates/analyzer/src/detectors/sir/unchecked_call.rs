@@ -14,7 +14,7 @@ use crate::passes::base::meta::PassLevel;
 use crate::passes::base::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::sir::utils::helpers as structural;
+use scirs::sir::dialect::EvmCallExt;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, ExprStmt, FunctionDecl};
 use std::any::TypeId;
@@ -83,7 +83,7 @@ impl BugDetectionPass for UncheckedCallSirDetector {
 
             fn visit_expr_stmt(&mut self, stmt: &'a ExprStmt) {
                 if let scirs::sir::Expr::FunctionCall(call) = &stmt.expr {
-                    if structural::is_evm_external_call(call) {
+                    if call.is_evm_external_call() {
                         self.bugs.push(Bug::new(
                             self.detector.name(),
                             Some(&format!(

@@ -127,10 +127,7 @@ impl CirLowerer {
 
     /// Check if a dialect member declaration is a modifier definition.
     fn is_modifier_def(d: &sir::DialectMemberDecl) -> bool {
-        matches!(
-            d,
-            sir::DialectMemberDecl::Evm(sir::dialect::evm::EvmMemberDecl::ModifierDef { .. })
-        )
+        matches!(d, sir::DialectMemberDecl::Evm(sir::dialect::evm::EvmMemberDecl::ModifierDef(_)))
     }
 
     fn lower_storage(

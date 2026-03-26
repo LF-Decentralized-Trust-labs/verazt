@@ -63,10 +63,13 @@ impl BugDetectionPass for SirMissingPdaConstraintDetector {
                     for member in &contract.members {
                         if let scirs::sir::MemberDecl::Dialect(
                             scirs::sir::DialectMemberDecl::Anchor(
-                                scirs::sir::dialect::anchor::AnchorMemberDecl::AccountsContext {
-                                    name: ctx_name,
-                                    accounts,
-                                },
+                                scirs::sir::dialect::anchor::AnchorMemberDecl::AccountsContext(
+                                    scirs::sir::dialect::anchor::AnchorAccountsContext {
+                                        name: ctx_name,
+                                        accounts,
+                                        ..
+                                    },
+                                ),
                             ),
                         ) = member
                         {

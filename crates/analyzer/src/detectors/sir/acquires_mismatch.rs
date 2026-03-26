@@ -95,12 +95,12 @@ impl BugDetectionPass for SirAcquiresMismatchDetector {
             fn visit_dialect_expr(&mut self, d: &'a scirs::sir::DialectExpr) {
                 if let scirs::sir::DialectExpr::Move(me) = d {
                     let borrowed_ty = match me {
-                        scirs::sir::dialect::move_lang::MoveExpr::BorrowGlobal { ty, .. } => {
-                            Some(ty.to_string())
+                        scirs::sir::dialect::move_lang::MoveExpr::BorrowGlobal(e) => {
+                            Some(e.ty.to_string())
                         }
-                        scirs::sir::dialect::move_lang::MoveExpr::BorrowGlobalMut {
-                            ty, ..
-                        } => Some(ty.to_string()),
+                        scirs::sir::dialect::move_lang::MoveExpr::BorrowGlobalMut(e) => {
+                            Some(e.ty.to_string())
+                        }
                         _ => None,
                     };
                     if let Some(ty_str) = borrowed_ty {

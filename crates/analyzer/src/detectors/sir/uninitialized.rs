@@ -14,7 +14,7 @@ use crate::passes::base::meta::PassLevel;
 use crate::passes::base::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::sir::utils::helpers as structural;
+use scirs::sir::dialect::EvmStorageExt;
 use scirs::sir::{Decl, MemberDecl};
 use std::any::TypeId;
 
@@ -68,7 +68,7 @@ impl BugDetectionPass for UninitializedSirDetector {
                     for member in &contract.members {
                         if let MemberDecl::Storage(storage) = member {
                             // Skip constant/immutable storage variables
-                            if structural::is_constant_storage(storage) {
+                            if storage.is_constant_storage() {
                                 continue;
                             }
 

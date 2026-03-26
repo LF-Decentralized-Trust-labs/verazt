@@ -20,7 +20,7 @@
 //! - Expressions are flattened (call args are atoms)
 //!
 //! CIR reuses SIR types where there is no structural difference (`Type`, `Lit`,
-//! `Attr`, `Span`, `FuncSpec`, dialect extension points).
+//! `Attr`, `Loc`, `FuncSpec`, dialect extension points).
 
 pub mod defs;
 pub mod exprs;
@@ -38,7 +38,7 @@ pub use stmts::*;
 
 // Re-export shared SIR types that CIR uses without change.
 pub use crate::sir::{
-    Attr, AttrValue, BinOp, FuncSpec, Lit, OverflowSemantics, Span, StorageRef, Type, TypeParam,
+    Attr, AttrValue, BinOp, FuncSpec, Lit, Loc, OverflowSemantics, StorageRef, Type, TypeParam,
     UnOp,
 };
 pub use crate::sir::{DialectExpr, DialectMemberDecl, DialectStmt, DialectType};

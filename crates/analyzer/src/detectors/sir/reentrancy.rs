@@ -13,7 +13,8 @@ use crate::passes::base::meta::PassLevel;
 use crate::passes::base::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::sir::utils::helpers as structural;
+use scirs::sir::ContractDecl;
+use scirs::sir::dialect::{EvmCallExt, EvmFunctionExt};
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{CallExpr, Decl, MemberDecl, Stmt};
 use std::any::TypeId;
@@ -140,7 +141,7 @@ impl ReentrancySirDetector {
         }
         impl<'a> Visit<'a> for CallFinder {
             fn visit_call_expr(&mut self, call: &'a CallExpr) {
-                if structural::is_evm_external_call(call) {
+                if call.is_evm_external_call() {
                     self.found = true;
                 }
                 if !self.found {
@@ -155,8 +156,8 @@ impl ReentrancySirDetector {
 
     fn stmt_has_storage_write(&self, stmt: &Stmt, storage_vars: &[String]) -> bool {
         match stmt {
-            Stmt::Assign(a) => structural::expr_references_storage(&a.lhs, storage_vars),
-            Stmt::AugAssign(a) => structural::expr_references_storage(&a.lhs, storage_vars),
+            Stmt::Assign(a) => ContractDecl::expr_references_storage(&a.lhs, storage_vars),
+            Stmt::AugAssign(a) => ContractDecl::expr_references_storage(&a.lhs, storage_vars),
             _ => false,
         }
     }
@@ -200,7 +201,7 @@ impl BugDetectionPass for ReentrancySirDetector {
         for module in context.ir_units() {
             for decl in &module.decls {
                 if let Decl::Contract(contract) = decl {
-                    let storage_vars = structural::storage_names(contract);
+                    let storage_vars = contract.storage_names();
                     if storage_vars.is_empty() {
                         continue;
                     }
@@ -208,7 +209,7 @@ impl BugDetectionPass for ReentrancySirDetector {
                     for member in &contract.members {
                         if let MemberDecl::Function(func) = member {
                             // Skip functions with reentrancy guard.
-                            if structural::has_reentrancy_guard(func) {
+                            if func.has_reentrancy_guard() {
                                 continue;
                             }
 

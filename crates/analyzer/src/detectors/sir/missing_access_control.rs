@@ -17,7 +17,8 @@ use crate::passes::base::meta::PassRepresentation;
 use crate::passes::sir::WriteSetArtifact;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::sir::utils::helpers as structural;
+use scirs::sir::ContractDecl;
+use scirs::sir::dialect::EvmFunctionExt;
 use scirs::sir::{Decl, MemberDecl};
 use std::any::TypeId;
 
@@ -71,7 +72,7 @@ impl BugDetectionPass for MissingAccessControlSirDetector {
         for module in context.ir_units() {
             for decl in &module.decls {
                 if let Decl::Contract(contract) = decl {
-                    let storage_vars = structural::storage_names(contract);
+                    let storage_vars = contract.storage_names();
                     if storage_vars.is_empty() {
                         continue;
                     }
@@ -79,7 +80,7 @@ impl BugDetectionPass for MissingAccessControlSirDetector {
                     for member in &contract.members {
                         if let MemberDecl::Function(func) = member {
                             // Only check public/external functions.
-                            if !structural::is_public_function(func) {
+                            if !func.is_public() {
                                 continue;
                             }
 
@@ -98,7 +99,7 @@ impl BugDetectionPass for MissingAccessControlSirDetector {
                                 func.spec.as_ref().is_some_and(|s| !s.requires.is_empty());
 
                             let has_assert_guard = func.body.as_ref().map_or(false, |body| {
-                                structural::has_assert_before_storage_write(body, &storage_vars)
+                                ContractDecl::has_assert_before_storage_write(body, &storage_vars)
                             });
 
                             if has_spec_guard || has_assert_guard {
@@ -112,7 +113,7 @@ impl BugDetectionPass for MissingAccessControlSirDetector {
                                 .map_or(false, |w| !w.is_empty());
 
                             let has_writes_structural = func.body.as_ref().map_or(false, |body| {
-                                structural::has_storage_write(body, &storage_vars)
+                                ContractDecl::has_storage_write(body, &storage_vars)
                             });
 
                             if has_writes_ws || has_writes_structural {

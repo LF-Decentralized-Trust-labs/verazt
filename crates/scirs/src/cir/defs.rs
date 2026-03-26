@@ -9,9 +9,9 @@ use crate::cir::exprs::CanonExpr;
 use crate::cir::stmts::CanonStmt;
 use crate::sir::attrs::Attr;
 use crate::sir::dialect::DialectMemberDecl;
-use crate::sir::loc::Span;
 use crate::sir::spec::FuncSpec;
 use crate::sir::types::Type;
+use common::loc::Loc;
 use common::string::StringExt;
 use std::fmt::{self, Display};
 
@@ -25,7 +25,7 @@ pub struct CanonContractDecl {
     // NOTE: no `parents` — inheritance is resolved.
     pub attrs: Vec<Attr>,
     pub members: Vec<CanonMemberDecl>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// A member declaration inside a canonical contract.
@@ -50,7 +50,7 @@ pub struct CanonStorageDecl {
     pub ty: Type,
     pub init: Option<CanonExpr>,
     pub attrs: Vec<Attr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -67,7 +67,7 @@ pub struct CanonFunctionDecl {
     pub spec: Option<FuncSpec>,
     /// After normalization the body is always present.
     pub body: Vec<CanonStmt>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// A function parameter.
@@ -98,13 +98,13 @@ pub struct CanonTypeAlias {
 // ═══════════════════════════════════════════════════════════════════
 
 impl CanonContractDecl {
-    pub fn new(name: String, members: Vec<CanonMemberDecl>, span: Option<Span>) -> Self {
+    pub fn new(name: String, members: Vec<CanonMemberDecl>, span: Option<Loc>) -> Self {
         CanonContractDecl { name, attrs: vec![], members, span }
     }
 }
 
 impl CanonStorageDecl {
-    pub fn new(name: String, ty: Type, init: Option<CanonExpr>, span: Option<Span>) -> Self {
+    pub fn new(name: String, ty: Type, init: Option<CanonExpr>, span: Option<Loc>) -> Self {
         CanonStorageDecl { name, ty, init, attrs: vec![], span }
     }
 }
@@ -115,7 +115,7 @@ impl CanonFunctionDecl {
         params: Vec<CanonParam>,
         returns: Vec<Type>,
         body: Vec<CanonStmt>,
-        span: Option<Span>,
+        span: Option<Loc>,
     ) -> Self {
         CanonFunctionDecl {
             name,

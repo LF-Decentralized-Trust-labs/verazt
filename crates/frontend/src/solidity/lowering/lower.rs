@@ -9,8 +9,8 @@ use scirs::sir::dialect::evm::*;
 use scirs::sir::*;
 
 /// Convert AST source location to SIR span.
-fn loc_to_span(loc: Option<Loc>) -> Option<Span> {
-    loc.map(|l| Span::new(l.start_line as u32, l.end_line as u32))
+fn loc_to_span(loc: Option<Loc>) -> Option<common::loc::Loc> {
+    loc.map(|l| common::loc::Loc::new(l.start_line as u32, l.end_line as u32))
 }
 
 // Modules moved to mod.rs
@@ -230,18 +230,19 @@ impl Lowerer {
 
     fn lower_error_def(&mut self, e: &ast::ErrorDef) -> Result<MemberDecl> {
         let params = self.lower_param_list(&e.params)?;
-        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::ErrorDef {
+        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::ErrorDef(EvmErrorDef {
             name: e.name.to_string(),
             params: params
                 .iter()
                 .map(|p| (p.name.clone(), p.ty.clone()))
                 .collect(),
-        })))
+            loc: Default::default(),
+        }))))
     }
 
     fn lower_event_def(&mut self, e: &ast::EventDef) -> Result<MemberDecl> {
         let params = self.lower_param_list(&e.params)?;
-        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EventDef {
+        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EventDef(EvmEventDef {
             name: e.name.to_string(),
             params: params
                 .iter()
@@ -249,7 +250,8 @@ impl Lowerer {
                 .collect(),
             indexed: vec![false; params.len()],
             anonymous: e.is_anonymous,
-        })))
+            loc: Default::default(),
+        }))))
     }
 
     fn lower_struct_def(&mut self, s: &ast::StructDef) -> Result<MemberDecl> {
@@ -258,17 +260,19 @@ impl Lowerer {
             let ty = self.lower_type(&f.typ)?;
             fields.push((f.name.clone(), ty));
         }
-        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::StructDef {
+        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::StructDef(EvmStructDef {
             name: s.name.to_string(),
             fields,
-        })))
+            loc: Default::default(),
+        }))))
     }
 
     fn lower_enum_def(&mut self, e: &ast::EnumDef) -> MemberDecl {
-        MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EnumDef {
+        MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EnumDef(EvmEnumDef {
             name: e.name.to_string(),
             variants: e.elems.clone(),
-        }))
+            loc: Default::default(),
+        })))
     }
 
     fn lower_state_var(&mut self, v: &ast::VarDecl) -> Result<MemberDecl> {
@@ -343,14 +347,17 @@ impl Lowerer {
             Some(blk) => self.lower_block_with_placeholder(blk)?,
             None => vec![],
         };
-        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef {
-            name: f.name.to_string(),
-            params: params
-                .iter()
-                .map(|p| (p.name.clone(), p.ty.clone()))
-                .collect(),
-            body,
-        })))
+        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef(
+            EvmModifierDef {
+                name: f.name.to_string(),
+                params: params
+                    .iter()
+                    .map(|p| (p.name.clone(), p.ty.clone()))
+                    .collect(),
+                body,
+                loc: Default::default(),
+            },
+        ))))
     }
 
     fn lower_block_with_placeholder(&mut self, blk: &ast::Block) -> Result<Vec<Stmt>> {
@@ -363,9 +370,9 @@ impl Lowerer {
 
     fn lower_stmt_with_placeholder(&mut self, stmt: &ast::Stmt) -> Result<Vec<Stmt>> {
         match stmt {
-            ast::Stmt::Placeholder(_) => {
-                Ok(vec![Stmt::Dialect(DialectStmt::Evm(EvmStmt::Placeholder))])
-            }
+            ast::Stmt::Placeholder(_) => Ok(vec![Stmt::Dialect(DialectStmt::Evm(
+                EvmStmt::Placeholder(EvmPlaceholder { loc: Default::default() }),
+            ))]),
             _ => self.lower_stmt(stmt),
         }
     }
@@ -434,7 +441,10 @@ impl Lowerer {
             .map(|s| format!("{s}"))
             .collect::<Vec<_>>()
             .join("\n");
-        let expr = Expr::Dialect(DialectExpr::Evm(EvmExpr::InlineAsm { asm_text }));
+        let expr = Expr::Dialect(DialectExpr::Evm(EvmExpr::InlineAsm(EvmInlineAsm {
+            asm_text,
+            loc: Default::default(),
+        })));
         vec![Stmt::Expr(ExprStmt { expr, span: loc_to_span(s.loc) })]
     }
 
@@ -463,10 +473,9 @@ impl Lowerer {
                 } else {
                     pos.remove(0)
                 };
-                stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::Selfdestruct {
-                    recipient,
-                    span: loc_to_span(s.loc),
-                })));
+                stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::Selfdestruct(
+                    EvmSelfdestruct { recipient, loc: loc_to_span(s.loc).unwrap_or_default() },
+                ))));
                 Ok(stmts)
             }
             _ => {
@@ -480,7 +489,11 @@ impl Lowerer {
     }
 
     /// Lower `assert(cond)` → `Stmt::Assert { cond, message: None }`.
-    fn lower_assert(&mut self, call: &ast::CallExpr, span: Option<Span>) -> Result<Vec<Stmt>> {
+    fn lower_assert(
+        &mut self,
+        call: &ast::CallExpr,
+        span: Option<common::loc::Loc>,
+    ) -> Result<Vec<Stmt>> {
         let mut stmts = vec![];
         let (args, extra) = self.lower_call_args_exprs(&call.args)?;
         stmts.extend(extra);
@@ -500,7 +513,11 @@ impl Lowerer {
     }
 
     /// Lower `require(cond, msg?)` → `if !cond { revert(msg) }`.
-    fn lower_require(&mut self, call: &ast::CallExpr, span: Option<Span>) -> Result<Vec<Stmt>> {
+    fn lower_require(
+        &mut self,
+        call: &ast::CallExpr,
+        span: Option<common::loc::Loc>,
+    ) -> Result<Vec<Stmt>> {
         let mut stmts = vec![];
         let (args, extra) = self.lower_call_args_exprs(&call.args)?;
         stmts.extend(extra);
@@ -654,16 +671,16 @@ impl Lowerer {
                 error: c.error.clone(),
                 params,
                 body: self.lower_block(&c.body)?,
-                span: loc_to_span(c.loc),
+                loc: loc_to_span(c.loc).unwrap_or_default(),
             });
         }
-        stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::TryCatch {
+        stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::TryCatch(EvmTryCatch {
             guarded_expr: expr,
             returns,
             body,
             catch_clauses: catches,
-            span: loc_to_span(s.loc),
-        })));
+            loc: loc_to_span(s.loc).unwrap_or_default(),
+        }))));
         Ok(stmts)
     }
 
@@ -679,11 +696,11 @@ impl Lowerer {
         };
         let (args, extra) = self.lower_call_args_exprs(&s.args)?;
         stmts.extend(extra);
-        stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::EmitEvent {
+        stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::EmitEvent(EvmEmitEvent {
             event,
             args: args.into_positional(),
-            span: loc_to_span(s.loc),
-        })));
+            loc: loc_to_span(s.loc).unwrap_or_default(),
+        }))));
         Ok(stmts)
     }
 
@@ -761,7 +778,7 @@ impl Lowerer {
     fn lower_assign_expr_as_stmt(
         &mut self,
         e: &ast::AssignExpr,
-        span: Option<Span>,
+        span: Option<common::loc::Loc>,
     ) -> Result<Vec<Stmt>> {
         let mut stmts = vec![];
         let (lhs, extra) = self.lower_expr(&e.left)?;
@@ -801,8 +818,18 @@ impl Lowerer {
         match expr {
             ast::Expr::Lit(l) => Ok((Expr::Lit(self.lower_lit(l)?), vec![])),
             ast::Expr::Ident(id) => match id.name.base.as_str() {
-                "this" => Ok((Expr::Dialect(DialectExpr::Evm(EvmExpr::This)), vec![])),
-                "super" => Ok((Expr::Dialect(DialectExpr::Evm(EvmExpr::Super)), vec![])),
+                "this" => Ok((
+                    Expr::Dialect(DialectExpr::Evm(EvmExpr::This(EvmThis {
+                        loc: Default::default(),
+                    }))),
+                    vec![],
+                )),
+                "super" => Ok((
+                    Expr::Dialect(DialectExpr::Evm(EvmExpr::Super(EvmSuper {
+                        loc: Default::default(),
+                    }))),
+                    vec![],
+                )),
                 _ => {
                     let ty = self.lower_type(&id.typ)?;
                     Ok((
@@ -995,30 +1022,48 @@ impl Lowerer {
                     stmts.extend(extra);
                     let mut pos = args.into_positional();
                     let evm = match name {
-                        "keccak256" => EvmExpr::Keccak256(Box::new(pos.remove(0))),
-                        "sha256" => EvmExpr::Sha256(Box::new(pos.remove(0))),
-                        "ripemd160" => EvmExpr::Ripemd160(Box::new(pos.remove(0))),
+                        "keccak256" => EvmExpr::Keccak256(EvmKeccak256 {
+                            expr: Box::new(pos.remove(0)),
+                            loc: Default::default(),
+                        }),
+                        "sha256" => EvmExpr::Sha256(EvmSha256 {
+                            expr: Box::new(pos.remove(0)),
+                            loc: Default::default(),
+                        }),
+                        "ripemd160" => EvmExpr::Ripemd160(EvmRipemd160 {
+                            expr: Box::new(pos.remove(0)),
+                            loc: Default::default(),
+                        }),
                         "ecrecover" => {
                             let hash = Box::new(pos.remove(0));
                             let v = Box::new(pos.remove(0));
                             let r = Box::new(pos.remove(0));
                             let s = Box::new(pos.remove(0));
-                            EvmExpr::Ecrecover { hash, v, r, s }
+                            EvmExpr::Ecrecover(EvmEcrecover {
+                                hash,
+                                v,
+                                r,
+                                s,
+                                loc: Default::default(),
+                            })
                         }
                         "addmod" => {
                             let x = Box::new(pos.remove(0));
                             let y = Box::new(pos.remove(0));
                             let k = Box::new(pos.remove(0));
-                            EvmExpr::Addmod { x, y, k }
+                            EvmExpr::Addmod(EvmAddmod { x, y, k, loc: Default::default() })
                         }
                         "mulmod" => {
                             let x = Box::new(pos.remove(0));
                             let y = Box::new(pos.remove(0));
                             let k = Box::new(pos.remove(0));
-                            EvmExpr::Mulmod { x, y, k }
+                            EvmExpr::Mulmod(EvmMulmod { x, y, k, loc: Default::default() })
                         }
-                        "gasleft" => EvmExpr::Gasleft,
-                        "blockhash" => EvmExpr::Blockhash(Box::new(pos.remove(0))),
+                        "gasleft" => EvmExpr::Gasleft(EvmGasleft { loc: Default::default() }),
+                        "blockhash" => EvmExpr::Blockhash(EvmBlockhash {
+                            expr: Box::new(pos.remove(0)),
+                            loc: Default::default(),
+                        }),
                         _ => unreachable!(),
                     };
                     return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
@@ -1036,8 +1081,14 @@ impl Lowerer {
                     stmts.extend(extra);
                     let pos = args.into_positional();
                     let evm = match method.as_str() {
-                        "encode" => Some(EvmExpr::AbiEncode(pos)),
-                        "encodePacked" => Some(EvmExpr::AbiEncodePacked(pos)),
+                        "encode" => Some(EvmExpr::AbiEncode(EvmAbiEncode {
+                            args: pos,
+                            loc: Default::default(),
+                        })),
+                        "encodePacked" => Some(EvmExpr::AbiEncodePacked(EvmAbiEncodePacked {
+                            args: pos,
+                            loc: Default::default(),
+                        })),
                         "decode" => {
                             let mut p = pos;
                             let data = if p.is_empty() {
@@ -1053,7 +1104,11 @@ impl Lowerer {
                                 Type::None => vec![],
                                 t => vec![t.clone()],
                             };
-                            Some(EvmExpr::AbiDecode { data: Box::new(data), types })
+                            Some(EvmExpr::AbiDecode(EvmAbiDecode {
+                                data: Box::new(data),
+                                types,
+                                loc: Default::default(),
+                            }))
                         }
                         "encodeWithSelector" => {
                             let mut p = pos;
@@ -1062,7 +1117,11 @@ impl Lowerer {
                             } else {
                                 p.remove(0)
                             });
-                            Some(EvmExpr::AbiEncodeWithSelector { selector, args: p })
+                            Some(EvmExpr::AbiEncodeWithSelector(EvmAbiEncodeWithSelector {
+                                selector,
+                                args: p,
+                                loc: Default::default(),
+                            }))
                         }
                         "encodeWithSignature" => {
                             let mut p = pos;
@@ -1071,7 +1130,11 @@ impl Lowerer {
                             } else {
                                 p.remove(0)
                             });
-                            Some(EvmExpr::AbiEncodeWithSignature { signature, args: p })
+                            Some(EvmExpr::AbiEncodeWithSignature(EvmAbiEncodeWithSignature {
+                                signature,
+                                args: p,
+                                loc: Default::default(),
+                            }))
                         }
                         "encodeCall" => {
                             let mut p = pos;
@@ -1080,7 +1143,11 @@ impl Lowerer {
                             } else {
                                 p.remove(0)
                             });
-                            Some(EvmExpr::AbiEncodeCall { func, args: p })
+                            Some(EvmExpr::AbiEncodeCall(EvmAbiEncodeCall {
+                                func,
+                                args: p,
+                                loc: Default::default(),
+                            }))
                         }
                         _ => None,
                     };
@@ -1103,12 +1170,17 @@ impl Lowerer {
                         let mut pos = args.into_positional();
                         let amount = pos.remove(0);
                         let evm = if method == "transfer" {
-                            EvmExpr::Transfer {
+                            EvmExpr::Transfer(EvmTransfer {
                                 target: Box::new(base_e),
                                 amount: Box::new(amount),
-                            }
+                                loc: Default::default(),
+                            })
                         } else {
-                            EvmExpr::Send { target: Box::new(base_e), value: Box::new(amount) }
+                            EvmExpr::Send(EvmSend {
+                                target: Box::new(base_e),
+                                value: Box::new(amount),
+                                loc: Default::default(),
+                            })
                         };
                         return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
                     }
@@ -1171,27 +1243,27 @@ impl Lowerer {
                         .unwrap_or(Expr::Lit(Lit::String(StringLit::new(String::new(), span))));
 
                     let evm = match method.as_str() {
-                        "delegatecall" => EvmExpr::Delegatecall {
+                        "delegatecall" => EvmExpr::Delegatecall(EvmDelegatecall {
                             target: Box::new(target),
                             data: Box::new(data),
-                            span,
-                        },
-                        "call" | "staticcall" => EvmExpr::LowLevelCall {
+                            loc: span.unwrap_or_default(),
+                        }),
+                        "call" | "staticcall" => EvmExpr::LowLevelCall(EvmLowLevelCall {
                             target: Box::new(target),
                             data: Box::new(data),
                             value: opt_value,
                             gas: opt_gas,
-                            span,
-                        },
+                            loc: span.unwrap_or_default(),
+                        }),
                         _ => {
                             // Fallback: emit as a generic low-level call
-                            EvmExpr::LowLevelCall {
+                            EvmExpr::LowLevelCall(EvmLowLevelCall {
                                 target: Box::new(target),
                                 data: Box::new(data),
                                 value: opt_value,
                                 gas: opt_gas,
-                                span,
-                            }
+                                loc: span.unwrap_or_default(),
+                            })
                         }
                     };
                     let expr = Expr::Dialect(DialectExpr::Evm(evm));
@@ -1343,20 +1415,38 @@ impl Lowerer {
         if let ast::Expr::Ident(base_id) = &*e.base {
             let base_name = base_id.name.base.as_str();
             let evm_expr = match (base_name, member.as_str()) {
-                ("msg", "sender") => Some(EvmExpr::MsgSender),
-                ("msg", "value") => Some(EvmExpr::MsgValue),
-                ("msg", "data") => Some(EvmExpr::MsgData),
-                ("msg", "sig") => Some(EvmExpr::MsgSig),
-                ("tx", "origin") => Some(EvmExpr::TxOrigin),
-                ("block", "timestamp") => Some(EvmExpr::Timestamp),
-                ("block", "number") => Some(EvmExpr::BlockNumber),
-                ("block", "difficulty") | ("block", "prevrandao") => {
-                    Some(EvmExpr::BlockDifficulty)
+                ("msg", "sender") => {
+                    Some(EvmExpr::MsgSender(EvmMsgSender { loc: Default::default() }))
                 }
-                ("block", "gaslimit") => Some(EvmExpr::BlockGaslimit),
-                ("block", "coinbase") => Some(EvmExpr::BlockCoinbase),
-                ("block", "chainid") => Some(EvmExpr::BlockChainid),
-                ("block", "basefee") => Some(EvmExpr::BlockBasefee),
+                ("msg", "value") => {
+                    Some(EvmExpr::MsgValue(EvmMsgValue { loc: Default::default() }))
+                }
+                ("msg", "data") => Some(EvmExpr::MsgData(EvmMsgData { loc: Default::default() })),
+                ("msg", "sig") => Some(EvmExpr::MsgSig(EvmMsgSig { loc: Default::default() })),
+                ("tx", "origin") => {
+                    Some(EvmExpr::TxOrigin(EvmTxOrigin { loc: Default::default() }))
+                }
+                ("block", "timestamp") => {
+                    Some(EvmExpr::Timestamp(EvmTimestamp { loc: Default::default() }))
+                }
+                ("block", "number") => {
+                    Some(EvmExpr::BlockNumber(EvmBlockNumber { loc: Default::default() }))
+                }
+                ("block", "difficulty") | ("block", "prevrandao") => {
+                    Some(EvmExpr::BlockDifficulty(EvmBlockDifficulty { loc: Default::default() }))
+                }
+                ("block", "gaslimit") => {
+                    Some(EvmExpr::BlockGaslimit(EvmBlockGaslimit { loc: Default::default() }))
+                }
+                ("block", "coinbase") => {
+                    Some(EvmExpr::BlockCoinbase(EvmBlockCoinbase { loc: Default::default() }))
+                }
+                ("block", "chainid") => {
+                    Some(EvmExpr::BlockChainid(EvmBlockChainid { loc: Default::default() }))
+                }
+                ("block", "basefee") => {
+                    Some(EvmExpr::BlockBasefee(EvmBlockBasefee { loc: Default::default() }))
+                }
                 _ => None,
             };
             if let Some(evm) = evm_expr {

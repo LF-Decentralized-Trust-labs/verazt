@@ -80,10 +80,10 @@ impl BugDetectionPass for LowLevelCallSirDetector {
 
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
                 let call_kind = match d {
-                    DialectExpr::Evm(EvmExpr::LowLevelCall { .. }) => Some("call"),
-                    DialectExpr::Evm(EvmExpr::RawCall { .. }) => Some("raw_call"),
-                    DialectExpr::Evm(EvmExpr::Send { .. }) => Some("send"),
-                    DialectExpr::Evm(EvmExpr::Delegatecall { .. }) => Some("delegatecall"),
+                    DialectExpr::Evm(EvmExpr::LowLevelCall(_)) => Some("call"),
+                    DialectExpr::Evm(EvmExpr::RawCall(_)) => Some("raw_call"),
+                    DialectExpr::Evm(EvmExpr::Send(_)) => Some("send"),
+                    DialectExpr::Evm(EvmExpr::Delegatecall(_)) => Some("delegatecall"),
                     _ => None,
                 };
                 if let Some(kind) = call_kind {

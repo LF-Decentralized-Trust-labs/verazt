@@ -12,8 +12,8 @@ use crate::passes::base::meta::PassRepresentation;
 use crate::passes::sir::WriteSetArtifact;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use frontend::solidity::ast::Loc;
-use scirs::sir::utils::helpers as structural;
-use scirs::sir::{Decl, MemberDecl};
+
+use scirs::sir::{ContractDecl, Decl, MemberDecl};
 use std::any::TypeId;
 
 /// Risky function name patterns indicating privileged operations.
@@ -114,8 +114,8 @@ impl BugDetectionPass for CentralizationRiskSirDetector {
 
                             // Or check structurally
                             let has_structural_writes = func.body.as_ref().map_or(false, |body| {
-                                let storage_vars = structural::storage_names(contract);
-                                structural::has_storage_write(body, &storage_vars)
+                                let storage_vars = contract.storage_names();
+                                ContractDecl::has_storage_write(body, &storage_vars)
                             });
 
                             if has_writes || has_structural_writes {

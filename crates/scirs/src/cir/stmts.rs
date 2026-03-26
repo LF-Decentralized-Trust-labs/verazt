@@ -6,8 +6,8 @@
 use crate::cir::exprs::CanonExpr;
 use crate::sir::dialect::DialectStmt;
 use crate::sir::exprs::BinOp;
-use crate::sir::loc::Span;
 use crate::sir::types::Type;
+use common::loc::Loc;
 use common::string::StringExt;
 use std::fmt::{self, Display};
 
@@ -41,7 +41,7 @@ pub enum CanonStmt {
 pub struct CanonLocalVarStmt {
     pub vars: Vec<Option<CanonLocalVarDecl>>,
     pub init: Option<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +54,7 @@ pub struct CanonLocalVarDecl {
 pub struct CanonAssignStmt {
     pub lhs: CanonExpr,
     pub rhs: CanonExpr,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,13 +62,13 @@ pub struct CanonAugAssignStmt {
     pub op: BinOp,
     pub lhs: CanonExpr,
     pub rhs: CanonExpr,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonExprStmt {
     pub expr: CanonExpr,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,7 +76,7 @@ pub struct CanonIfStmt {
     pub cond: CanonExpr,
     pub then_body: Vec<CanonStmt>,
     pub else_body: Option<Vec<CanonStmt>>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,7 +84,7 @@ pub struct CanonWhileStmt {
     pub cond: CanonExpr,
     pub body: Vec<CanonStmt>,
     pub invariant: Option<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,27 +94,27 @@ pub struct CanonForStmt {
     pub update: Option<Box<CanonStmt>>,
     pub body: Vec<CanonStmt>,
     pub invariant: Option<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonReturnStmt {
     pub value: Option<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonRevertStmt {
     pub error: Option<String>,
     pub args: Vec<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonAssertStmt {
     pub cond: CanonExpr,
     pub message: Option<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -122,7 +122,7 @@ pub struct CanonAssertStmt {
 // ═══════════════════════════════════════════════════════════════════
 
 impl CanonStmt {
-    pub fn span(&self) -> Option<Span> {
+    pub fn span(&self) -> Option<Loc> {
         match self {
             CanonStmt::LocalVar(s) => s.span,
             CanonStmt::Assign(s) => s.span,

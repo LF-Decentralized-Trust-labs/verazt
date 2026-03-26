@@ -1,7 +1,7 @@
 use crate::frameworks::dfa::analyses::reaching_defs::Definition;
 use crate::frameworks::dfa::annotated_cfg::BasicBlockId;
 use crate::frameworks::dfa::var::VarId;
-use scirs::sir::Span;
+use scirs::sir::Loc;
 use std::collections::{HashMap, HashSet};
 
 /// A use point
@@ -10,7 +10,7 @@ pub struct Use {
     pub var: VarId,
     pub block: BasicBlockId,
     pub stmt_index: usize,
-    pub loc: Option<Span>,
+    pub loc: Option<Loc>,
 }
 
 /// Def-use chain: maps definitions to their uses

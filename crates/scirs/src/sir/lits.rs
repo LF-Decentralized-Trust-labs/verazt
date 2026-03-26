@@ -1,7 +1,7 @@
 //! Literal values in SIR.
 
-use crate::sir::loc::Span;
 use crate::sir::types::Type;
+use common::loc::Loc;
 use num_bigint::BigInt;
 use num_traits::One;
 use rust_decimal::Decimal;
@@ -20,31 +20,31 @@ pub enum Lit {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct BoolLit {
     pub value: bool,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct NumLit {
     pub value: Num,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct StringLit {
     pub value: String,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct HexLit {
     pub value: String,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct UnicodeLit {
     pub value: String,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -75,7 +75,7 @@ pub struct HexNum {
 // ─── Implementations ───────────────────────────────────────────────
 
 impl Lit {
-    pub fn one(span: Option<Span>) -> Self {
+    pub fn one(span: Option<Loc>) -> Self {
         Lit::from(NumLit::new(Num::one(), span))
     }
 
@@ -89,7 +89,7 @@ impl Lit {
         }
     }
 
-    pub fn span(&self) -> Option<Span> {
+    pub fn span(&self) -> Option<Loc> {
         match self {
             Lit::Bool(b) => b.span,
             Lit::Num(n) => n.span,
@@ -141,7 +141,7 @@ impl Display for Lit {
 // ─── BoolLit ───────────────────────────────────────────────────────
 
 impl BoolLit {
-    pub fn new(value: bool, span: Option<Span>) -> Self {
+    pub fn new(value: bool, span: Option<Loc>) -> Self {
         BoolLit { value, span }
     }
 }
@@ -155,7 +155,7 @@ impl Display for BoolLit {
 // ─── NumLit ────────────────────────────────────────────────────────
 
 impl NumLit {
-    pub fn new(value: Num, span: Option<Span>) -> Self {
+    pub fn new(value: Num, span: Option<Loc>) -> Self {
         NumLit { value, span }
     }
 
@@ -261,7 +261,7 @@ impl Display for HexNum {
 // ─── StringLit ─────────────────────────────────────────────────────
 
 impl StringLit {
-    pub fn new(value: String, span: Option<Span>) -> Self {
+    pub fn new(value: String, span: Option<Loc>) -> Self {
         StringLit { value, span }
     }
 }
@@ -275,7 +275,7 @@ impl Display for StringLit {
 // ─── HexLit ────────────────────────────────────────────────────────
 
 impl HexLit {
-    pub fn new(value: String, span: Option<Span>) -> Self {
+    pub fn new(value: String, span: Option<Loc>) -> Self {
         HexLit { value, span }
     }
 }
@@ -289,7 +289,7 @@ impl Display for HexLit {
 // ─── UnicodeLit ────────────────────────────────────────────────────
 
 impl UnicodeLit {
-    pub fn new(value: String, span: Option<Span>) -> Self {
+    pub fn new(value: String, span: Option<Loc>) -> Self {
         UnicodeLit { value, span }
     }
 }
