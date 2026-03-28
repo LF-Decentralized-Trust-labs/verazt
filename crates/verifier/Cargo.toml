@@ -7,6 +7,6 @@ edition.workspace = true
 
 
 [dependencies]
-analysis = { workspace = true }
+analyzer = { workspace = true }
 clap = { workspace = true }
 clap-verbosity-flag = { workspace = true }

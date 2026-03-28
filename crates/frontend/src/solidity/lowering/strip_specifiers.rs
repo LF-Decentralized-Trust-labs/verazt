@@ -24,8 +24,7 @@ impl<'a> Map<'a> for StripSpecifiers {
             .iter()
             .map(|b| b.name.base.clone())
             .collect();
-        let contract =
-            crate::solidity::ast::utils::map::default::map_contract_def(self, contract);
+        let contract = crate::solidity::ast::utils::map::default::map_contract_def(self, contract);
         self.current_base_names.clear();
         // Preserve `is_abstract` — contracts may need to remain abstract for
         // valid Solidity output (e.g. contracts with internal constructors, or
@@ -39,10 +38,8 @@ impl<'a> Map<'a> for StripSpecifiers {
         // Special functions (fallback, receive, constructor) cannot be renamed
         // and may still legitimately override each other, so preserve their
         // virtual/override specifiers.
-        let is_special = matches!(
-            func.kind,
-            FuncKind::Fallback | FuncKind::Receive | FuncKind::Constructor
-        );
+        let is_special =
+            matches!(func.kind, FuncKind::Fallback | FuncKind::Receive | FuncKind::Constructor);
         if is_special {
             return func;
         }

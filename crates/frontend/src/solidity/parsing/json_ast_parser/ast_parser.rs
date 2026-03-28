@@ -67,9 +67,8 @@ impl JsonAst {
 
 impl AstParser {
     pub fn new(solidity_json: &JsonAst, solc_ver: Option<&node_semver::Version>) -> Self {
-        let default_sol_ver = solc_ver.and_then(|v| {
-            node_semver::Range::parse(&format!("{}", v)).ok()
-        });
+        let default_sol_ver =
+            solc_ver.and_then(|v| node_semver::Range::parse(&format!("{}", v)).ok());
         AstParser {
             solidity_json: Some(solidity_json.json_data.clone()),
             input_file: solidity_json.file_name.clone(),
@@ -652,13 +651,9 @@ impl AstParser {
         // For modifiers, ensure the body always contains a placeholder `_`
         // statement. Old Solidity ASTs may have null/empty body blocks.
         let body = body.map(|mut blk| {
-            let has_placeholder = blk
-                .body
-                .iter()
-                .any(|s| matches!(s, Stmt::Placeholder(_)));
+            let has_placeholder = blk.body.iter().any(|s| matches!(s, Stmt::Placeholder(_)));
             if !has_placeholder {
-                blk.body
-                    .push(PlaceholderStmt::new(None, None).into());
+                blk.body.push(PlaceholderStmt::new(None, None).into());
             }
             blk
         });
@@ -732,8 +727,20 @@ impl AstParser {
         let overriding = self.parse_overriding(node)?;
         let loc = self.parse_source_location(node);
         Ok(FuncDef::new(
-            id, scope, name, kind, body, is_virtual, fvis, fmut, params, modifiers, overriding,
-            returns, loc, self.current_sol_ver.clone(),
+            id,
+            scope,
+            name,
+            kind,
+            body,
+            is_virtual,
+            fvis,
+            fmut,
+            params,
+            modifiers,
+            overriding,
+            returns,
+            loc,
+            self.current_sol_ver.clone(),
         ))
     }
 
@@ -1782,9 +1789,7 @@ impl AstParser {
                         // strings containing control characters), use the
                         // "hexValue" representation instead.
                         _ => {
-                            let hex_value = node
-                                .get("hexValue")
-                                .and_then(|v| v.as_str());
+                            let hex_value = node.get("hexValue").and_then(|v| v.as_str());
                             match hex_value {
                                 Some(hv) => Ok(HexLit::new(hv, typ, loc).into()),
                                 None => fail!("Failed to parse string literal: {node}"),

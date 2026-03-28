@@ -8,8 +8,8 @@
 use crate::sir::dialect::DialectExpr;
 use crate::sir::exprs::{BinOp, OverflowSemantics, UnOp};
 use crate::sir::lits::Lit;
-use crate::sir::loc::Span;
 use crate::sir::types::Type;
+use common::loc::Loc;
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -57,7 +57,7 @@ pub enum CanonExpr {
 pub struct CanonVarExpr {
     pub name: String,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,14 +66,14 @@ pub struct CanonBinOpExpr {
     pub lhs: Box<CanonExpr>,
     pub rhs: Box<CanonExpr>,
     pub overflow: OverflowSemantics,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonUnOpExpr {
     pub op: UnOp,
     pub operand: Box<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,7 +81,7 @@ pub struct CanonIndexAccessExpr {
     pub base: Box<CanonExpr>,
     pub index: Option<Box<CanonExpr>>,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,7 +89,7 @@ pub struct CanonFieldAccessExpr {
     pub base: Box<CanonExpr>,
     pub field: String,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,14 +97,14 @@ pub struct CanonCallExpr {
     pub callee: Box<CanonExpr>,
     pub args: Vec<CanonExpr>,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonTypeCastExpr {
     pub ty: Type,
     pub expr: Box<CanonExpr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -142,7 +142,7 @@ impl CanonExpr {
         }
     }
 
-    pub fn span(&self) -> Option<Span> {
+    pub fn span(&self) -> Option<Loc> {
         match self {
             CanonExpr::Var(v) => v.span,
             CanonExpr::Lit(l) => l.span(),
@@ -158,7 +158,7 @@ impl CanonExpr {
 }
 
 impl CanonVarExpr {
-    pub fn new(name: String, ty: Type, span: Option<Span>) -> Self {
+    pub fn new(name: String, ty: Type, span: Option<Loc>) -> Self {
         CanonVarExpr { name, ty, span }
     }
 }

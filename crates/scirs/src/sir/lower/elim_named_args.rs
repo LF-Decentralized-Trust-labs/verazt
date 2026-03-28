@@ -61,23 +61,35 @@ fn collect_from_evm_member(
 ) {
     use sir::dialect::evm::EvmMemberDecl;
     match d {
-        EvmMemberDecl::EventDef { name, params, .. } => {
-            let names: Vec<String> = params.iter().map(|(n, _)| n.clone()).collect();
-            let qualified = format!("{}.{}", contract_name, name);
+        EvmMemberDecl::EventDef(e) => {
+            let names: Vec<String> = e
+                .params
+                .iter()
+                .map(|(n, _): &(String, _)| n.clone())
+                .collect();
+            let qualified = format!("{}.{}", contract_name, e.name);
             map.insert(qualified, names.clone());
-            map.entry(name.clone()).or_insert(names);
+            map.entry(e.name.clone()).or_insert(names);
         }
-        EvmMemberDecl::ErrorDef { name, params } => {
-            let names: Vec<String> = params.iter().map(|(n, _)| n.clone()).collect();
-            let qualified = format!("{}.{}", contract_name, name);
+        EvmMemberDecl::ErrorDef(e) => {
+            let names: Vec<String> = e
+                .params
+                .iter()
+                .map(|(n, _): &(String, _)| n.clone())
+                .collect();
+            let qualified = format!("{}.{}", contract_name, e.name);
             map.insert(qualified, names.clone());
-            map.entry(name.clone()).or_insert(names);
+            map.entry(e.name.clone()).or_insert(names);
         }
-        EvmMemberDecl::ModifierDef { name, params, .. } => {
-            let names: Vec<String> = params.iter().map(|(n, _)| n.clone()).collect();
-            let qualified = format!("{}.{}", contract_name, name);
+        EvmMemberDecl::ModifierDef(e) => {
+            let names: Vec<String> = e
+                .params
+                .iter()
+                .map(|(n, _): &(String, _)| n.clone())
+                .collect();
+            let qualified = format!("{}.{}", contract_name, e.name);
             map.insert(qualified, names.clone());
-            map.entry(name.clone()).or_insert(names);
+            map.entry(e.name.clone()).or_insert(names);
         }
         _ => {}
     }

@@ -2,8 +2,8 @@
 
 use crate::sir::dialect::DialectStmt;
 use crate::sir::exprs::{BinOp, Expr};
-use crate::sir::loc::Span;
 use crate::sir::types::Type;
+use common::loc::Loc;
 use common::string::StringExt;
 use std::fmt::{self, Display};
 
@@ -38,7 +38,7 @@ pub enum Stmt {
 pub struct LocalVarStmt {
     pub vars: Vec<Option<LocalVarDecl>>,
     pub init: Option<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// A single local variable declaration within a LocalVarStmt.
@@ -53,7 +53,7 @@ pub struct LocalVarDecl {
 pub struct AssignStmt {
     pub lhs: Expr,
     pub rhs: Expr,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// Augmented assignment: `lhs += rhs`, `lhs -= rhs`, etc.
@@ -62,14 +62,14 @@ pub struct AugAssignStmt {
     pub op: BinOp,
     pub lhs: Expr,
     pub rhs: Expr,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// Expression statement: `expr;`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExprStmt {
     pub expr: Expr,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// If statement
@@ -78,7 +78,7 @@ pub struct IfStmt {
     pub cond: Expr,
     pub then_body: Vec<Stmt>,
     pub else_body: Option<Vec<Stmt>>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// While loop with optional loop invariant annotation
@@ -87,7 +87,7 @@ pub struct WhileStmt {
     pub cond: Expr,
     pub body: Vec<Stmt>,
     pub invariant: Option<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// For loop
@@ -98,14 +98,14 @@ pub struct ForStmt {
     pub update: Option<Box<Stmt>>,
     pub body: Vec<Stmt>,
     pub invariant: Option<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// Return statement
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReturnStmt {
     pub value: Option<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// Abstract failure/revert
@@ -113,7 +113,7 @@ pub struct ReturnStmt {
 pub struct RevertStmt {
     pub error: Option<String>,
     pub args: Vec<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// Assertion
@@ -121,7 +121,7 @@ pub struct RevertStmt {
 pub struct AssertStmt {
     pub cond: Expr,
     pub message: Option<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -129,7 +129,7 @@ pub struct AssertStmt {
 // ═══════════════════════════════════════════════════════════════════
 
 impl Stmt {
-    pub fn span(&self) -> Option<Span> {
+    pub fn span(&self) -> Option<Loc> {
         match self {
             Stmt::LocalVar(s) => s.span,
             Stmt::Assign(s) => s.span,

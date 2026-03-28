@@ -2,8 +2,8 @@
 
 use crate::sir::dialect::DialectExpr;
 use crate::sir::lits::Lit;
-use crate::sir::loc::Span;
 use crate::sir::types::Type;
+use common::loc::Loc;
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -49,7 +49,7 @@ pub enum Expr {
 pub struct VarExpr {
     pub name: String,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,14 +58,14 @@ pub struct BinOpExpr {
     pub lhs: Box<Expr>,
     pub rhs: Box<Expr>,
     pub overflow: OverflowSemantics,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnOpExpr {
     pub op: UnOp,
     pub operand: Box<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,7 +73,7 @@ pub struct IndexAccessExpr {
     pub base: Box<Expr>,
     pub index: Option<Box<Expr>>,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,7 +81,7 @@ pub struct FieldAccessExpr {
     pub base: Box<Expr>,
     pub field: String,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,7 +89,7 @@ pub struct CallExpr {
     pub callee: Box<Expr>,
     pub args: CallArgs,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// Call arguments: either positional (evaluated in order) or named.
@@ -134,7 +134,7 @@ impl CallArgs {
 pub struct TypeCastExpr {
     pub ty: Type,
     pub expr: Box<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -142,14 +142,14 @@ pub struct TernaryExpr {
     pub cond: Box<Expr>,
     pub then_expr: Box<Expr>,
     pub else_expr: Box<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TupleExpr {
     pub elems: Vec<Option<Expr>>,
     pub ty: Type,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -245,7 +245,7 @@ impl Expr {
         }
     }
 
-    pub fn span(&self) -> Option<Span> {
+    pub fn span(&self) -> Option<Loc> {
         match self {
             Expr::Var(v) => v.span,
             Expr::Lit(l) => l.span(),
@@ -338,7 +338,7 @@ impl Display for Expr {
 // ─── Sub-type Display implementations ─────────────────────────────
 
 impl VarExpr {
-    pub fn new(name: String, ty: Type, span: Option<Span>) -> Self {
+    pub fn new(name: String, ty: Type, span: Option<Loc>) -> Self {
         VarExpr { name, ty, span }
     }
 }

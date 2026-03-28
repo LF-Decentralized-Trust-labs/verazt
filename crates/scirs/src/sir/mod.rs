@@ -12,7 +12,6 @@ pub mod defs;
 pub mod dialect;
 pub mod exprs;
 pub mod lits;
-pub mod loc;
 pub mod lower;
 pub mod module;
 pub mod spec;
@@ -23,11 +22,11 @@ pub mod verifier;
 
 // Re-exports for convenient access
 pub use attrs::*;
+pub use common::loc::Loc;
 pub use defs::*;
 pub use dialect::*;
 pub use exprs::*;
 pub use lits::*;
-pub use loc::*;
 pub use module::*;
 pub use spec::*;
 pub use stmts::*;

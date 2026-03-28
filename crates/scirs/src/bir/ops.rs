@@ -6,7 +6,7 @@ use crate::bir::cfg::BlockId;
 use crate::bir::interfaces::{
     AliasGroupId, CallRisk, CallTarget, SinkCategory, StorageRef, TaintLabel,
 };
-use crate::sir::{Attr, BinOp, Lit, OverflowSemantics, Span, Type, UnOp};
+use crate::sir::{Attr, BinOp, Lit, Loc, OverflowSemantics, Type, UnOp};
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -69,7 +69,7 @@ pub struct Op {
     pub kind: OpKind,
     pub result: Option<(SsaName, Type)>,
     pub attrs: Vec<Attr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 impl Op {
@@ -82,7 +82,7 @@ impl Op {
         self
     }
 
-    pub fn with_span(mut self, span: Span) -> Self {
+    pub fn with_span(mut self, span: Loc) -> Self {
         self.span = Some(span);
         self
     }

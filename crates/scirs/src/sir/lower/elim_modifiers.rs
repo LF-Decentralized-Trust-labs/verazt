@@ -52,11 +52,11 @@ fn collect_modifiers(
 ) -> HashMap<String, (Vec<(String, sir::Type)>, Vec<sir::Stmt>)> {
     let mut map = HashMap::new();
     for member in &contract.members {
-        if let sir::MemberDecl::Dialect(sir::DialectMemberDecl::Evm(
-            EvmMemberDecl::ModifierDef { name, params, body },
-        )) = member
+        if let sir::MemberDecl::Dialect(sir::DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef(
+            m,
+        ))) = member
         {
-            map.insert(name.clone(), (params.clone(), body.clone()));
+            map.insert(m.name.clone(), (m.params.clone(), m.body.clone()));
         }
     }
     map
@@ -69,9 +69,7 @@ fn process_member(
     modifier_map: &HashMap<String, (Vec<(String, sir::Type)>, Vec<sir::Stmt>)>,
 ) -> Result<Option<sir::MemberDecl>, CirLowerError> {
     match member {
-        sir::MemberDecl::Dialect(sir::DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef {
-            ..
-        })) => {
+        sir::MemberDecl::Dialect(sir::DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef(_))) => {
             // Drop modifier definitions — they're now inlined.
             Ok(None)
         }
@@ -137,7 +135,7 @@ fn inline_modifier_body(
 }
 
 fn is_placeholder(stmt: &sir::Stmt) -> bool {
-    matches!(stmt, sir::Stmt::Dialect(sir::DialectStmt::Evm(EvmStmt::Placeholder)))
+    matches!(stmt, sir::Stmt::Dialect(sir::DialectStmt::Evm(EvmStmt::Placeholder(_))))
 }
 
 // ─── Substitution of parameter variables ─────────────────────────────────────

@@ -40,7 +40,7 @@ fn main() {
         Commands::Scanner { args } => {
             let mut all_args = vec!["verazt check".to_string()];
             all_args.extend(args);
-            scanner::cli::run(all_args);
+            analyzer::cli::run(all_args);
         }
         Commands::Verifier { args } => {
             let mut all_args = vec!["verazt verify".to_string()];

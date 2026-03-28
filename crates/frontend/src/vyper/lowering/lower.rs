@@ -7,8 +7,8 @@ use scirs::sir::dialect::evm::*;
 use scirs::sir::*;
 
 /// Convert Vyper AST source location to SIR span.
-fn loc_to_span(loc: Option<&Loc>) -> Option<Span> {
-    loc.map(|l| Span::new(l.lineno, l.end_lineno))
+fn loc_to_span(loc: Option<&Loc>) -> Option<common::loc::Loc> {
+    loc.map(|l| common::loc::Loc::new(l.lineno, l.end_lineno))
 }
 
 /// Run all normalization passes on a Vyper source unit.
@@ -140,12 +140,13 @@ impl Lowerer {
             .collect();
         let indexed: Vec<bool> = ev.fields.iter().map(|f| f.indexed).collect();
 
-        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EventDef {
+        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EventDef(EvmEventDef {
             name: ev.name.clone(),
             params,
             indexed,
             anonymous: false,
-        })))
+            loc: Default::default(),
+        }))))
     }
 
     fn lower_struct_def(&mut self, s: &ast::StructDef) -> Result<MemberDecl> {
@@ -155,24 +156,27 @@ impl Lowerer {
             .map(|f| (f.name.clone(), self.lower_type(&f.typ)))
             .collect();
 
-        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::StructDef {
+        Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::StructDef(EvmStructDef {
             name: s.name.clone(),
             fields,
-        })))
+            loc: Default::default(),
+        }))))
     }
 
     fn lower_enum_def(&mut self, e: &ast::EnumDef) -> MemberDecl {
-        MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EnumDef {
+        MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EnumDef(EvmEnumDef {
             name: e.name.clone(),
             variants: e.variants.clone(),
-        }))
+            loc: Default::default(),
+        })))
     }
 
     fn lower_flag_def(&mut self, f: &ast::FlagDef) -> MemberDecl {
-        MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EnumDef {
+        MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::EnumDef(EvmEnumDef {
             name: f.name.clone(),
             variants: f.variants.clone(),
-        }))
+            loc: Default::default(),
+        })))
     }
 
     fn lower_interface_def(&mut self, _iface: &ast::InterfaceDef) -> Result<MemberDecl> {
@@ -364,11 +368,11 @@ impl Lowerer {
             }
             ast::stmts::Stmt::Log(s) => {
                 let (event_name, args) = self.lower_log_event(&s.event)?;
-                Ok(Some(Stmt::Dialect(DialectStmt::Evm(EvmStmt::EmitEvent {
+                Ok(Some(Stmt::Dialect(DialectStmt::Evm(EvmStmt::EmitEvent(EvmEmitEvent {
                     event: event_name,
                     args,
-                    span: loc_to_span(s.loc.as_ref()),
-                }))))
+                    loc: loc_to_span(s.loc.as_ref()).unwrap_or_default(),
+                })))))
             }
             ast::stmts::Stmt::Pass(_) => Ok(None),
             ast::stmts::Stmt::Break(_) => Ok(Some(Stmt::Break)),
@@ -466,9 +470,10 @@ impl Lowerer {
                         ty: Type::I256,
                         span: None,
                     })),
-                    rhs: Box::new(Expr::Dialect(DialectExpr::Evm(EvmExpr::Len(Box::new(
-                        arr_expr,
-                    ))))),
+                    rhs: Box::new(Expr::Dialect(DialectExpr::Evm(EvmExpr::Len(EvmLen {
+                        expr: Box::new(arr_expr),
+                        loc: Default::default(),
+                    })))),
                     overflow: OverflowSemantics::Checked,
                     span: None,
                 });
@@ -646,20 +651,27 @@ impl Lowerer {
             ast::Expr::Convert { expr, to, loc: _ } => {
                 let inner = self.lower_expr(expr)?;
                 let target_type = self.lower_type(to);
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Convert {
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Convert(EvmConvert {
                     expr: Box::new(inner),
                     to: target_type,
-                })))
+                    loc: Default::default(),
+                }))))
             }
 
             ast::Expr::Empty(ty, _loc) => {
                 let sir_ty = self.lower_type(ty);
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Empty(sir_ty))))
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Empty(EvmEmpty {
+                    ty: sir_ty,
+                    loc: Default::default(),
+                }))))
             }
 
             ast::Expr::Len(inner, _loc) => {
                 let inner_expr = self.lower_expr(inner)?;
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Len(Box::new(inner_expr)))))
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Len(EvmLen {
+                    expr: Box::new(inner_expr),
+                    loc: Default::default(),
+                }))))
             }
 
             ast::Expr::Concat(parts, _loc) => {
@@ -667,18 +679,22 @@ impl Lowerer {
                     .iter()
                     .map(|p| self.lower_expr(p))
                     .collect::<Result<Vec<_>>>()?;
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Concat(exprs))))
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Concat(EvmConcat {
+                    exprs,
+                    loc: Default::default(),
+                }))))
             }
 
             ast::Expr::Slice { expr, start, length, .. } => {
                 let e = self.lower_expr(expr)?;
                 let s = self.lower_expr(start)?;
                 let l = self.lower_expr(length)?;
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Slice {
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Slice(EvmSlice {
                     expr: Box::new(e),
                     start: Box::new(s),
                     length: Box::new(l),
-                })))
+                    loc: Default::default(),
+                }))))
             }
 
             ast::Expr::RawCall { target, data, value, gas, .. } => {
@@ -694,21 +710,23 @@ impl Lowerer {
                     .map(|g| self.lower_expr(g))
                     .transpose()?
                     .map(Box::new);
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::RawCall {
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::RawCall(EvmRawCall {
                     target: Box::new(t),
                     data: Box::new(d),
                     value: v,
                     gas: g,
-                })))
+                    loc: Default::default(),
+                }))))
             }
 
             ast::Expr::Send { target, value, .. } => {
                 let t = self.lower_expr(target)?;
                 let v = self.lower_expr(value)?;
-                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Send {
+                Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Send(EvmSend {
                     target: Box::new(t),
                     value: Box::new(v),
-                })))
+                    loc: Default::default(),
+                }))))
             }
 
             ast::Expr::Keccak256(inner, _loc) => {
@@ -749,7 +767,7 @@ impl Lowerer {
                     ty: Type::None,
                     span: loc
                         .as_ref()
-                        .and_then(|l| Some(Span::new(l.lineno, l.end_lineno))),
+                        .and_then(|l| Some(common::loc::Loc::new(l.lineno, l.end_lineno))),
                 }))
             }
 
@@ -770,56 +788,72 @@ impl Lowerer {
     fn lower_attribute(&mut self, attr: &ast::AttributeExpr) -> Result<Expr> {
         // Detect special built-in attributes
         match attr.value.as_ref() {
-            ast::Expr::Ident(id) => match id.name.as_str() {
-                "self" => {
-                    // self.x → storage access (lower to Var)
-                    if attr.attr == "balance" {
-                        return Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::SelfBalance)));
+            ast::Expr::Ident(id) => {
+                match id.name.as_str() {
+                    "self" => {
+                        // self.x → storage access (lower to Var)
+                        if attr.attr == "balance" {
+                            return Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::SelfBalance(
+                                EvmSelfBalance { loc: Default::default() },
+                            ))));
+                        }
+                        Ok(Expr::Var(VarExpr {
+                            name: attr.attr.clone(),
+                            ty: Type::None,
+                            span: loc_to_span(attr.loc.as_ref()),
+                        }))
                     }
-                    Ok(Expr::Var(VarExpr {
-                        name: attr.attr.clone(),
-                        ty: Type::None,
-                        span: loc_to_span(attr.loc.as_ref()),
-                    }))
-                }
-                "msg" => match attr.attr.as_str() {
-                    "sender" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender))),
-                    "value" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgValue))),
-                    _ => Ok(Expr::FieldAccess(FieldAccessExpr {
-                        base: Box::new(Expr::Var(VarExpr {
-                            name: "msg".to_string(),
+                    "msg" => {
+                        match attr.attr.as_str() {
+                            "sender" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender(
+                                EvmMsgSender { loc: Default::default() },
+                            )))),
+                            "value" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgValue(
+                                EvmMsgValue { loc: Default::default() },
+                            )))),
+                            _ => Ok(Expr::FieldAccess(FieldAccessExpr {
+                                base: Box::new(Expr::Var(VarExpr {
+                                    name: "msg".to_string(),
+                                    ty: Type::None,
+                                    span: None,
+                                })),
+                                field: attr.attr.clone(),
+                                ty: Type::None,
+                                span: loc_to_span(attr.loc.as_ref()),
+                            })),
+                        }
+                    }
+                    "block" => {
+                        match attr.attr.as_str() {
+                            "timestamp" => Ok(Expr::Dialect(DialectExpr::Evm(
+                                EvmExpr::Timestamp(EvmTimestamp { loc: Default::default() }),
+                            ))),
+                            "number" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::BlockNumber(
+                                EvmBlockNumber { loc: Default::default() },
+                            )))),
+                            _ => Ok(Expr::FieldAccess(FieldAccessExpr {
+                                base: Box::new(Expr::Var(VarExpr {
+                                    name: "block".to_string(),
+                                    ty: Type::None,
+                                    span: None,
+                                })),
+                                field: attr.attr.clone(),
+                                ty: Type::None,
+                                span: loc_to_span(attr.loc.as_ref()),
+                            })),
+                        }
+                    }
+                    _ => {
+                        let base = self.lower_expr(&attr.value)?;
+                        Ok(Expr::FieldAccess(FieldAccessExpr {
+                            base: Box::new(base),
+                            field: attr.attr.clone(),
                             ty: Type::None,
-                            span: None,
-                        })),
-                        field: attr.attr.clone(),
-                        ty: Type::None,
-                        span: loc_to_span(attr.loc.as_ref()),
-                    })),
-                },
-                "block" => match attr.attr.as_str() {
-                    "timestamp" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::Timestamp))),
-                    "number" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::BlockNumber))),
-                    _ => Ok(Expr::FieldAccess(FieldAccessExpr {
-                        base: Box::new(Expr::Var(VarExpr {
-                            name: "block".to_string(),
-                            ty: Type::None,
-                            span: None,
-                        })),
-                        field: attr.attr.clone(),
-                        ty: Type::None,
-                        span: loc_to_span(attr.loc.as_ref()),
-                    })),
-                },
-                _ => {
-                    let base = self.lower_expr(&attr.value)?;
-                    Ok(Expr::FieldAccess(FieldAccessExpr {
-                        base: Box::new(base),
-                        field: attr.attr.clone(),
-                        ty: Type::None,
-                        span: loc_to_span(attr.loc.as_ref()),
-                    }))
+                            span: loc_to_span(attr.loc.as_ref()),
+                        }))
+                    }
                 }
-            },
+            }
             _ => {
                 let base = self.lower_expr(&attr.value)?;
                 Ok(Expr::FieldAccess(FieldAccessExpr {

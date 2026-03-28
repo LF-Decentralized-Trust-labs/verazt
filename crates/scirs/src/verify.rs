@@ -1,6 +1,6 @@
 //! Common infrastructure shared by all IR verifiers.
 
-use crate::sir::Span;
+use crate::sir::Loc;
 use std::fmt::{self, Display};
 
 /// An error reported by an IR verifier pass.
@@ -11,7 +11,7 @@ pub struct VerifyError {
     /// Human-readable description.
     pub message: String,
     /// Optional source location.
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 impl VerifyError {
@@ -19,7 +19,7 @@ impl VerifyError {
         VerifyError { pass, message: message.into(), span: None }
     }
 
-    pub fn with_span(mut self, span: Span) -> Self {
+    pub fn with_span(mut self, span: Loc) -> Self {
         self.span = Some(span);
         self
     }

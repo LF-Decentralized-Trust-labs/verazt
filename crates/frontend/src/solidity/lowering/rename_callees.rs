@@ -71,11 +71,7 @@ impl Compare<'_> for TypeChecker {
     /// Override `compare_name_opt` to accept scope mismatches.
     /// This handles cases like `D.s` (scope = Some("D")) vs `s` (scope = None)
     /// which arise in `using for` bound methods.
-    fn compare_name_opt(
-        &mut self,
-        name1: &Option<Name>,
-        name2: &Option<Name>,
-    ) -> Result<()> {
+    fn compare_name_opt(&mut self, name1: &Option<Name>, name2: &Option<Name>) -> Result<()> {
         match (name1, name2) {
             (Some(n1), Some(n2)) => self.compare_name(n1, n2),
             _ => Ok(()), // Accept: Some vs None or None vs None
@@ -85,11 +81,7 @@ impl Compare<'_> for TypeChecker {
     /// Override `compare_struct_type` to ignore pointer (`is_ptr`)
     /// differences. State variable references (storage ref) have `is_ptr =
     /// true` while function parameter types may have `is_ptr = false`.
-    fn compare_struct_type(
-        &mut self,
-        t1: &StructType,
-        t2: &StructType,
-    ) -> Result<()> {
+    fn compare_struct_type(&mut self, t1: &StructType, t2: &StructType) -> Result<()> {
         self.compare_data_loc(&t1.data_loc, &t2.data_loc)?;
         self.compare_name(&t1.name, &t2.name)?;
         self.compare_name_opt(&t1.scope, &t2.scope)?;
@@ -100,11 +92,7 @@ impl Compare<'_> for TypeChecker {
     /// Override `compare_array_type` to ignore pointer (`is_ptr`)
     /// differences. Storage array references have `is_ptr = true` while
     /// function parameter types may have `is_ptr = false`.
-    fn compare_array_type(
-        &mut self,
-        t1: &ArrayType,
-        t2: &ArrayType,
-    ) -> Result<()> {
+    fn compare_array_type(&mut self, t1: &ArrayType, t2: &ArrayType) -> Result<()> {
         self.compare_data_loc(&t1.data_loc, &t2.data_loc)?;
         self.compare_type(&t1.base, &t2.base)?;
         if t1.length != t2.length {
@@ -205,8 +193,9 @@ impl<'a> Renamer<'a> {
                             }
                         }
                         UsingKind::UsingFunc(_) => {
-                            // UsingFunc attaches individual free functions; they
-                            // are handled through normal identifier renaming.
+                            // UsingFunc attaches individual free functions;
+                            // they are handled
+                            // through normal identifier renaming.
                         }
                     }
                 }
@@ -215,11 +204,7 @@ impl<'a> Renamer<'a> {
 
         // Search in the current contract's body.
         if let Some(contract) = &self.current_contract {
-            search_using_dirs(
-                &contract.body,
-                self.current_source_unit,
-                &mut contracts,
-            );
+            search_using_dirs(&contract.body, self.current_source_unit, &mut contracts);
         }
 
         // Search in source-unit-level `using` directives.

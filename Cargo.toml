@@ -1,8 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-  "crates/analysis",
-  "crates/scanner",
+  "crates/analyzer",
   "crates/bugs",
   "crates/common",
   "crates/frontend",
@@ -21,8 +20,7 @@ license = "Apache License 2.0"
 edition = "2024"
 
 [workspace.dependencies]
-analysis = { path = "crates/analysis" }
-scanner = { path = "crates/scanner" }
+analyzer = { path = "crates/analyzer" }
 bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
 scirs = { path = "crates/scirs" }

@@ -13,7 +13,9 @@
 pub mod anchor;
 pub mod evm;
 pub mod move_lang;
-pub mod spec_dialect;
+pub mod spec;
+
+pub use evm::{EvmCallExt, EvmFunctionExt, EvmStorageExt};
 
 use std::fmt::{self, Display};
 
@@ -51,7 +53,7 @@ pub enum DialectType {
     Evm(evm::EvmType),
     Anchor(anchor::AnchorType),
     Move(move_lang::MoveType),
-    Spec(spec_dialect::SpecType),
+    Spec(spec::SpecType),
 }
 
 /// Dialect-level declarations (future use).

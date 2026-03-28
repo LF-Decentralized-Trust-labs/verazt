@@ -3,10 +3,10 @@
 use crate::sir::attrs::Attr;
 use crate::sir::dialect::DialectMemberDecl;
 use crate::sir::exprs::Expr;
-use crate::sir::loc::Span;
 use crate::sir::spec::FuncSpec;
 use crate::sir::stmts::Stmt;
 use crate::sir::types::Type;
+use common::loc::Loc;
 use common::string::StringExt;
 use std::fmt::{self, Display};
 
@@ -20,7 +20,7 @@ pub struct ContractDecl {
     pub parents: Vec<String>,
     pub attrs: Vec<Attr>,
     pub members: Vec<MemberDecl>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// A member declaration inside a contract.
@@ -46,7 +46,7 @@ pub struct UsingForDecl {
     pub library: String,
     /// Target type (`None` = `using for *`).
     pub target_type: Option<crate::sir::types::Type>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -59,7 +59,7 @@ pub struct StorageDecl {
     pub ty: Type,
     pub init: Option<Expr>,
     pub attrs: Vec<Attr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -78,7 +78,7 @@ pub struct FunctionDecl {
     /// Modifier invocations on this function (preserved before SIR → CIR
     /// lowering).
     pub modifier_invocs: Vec<ModifierInvoc>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -89,7 +89,7 @@ pub struct FunctionDecl {
 pub struct ModifierInvoc {
     pub name: String,
     pub args: Vec<Expr>,
-    pub span: Option<Span>,
+    pub span: Option<Loc>,
 }
 
 /// A function parameter.
@@ -120,13 +120,107 @@ pub struct TypeAlias {
 // ═══════════════════════════════════════════════════════════════════
 
 impl ContractDecl {
-    pub fn new(name: String, members: Vec<MemberDecl>, span: Option<Span>) -> Self {
+    pub fn new(name: String, members: Vec<MemberDecl>, span: Option<Loc>) -> Self {
         ContractDecl { name, parents: vec![], attrs: vec![], members, span }
+    }
+
+    // ─── Cross-chain structural helpers ────────────────────────
+
+    /// Collect all storage variable names from this contract.
+    pub fn storage_names(&self) -> Vec<String> {
+        self.members
+            .iter()
+            .filter_map(|m| {
+                if let MemberDecl::Storage(s) = m {
+                    Some(s.name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Recursively check if any statement writes to storage (assigns to a
+    /// storage variable name).
+    pub fn has_storage_write(stmts: &[Stmt], storage_vars: &[String]) -> bool {
+        for stmt in stmts {
+            match stmt {
+                Stmt::Assign(a) => {
+                    if Self::expr_references_storage(&a.lhs, storage_vars) {
+                        return true;
+                    }
+                }
+                Stmt::AugAssign(a) => {
+                    if Self::expr_references_storage(&a.lhs, storage_vars) {
+                        return true;
+                    }
+                }
+                Stmt::If(s) => {
+                    if Self::has_storage_write(&s.then_body, storage_vars) {
+                        return true;
+                    }
+                    if let Some(else_body) = &s.else_body {
+                        if Self::has_storage_write(else_body, storage_vars) {
+                            return true;
+                        }
+                    }
+                }
+                Stmt::While(s) => {
+                    if Self::has_storage_write(&s.body, storage_vars) {
+                        return true;
+                    }
+                }
+                Stmt::For(s) => {
+                    if Self::has_storage_write(&s.body, storage_vars) {
+                        return true;
+                    }
+                }
+                Stmt::Block(stmts) => {
+                    if Self::has_storage_write(stmts, storage_vars) {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    /// Check if an expression references a storage variable.
+    pub fn expr_references_storage(expr: &Expr, storage_vars: &[String]) -> bool {
+        match expr {
+            Expr::Var(v) => storage_vars.contains(&v.name),
+            Expr::IndexAccess(ia) => Self::expr_references_storage(&ia.base, storage_vars),
+            Expr::FieldAccess(fa) => Self::expr_references_storage(&fa.base, storage_vars),
+            _ => false,
+        }
+    }
+
+    /// Check if a function body contains an Assert before the first storage
+    /// write.
+    pub fn has_assert_before_storage_write(stmts: &[Stmt], storage_vars: &[String]) -> bool {
+        for stmt in stmts {
+            match stmt {
+                Stmt::Assert(_) => return true,
+                Stmt::Assign(a) => {
+                    if Self::expr_references_storage(&a.lhs, storage_vars) {
+                        return false;
+                    }
+                }
+                Stmt::AugAssign(a) => {
+                    if Self::expr_references_storage(&a.lhs, storage_vars) {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
     }
 }
 
 impl StorageDecl {
-    pub fn new(name: String, ty: Type, init: Option<Expr>, span: Option<Span>) -> Self {
+    pub fn new(name: String, ty: Type, init: Option<Expr>, span: Option<Loc>) -> Self {
         StorageDecl { name, ty, init, attrs: vec![], span }
     }
 }
@@ -137,7 +231,7 @@ impl FunctionDecl {
         params: Vec<Param>,
         returns: Vec<Type>,
         body: Option<Vec<Stmt>>,
-        span: Option<Span>,
+        span: Option<Loc>,
     ) -> Self {
         FunctionDecl {
             name,
