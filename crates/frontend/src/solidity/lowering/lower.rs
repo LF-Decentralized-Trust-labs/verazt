@@ -1603,10 +1603,26 @@ impl Lowerer {
         match lit {
             ast::Lit::Bool(l) => Ok(Lit::Bool(BoolLit::new(l.value, loc_to_span(l.loc)))),
             ast::Lit::Num(l) => {
-                if l.unit.is_some() {
-                    fail!("Number literal unit must be eliminated!")
+                let mut num = self.lower_num(&l.value)?;
+                if let Some(unit) = &l.unit {
+                    let multiplier = match unit {
+                        ast::NumUnit::Wei | ast::NumUnit::Seconds => num_bigint::BigInt::from(1),
+                        ast::NumUnit::Minutes => num_bigint::BigInt::from(60),
+                        ast::NumUnit::Hours => num_bigint::BigInt::from(3600),
+                        ast::NumUnit::Days => num_bigint::BigInt::from(86400),
+                        ast::NumUnit::Weeks => num_bigint::BigInt::from(604800),
+                        ast::NumUnit::Years => num_bigint::BigInt::from(31536000),
+                        ast::NumUnit::Gwei => "1000000000".parse::<num_bigint::BigInt>().unwrap(),
+                        ast::NumUnit::Szabo => "1000000000000".parse::<num_bigint::BigInt>().unwrap(),
+                        ast::NumUnit::Finney => "1000000000000000".parse::<num_bigint::BigInt>().unwrap(),
+                        ast::NumUnit::Ether => "1000000000000000000".parse::<num_bigint::BigInt>().unwrap(),
+                    };
+                    match &mut num {
+                        Num::Int(n) => n.value *= multiplier,
+                        Num::Fixed(_) => fail!("Fixed point numbers cannot have a unit"),
+                        Num::Hex(_) => fail!("Hex numbers cannot have a unit"),
+                    }
                 }
-                let num = self.lower_num(&l.value)?;
                 Ok(Lit::Num(NumLit::new(num, loc_to_span(l.loc))))
             }
             ast::Lit::String(l) => {

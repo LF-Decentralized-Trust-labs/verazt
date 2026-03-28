@@ -205,3 +205,15 @@ pub fn find_installable_solc_versions(pragma: &str) -> Result<Vec<Version>> {
     let filtered: Vec<Version> = all.into_iter().filter(|v| range.satisfies(v)).collect();
     Ok(filtered)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_semver_constraint() {
+        let ver = Version::parse("0.4.26").unwrap();
+        assert!(check_version_constraint(&ver, ">=0.4.12 <=0.8.9")); // without space
+        assert!(check_version_constraint(&ver, ">=0.4.12 <= 0.8.9")); // with space
+    }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "benchmark"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "benchmark"
+path = "src/main.rs"
+
+[dependencies]
+analyzer = { workspace = true }
+bugs = { workspace = true }
+common = { workspace = true }
+frontend = { workspace = true }
+scirs = { workspace = true }
+clap = { workspace = true }

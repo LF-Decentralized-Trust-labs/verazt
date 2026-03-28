@@ -3,7 +3,7 @@
 
 use clap::{Parser, ValueEnum};
 use common::error::{Result, create_error};
-use common::utils::{print_section_header, print_subsection_header};
+use common::utils::{print_header, print_subheader};
 use scirs::verify::VerifyError;
 
 /// Supported source languages.
@@ -153,7 +153,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
 
     // Step 2: Print AST if requested (before normalization — source-faithful)
     if args.print_ast || args.debug {
-        print_section_header("Solidity AST");
+        print_header("Solidity AST");
         for su in &source_units {
             su.print_highlighted_code();
             println!();
@@ -162,7 +162,7 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
 
     // Verify AST
     if args.debug {
-        print_subsection_header("Solidity AST Verification");
+        print_subheader("Solidity AST Verification");
         print_verify_header("AST");
         report_verify_result(
             "AST",
@@ -176,13 +176,13 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
     for sir_module in &sir_modules {
         // Step 4: Print SIR if requested
         if args.print_sir || args.debug {
-            print_section_header("SIR");
+            print_header("SIR");
             sir_module.print_pretty();
         }
 
         // Verify SIR
         if args.debug {
-            print_subsection_header("SIR Verification");
+            print_subheader("SIR Verification");
             print_verify_header("SIR");
             report_verify_result("SIR", scirs::sir::verifier::verify(sir_module, true))?;
         }
@@ -192,13 +192,13 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
             .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
         if args.print_cir || args.debug {
-            print_section_header("CIR");
+            print_header("CIR");
             cir_module.print_pretty();
         }
 
         // Verify CIR
         if args.debug {
-            print_subsection_header("CIR Verification");
+            print_subheader("CIR Verification");
             print_verify_header("CIR");
             report_verify_result("CIR", scirs::cir::verifier::verify(&cir_module, true))?;
         }
@@ -209,13 +209,13 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
 
         // Step 7: Print BIR if requested
         if args.print_air || args.debug {
-            print_section_header("BIR");
+            print_header("BIR");
             print!("{air_module}");
         }
 
         // Verify BIR
         if args.debug {
-            print_subsection_header("BIR Verification");
+            print_subheader("BIR Verification");
             print_verify_header("BIR");
             report_verify_result("BIR", scirs::bir::verifier::verify(&air_module, true))?;
         }
@@ -224,13 +224,13 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
         let fir_module = scirs::bir::lower::lower_module(&air_module);
 
         if args.print_fir || args.debug {
-            print_section_header("FIR");
+            print_header("FIR");
             print!("{fir_module}");
         }
 
         // Verify FIR
         if args.debug {
-            print_subsection_header("FIR Verification");
+            print_subheader("FIR Verification");
             print_verify_header("FIR");
             report_verify_result("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
         }
@@ -249,7 +249,7 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
 
     // Step 2: Print AST if requested (before normalization — source-faithful)
     if args.print_ast || args.debug {
-        print_section_header("Vyper AST");
+        print_header("Vyper AST");
         let ast_str = format!("{source_unit:#?}");
         println!("{}", ast_str.replace("    ", "  "));
         println!();
@@ -260,13 +260,13 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
 
     // Step 4: Print SIR if requested
     if args.print_sir || args.debug {
-        print_section_header("SIR");
+        print_header("SIR");
         sir_module.print_pretty();
     }
 
     // Verify SIR
     if args.debug {
-        print_subsection_header("SIR Verification");
+        print_subheader("SIR Verification");
         print_verify_header("SIR");
         report_verify_result("SIR", scirs::sir::verifier::verify(&sir_module, true))?;
     }
@@ -276,13 +276,13 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
         .map_err(|e| create_error(format!("CIR lowering failed: {e}")))?;
 
     if args.print_cir || args.debug {
-        print_section_header("CIR");
+        print_header("CIR");
         cir_module.print_pretty();
     }
 
     // Verify CIR
     if args.debug {
-        print_subsection_header("CIR Verification");
+        print_subheader("CIR Verification");
         print_verify_header("CIR");
         report_verify_result("CIR", scirs::cir::verifier::verify(&cir_module, true))?;
     }
@@ -293,13 +293,13 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
 
     // Step 7: Print BIR if requested
     if args.print_air || args.debug {
-        print_section_header("BIR");
+        print_header("BIR");
         print!("{air_module}");
     }
 
     // Verify BIR
     if args.debug {
-        print_subsection_header("BIR Verification");
+        print_subheader("BIR Verification");
         print_verify_header("BIR");
         report_verify_result("BIR", scirs::bir::verifier::verify(&air_module, true))?;
     }
@@ -308,13 +308,13 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
     let fir_module = scirs::bir::lower::lower_module(&air_module);
 
     if args.print_fir || args.debug {
-        print_section_header("FIR");
+        print_header("FIR");
         print!("{fir_module}");
     }
 
     // Verify FIR
     if args.debug {
-        print_subsection_header("FIR Verification");
+        print_subheader("FIR Verification");
         print_verify_header("FIR");
         report_verify_result("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
     }
