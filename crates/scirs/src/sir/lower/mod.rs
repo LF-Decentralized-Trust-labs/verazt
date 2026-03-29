@@ -120,7 +120,8 @@ impl CirLowerer {
             }
         }
 
-        let mut canon = CanonContractDecl::new(contract.name.clone(), members, contract.span.clone());
+        let mut canon =
+            CanonContractDecl::new(contract.name.clone(), members, contract.span.clone());
         canon.attrs = contract.attrs.clone();
         Ok(canon)
     }
@@ -138,8 +139,12 @@ impl CirLowerer {
             Some(e) => Some(self.lower_expr(e)?),
             None => None,
         };
-        let mut canon =
-            CanonStorageDecl::new(storage.name.clone(), storage.ty.clone(), init, storage.span.clone());
+        let mut canon = CanonStorageDecl::new(
+            storage.name.clone(),
+            storage.ty.clone(),
+            init,
+            storage.span.clone(),
+        );
         canon.attrs = storage.attrs.clone();
         Ok(canon)
     }
@@ -231,7 +236,12 @@ impl CirLowerer {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
                 };
-                Ok(CanonStmt::While(CanonWhileStmt { cond, body, invariant, span: s.span.clone() }))
+                Ok(CanonStmt::While(CanonWhileStmt {
+                    cond,
+                    body,
+                    invariant,
+                    span: s.span.clone(),
+                }))
             }
             sir::Stmt::For(s) => {
                 let init = match &s.init {

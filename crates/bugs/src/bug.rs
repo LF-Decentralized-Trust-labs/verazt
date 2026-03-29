@@ -160,9 +160,14 @@ impl Bug {
         // Code snippet
         if let Some(ref file) = self.loc.file {
             if self.loc.is_valid() {
-                if let Some(snippet) =
-                    common::snippet::extract_snippet(file, self.loc.start_line, 1)
-                {
+                if let Some(snippet) = common::snippet::extract_snippet(
+                    file,
+                    self.loc.start_line,
+                    self.loc.end_line,
+                    self.loc.start_col,
+                    self.loc.end_col,
+                    1,
+                ) {
                     out.push_str(&snippet);
                 } else {
                     out.push_str("<source code line not available>\n");
@@ -179,10 +184,22 @@ impl Bug {
             self.description.as_deref().unwrap_or("None")
         ));
         out.push_str(&format!("- Severity: {}\n", self.risk_level));
-        if let Some(ref file) = self.loc.file {
-            out.push_str(&format!("- Location: {} @ line {}\n", file, self.loc.start_line));
+
+        let loc_str = if self.loc.start_col == 0 || self.loc.end_col == 0 {
+            format!("{}", self.loc.start_line)
+        } else if self.loc.start_line == self.loc.end_line {
+            format!("{}:{}-{}", self.loc.start_line, self.loc.start_col, self.loc.end_col)
         } else {
-            out.push_str(&format!("- Location: <unknown> @ line {}\n", self.loc.start_line));
+            format!(
+                "{}:{}-{}:{}",
+                self.loc.start_line, self.loc.start_col, self.loc.end_line, self.loc.end_col
+            )
+        };
+
+        if let Some(ref file) = self.loc.file {
+            out.push_str(&format!("- Location: {}:{}\n", file, loc_str));
+        } else {
+            out.push_str(&format!("- Location: <unknown>:{}\n", loc_str));
         }
 
         out

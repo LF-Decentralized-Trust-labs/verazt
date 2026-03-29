@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use analyzer::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
 use bugs::bug::BugCategory;
 use bugs::datasets::smartbugs::{AnnotatedBug, parse_annotations};
+use common::utils::print_subheader;
 
 /// Represents a bug detected by the analyzer.
 #[derive(Debug, Clone)]
@@ -15,6 +16,9 @@ pub struct DetectedBug {
     pub description: Option<String>,
     pub category: BugCategory,
     pub start_line: usize,
+    pub start_col: usize,
+    pub end_line: usize,
+    pub end_col: usize,
     #[allow(dead_code)]
     pub severity: String,
     pub file: Option<String>,
@@ -70,6 +74,24 @@ pub struct DatasetResult {
 
 /// Default line tolerance for fuzzy matching.
 const LINE_TOLERANCE: usize = 3;
+
+/// Format a location range string for display.
+fn format_location_range(
+    file: &str,
+    start_line: usize,
+    start_col: usize,
+    end_line: usize,
+    end_col: usize,
+) -> String {
+    if start_col == 0 || end_col == 0 {
+        // No column info available, fall back to line-only
+        format!("{}:{}", file, start_line)
+    } else if start_line == end_line {
+        format!("{}:{}:{}-{}", file, start_line, start_col, end_col)
+    } else {
+        format!("{}:{}:{}-{}:{}", file, start_line, start_col, end_line, end_col)
+    }
+}
 
 /// Match detected bugs against ground-truth annotations.
 ///
@@ -201,6 +223,9 @@ pub fn run_analyze_on_file(file_path: &Path, solc_version: &str) -> (bool, Vec<D
             description: bug.description.clone(),
             category: bug.category,
             start_line: bug.loc.start_line,
+            start_col: bug.loc.start_col,
+            end_line: bug.loc.end_line,
+            end_col: bug.loc.end_col,
             severity: bug.risk_level.as_str().to_string(),
             file: bug.loc.file.clone(),
         })
@@ -265,26 +290,45 @@ pub fn evaluate_dataset(
             let rel_path = relative_display_path(file_path, datasets_root);
             println!("\nInput file: {}\n", rel_path);
 
-            println!("------------------");
-            println!("Label bugs:");
-            println!("-------------------");
+            print_subheader("Labelled Bugs");
             if result.annotations.is_empty() {
                 println!("(none)\n");
             } else {
                 for (i, ann) in result.annotations.iter().enumerate() {
-                    println!("{}. {} @ line {}", i + 1, ann.bug_name, ann.bug_line);
+                    println!("🏷️ Issue {}: {}", i + 1, ann.category);
+                    println!();
+
+                    let loc_display = relative_display_path(file_path, datasets_root);
+                    let loc_str = format_location_range(&loc_display, ann.bug_line, 0, ann.bug_line, 0);
+                    println!("---> {}", loc_str);
+
+                    let snippet_file = file_path.to_str().unwrap_or("");
+                    if let Some(snippet) = common::snippet::extract_snippet(
+                        snippet_file,
+                        ann.bug_line,
+                        ann.bug_line,
+                        0,
+                        0,
+                        1,
+                    ) {
+                        print!("{}", snippet);
+                    } else {
+                        println!("<source code line not available>");
+                    }
+
+                    println!();
+                    println!("- Category: {}", ann.category);
+                    println!("- Location: {}", loc_str);
+                    println!();
                 }
-                println!();
             }
 
-            println!("-------------------");
-            println!("Detected bugs:");
-            println!("--------------------");
+            print_subheader("Detected Bugs");
             if result.detections.is_empty() {
                 println!("(none)\n");
             } else {
                 for (i, det) in result.detections.iter().enumerate() {
-                    println!("{}. {} ({})", i + 1, det.name, det.category);
+                    println!("🐛 Issue {}: {} ({})", i + 1, det.name, det.category);
                     println!();
 
                     // Resolve the file to use for snippet extraction (absolute path)
@@ -297,15 +341,25 @@ pub fn evaluate_dataset(
                     let loc_display = det
                         .file
                         .as_ref()
-                        .map(|f| {
-                            relative_display_path(Path::new(f), datasets_root)
-                        })
+                        .map(|f| relative_display_path(Path::new(f), datasets_root))
                         .unwrap_or_else(|| rel_path.clone());
 
-                    println!("---> {}:{}", loc_display, det.start_line);
-                    if let Some(snippet) =
-                        common::snippet::extract_snippet(snippet_file, det.start_line, 1)
-                    {
+                    let loc_str = format_location_range(
+                        &loc_display,
+                        det.start_line,
+                        det.start_col,
+                        det.end_line,
+                        det.end_col,
+                    );
+                    println!("---> {}", loc_str);
+                    if let Some(snippet) = common::snippet::extract_snippet(
+                        snippet_file,
+                        det.start_line,
+                        det.end_line,
+                        det.start_col,
+                        det.end_col,
+                        1,
+                    ) {
                         print!("{}", snippet);
                     } else {
                         println!("<source code line not available>");
@@ -314,7 +368,7 @@ pub fn evaluate_dataset(
                     println!();
                     println!("- Description: {}", det.description.as_deref().unwrap_or("None"));
                     println!("- Severity: {}", det.severity);
-                    println!("- Location: {}:{}", loc_display, det.start_line);
+                    println!("- Location: {}", loc_str);
                     println!();
                 }
             }

@@ -308,7 +308,10 @@ pub mod default {
         mapper: &mut T,
         stmt: &'a ReturnStmt,
     ) -> ReturnStmt {
-        ReturnStmt { value: stmt.value.as_ref().map(|e| mapper.map_expr(e)), span: stmt.span.clone() }
+        ReturnStmt {
+            value: stmt.value.as_ref().map(|e| mapper.map_expr(e)),
+            span: stmt.span.clone(),
+        }
     }
 
     pub fn map_revert_stmt<'a, T: Map<'a> + ?Sized>(

@@ -90,11 +90,8 @@ impl Lowerer {
                     // Capture `pragma solidity <version>` as a module attribute.
                     if let ast::PragmaKind::Version(ver) = &p.kind {
                         module_attrs.push(
-                            Attr::sir(
-                                sir_attrs::PRAGMA_SOLIDITY,
-                                AttrValue::String(ver.clone()),
-                            )
-                            .with_span(p.loc.clone()),
+                            Attr::sir(sir_attrs::PRAGMA_SOLIDITY, AttrValue::String(ver.clone()))
+                                .with_span(p.loc.clone()),
                         );
                     }
                 }
@@ -290,7 +287,12 @@ impl Lowerer {
             }
             None => None,
         };
-        Ok(MemberDecl::Storage(StorageDecl::new(v.name.to_string(), ty, init, loc_to_span(&v.loc))))
+        Ok(MemberDecl::Storage(StorageDecl::new(
+            v.name.to_string(),
+            ty,
+            init,
+            loc_to_span(&v.loc),
+        )))
     }
 
     //-------------------------------------------------
@@ -534,8 +536,10 @@ impl Lowerer {
             pos.remove(0)
         };
         let revert_args = pos; // remaining args become revert message
-        let negated_cond = Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(cond), span: span.clone() });
-        let revert_stmt = Stmt::Revert(RevertStmt { error: None, args: revert_args, span: span.clone() });
+        let negated_cond =
+            Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(cond), span: span.clone() });
+        let revert_stmt =
+            Stmt::Revert(RevertStmt { error: None, args: revert_args, span: span.clone() });
         stmts.push(Stmt::If(IfStmt {
             cond: negated_cond,
             then_body: vec![revert_stmt],
@@ -885,19 +889,35 @@ impl Lowerer {
 
         match &e.op {
             ast::UnaryOp::Not => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(operand), span: span.clone() }),
+                Expr::UnOp(UnOpExpr {
+                    op: UnOp::Not,
+                    operand: Box::new(operand),
+                    span: span.clone(),
+                }),
                 stmts,
             )),
             ast::UnaryOp::Neg => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::Neg, operand: Box::new(operand), span: span.clone() }),
+                Expr::UnOp(UnOpExpr {
+                    op: UnOp::Neg,
+                    operand: Box::new(operand),
+                    span: span.clone(),
+                }),
                 stmts,
             )),
             ast::UnaryOp::BitNot => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::BitNot, operand: Box::new(operand), span: span.clone() }),
+                Expr::UnOp(UnOpExpr {
+                    op: UnOp::BitNot,
+                    operand: Box::new(operand),
+                    span: span.clone(),
+                }),
                 stmts,
             )),
             ast::UnaryOp::Delete => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::Delete, operand: Box::new(operand), span: span.clone() }),
+                Expr::UnOp(UnOpExpr {
+                    op: UnOp::Delete,
+                    operand: Box::new(operand),
+                    span: span.clone(),
+                }),
                 stmts,
             )),
             ast::UnaryOp::PreIncr | ast::UnaryOp::PreDecr => {
@@ -1246,7 +1266,10 @@ impl Lowerer {
                         .into_positional()
                         .into_iter()
                         .next()
-                        .unwrap_or(Expr::Lit(Lit::String(StringLit::new(String::new(), span.clone()))));
+                        .unwrap_or(Expr::Lit(Lit::String(StringLit::new(
+                            String::new(),
+                            span.clone(),
+                        ))));
 
                     let evm = match method.as_str() {
                         "delegatecall" => EvmExpr::Delegatecall(EvmDelegatecall {
@@ -1619,9 +1642,15 @@ impl Lowerer {
                         ast::NumUnit::Weeks => num_bigint::BigInt::from(604800),
                         ast::NumUnit::Years => num_bigint::BigInt::from(31536000),
                         ast::NumUnit::Gwei => "1000000000".parse::<num_bigint::BigInt>().unwrap(),
-                        ast::NumUnit::Szabo => "1000000000000".parse::<num_bigint::BigInt>().unwrap(),
-                        ast::NumUnit::Finney => "1000000000000000".parse::<num_bigint::BigInt>().unwrap(),
-                        ast::NumUnit::Ether => "1000000000000000000".parse::<num_bigint::BigInt>().unwrap(),
+                        ast::NumUnit::Szabo => {
+                            "1000000000000".parse::<num_bigint::BigInt>().unwrap()
+                        }
+                        ast::NumUnit::Finney => {
+                            "1000000000000000".parse::<num_bigint::BigInt>().unwrap()
+                        }
+                        ast::NumUnit::Ether => {
+                            "1000000000000000000".parse::<num_bigint::BigInt>().unwrap()
+                        }
                     };
                     match &mut num {
                         Num::Int(n) => n.value *= multiplier,

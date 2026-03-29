@@ -37,11 +37,7 @@ impl std::fmt::Display for Loc {
         if let Some(ref file) = self.file {
             write!(f, "{}:{}:{}", file, self.start_line, self.start_col)
         } else {
-            write!(
-                f,
-                "{}:{}-{}:{}",
-                self.start_line, self.start_col, self.end_line, self.end_col
-            )
+            write!(f, "{}:{}-{}:{}", self.start_line, self.start_col, self.end_line, self.end_col)
         }
     }
 }

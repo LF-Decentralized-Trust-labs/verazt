@@ -83,9 +83,7 @@ pub fn lift_function(bir_func: &Function) -> Vec<fir::Function> {
             .find(|op| !matches!(op.kind, OpKind::Phi(_)))
             .and_then(|op| op.span.clone());
 
-        fir_functions.push(
-            fir::Function::new(func_id, params, body, term).with_span(block_span),
-        );
+        fir_functions.push(fir::Function::new(func_id, params, body, term).with_span(block_span));
     }
 
     fir_functions
