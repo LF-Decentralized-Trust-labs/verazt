@@ -102,6 +102,7 @@ impl BugDetectionPass for LowLevelCallSirDetector {
                         self.detector.risk_level(),
                         self.detector.cwe_ids(),
                         self.detector.swc_ids(),
+                        Some(self.detector.recommendation()),
                     ));
                 }
             }
@@ -122,6 +123,7 @@ impl BugDetectionPass for LowLevelCallSirDetector {
                         self.detector.risk_level(),
                         self.detector.cwe_ids(),
                         self.detector.swc_ids(),
+                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_field_access_expr(self, fa);
@@ -164,7 +166,9 @@ impl BugDetectionPass for LowLevelCallSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Avoid low-level calls. If necessary, ensure proper checks and handling."
+        "Avoid low-level `.call()`, `.delegatecall()`, and `.staticcall()` \
+         where possible. Use Solidity interfaces or OpenZeppelin's `Address` \
+         library for safer external calls. Always check the return value."
     }
 
     fn references(&self) -> Vec<&'static str> {

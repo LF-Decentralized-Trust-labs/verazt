@@ -96,6 +96,7 @@ impl BugDetectionPass for VisibilitySirDetector {
                                     self.risk_level(),
                                     self.cwe_ids(),
                                     self.swc_ids(),
+                                    Some(self.recommendation()),
                                 ));
                             }
                         }
@@ -132,7 +133,10 @@ impl BugDetectionPass for VisibilitySirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Explicitly define visibility for all functions and state variables."
+        "Explicitly set visibility (`public`, `external`, `internal`, or \
+         `private`) for every function and state variable. In Solidity <0.5.0, \
+         functions default to `public`, which may unintentionally expose \
+         internal logic."
     }
 
     fn references(&self) -> Vec<&'static str> {

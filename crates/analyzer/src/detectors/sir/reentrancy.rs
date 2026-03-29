@@ -69,6 +69,7 @@ impl ReentrancySirDetector {
                     self.risk_level(),
                     self.cwe_ids(),
                     self.swc_ids(),
+                    Some(self.recommendation()),
                 ));
                 // Report once per function.
                 return;

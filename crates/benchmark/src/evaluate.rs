@@ -22,6 +22,7 @@ pub struct DetectedBug {
     #[allow(dead_code)]
     pub severity: String,
     pub file: Option<String>,
+    pub remediation: Option<String>,
 }
 
 /// Represents a matched true positive.
@@ -228,6 +229,7 @@ pub fn run_analyze_on_file(file_path: &Path, solc_version: &str) -> (bool, Vec<D
             end_col: bug.loc.end_col,
             severity: bug.risk_level.as_str().to_string(),
             file: bug.loc.file.clone(),
+            remediation: bug.remediation.clone(),
         })
         .collect();
 
@@ -299,7 +301,8 @@ pub fn evaluate_dataset(
                     println!();
 
                     let loc_display = relative_display_path(file_path, datasets_root);
-                    let loc_str = format_location_range(&loc_display, ann.bug_line, 0, ann.bug_line, 0);
+                    let loc_str =
+                        format_location_range(&loc_display, ann.bug_line, 0, ann.bug_line, 0);
                     println!("---> {}", loc_str);
 
                     let snippet_file = file_path.to_str().unwrap_or("");
@@ -317,8 +320,8 @@ pub fn evaluate_dataset(
                     }
 
                     println!();
-                    println!("- Category: {}", ann.category);
-                    println!("- Location: {}", loc_str);
+                    println!("Category: {}\n", ann.category);
+                    println!("Location: {}\n", loc_str);
                     println!();
                 }
             }
@@ -366,9 +369,12 @@ pub fn evaluate_dataset(
                     }
 
                     println!();
-                    println!("- Description: {}", det.description.as_deref().unwrap_or("None"));
-                    println!("- Severity: {}", det.severity);
-                    println!("- Location: {}", loc_str);
+                    println!("Description: {}\n", det.description.as_deref().unwrap_or("None"));
+                    println!("Severity: {}\n", det.severity);
+                    if let Some(ref remedy) = det.remediation {
+                        println!("Remediation: {}\n", remedy);
+                    }
+                    println!("Location: {}\n", loc_str);
                     println!();
                 }
             }

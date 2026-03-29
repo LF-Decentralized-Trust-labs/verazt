@@ -93,6 +93,7 @@ impl BugDetectionPass for UninitializedSirDetector {
                                     self.risk_level(),
                                     self.cwe_ids(),
                                     self.swc_ids(),
+                                    Some(self.recommendation()),
                                 ));
                             }
                         }

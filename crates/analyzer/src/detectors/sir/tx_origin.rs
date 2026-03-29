@@ -94,6 +94,7 @@ impl BugDetectionPass for TxOriginSirDetector {
                         self.detector.risk_level(),
                         self.detector.cwe_ids(),
                         self.detector.swc_ids(),
+                        Some(self.detector.recommendation()),
                     ));
                 }
             }
@@ -135,7 +136,9 @@ impl BugDetectionPass for TxOriginSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Use msg.sender instead of tx.origin for authentication."
+        "Replace `tx.origin` with `msg.sender` for authentication. `tx.origin` \
+         returns the original external account, making the contract vulnerable \
+         to phishing attacks where a malicious contract relays the call."
     }
 
     fn references(&self) -> Vec<&'static str> {

@@ -166,7 +166,7 @@ mod tests {
         // It will skip lines 4, 5, 6, 7.
         // Should print lines 1, 2, 3, then "   ... |\n", then 8, 9, 10.
         let snippet = extract_snippet(path.to_str().unwrap(), 2, 9, 0, 0, 1).unwrap();
-        
+
         // Assert we have standard formatting
         assert!(snippet.contains("     1 | line 1"));
         assert!(snippet.contains(">    2 | line 2"));

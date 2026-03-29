@@ -1,6 +1,6 @@
-//! Scanner - AST-based Smart Contract Security Scanner CLI
+//! Analyzer - AST-based Smart Contract Security Analyzer CLI
 //!
-//! This is the main entry point for the Scanner tool.
+//! This is the main entry point for the Analyzer tool.
 
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
@@ -19,7 +19,7 @@ use std::fs;
     author,
     version = crate_version!(),
     term_width = 80,
-    about = "Scanner - AST-based Smart Contract Security Scanner",
+    about = "Analyzer - AST-based Smart Contract Security Analyzer",
     long_about = None
 )]
 pub struct Arguments {
@@ -362,7 +362,8 @@ fn run_analysis(args: Arguments) {
 
     for file in &args.input_files {
         if args.debug {
-            eprintln!("Compiling: {}", file);
+            let rel_file = common::utils::format_relative_path(std::path::Path::new(file));
+            eprintln!("\nCompiling: {}", rel_file);
         }
 
         match input_language {
@@ -401,6 +402,17 @@ fn run_analysis(args: Arguments) {
                         if let Err(err) = export_debugging_source_unit(source_unit, "parsed") {
                             eprintln!("Warning: {}", err);
                         }
+                    }
+                }
+
+                // Lower AST to SIR
+                match frontend::solidity::lowering::lower_source_units(&source_units) {
+                    Ok(modules) => {
+                        ir_units.extend(modules);
+                    }
+                    Err(err) => {
+                        eprintln!("Error lowering {}: {}", file, err);
+                        continue;
                     }
                 }
             }
@@ -515,26 +527,83 @@ fn run_analysis(args: Arguments) {
     }
 }
 
+fn format_header(title: &str) -> String {
+    let ruler = "=".repeat(75);
+    format!("\n{}\n*** {} ***\n{}\n\n", ruler, title, ruler)
+}
+
 fn format_text_output(report: &AnalysisReport) -> String {
     let mut output = String::new();
 
-    output.push_str(&format!(
-        "Analyze Analysis Report\n\
-         =========================\n\n\
-         Files analyzed: {}\n\
-         Duration: {:.2}s\n\n",
-        report.files_analyzed.len(),
-        report.duration.as_secs_f64()
-    ));
+    if report.bugs.is_empty() {
+        output.push_str(&format_header("Detected Bugs"));
+        output.push_str("✅ No issues found!\n");
+    } else {
+        output.push_str(&format_header("Detected Bugs"));
 
+        for (i, bug) in report.bugs.iter().enumerate() {
+            output.push_str(&format!("🐛 Issue {}: {} ({})\n\n", i + 1, bug.name, bug.category));
+
+            let snippet_file = bug.loc.file.as_deref().unwrap_or("");
+            let display_file =
+                common::utils::format_relative_path(std::path::Path::new(snippet_file));
+
+            let loc_str = if bug.loc.start_col == 0 || bug.loc.end_col == 0 {
+                format!("{}:{}", display_file, bug.loc.start_line)
+            } else if bug.loc.start_line == bug.loc.end_line {
+                format!(
+                    "{}:{}:{}-{}",
+                    display_file, bug.loc.start_line, bug.loc.start_col, bug.loc.end_col
+                )
+            } else {
+                format!(
+                    "{}:{}:{}-{}:{}",
+                    display_file,
+                    bug.loc.start_line,
+                    bug.loc.start_col,
+                    bug.loc.end_line,
+                    bug.loc.end_col
+                )
+            };
+
+            output.push_str(&format!("---> {}\n", loc_str));
+
+            if let Some(snippet) = common::snippet::extract_snippet(
+                snippet_file,
+                bug.loc.start_line,
+                bug.loc.end_line,
+                bug.loc.start_col,
+                bug.loc.end_col,
+                1,
+            ) {
+                output.push_str(&snippet);
+            } else {
+                output.push_str("<source code line not available>\n");
+            }
+
+            output.push('\n');
+            let desc = bug.description.as_deref().unwrap_or("None");
+            output.push_str(&format!("Description: {}\n\n", desc));
+            output.push_str(&format!("Severity: {}\n\n", bug.risk_level));
+            if let Some(ref remedy) = bug.remediation {
+                output.push_str(&format!("Remediation: {}\n\n", remedy));
+            }
+            output.push_str(&format!("Location: {}\n\n", loc_str));
+        }
+    }
+
+    output.push_str(&format_header("Summary"));
     output.push_str(&format!(
-        "Summary:\n\
+        "Files analyzed: {}\n\
+         Duration: {:.2}s\n\n\
          - Critical: {}\n\
          - High: {}\n\
          - Medium: {}\n\
          - Low: {}\n\
          - Info: {}\n\
          - Total: {}\n\n",
+        report.files_analyzed.len(),
+        report.duration.as_secs_f64(),
         report.stats.bugs_by_severity.critical,
         report.stats.bugs_by_severity.high,
         report.stats.bugs_by_severity.medium,
@@ -542,26 +611,6 @@ fn format_text_output(report: &AnalysisReport) -> String {
         report.stats.bugs_by_severity.info,
         report.total_bugs(),
     ));
-
-    if report.bugs.is_empty() {
-        output.push_str("✅ No issues found!\n");
-    } else {
-        output.push_str("Findings:\n");
-        output.push_str("---------\n\n");
-
-        for (i, bug) in report.bugs.iter().enumerate() {
-            output.push_str(&format!("{}. [{}] {}\n", i + 1, bug.risk_level, bug.name));
-
-            output
-                .push_str(&format!("   Location: {}:{}\n", bug.loc.start_line, bug.loc.start_col));
-
-            if let Some(desc) = &bug.description {
-                output.push_str(&format!("   {}\n", desc));
-            }
-
-            output.push('\n');
-        }
-    }
 
     output
 }

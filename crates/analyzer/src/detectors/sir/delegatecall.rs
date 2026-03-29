@@ -97,6 +97,7 @@ impl BugDetectionPass for DelegatecallSirDetector {
                         self.detector.risk_level(),
                         self.detector.cwe_ids(),
                         self.detector.swc_ids(),
+                        Some(self.detector.recommendation()),
                     ));
                 }
             }
@@ -117,6 +118,7 @@ impl BugDetectionPass for DelegatecallSirDetector {
                         self.detector.risk_level(),
                         self.detector.cwe_ids(),
                         self.detector.swc_ids(),
+                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_field_access_expr(self, fa);
@@ -159,8 +161,10 @@ impl BugDetectionPass for DelegatecallSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Verify the target contract is trusted and update state variables carefully. \
-         Consider using a library pattern instead of direct delegatecall."
+        "Never delegatecall to user-supplied or untrusted addresses. If using \
+         upgradeable proxies, use battle-tested patterns (OpenZeppelin \
+         TransparentProxy or UUPS). Ensure storage layouts are identical \
+         between proxy and implementation contracts."
     }
 
     fn references(&self) -> Vec<&'static str> {

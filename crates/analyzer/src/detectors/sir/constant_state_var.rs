@@ -110,6 +110,7 @@ impl BugDetectionPass for ConstantStateVarSirDetector {
                                     self.risk_level(),
                                     self.cwe_ids(),
                                     self.swc_ids(),
+                                    Some(self.recommendation()),
                                 ));
                             }
                         }

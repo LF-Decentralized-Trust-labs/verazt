@@ -142,6 +142,7 @@ pub fn create_bug(detector: &dyn BugDetectionPass, description: Option<&str>, lo
         detector.risk_level(),
         detector.cwe_ids(),
         detector.swc_ids(),
+        Some(detector.recommendation()),
     )
 }
 
@@ -161,6 +162,7 @@ pub fn create_bug_with_details(
         detector.risk_level(),
         detector.cwe_ids(),
         detector.swc_ids(),
+        Some(detector.recommendation()),
     )
 }
 

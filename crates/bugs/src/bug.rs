@@ -17,6 +17,7 @@ pub struct Bug {
     pub risk_level: RiskLevel,
     pub cwe_ids: Vec<usize>, // Related CWE: https://cwe.mitre.org/index.html
     pub swc_ids: Vec<usize>, // Related SWC: https://swcregistry.io/
+    pub remediation: Option<String>,
 }
 
 // FIXME: find a better name
@@ -139,6 +140,7 @@ impl Bug {
         risk_level: RiskLevel,
         cwe_ids: Vec<usize>,
         swc_ids: Vec<usize>,
+        remediation: Option<&str>,
     ) -> Self {
         Bug {
             name: name.to_string(),
@@ -149,6 +151,7 @@ impl Bug {
             risk_level,
             swc_ids,
             cwe_ids,
+            remediation: remediation.map(|s| s.to_string()),
         }
     }
 
@@ -184,6 +187,9 @@ impl Bug {
             self.description.as_deref().unwrap_or("None")
         ));
         out.push_str(&format!("- Severity: {}\n", self.risk_level));
+        if let Some(ref remedy) = self.remediation {
+            out.push_str(&format!("- Remediation: {}\n", remedy));
+        }
 
         let loc_str = if self.loc.start_col == 0 || self.loc.end_col == 0 {
             format!("{}", self.loc.start_line)
@@ -222,6 +228,9 @@ impl Display for Bug {
         }
         if !self.swc_ids.is_empty() {
             writeln!(f, "Related SWC IDs: {:?}", self.swc_ids)?;
+        }
+        if let Some(ref remedy) = self.remediation {
+            writeln!(f, "Remediation: {}", remedy)?;
         }
         Ok(())
     }
@@ -354,6 +363,7 @@ mod tests {
             RiskLevel::High,
             vec![841],
             vec![107],
+            Some("Follow the Checks-Effects-Interactions pattern."),
         );
         let json = serde_json::to_string(&bug).unwrap();
         let parsed: Bug = serde_json::from_str(&json).unwrap();
