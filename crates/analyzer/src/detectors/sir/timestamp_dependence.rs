@@ -10,7 +10,6 @@ use crate::passes::base::Pass;
 use crate::passes::base::meta::PassLevel;
 use crate::passes::base::meta::PassRepresentation;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::Loc;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, DialectExpr, FunctionDecl};
@@ -81,7 +80,7 @@ impl BugDetectionPass for TimestampDependenceSirDetector {
             }
 
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
-                if matches!(d, DialectExpr::Evm(EvmExpr::Timestamp(_))) {
+                if let DialectExpr::Evm(EvmExpr::Timestamp(e)) = d {
                     self.bugs.push(Bug::new(
                         self.detector.name(),
                         Some(&format!(
@@ -90,7 +89,7 @@ impl BugDetectionPass for TimestampDependenceSirDetector {
                              a range of ~15 seconds.",
                             self.contract_name, self.func_name
                         )),
-                        Loc::new(0, 0, 0, 0),
+                        e.loc.clone(),
                         self.detector.bug_kind(),
                         self.detector.bug_category(),
                         self.detector.risk_level(),

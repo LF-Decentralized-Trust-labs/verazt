@@ -29,8 +29,8 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
                     PASS,
                     format!("in {}, duplicate OpId {} in block {}", func.id, op.id, block.id),
                 );
-                if let Some(span) = op.span {
-                    err = err.with_span(span);
+                if let Some(span) = &op.span {
+                    err = err.with_span(span.clone());
                 }
                 errors.push(err);
             }

@@ -52,8 +52,8 @@ impl<'a> Visit<'a> for SpecChecker {
                             v.name,
                         ),
                     );
-                    if let Some(span) = v.span {
-                        err = err.with_span(span);
+                    if let Some(span) = &v.span {
+                        err = err.with_span(span.clone());
                     }
                     self.errors.push(err);
                 }

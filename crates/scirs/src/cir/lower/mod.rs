@@ -124,37 +124,37 @@ fn cir_stmt_to_sir(stmt: &crate::cir::CanonStmt) -> crate::sir::Stmt {
                     })
                     .collect(),
                 init: s.init.as_ref().map(cir_expr_to_sir),
-                span: s.span,
+                span: s.span.clone(),
             })
         }
         crate::cir::CanonStmt::Assign(s) => crate::sir::Stmt::Assign(crate::sir::AssignStmt {
             lhs: cir_expr_to_sir(&s.lhs),
             rhs: cir_expr_to_sir(&s.rhs),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::AugAssign(s) => {
             crate::sir::Stmt::AugAssign(crate::sir::AugAssignStmt {
                 op: s.op,
                 lhs: cir_expr_to_sir(&s.lhs),
                 rhs: cir_expr_to_sir(&s.rhs),
-                span: s.span,
+                span: s.span.clone(),
             })
         }
         crate::cir::CanonStmt::Expr(s) => crate::sir::Stmt::Expr(crate::sir::ExprStmt {
             expr: cir_expr_to_sir(&s.expr),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::If(s) => crate::sir::Stmt::If(crate::sir::IfStmt {
             cond: cir_expr_to_sir(&s.cond),
             then_body: cir_stmts_to_sir(&s.then_body),
             else_body: s.else_body.as_ref().map(|stmts| cir_stmts_to_sir(stmts)),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::While(s) => crate::sir::Stmt::While(crate::sir::WhileStmt {
             cond: cir_expr_to_sir(&s.cond),
             body: cir_stmts_to_sir(&s.body),
             invariant: s.invariant.as_ref().map(cir_expr_to_sir),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::For(s) => crate::sir::Stmt::For(crate::sir::ForStmt {
             init: s.init.as_ref().map(|stmt| Box::new(cir_stmt_to_sir(stmt))),
@@ -165,21 +165,21 @@ fn cir_stmt_to_sir(stmt: &crate::cir::CanonStmt) -> crate::sir::Stmt {
                 .map(|stmt| Box::new(cir_stmt_to_sir(stmt))),
             body: cir_stmts_to_sir(&s.body),
             invariant: s.invariant.as_ref().map(cir_expr_to_sir),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::Return(s) => crate::sir::Stmt::Return(crate::sir::ReturnStmt {
             value: s.value.as_ref().map(cir_expr_to_sir),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::Revert(s) => crate::sir::Stmt::Revert(crate::sir::RevertStmt {
             error: s.error.clone(),
             args: s.args.iter().map(cir_expr_to_sir).collect(),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::Assert(s) => crate::sir::Stmt::Assert(crate::sir::AssertStmt {
             cond: cir_expr_to_sir(&s.cond),
             message: s.message.as_ref().map(cir_expr_to_sir),
-            span: s.span,
+            span: s.span.clone(),
         }),
         crate::cir::CanonStmt::Break => crate::sir::Stmt::Break,
         crate::cir::CanonStmt::Continue => crate::sir::Stmt::Continue,
@@ -193,7 +193,7 @@ fn cir_expr_to_sir(expr: &crate::cir::CanonExpr) -> crate::sir::Expr {
         crate::cir::CanonExpr::Var(v) => crate::sir::Expr::Var(crate::sir::VarExpr {
             name: v.name.clone(),
             ty: v.ty.clone(),
-            span: v.span,
+            span: v.span.clone(),
         }),
         crate::cir::CanonExpr::Lit(l) => crate::sir::Expr::Lit(l.clone()),
         crate::cir::CanonExpr::BinOp(e) => crate::sir::Expr::BinOp(crate::sir::BinOpExpr {
@@ -201,19 +201,19 @@ fn cir_expr_to_sir(expr: &crate::cir::CanonExpr) -> crate::sir::Expr {
             lhs: Box::new(cir_expr_to_sir(&e.lhs)),
             rhs: Box::new(cir_expr_to_sir(&e.rhs)),
             overflow: e.overflow,
-            span: e.span,
+            span: e.span.clone(),
         }),
         crate::cir::CanonExpr::UnOp(e) => crate::sir::Expr::UnOp(crate::sir::UnOpExpr {
             op: e.op,
             operand: Box::new(cir_expr_to_sir(&e.operand)),
-            span: e.span,
+            span: e.span.clone(),
         }),
         crate::cir::CanonExpr::IndexAccess(e) => {
             crate::sir::Expr::IndexAccess(crate::sir::IndexAccessExpr {
                 base: Box::new(cir_expr_to_sir(&e.base)),
                 index: e.index.as_ref().map(|idx| Box::new(cir_expr_to_sir(idx))),
                 ty: e.ty.clone(),
-                span: e.span,
+                span: e.span.clone(),
             })
         }
         crate::cir::CanonExpr::FieldAccess(e) => {
@@ -221,7 +221,7 @@ fn cir_expr_to_sir(expr: &crate::cir::CanonExpr) -> crate::sir::Expr {
                 base: Box::new(cir_expr_to_sir(&e.base)),
                 field: e.field.clone(),
                 ty: e.ty.clone(),
-                span: e.span,
+                span: e.span.clone(),
             })
         }
         crate::cir::CanonExpr::FunctionCall(e) => {
@@ -231,14 +231,14 @@ fn cir_expr_to_sir(expr: &crate::cir::CanonExpr) -> crate::sir::Expr {
                     e.args.iter().map(cir_expr_to_sir).collect(),
                 ),
                 ty: e.ty.clone(),
-                span: e.span,
+                span: e.span.clone(),
             })
         }
         crate::cir::CanonExpr::TypeCast(e) => {
             crate::sir::Expr::TypeCast(crate::sir::TypeCastExpr {
                 ty: e.ty.clone(),
                 expr: Box::new(cir_expr_to_sir(&e.expr)),
-                span: e.span,
+                span: e.span.clone(),
             })
         }
         crate::cir::CanonExpr::Old(inner) => {

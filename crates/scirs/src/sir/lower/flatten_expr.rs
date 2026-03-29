@@ -238,7 +238,7 @@ fn flatten_call_args_in_expr(
                 callee: Box::new(callee),
                 args,
                 ty: call.ty.clone(),
-                span: call.span,
+                span: call.span.clone(),
             });
             (pre, new_call)
         }
@@ -354,12 +354,12 @@ fn lift_to_atom(expr: &sir::Expr, pre: &mut Vec<sir::Stmt>, counter: &mut usize)
         *counter += 1;
         let tmp_name = format!("__tmp_{counter}");
         let ty = e.typ();
-        let span = e.span();
+        let span = e.span().cloned();
         let decl = sir::LocalVarDecl { name: tmp_name.clone(), ty: ty.clone() };
         pre.push(sir::Stmt::LocalVar(sir::LocalVarStmt {
             vars: vec![Some(decl)],
             init: Some(e),
-            span,
+            span: span.clone(),
         }));
         sir::Expr::Var(sir::VarExpr::new(tmp_name, ty, span))
     }

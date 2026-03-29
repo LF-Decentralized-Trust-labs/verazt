@@ -90,7 +90,8 @@ fn main() {
     println!("Found {} .sol files in {}", sol_files.len(), scan_dir.display());
 
     // Run evaluation
-    let result = evaluate::evaluate_dataset(&sol_files, &args.solc_version);
+    let datasets_root = workspace_root.join("datasets");
+    let result = evaluate::evaluate_dataset(&sol_files, &args.solc_version, &datasets_root);
 
     // Print report
     report::print_report(&result, args.verbose);

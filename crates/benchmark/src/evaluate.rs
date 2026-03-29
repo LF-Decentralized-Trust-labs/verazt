@@ -12,10 +12,12 @@ use bugs::datasets::smartbugs::{AnnotatedBug, parse_annotations};
 #[derive(Debug, Clone)]
 pub struct DetectedBug {
     pub name: String,
+    pub description: Option<String>,
     pub category: BugCategory,
     pub start_line: usize,
     #[allow(dead_code)]
     pub severity: String,
+    pub file: Option<String>,
 }
 
 /// Represents a matched true positive.
@@ -196,9 +198,11 @@ pub fn run_analyze_on_file(file_path: &Path, solc_version: &str) -> (bool, Vec<D
         .iter()
         .map(|bug| DetectedBug {
             name: bug.name.clone(),
+            description: bug.description.clone(),
             category: bug.category,
             start_line: bug.loc.start_line,
             severity: bug.risk_level.as_str().to_string(),
+            file: bug.loc.file.clone(),
         })
         .collect();
 
@@ -220,8 +224,24 @@ pub fn evaluate_file(file_path: &Path, solc_version: &str) -> FileResult {
     }
 }
 
+/// Compute a display path relative to the datasets root.
+///
+/// Given an absolute file path and the datasets root directory, returns the
+/// portion of the path after `datasets/`.  Falls back to the full path if
+/// stripping fails.
+fn relative_display_path(file_path: &Path, datasets_root: &Path) -> String {
+    file_path
+        .strip_prefix(datasets_root)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| file_path.display().to_string())
+}
+
 /// Evaluate the entire dataset, returning aggregated results.
-pub fn evaluate_dataset(sol_files: &[PathBuf], solc_version: &str) -> DatasetResult {
+pub fn evaluate_dataset(
+    sol_files: &[PathBuf],
+    solc_version: &str,
+    datasets_root: &Path,
+) -> DatasetResult {
     let mut file_results = Vec::new();
     let mut compiled_files = 0usize;
     let mut skipped_files = 0usize;
@@ -241,8 +261,66 @@ pub fn evaluate_dataset(sol_files: &[PathBuf], solc_version: &str) -> DatasetRes
 
         if result.compiled {
             compiled_files += 1;
+
+            let rel_path = relative_display_path(file_path, datasets_root);
+            println!("\nInput file: {}\n", rel_path);
+
+            println!("------------------");
+            println!("Label bugs:");
+            println!("-------------------");
+            if result.annotations.is_empty() {
+                println!("(none)\n");
+            } else {
+                for (i, ann) in result.annotations.iter().enumerate() {
+                    println!("{}. {} @ line {}", i + 1, ann.bug_name, ann.bug_line);
+                }
+                println!();
+            }
+
+            println!("-------------------");
+            println!("Detected bugs:");
+            println!("--------------------");
+            if result.detections.is_empty() {
+                println!("(none)\n");
+            } else {
+                for (i, det) in result.detections.iter().enumerate() {
+                    println!("{}. {} ({})", i + 1, det.name, det.category);
+                    println!();
+
+                    // Resolve the file to use for snippet extraction (absolute path)
+                    let snippet_file = det
+                        .file
+                        .as_deref()
+                        .unwrap_or_else(|| file_path.to_str().unwrap_or(""));
+
+                    // Compute the relative display path for the location header
+                    let loc_display = det
+                        .file
+                        .as_ref()
+                        .map(|f| {
+                            relative_display_path(Path::new(f), datasets_root)
+                        })
+                        .unwrap_or_else(|| rel_path.clone());
+
+                    println!("---> {}:{}", loc_display, det.start_line);
+                    if let Some(snippet) =
+                        common::snippet::extract_snippet(snippet_file, det.start_line, 1)
+                    {
+                        print!("{}", snippet);
+                    } else {
+                        println!("<source code line not available>");
+                    }
+
+                    println!();
+                    println!("- Description: {}", det.description.as_deref().unwrap_or("None"));
+                    println!("- Severity: {}", det.severity);
+                    println!("- Location: {}:{}", loc_display, det.start_line);
+                    println!();
+                }
+            }
         } else {
             skipped_files += 1;
+            println!("Compilation failed.");
         }
 
         // Aggregate per-category stats

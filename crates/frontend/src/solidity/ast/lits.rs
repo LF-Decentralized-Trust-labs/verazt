@@ -99,11 +99,11 @@ pub struct UnicodeLit {
 impl Lit {
     pub fn loc(&self) -> Option<Loc> {
         match self {
-            Lit::Bool(b) => b.loc,
-            Lit::Num(n) => n.loc,
-            Lit::String(s) => s.loc,
-            Lit::Hex(h) => h.loc,
-            Lit::Unicode(u) => u.loc,
+            Lit::Bool(b) => b.loc.clone(),
+            Lit::Num(n) => n.loc.clone(),
+            Lit::String(s) => s.loc.clone(),
+            Lit::Hex(h) => h.loc.clone(),
+            Lit::Unicode(u) => u.loc.clone(),
         }
     }
 

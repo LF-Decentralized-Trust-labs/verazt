@@ -79,14 +79,16 @@ impl BugDetectionPass for LowLevelCallSirDetector {
             }
 
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
-                let call_kind = match d {
-                    DialectExpr::Evm(EvmExpr::LowLevelCall(_)) => Some("call"),
-                    DialectExpr::Evm(EvmExpr::RawCall(_)) => Some("raw_call"),
-                    DialectExpr::Evm(EvmExpr::Send(_)) => Some("send"),
-                    DialectExpr::Evm(EvmExpr::Delegatecall(_)) => Some("delegatecall"),
+                let call_info = match d {
+                    DialectExpr::Evm(EvmExpr::LowLevelCall(e)) => Some(("call", e.loc.clone())),
+                    DialectExpr::Evm(EvmExpr::RawCall(e)) => Some(("raw_call", e.loc.clone())),
+                    DialectExpr::Evm(EvmExpr::Send(e)) => Some(("send", e.loc.clone())),
+                    DialectExpr::Evm(EvmExpr::Delegatecall(e)) => {
+                        Some(("delegatecall", e.loc.clone()))
+                    }
                     _ => None,
                 };
-                if let Some(kind) = call_kind {
+                if let Some((kind, loc)) = call_info {
                     self.bugs.push(Bug::new(
                         self.detector.name(),
                         Some(&format!(
@@ -94,7 +96,7 @@ impl BugDetectionPass for LowLevelCallSirDetector {
                              Consider using higher-level function calls.",
                             kind, self.contract_name, self.func_name
                         )),
-                        Loc::new(0, 0, 0, 0),
+                        loc,
                         self.detector.bug_kind(),
                         self.detector.bug_category(),
                         self.detector.risk_level(),
@@ -114,7 +116,7 @@ impl BugDetectionPass for LowLevelCallSirDetector {
                              Consider using higher-level function calls.",
                             field, self.contract_name, self.func_name
                         )),
-                        Loc::new(0, 0, 0, 0),
+                        fa.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                         self.detector.bug_kind(),
                         self.detector.bug_category(),
                         self.detector.risk_level(),

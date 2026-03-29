@@ -120,7 +120,7 @@ impl CirLowerer {
             }
         }
 
-        let mut canon = CanonContractDecl::new(contract.name.clone(), members, contract.span);
+        let mut canon = CanonContractDecl::new(contract.name.clone(), members, contract.span.clone());
         canon.attrs = contract.attrs.clone();
         Ok(canon)
     }
@@ -139,7 +139,7 @@ impl CirLowerer {
             None => None,
         };
         let mut canon =
-            CanonStorageDecl::new(storage.name.clone(), storage.ty.clone(), init, storage.span);
+            CanonStorageDecl::new(storage.name.clone(), storage.ty.clone(), init, storage.span.clone());
         canon.attrs = storage.attrs.clone();
         Ok(canon)
     }
@@ -164,7 +164,7 @@ impl CirLowerer {
             params,
             func.returns.clone(),
             body,
-            func.span,
+            func.span.clone(),
         );
         canon.attrs = func.attrs.clone();
         canon.spec = func.spec.clone();
@@ -198,22 +198,22 @@ impl CirLowerer {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
                 };
-                Ok(CanonStmt::LocalVar(CanonLocalVarStmt { vars, init, span: s.span }))
+                Ok(CanonStmt::LocalVar(CanonLocalVarStmt { vars, init, span: s.span.clone() }))
             }
             sir::Stmt::Assign(s) => Ok(CanonStmt::Assign(CanonAssignStmt {
                 lhs: self.lower_expr(&s.lhs)?,
                 rhs: self.lower_expr(&s.rhs)?,
-                span: s.span,
+                span: s.span.clone(),
             })),
             sir::Stmt::AugAssign(s) => Ok(CanonStmt::AugAssign(CanonAugAssignStmt {
                 op: s.op,
                 lhs: self.lower_expr(&s.lhs)?,
                 rhs: self.lower_expr(&s.rhs)?,
-                span: s.span,
+                span: s.span.clone(),
             })),
             sir::Stmt::Expr(s) => Ok(CanonStmt::Expr(CanonExprStmt {
                 expr: self.lower_expr(&s.expr)?,
-                span: s.span,
+                span: s.span.clone(),
             })),
             sir::Stmt::If(s) => {
                 let cond = self.lower_expr(&s.cond)?;
@@ -222,7 +222,7 @@ impl CirLowerer {
                     Some(stmts) => Some(self.lower_stmts(stmts)?),
                     None => None,
                 };
-                Ok(CanonStmt::If(CanonIfStmt { cond, then_body, else_body, span: s.span }))
+                Ok(CanonStmt::If(CanonIfStmt { cond, then_body, else_body, span: s.span.clone() }))
             }
             sir::Stmt::While(s) => {
                 let cond = self.lower_expr(&s.cond)?;
@@ -231,7 +231,7 @@ impl CirLowerer {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
                 };
-                Ok(CanonStmt::While(CanonWhileStmt { cond, body, invariant, span: s.span }))
+                Ok(CanonStmt::While(CanonWhileStmt { cond, body, invariant, span: s.span.clone() }))
             }
             sir::Stmt::For(s) => {
                 let init = match &s.init {
@@ -257,7 +257,7 @@ impl CirLowerer {
                     update,
                     body,
                     invariant,
-                    span: s.span,
+                    span: s.span.clone(),
                 }))
             }
             sir::Stmt::Return(s) => {
@@ -265,7 +265,7 @@ impl CirLowerer {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
                 };
-                Ok(CanonStmt::Return(CanonReturnStmt { value, span: s.span }))
+                Ok(CanonStmt::Return(CanonReturnStmt { value, span: s.span.clone() }))
             }
             sir::Stmt::Revert(s) => {
                 let args = s
@@ -276,7 +276,7 @@ impl CirLowerer {
                 Ok(CanonStmt::Revert(CanonRevertStmt {
                     error: s.error.clone(),
                     args,
-                    span: s.span,
+                    span: s.span.clone(),
                 }))
             }
             sir::Stmt::Assert(s) => {
@@ -285,7 +285,7 @@ impl CirLowerer {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
                 };
-                Ok(CanonStmt::Assert(CanonAssertStmt { cond, message, span: s.span }))
+                Ok(CanonStmt::Assert(CanonAssertStmt { cond, message, span: s.span.clone() }))
             }
             sir::Stmt::Break => Ok(CanonStmt::Break),
             sir::Stmt::Continue => Ok(CanonStmt::Continue),
@@ -301,7 +301,7 @@ impl CirLowerer {
             sir::Expr::Var(v) => Ok(CanonExpr::Var(CanonVarExpr {
                 name: v.name.clone(),
                 ty: v.ty.clone(),
-                span: v.span,
+                span: v.span.clone(),
             })),
             sir::Expr::Lit(l) => Ok(CanonExpr::Lit(l.clone())),
             sir::Expr::BinOp(e) => Ok(CanonExpr::BinOp(CanonBinOpExpr {
@@ -309,12 +309,12 @@ impl CirLowerer {
                 lhs: Box::new(self.lower_expr(&e.lhs)?),
                 rhs: Box::new(self.lower_expr(&e.rhs)?),
                 overflow: e.overflow,
-                span: e.span,
+                span: e.span.clone(),
             })),
             sir::Expr::UnOp(e) => Ok(CanonExpr::UnOp(CanonUnOpExpr {
                 op: e.op,
                 operand: Box::new(self.lower_expr(&e.operand)?),
-                span: e.span,
+                span: e.span.clone(),
             })),
             sir::Expr::IndexAccess(e) => {
                 let index = match &e.index {
@@ -325,14 +325,14 @@ impl CirLowerer {
                     base: Box::new(self.lower_expr(&e.base)?),
                     index,
                     ty: e.ty.clone(),
-                    span: e.span,
+                    span: e.span.clone(),
                 }))
             }
             sir::Expr::FieldAccess(e) => Ok(CanonExpr::FieldAccess(CanonFieldAccessExpr {
                 base: Box::new(self.lower_expr(&e.base)?),
                 field: e.field.clone(),
                 ty: e.ty.clone(),
-                span: e.span,
+                span: e.span.clone(),
             })),
             sir::Expr::FunctionCall(e) => {
                 let args = match &e.args {
@@ -350,13 +350,13 @@ impl CirLowerer {
                     callee: Box::new(self.lower_expr(&e.callee)?),
                     args,
                     ty: e.ty.clone(),
-                    span: e.span,
+                    span: e.span.clone(),
                 }))
             }
             sir::Expr::TypeCast(e) => Ok(CanonExpr::TypeCast(CanonTypeCastExpr {
                 ty: e.ty.clone(),
                 expr: Box::new(self.lower_expr(&e.expr)?),
-                span: e.span,
+                span: e.span.clone(),
             })),
             sir::Expr::Ternary(e) => {
                 // Ternary is still allowed at this stage — the AST-level
@@ -371,13 +371,13 @@ impl CirLowerer {
                 let callee = CanonExpr::Var(CanonVarExpr::new(
                     "__ternary__".to_string(),
                     then_expr.typ(),
-                    e.span,
+                    e.span.clone(),
                 ));
                 Ok(CanonExpr::FunctionCall(CanonCallExpr {
                     callee: Box::new(callee),
                     args: vec![cond, then_expr, else_expr],
                     ty: expr.typ(),
-                    span: e.span,
+                    span: e.span.clone(),
                 }))
             }
             sir::Expr::Tuple(e) => {
@@ -392,13 +392,13 @@ impl CirLowerer {
                 let callee = CanonExpr::Var(CanonVarExpr::new(
                     "__tuple__".to_string(),
                     e.ty.clone(),
-                    e.span,
+                    e.span.clone(),
                 ));
                 Ok(CanonExpr::FunctionCall(CanonCallExpr {
                     callee: Box::new(callee),
                     args: elems,
                     ty: e.ty.clone(),
-                    span: e.span,
+                    span: e.span.clone(),
                 }))
             }
             sir::Expr::Old(inner) => Ok(CanonExpr::Old(Box::new(self.lower_expr(inner)?))),

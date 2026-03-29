@@ -44,8 +44,8 @@ fn collect_defs(
                         op.id
                     ),
                 );
-                if let Some(span) = op.span {
-                    err = err.with_span(span);
+                if let Some(span) = &op.span {
+                    err = err.with_span(span.clone());
                 }
                 errors.push(err);
             } else {

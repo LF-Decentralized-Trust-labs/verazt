@@ -203,7 +203,13 @@ impl From<&AnalysisReport> for SarifLog {
                 },
                 locations: vec![SarifLocation {
                     physical_location: SarifPhysicalLocation {
-                        artifact_location: SarifArtifactLocation { uri: "unknown".to_string() },
+                        artifact_location: SarifArtifactLocation {
+                            uri: bug
+                                .loc
+                                .file
+                                .clone()
+                                .unwrap_or_else(|| "unknown".to_string()),
+                        },
                         region: SarifRegion {
                             start_line: bug.loc.start_line,
                             start_column: Some(bug.loc.start_col),

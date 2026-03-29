@@ -87,7 +87,7 @@ impl BugDetectionPass for UninitializedSirDetector {
                                          initialized. Consider initializing it explicitly.",
                                         storage.name, contract.name,
                                     )),
-                                    Loc::new(0, 0, 0, 0),
+                                    storage.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                                     self.bug_kind(),
                                     self.bug_category(),
                                     self.risk_level(),

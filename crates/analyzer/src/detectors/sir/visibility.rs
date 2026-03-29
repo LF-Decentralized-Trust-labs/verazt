@@ -90,7 +90,7 @@ impl BugDetectionPass for VisibilitySirDetector {
                                          'external', 'internal', or 'private'.",
                                         func.name, contract.name,
                                     )),
-                                    Loc::new(0, 0, 0, 0),
+                                    func.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                                     self.bug_kind(),
                                     self.bug_category(),
                                     self.risk_level(),

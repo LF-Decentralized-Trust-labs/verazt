@@ -1,4 +1,4 @@
-use frontend::solidity::ast::Loc;
+use common::loc::Loc;
 use serde::{Deserialize, Serialize};
 
 //-------------------------------------------------------------------------
@@ -150,6 +150,42 @@ impl Bug {
             swc_ids,
             cwe_ids,
         }
+    }
+
+    /// Format this bug with a source code snippet.
+    pub fn format_with_snippet(&self) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("{} ({})\n\n", self.name, self.category));
+
+        // Code snippet
+        if let Some(ref file) = self.loc.file {
+            if self.loc.is_valid() {
+                if let Some(snippet) =
+                    common::snippet::extract_snippet(file, self.loc.start_line, 1)
+                {
+                    out.push_str(&snippet);
+                } else {
+                    out.push_str("<source code line not available>\n");
+                }
+            } else {
+                out.push_str("<source code line not available>\n");
+            }
+        } else {
+            out.push_str("<source code line not available>\n");
+        }
+
+        out.push_str(&format!(
+            "\n- Description: {}\n",
+            self.description.as_deref().unwrap_or("None")
+        ));
+        out.push_str(&format!("- Severity: {}\n", self.risk_level));
+        if let Some(ref file) = self.loc.file {
+            out.push_str(&format!("- Location: {} @ line {}\n", file, self.loc.start_line));
+        } else {
+            out.push_str(&format!("- Location: <unknown> @ line {}\n", self.loc.start_line));
+        }
+
+        out
     }
 }
 

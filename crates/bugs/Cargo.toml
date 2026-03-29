@@ -6,6 +6,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+common = { workspace = true }
 frontend = { workspace = true }
 serde = { workspace = true }
 regex = { workspace = true }

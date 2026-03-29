@@ -129,18 +129,18 @@ pub struct AssertStmt {
 // ═══════════════════════════════════════════════════════════════════
 
 impl Stmt {
-    pub fn span(&self) -> Option<Loc> {
+    pub fn span(&self) -> Option<&Loc> {
         match self {
-            Stmt::LocalVar(s) => s.span,
-            Stmt::Assign(s) => s.span,
-            Stmt::AugAssign(s) => s.span,
-            Stmt::Expr(s) => s.span,
-            Stmt::If(s) => s.span,
-            Stmt::While(s) => s.span,
-            Stmt::For(s) => s.span,
-            Stmt::Return(s) => s.span,
-            Stmt::Revert(s) => s.span,
-            Stmt::Assert(s) => s.span,
+            Stmt::LocalVar(s) => s.span.as_ref(),
+            Stmt::Assign(s) => s.span.as_ref(),
+            Stmt::AugAssign(s) => s.span.as_ref(),
+            Stmt::Expr(s) => s.span.as_ref(),
+            Stmt::If(s) => s.span.as_ref(),
+            Stmt::While(s) => s.span.as_ref(),
+            Stmt::For(s) => s.span.as_ref(),
+            Stmt::Return(s) => s.span.as_ref(),
+            Stmt::Revert(s) => s.span.as_ref(),
+            Stmt::Assert(s) => s.span.as_ref(),
             Stmt::Break | Stmt::Continue | Stmt::Block(_) => None,
             Stmt::Dialect(_) => None,
         }

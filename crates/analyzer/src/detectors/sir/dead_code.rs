@@ -44,7 +44,7 @@ impl DeadCodeSirDetector {
                         "Unreachable code in '{}.{}': statement after return/revert.",
                         contract_name, func_name,
                     )),
-                    Loc::new(0, 0, 0, 0),
+                    stmt.span().cloned().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                     self.bug_kind(),
                     self.bug_category(),
                     self.risk_level(),

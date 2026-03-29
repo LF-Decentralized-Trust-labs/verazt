@@ -61,7 +61,7 @@ fn find_modifier_declarations(source_unit: &SourceUnit) -> HashMap<Name, FuncDef
 //-------------------------------------------------
 
 fn create_ident_from_var_decl(var: &VarDecl) -> Identifier {
-    Identifier::new(var.id, var.name.clone(), var.typ.clone(), var.loc)
+    Identifier::new(var.id, var.name.clone(), var.typ.clone(), var.loc.clone())
 }
 
 //----------------------------------------------------------------------

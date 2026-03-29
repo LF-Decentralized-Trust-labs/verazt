@@ -41,7 +41,7 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
 fn check_ref(
     op_ref: &OpRef,
     defined: &HashSet<OpId>,
-    span: Option<crate::sir::Loc>,
+    span: Option<&crate::sir::Loc>,
     errors: &mut Vec<VerifyError>,
 ) {
     if !defined.contains(&op_ref.0) {
@@ -50,7 +50,7 @@ fn check_ref(
             format!("OpRef {} references undefined OpId {}", op_ref, op_ref.0),
         );
         if let Some(span) = span {
-            err = err.with_span(span);
+            err = err.with_span(span.clone());
         }
         errors.push(err);
     }
@@ -59,39 +59,39 @@ fn check_ref(
 fn check_op_uses(op: &Op, defined: &HashSet<OpId>, errors: &mut Vec<VerifyError>) {
     match &op.kind {
         OpKind::BinOp { lhs, rhs, .. } => {
-            check_ref(lhs, defined, op.span, errors);
-            check_ref(rhs, defined, op.span, errors);
+            check_ref(lhs, defined, op.span.as_ref(), errors);
+            check_ref(rhs, defined, op.span.as_ref(), errors);
         }
         OpKind::UnOp { operand, .. } => {
-            check_ref(operand, defined, op.span, errors);
+            check_ref(operand, defined, op.span.as_ref(), errors);
         }
         OpKind::Phi(entries) => {
             for (_block, r) in entries {
-                check_ref(r, defined, op.span, errors);
+                check_ref(r, defined, op.span.as_ref(), errors);
             }
         }
         OpKind::Assert { cond } => {
-            check_ref(cond, defined, op.span, errors);
+            check_ref(cond, defined, op.span.as_ref(), errors);
         }
         OpKind::Return(vals) => {
             for r in vals {
-                check_ref(r, defined, op.span, errors);
+                check_ref(r, defined, op.span.as_ref(), errors);
             }
         }
         OpKind::ExprStmt { expr } => {
-            check_ref(expr, defined, op.span, errors);
+            check_ref(expr, defined, op.span.as_ref(), errors);
         }
         OpKind::Storage(s) => {
             if let Some(k) = &s.key_operand {
-                check_ref(k, defined, op.span, errors);
+                check_ref(k, defined, op.span.as_ref(), errors);
             }
             if let Some(v) = &s.value_operand {
-                check_ref(v, defined, op.span, errors);
+                check_ref(v, defined, op.span.as_ref(), errors);
             }
         }
         OpKind::Call(c) => {
             for arg in &c.args {
-                check_ref(arg, defined, op.span, errors);
+                check_ref(arg, defined, op.span.as_ref(), errors);
             }
         }
         OpKind::Const(_)
@@ -111,7 +111,7 @@ fn check_term_uses(
 ) {
     if let Terminator::Branch { cond, .. } = term {
         // Use the first op's span as a rough location
-        let span = block.ops.last().and_then(|op| op.span);
+        let span = block.ops.last().and_then(|op| op.span.as_ref());
         check_ref(cond, defined, span, errors);
     }
 }

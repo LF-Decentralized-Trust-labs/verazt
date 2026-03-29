@@ -38,7 +38,7 @@ pub fn merge_pragma_elems(source_unit_elems: &[SourceUnitElem]) -> Vec<SourceUni
             .collect::<Vec<String>>()
             .join(" ");
         let loc = match &solidity_pragmas[..] {
-            [p] => p.loc,
+            [p] => p.loc.clone(),
             _ => None,
         };
         let npragma = PragmaDir::new(None, PragmaKind::Version(solidity_vers), loc);

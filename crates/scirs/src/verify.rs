@@ -28,7 +28,7 @@ impl VerifyError {
 impl Display for VerifyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}] {}", self.pass, self.message)?;
-        if let Some(span) = self.span {
+        if let Some(ref span) = self.span {
             write!(f, " at {span}")?;
         }
         Ok(())

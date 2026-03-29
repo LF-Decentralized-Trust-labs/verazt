@@ -35,6 +35,8 @@ pub struct AstParser {
     pub base_path: Option<String>,
     file_dictionary: SimpleFiles<String, String>,
     current_file_id: usize,
+    /// Current source file path being parsed.
+    current_file_path: Option<String>,
     /// Solidity version from the compiler used, set as default fallback.
     default_sol_ver: Option<node_semver::Range>,
     /// Current Solidity version, overridden by pragma if found.
@@ -75,6 +77,7 @@ impl AstParser {
             base_path: solidity_json.base_path.clone(),
             file_dictionary: SimpleFiles::new(),
             current_file_id: 0,
+            current_file_path: None,
             default_sol_ver,
             current_sol_ver: None,
         }
@@ -183,7 +186,11 @@ impl AstParser {
                             Ok(loc) => (loc.line_number, loc.column_number),
                             _ => return None,
                         };
-                    Some(Loc::new(l1, c1, l2, c2))
+                    let mut loc = Loc::new(l1, c1, l2, c2);
+                    if let Some(ref file) = self.current_file_path {
+                        loc = loc.with_file(file.clone());
+                    }
+                    Some(loc)
                 }
                 _ => None,
             }
@@ -213,6 +220,7 @@ impl AstParser {
         let file_path = self.parse_source_unit_path(node)?;
         let file_source = fs::read_to_string(&file_path)?;
         self.current_file_id = self.file_dictionary.add(file_path.clone(), file_source);
+        self.current_file_path = Some(file_path.clone());
         let elems = node
             .get("nodes")
             .ok_or_else(|| error!("Source unit elements not found: {node}"))?
@@ -854,7 +862,7 @@ impl AstParser {
         let arg_typs: Vec<Type> = args.iter().map(|arg| arg.typ()).collect();
         let typ: Type = FuncType::new(arg_typs, vec![], FuncVis::None, FuncMut::None).into();
         let loc = self.parse_source_location(node);
-        let callee: Expr = Identifier::new(None, name, typ.clone(), loc).into();
+        let callee: Expr = Identifier::new(None, name, typ.clone(), loc.clone()).into();
         Ok(CallExpr::new_call_unnamed_args(id, callee, vec![], args, kind, typ, loc))
     }
 
@@ -1390,7 +1398,7 @@ impl AstParser {
         );
 
         let arg_locs = match arg_locs.is_empty() {
-            true => vec![loc; arg_names.len()],
+            true => vec![loc.clone(); arg_names.len()],
             false => arg_locs,
         };
 

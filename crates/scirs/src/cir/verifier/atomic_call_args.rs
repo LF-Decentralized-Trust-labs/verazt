@@ -25,8 +25,8 @@ impl<'a> Visit<'a> for AtomicCallArgsChecker {
                     PASS,
                     format!("call argument {i} is not an atom (Var or Lit)"),
                 );
-                if let Some(span) = expr.span {
-                    err = err.with_span(span);
+                if let Some(span) = &expr.span {
+                    err = err.with_span(span.clone());
                 }
                 self.errors.push(err);
             }

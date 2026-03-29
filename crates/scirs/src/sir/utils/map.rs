@@ -153,7 +153,7 @@ pub mod default {
                 .iter()
                 .map(|m| mapper.map_member_decl(m))
                 .collect(),
-            span: contract.span,
+            span: contract.span.clone(),
         }
     }
 
@@ -180,7 +180,7 @@ pub mod default {
             ty: mapper.map_type(&storage.ty),
             init: storage.init.as_ref().map(|e| mapper.map_expr(e)),
             attrs: storage.attrs.clone(),
-            span: storage.span,
+            span: storage.span.clone(),
         }
     }
 
@@ -202,10 +202,10 @@ pub mod default {
                 .map(|m| ModifierInvoc {
                     name: m.name.clone(),
                     args: m.args.iter().map(|a| mapper.map_expr(a)).collect(),
-                    span: m.span,
+                    span: m.span.clone(),
                 })
                 .collect(),
-            span: func.span,
+            span: func.span.clone(),
         }
     }
 
@@ -241,7 +241,7 @@ pub mod default {
         LocalVarStmt {
             vars: stmt.vars.clone(),
             init: stmt.init.as_ref().map(|e| mapper.map_expr(e)),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
@@ -252,7 +252,7 @@ pub mod default {
         AssignStmt {
             lhs: mapper.map_expr(&stmt.lhs),
             rhs: mapper.map_expr(&stmt.rhs),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
@@ -264,12 +264,12 @@ pub mod default {
             op: stmt.op,
             lhs: mapper.map_expr(&stmt.lhs),
             rhs: mapper.map_expr(&stmt.rhs),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
     pub fn map_expr_stmt<'a, T: Map<'a> + ?Sized>(mapper: &mut T, stmt: &'a ExprStmt) -> ExprStmt {
-        ExprStmt { expr: mapper.map_expr(&stmt.expr), span: stmt.span }
+        ExprStmt { expr: mapper.map_expr(&stmt.expr), span: stmt.span.clone() }
     }
 
     pub fn map_if_stmt<'a, T: Map<'a> + ?Sized>(mapper: &mut T, stmt: &'a IfStmt) -> IfStmt {
@@ -277,7 +277,7 @@ pub mod default {
             cond: mapper.map_expr(&stmt.cond),
             then_body: mapper.map_stmts(&stmt.then_body),
             else_body: stmt.else_body.as_ref().map(|b| mapper.map_stmts(b)),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
@@ -289,7 +289,7 @@ pub mod default {
             cond: mapper.map_expr(&stmt.cond),
             body: mapper.map_stmts(&stmt.body),
             invariant: stmt.invariant.as_ref().map(|e| mapper.map_expr(e)),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
@@ -300,7 +300,7 @@ pub mod default {
             update: stmt.update.as_ref().map(|s| Box::new(mapper.map_stmt(s))),
             body: mapper.map_stmts(&stmt.body),
             invariant: stmt.invariant.as_ref().map(|e| mapper.map_expr(e)),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
@@ -308,7 +308,7 @@ pub mod default {
         mapper: &mut T,
         stmt: &'a ReturnStmt,
     ) -> ReturnStmt {
-        ReturnStmt { value: stmt.value.as_ref().map(|e| mapper.map_expr(e)), span: stmt.span }
+        ReturnStmt { value: stmt.value.as_ref().map(|e| mapper.map_expr(e)), span: stmt.span.clone() }
     }
 
     pub fn map_revert_stmt<'a, T: Map<'a> + ?Sized>(
@@ -318,7 +318,7 @@ pub mod default {
         RevertStmt {
             error: stmt.error.clone(),
             args: stmt.args.iter().map(|e| mapper.map_expr(e)).collect(),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
@@ -329,7 +329,7 @@ pub mod default {
         AssertStmt {
             cond: mapper.map_expr(&stmt.cond),
             message: stmt.message.as_ref().map(|e| mapper.map_expr(e)),
-            span: stmt.span,
+            span: stmt.span.clone(),
         }
     }
 
@@ -372,7 +372,7 @@ pub mod default {
             lhs: Box::new(mapper.map_expr(&expr.lhs)),
             rhs: Box::new(mapper.map_expr(&expr.rhs)),
             overflow: expr.overflow,
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 
@@ -380,7 +380,7 @@ pub mod default {
         UnOpExpr {
             op: expr.op,
             operand: Box::new(mapper.map_expr(&expr.operand)),
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 
@@ -392,7 +392,7 @@ pub mod default {
             base: Box::new(mapper.map_expr(&expr.base)),
             index: expr.index.as_ref().map(|e| Box::new(mapper.map_expr(e))),
             ty: mapper.map_type(&expr.ty),
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 
@@ -404,7 +404,7 @@ pub mod default {
             base: Box::new(mapper.map_expr(&expr.base)),
             field: expr.field.clone(),
             ty: mapper.map_type(&expr.ty),
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 
@@ -424,7 +424,7 @@ pub mod default {
             callee: Box::new(mapper.map_expr(&expr.callee)),
             args,
             ty: mapper.map_type(&expr.ty),
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 
@@ -435,7 +435,7 @@ pub mod default {
         TypeCastExpr {
             ty: mapper.map_type(&expr.ty),
             expr: Box::new(mapper.map_expr(&expr.expr)),
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 
@@ -447,7 +447,7 @@ pub mod default {
             cond: Box::new(mapper.map_expr(&expr.cond)),
             then_expr: Box::new(mapper.map_expr(&expr.then_expr)),
             else_expr: Box::new(mapper.map_expr(&expr.else_expr)),
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 
@@ -462,7 +462,7 @@ pub mod default {
                 .map(|e| e.as_ref().map(|ex| mapper.map_expr(ex)))
                 .collect(),
             ty: mapper.map_type(&expr.ty),
-            span: expr.span,
+            span: expr.span.clone(),
         }
     }
 }

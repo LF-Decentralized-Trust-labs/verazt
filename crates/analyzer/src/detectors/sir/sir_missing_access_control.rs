@@ -94,7 +94,7 @@ impl BugDetectionPass for SirMissingAccessControlDetector {
                                             "Public function '{}.{}' writes storage without access control",
                                             contract.name, func.name
                                         )),
-                                        Loc::new(0, 0, 0, 0),
+                                        func.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                                         self.bug_kind(),
                                         self.bug_category(),
                                         self.risk_level(),

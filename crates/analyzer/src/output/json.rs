@@ -128,7 +128,7 @@ impl From<&Bug> for JsonFinding {
             severity: bug.risk_level.as_str().to_string(),
             category: bug.category.as_str().to_string(),
             location: JsonLocation {
-                file: None,
+                file: bug.loc.file.clone(),
                 start_line: Some(bug.loc.start_line),
                 end_line: Some(bug.loc.end_line),
                 start_column: Some(bug.loc.start_col),

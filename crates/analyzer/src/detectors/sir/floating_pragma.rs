@@ -72,13 +72,17 @@ impl BugDetectionPass for FloatingPragmaSirDetector {
                 if attr.namespace == "sir" && attr.key == sir_attrs::PRAGMA_SOLIDITY {
                     if let AttrValue::String(version) = &attr.value {
                         if Self::is_floating(version) {
+                            let loc = attr
+                                .span
+                                .clone()
+                                .unwrap_or_else(|| Loc::new(0, 0, 0, 0));
                             bugs.push(Bug::new(
                                 self.name(),
                                 Some(&format!(
                                     "Floating pragma version '{}' in module '{}'.",
                                     version, module.id
                                 )),
-                                Loc::new(0, 0, 0, 0),
+                                loc,
                                 self.bug_kind(),
                                 self.bug_category(),
                                 self.risk_level(),

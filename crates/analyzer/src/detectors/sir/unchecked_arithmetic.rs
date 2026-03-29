@@ -91,7 +91,7 @@ impl BugDetectionPass for SirUncheckedArithmeticDetector {
                             "Wrapping arithmetic {:?} in '{}.{}' with non-constant operand",
                             binop.op, self.contract_name, self.func_name
                         )),
-                        Loc::new(0, 0, 0, 0),
+                        binop.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                         self.detector.bug_kind(),
                         self.detector.bug_category(),
                         self.detector.risk_level(),

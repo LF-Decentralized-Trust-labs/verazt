@@ -169,22 +169,22 @@ impl Stmt {
 
     pub fn loc(&self) -> Option<Loc> {
         match self {
-            Stmt::Asm(s) => s.loc,
-            Stmt::Block(b) => b.loc,
-            Stmt::Break(s) => s.loc,
-            Stmt::Continue(s) => s.loc,
-            Stmt::DoWhile(s) => s.loc,
-            Stmt::Emit(s) => s.loc,
-            Stmt::Expr(s) => s.loc,
-            Stmt::For(s) => s.loc,
-            Stmt::If(s) => s.loc,
-            Stmt::Placeholder(s) => s.loc,
-            Stmt::Return(s) => s.loc,
-            Stmt::Revert(s) => s.loc,
-            Stmt::Throw(s) => s.loc,
-            Stmt::Try(s) => s.loc,
-            Stmt::VarDecl(s) => s.loc,
-            Stmt::While(s) => s.loc,
+            Stmt::Asm(s) => s.loc.clone(),
+            Stmt::Block(b) => b.loc.clone(),
+            Stmt::Break(s) => s.loc.clone(),
+            Stmt::Continue(s) => s.loc.clone(),
+            Stmt::DoWhile(s) => s.loc.clone(),
+            Stmt::Emit(s) => s.loc.clone(),
+            Stmt::Expr(s) => s.loc.clone(),
+            Stmt::For(s) => s.loc.clone(),
+            Stmt::If(s) => s.loc.clone(),
+            Stmt::Placeholder(s) => s.loc.clone(),
+            Stmt::Return(s) => s.loc.clone(),
+            Stmt::Revert(s) => s.loc.clone(),
+            Stmt::Throw(s) => s.loc.clone(),
+            Stmt::Try(s) => s.loc.clone(),
+            Stmt::VarDecl(s) => s.loc.clone(),
+            Stmt::While(s) => s.loc.clone(),
         }
     }
 
@@ -698,7 +698,7 @@ impl VarDeclStmt {
 
 impl From<VarDecl> for VarDeclStmt {
     fn from(vdecl: VarDecl) -> Self {
-        let loc = vdecl.loc;
+        let loc = vdecl.loc.clone();
         Self::new(None, vec![Some(vdecl)], None, loc)
     }
 }

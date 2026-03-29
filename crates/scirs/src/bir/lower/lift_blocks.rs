@@ -76,7 +76,16 @@ pub fn lift_function(bir_func: &Function) -> Vec<fir::Function> {
             return_vals,
         );
 
-        fir_functions.push(fir::Function::new(func_id, params, body, term));
+        // Derive a span for this FIR function from the first non-phi op in the block.
+        let block_span = block
+            .ops
+            .iter()
+            .find(|op| !matches!(op.kind, OpKind::Phi(_)))
+            .and_then(|op| op.span.clone());
+
+        fir_functions.push(
+            fir::Function::new(func_id, params, body, term).with_span(block_span),
+        );
     }
 
     fir_functions

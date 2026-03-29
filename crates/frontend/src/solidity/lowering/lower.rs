@@ -9,8 +9,11 @@ use scirs::sir::dialect::evm::*;
 use scirs::sir::*;
 
 /// Convert AST source location to SIR span.
-fn loc_to_span(loc: Option<Loc>) -> Option<common::loc::Loc> {
-    loc.map(|l| common::loc::Loc::new(l.start_line as u32, l.end_line as u32))
+///
+/// Since `ast::Loc` is now an alias for `common::loc::Loc`, this is a
+/// straightforward clone.
+fn loc_to_span(loc: &Option<Loc>) -> Option<common::loc::Loc> {
+    loc.clone()
 }
 
 // Modules moved to mod.rs
@@ -86,10 +89,13 @@ impl Lowerer {
                 ast::SourceUnitElem::Pragma(p) => {
                     // Capture `pragma solidity <version>` as a module attribute.
                     if let ast::PragmaKind::Version(ver) = &p.kind {
-                        module_attrs.push(Attr::sir(
-                            sir_attrs::PRAGMA_SOLIDITY,
-                            AttrValue::String(ver.clone()),
-                        ));
+                        module_attrs.push(
+                            Attr::sir(
+                                sir_attrs::PRAGMA_SOLIDITY,
+                                AttrValue::String(ver.clone()),
+                            )
+                            .with_span(p.loc.clone()),
+                        );
                     }
                 }
                 ast::SourceUnitElem::Import(_) => {
@@ -112,7 +118,7 @@ impl Lowerer {
                     global_members.push(MemberDecl::UsingFor(UsingForDecl {
                         library,
                         target_type,
-                        span: loc_to_span(u.loc),
+                        span: loc_to_span(&u.loc),
                     }));
                 }
                 ast::SourceUnitElem::Error(e) => {
@@ -179,7 +185,7 @@ impl Lowerer {
             parents,
             attrs: vec![],
             members,
-            span: loc_to_span(c.loc),
+            span: loc_to_span(&c.loc),
         })
     }
 
@@ -202,7 +208,7 @@ impl Lowerer {
                 Ok(vec![MemberDecl::UsingFor(UsingForDecl {
                     library,
                     target_type,
-                    span: loc_to_span(u.loc),
+                    span: loc_to_span(&u.loc),
                 })])
             }
             ast::ContractElem::Event(e) => Ok(vec![self.lower_event_def(e)?]),
@@ -284,7 +290,7 @@ impl Lowerer {
             }
             None => None,
         };
-        Ok(MemberDecl::Storage(StorageDecl::new(v.name.to_string(), ty, init, loc_to_span(v.loc))))
+        Ok(MemberDecl::Storage(StorageDecl::new(v.name.to_string(), ty, init, loc_to_span(&v.loc))))
     }
 
     //-------------------------------------------------
@@ -305,7 +311,7 @@ impl Lowerer {
         };
         let modifier_invocs = self.lower_modifier_invocations(&f.modifier_invocs)?;
         let mut decl =
-            FunctionDecl::new(f.name.to_string(), params, returns, body, loc_to_span(f.loc));
+            FunctionDecl::new(f.name.to_string(), params, returns, body, loc_to_span(&f.loc));
         decl.modifier_invocs = modifier_invocs;
         Ok(decl)
     }
@@ -336,7 +342,7 @@ impl Lowerer {
                     fail!("Named args in modifier invocations are not supported")
                 }
             };
-            result.push(ModifierInvoc { name: callee_name, args, span: loc_to_span(invoc.loc) });
+            result.push(ModifierInvoc { name: callee_name, args, span: loc_to_span(&invoc.loc) });
         }
         Ok(result)
     }
@@ -422,7 +428,7 @@ impl Lowerer {
             ast::Stmt::Throw(s) => Ok(vec![Stmt::Revert(RevertStmt {
                 error: None,
                 args: vec![],
-                span: loc_to_span(s.loc),
+                span: loc_to_span(&s.loc),
             })]),
             ast::Stmt::Try(s) => self.lower_try_stmt(s),
             ast::Stmt::VarDecl(s) => self.lower_var_decl_stmt(s),
@@ -445,7 +451,7 @@ impl Lowerer {
             asm_text,
             loc: Default::default(),
         })));
-        vec![Stmt::Expr(ExprStmt { expr, span: loc_to_span(s.loc) })]
+        vec![Stmt::Expr(ExprStmt { expr, span: loc_to_span(&s.loc) })]
     }
 
     //-------------------------------------------------
@@ -454,14 +460,14 @@ impl Lowerer {
 
     fn lower_expr_stmt(&mut self, s: &ast::ExprStmt) -> Result<Vec<Stmt>> {
         match &s.expr {
-            ast::Expr::Assign(a) => self.lower_assign_expr_as_stmt(a, loc_to_span(s.loc)),
+            ast::Expr::Assign(a) => self.lower_assign_expr_as_stmt(a, loc_to_span(&s.loc)),
             // ── assert(cond) → Stmt::Assert ──────────────────────
             ast::Expr::Call(call) if call.callee.to_string() == "assert" => {
-                self.lower_assert(call, loc_to_span(s.loc))
+                self.lower_assert(call, loc_to_span(&s.loc))
             }
             // ── require(cond, msg?) → if !cond { revert(msg) } ──
             ast::Expr::Call(call) if call.callee.to_string() == "require" => {
-                self.lower_require(call, loc_to_span(s.loc))
+                self.lower_require(call, loc_to_span(&s.loc))
             }
             // ── selfdestruct(recipient) → EvmStmt::Selfdestruct ──
             ast::Expr::Call(call) if call.callee.to_string() == "selfdestruct" => {
@@ -469,12 +475,12 @@ impl Lowerer {
                 let mut stmts = extra;
                 let mut pos = args.into_positional();
                 let recipient = if pos.is_empty() {
-                    Expr::Lit(Lit::Bool(BoolLit::new(false, loc_to_span(s.loc))))
+                    Expr::Lit(Lit::Bool(BoolLit::new(false, loc_to_span(&s.loc))))
                 } else {
                     pos.remove(0)
                 };
                 stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::Selfdestruct(
-                    EvmSelfdestruct { recipient, loc: loc_to_span(s.loc).unwrap_or_default() },
+                    EvmSelfdestruct { recipient, loc: loc_to_span(&s.loc).unwrap_or_default() },
                 ))));
                 Ok(stmts)
             }
@@ -482,7 +488,7 @@ impl Lowerer {
                 let mut stmts = vec![];
                 let (expr, extra) = self.lower_expr(&s.expr)?;
                 stmts.extend(extra);
-                stmts.push(Stmt::Expr(ExprStmt { expr, span: loc_to_span(s.loc) }));
+                stmts.push(Stmt::Expr(ExprStmt { expr, span: loc_to_span(&s.loc) }));
                 Ok(stmts)
             }
         }
@@ -499,7 +505,7 @@ impl Lowerer {
         stmts.extend(extra);
         let mut pos = args.into_positional();
         let cond = if pos.is_empty() {
-            Expr::Lit(Lit::Bool(BoolLit::new(true, span)))
+            Expr::Lit(Lit::Bool(BoolLit::new(true, span.clone())))
         } else {
             pos.remove(0)
         };
@@ -523,13 +529,13 @@ impl Lowerer {
         stmts.extend(extra);
         let mut pos = args.into_positional();
         let cond = if pos.is_empty() {
-            Expr::Lit(Lit::Bool(BoolLit::new(true, span)))
+            Expr::Lit(Lit::Bool(BoolLit::new(true, span.clone())))
         } else {
             pos.remove(0)
         };
         let revert_args = pos; // remaining args become revert message
-        let negated_cond = Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(cond), span });
-        let revert_stmt = Stmt::Revert(RevertStmt { error: None, args: revert_args, span });
+        let negated_cond = Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(cond), span: span.clone() });
+        let revert_stmt = Stmt::Revert(RevertStmt { error: None, args: revert_args, span: span.clone() });
         stmts.push(Stmt::If(IfStmt {
             cond: negated_cond,
             then_body: vec![revert_stmt],
@@ -552,7 +558,7 @@ impl Lowerer {
             Some(fb) => Some(self.lower_stmt(fb)?),
             None => None,
         };
-        stmts.push(Stmt::If(IfStmt { cond, then_body, else_body, span: loc_to_span(s.loc) }));
+        stmts.push(Stmt::If(IfStmt { cond, then_body, else_body, span: loc_to_span(&s.loc) }));
         Ok(stmts)
     }
 
@@ -599,7 +605,7 @@ impl Lowerer {
             update,
             body,
             invariant: None,
-            span: loc_to_span(s.loc),
+            span: loc_to_span(&s.loc),
         }));
         Ok(stmts)
     }
@@ -617,7 +623,7 @@ impl Lowerer {
             cond,
             body,
             invariant: None,
-            span: loc_to_span(s.loc),
+            span: loc_to_span(&s.loc),
         }));
         Ok(stmts)
     }
@@ -635,7 +641,7 @@ impl Lowerer {
             cond,
             body,
             invariant: None,
-            span: loc_to_span(s.loc),
+            span: loc_to_span(&s.loc),
         }));
         Ok(stmts)
     }
@@ -671,7 +677,7 @@ impl Lowerer {
                 error: c.error.clone(),
                 params,
                 body: self.lower_block(&c.body)?,
-                loc: loc_to_span(c.loc).unwrap_or_default(),
+                loc: loc_to_span(&c.loc).unwrap_or_default(),
             });
         }
         stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::TryCatch(EvmTryCatch {
@@ -679,7 +685,7 @@ impl Lowerer {
             returns,
             body,
             catch_clauses: catches,
-            loc: loc_to_span(s.loc).unwrap_or_default(),
+            loc: loc_to_span(&s.loc).unwrap_or_default(),
         }))));
         Ok(stmts)
     }
@@ -699,7 +705,7 @@ impl Lowerer {
         stmts.push(Stmt::Dialect(DialectStmt::Evm(EvmStmt::EmitEvent(EvmEmitEvent {
             event,
             args: args.into_positional(),
-            loc: loc_to_span(s.loc).unwrap_or_default(),
+            loc: loc_to_span(&s.loc).unwrap_or_default(),
         }))));
         Ok(stmts)
     }
@@ -720,7 +726,7 @@ impl Lowerer {
         stmts.push(Stmt::Revert(RevertStmt {
             error,
             args: args.into_positional(),
-            span: loc_to_span(s.loc),
+            span: loc_to_span(&s.loc),
         }));
         Ok(stmts)
     }
@@ -739,7 +745,7 @@ impl Lowerer {
             }
             None => None,
         };
-        stmts.push(Stmt::Return(ReturnStmt { value, span: loc_to_span(s.loc) }));
+        stmts.push(Stmt::Return(ReturnStmt { value, span: loc_to_span(&s.loc) }));
         Ok(stmts)
     }
 
@@ -767,7 +773,7 @@ impl Lowerer {
             }
             None => None,
         };
-        stmts.push(Stmt::LocalVar(LocalVarStmt { vars, init, span: loc_to_span(s.loc) }));
+        stmts.push(Stmt::LocalVar(LocalVarStmt { vars, init, span: loc_to_span(&s.loc) }));
         Ok(stmts)
     }
 
@@ -833,7 +839,7 @@ impl Lowerer {
                 _ => {
                     let ty = self.lower_type(&id.typ)?;
                     Ok((
-                        Expr::Var(VarExpr::new(id.name.to_string(), ty, loc_to_span(id.loc))),
+                        Expr::Var(VarExpr::new(id.name.to_string(), ty, loc_to_span(&id.loc))),
                         vec![],
                     ))
                 }
@@ -842,7 +848,7 @@ impl Lowerer {
             ast::Expr::Binary(e) => self.lower_binary_expr(e),
             ast::Expr::Assign(e) => {
                 // Assignment as expression: emit assign stmt, return lhs
-                let stmts = self.lower_assign_expr_as_stmt(e, loc_to_span(e.loc))?;
+                let stmts = self.lower_assign_expr_as_stmt(e, loc_to_span(&e.loc))?;
                 let (lhs, extra) = self.lower_expr(&e.left)?;
                 let mut all_stmts = stmts;
                 all_stmts.extend(extra);
@@ -860,7 +866,7 @@ impl Lowerer {
             ast::Expr::TypeName(e) => {
                 let ty = self.lower_type(&e.typ)?;
                 Ok((
-                    Expr::Var(VarExpr::new(ty.to_string(), Type::None, loc_to_span(e.loc))),
+                    Expr::Var(VarExpr::new(ty.to_string(), Type::None, loc_to_span(&e.loc))),
                     vec![],
                 ))
             }
@@ -875,23 +881,23 @@ impl Lowerer {
         let mut stmts = vec![];
         let (operand, extra) = self.lower_expr(&e.body)?;
         stmts.extend(extra);
-        let span = loc_to_span(e.loc);
+        let span = loc_to_span(&e.loc);
 
         match &e.op {
             ast::UnaryOp::Not => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(operand), span }),
+                Expr::UnOp(UnOpExpr { op: UnOp::Not, operand: Box::new(operand), span: span.clone() }),
                 stmts,
             )),
             ast::UnaryOp::Neg => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::Neg, operand: Box::new(operand), span }),
+                Expr::UnOp(UnOpExpr { op: UnOp::Neg, operand: Box::new(operand), span: span.clone() }),
                 stmts,
             )),
             ast::UnaryOp::BitNot => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::BitNot, operand: Box::new(operand), span }),
+                Expr::UnOp(UnOpExpr { op: UnOp::BitNot, operand: Box::new(operand), span: span.clone() }),
                 stmts,
             )),
             ast::UnaryOp::Delete => Ok((
-                Expr::UnOp(UnOpExpr { op: UnOp::Delete, operand: Box::new(operand), span }),
+                Expr::UnOp(UnOpExpr { op: UnOp::Delete, operand: Box::new(operand), span: span.clone() }),
                 stmts,
             )),
             ast::UnaryOp::PreIncr | ast::UnaryOp::PreDecr => {
@@ -901,13 +907,13 @@ impl Lowerer {
                 } else {
                     BinOp::Sub
                 };
-                let one = Expr::Lit(Lit::one(span));
+                let one = Expr::Lit(Lit::one(span.clone()));
                 let rhs = Expr::BinOp(BinOpExpr {
                     op: binop,
                     lhs: Box::new(operand.clone()),
                     rhs: Box::new(one),
                     overflow: OverflowSemantics::Checked,
-                    span,
+                    span: span.clone(),
                 });
                 stmts.push(Stmt::Assign(AssignStmt { lhs: operand.clone(), rhs, span }));
                 Ok((operand, stmts))
@@ -916,24 +922,24 @@ impl Lowerer {
                 // x++  →  tmp = x; x = x + 1; return tmp
                 let ty = operand.typ();
                 let tmp_name = self.fresh_var_name();
-                let tmp_var = Expr::Var(VarExpr::new(tmp_name.clone(), ty.clone(), span));
+                let tmp_var = Expr::Var(VarExpr::new(tmp_name.clone(), ty.clone(), span.clone()));
                 stmts.push(Stmt::LocalVar(LocalVarStmt {
                     vars: vec![Some(LocalVarDecl { name: tmp_name, ty })],
                     init: Some(operand.clone()),
-                    span,
+                    span: span.clone(),
                 }));
                 let binop = if matches!(e.op, ast::UnaryOp::PostIncr) {
                     BinOp::Add
                 } else {
                     BinOp::Sub
                 };
-                let one = Expr::Lit(Lit::one(span));
+                let one = Expr::Lit(Lit::one(span.clone()));
                 let rhs = Expr::BinOp(BinOpExpr {
                     op: binop,
                     lhs: Box::new(operand.clone()),
                     rhs: Box::new(one),
                     overflow: OverflowSemantics::Checked,
-                    span,
+                    span: span.clone(),
                 });
                 stmts.push(Stmt::Assign(AssignStmt { lhs: operand, rhs, span }));
                 Ok((tmp_var, stmts))
@@ -952,7 +958,7 @@ impl Lowerer {
         let (rhs, extra) = self.lower_expr(&e.right)?;
         stmts.extend(extra);
         let op = self.lower_binary_op(&e.operator)?;
-        let span = loc_to_span(e.loc);
+        let span = loc_to_span(&e.loc);
         let expr = Expr::BinOp(BinOpExpr {
             op,
             lhs: Box::new(lhs),
@@ -995,7 +1001,7 @@ impl Lowerer {
     fn lower_call_expr(&mut self, e: &ast::CallExpr) -> Result<(Expr, Vec<Stmt>)> {
         let mut stmts = vec![];
         let ty = self.lower_type(&e.typ)?;
-        let span = loc_to_span(e.loc);
+        let span = loc_to_span(&e.loc);
 
         // ── Fix 2: Type conversion: address(0), uint256(x) → TypeCast ──
         if e.kind == ast::CallKind::TypeConversionCall {
@@ -1092,7 +1098,7 @@ impl Lowerer {
                         "decode" => {
                             let mut p = pos;
                             let data = if p.is_empty() {
-                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span.clone())))
                             } else {
                                 p.remove(0)
                             };
@@ -1113,7 +1119,7 @@ impl Lowerer {
                         "encodeWithSelector" => {
                             let mut p = pos;
                             let selector = Box::new(if p.is_empty() {
-                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span.clone())))
                             } else {
                                 p.remove(0)
                             });
@@ -1126,7 +1132,7 @@ impl Lowerer {
                         "encodeWithSignature" => {
                             let mut p = pos;
                             let signature = Box::new(if p.is_empty() {
-                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span.clone())))
                             } else {
                                 p.remove(0)
                             });
@@ -1139,7 +1145,7 @@ impl Lowerer {
                         "encodeCall" => {
                             let mut p = pos;
                             let func = Box::new(if p.is_empty() {
-                                Expr::Lit(Lit::String(StringLit::new(String::new(), span)))
+                                Expr::Lit(Lit::String(StringLit::new(String::new(), span.clone())))
                             } else {
                                 p.remove(0)
                             });
@@ -1204,7 +1210,7 @@ impl Lowerer {
     /// etc.
     fn lower_call_opts_expr(&mut self, e: &ast::CallOptsExpr) -> Result<(Expr, Vec<Stmt>)> {
         let mut stmts = vec![];
-        let span = loc_to_span(e.loc);
+        let span = loc_to_span(&e.loc);
 
         // The callee is typically a CallExpr wrapping a MemberExpr:
         //   `addr.call{value: x}(data)` → callee=Call(Member(addr, "call"), [data])
@@ -1240,20 +1246,20 @@ impl Lowerer {
                         .into_positional()
                         .into_iter()
                         .next()
-                        .unwrap_or(Expr::Lit(Lit::String(StringLit::new(String::new(), span))));
+                        .unwrap_or(Expr::Lit(Lit::String(StringLit::new(String::new(), span.clone()))));
 
                     let evm = match method.as_str() {
                         "delegatecall" => EvmExpr::Delegatecall(EvmDelegatecall {
                             target: Box::new(target),
                             data: Box::new(data),
-                            loc: span.unwrap_or_default(),
+                            loc: span.clone().unwrap_or_default(),
                         }),
                         "call" | "staticcall" => EvmExpr::LowLevelCall(EvmLowLevelCall {
                             target: Box::new(target),
                             data: Box::new(data),
                             value: opt_value,
                             gas: opt_gas,
-                            loc: span.unwrap_or_default(),
+                            loc: span.clone().unwrap_or_default(),
                         }),
                         _ => {
                             // Fallback: emit as a generic low-level call
@@ -1262,7 +1268,7 @@ impl Lowerer {
                                 data: Box::new(data),
                                 value: opt_value,
                                 gas: opt_gas,
-                                loc: span.unwrap_or_default(),
+                                loc: span.clone().unwrap_or_default(),
                             })
                         }
                     };
@@ -1333,7 +1339,7 @@ impl Lowerer {
                 None => elems.push(None),
             }
         }
-        let expr = Expr::Tuple(TupleExpr { elems, ty, span: loc_to_span(e.loc) });
+        let expr = Expr::Tuple(TupleExpr { elems, ty, span: loc_to_span(&e.loc) });
         Ok((expr, stmts))
     }
 
@@ -1358,7 +1364,7 @@ impl Lowerer {
             base: Box::new(base),
             index,
             ty,
-            span: loc_to_span(e.loc),
+            span: loc_to_span(&e.loc),
         });
         Ok((expr, stmts))
     }
@@ -1376,7 +1382,7 @@ impl Lowerer {
             base: Box::new(base),
             index: None,
             ty,
-            span: loc_to_span(e.loc),
+            span: loc_to_span(&e.loc),
         });
         Ok((expr, stmts))
     }
@@ -1389,7 +1395,7 @@ impl Lowerer {
         let mut stmts = vec![];
         let ty = self.lower_type(&e.typ)?;
         let member = e.member.to_string();
-        let span = loc_to_span(e.loc);
+        let span = loc_to_span(&e.loc);
 
         // Check for type query pattern: type(X).min, type(X).max
         if let ast::Expr::Call(call) = &*e.base {
@@ -1400,7 +1406,7 @@ impl Lowerer {
                 };
                 // Fix 6: give callee a proper Function type
                 let callee_ty = Type::Function { params: vec![], returns: vec![ty.clone()] };
-                let callee = Expr::Var(VarExpr::new(fname, callee_ty, span));
+                let callee = Expr::Var(VarExpr::new(fname, callee_ty, span.clone()));
                 let expr = Expr::FunctionCall(CallExpr {
                     callee: Box::new(callee),
                     args: CallArgs::Positional(vec![]),
@@ -1473,7 +1479,7 @@ impl Lowerer {
         stmts.extend(extra);
         let (else_expr, extra) = self.lower_expr(&e.false_br)?;
         stmts.extend(extra);
-        let span = loc_to_span(e.loc);
+        let span = loc_to_span(&e.loc);
         let expr = Expr::Ternary(TernaryExpr {
             cond: Box::new(cond),
             then_expr: Box::new(then_expr),
@@ -1496,7 +1502,7 @@ impl Lowerer {
             stmts.extend(extra);
             elems.push(Some(ne));
         }
-        let expr = Expr::Tuple(TupleExpr { elems, ty, span: loc_to_span(e.loc) });
+        let expr = Expr::Tuple(TupleExpr { elems, ty, span: loc_to_span(&e.loc) });
         Ok((expr, stmts))
     }
 
@@ -1506,7 +1512,7 @@ impl Lowerer {
 
     fn lower_new_expr(&mut self, e: &ast::NewExpr) -> Result<(Expr, Vec<Stmt>)> {
         let ty = self.lower_type(&e.typ)?;
-        let span = loc_to_span(e.loc);
+        let span = loc_to_span(&e.loc);
         let name = format!("new__{ty}");
         let callee_ty = Type::Function { params: vec![], returns: vec![ty.clone()] };
         let callee = Expr::Var(VarExpr::new(name, callee_ty, span));
@@ -1601,7 +1607,7 @@ impl Lowerer {
 
     fn lower_lit(&mut self, lit: &ast::Lit) -> Result<Lit> {
         match lit {
-            ast::Lit::Bool(l) => Ok(Lit::Bool(BoolLit::new(l.value, loc_to_span(l.loc)))),
+            ast::Lit::Bool(l) => Ok(Lit::Bool(BoolLit::new(l.value, loc_to_span(&l.loc)))),
             ast::Lit::Num(l) => {
                 let mut num = self.lower_num(&l.value)?;
                 if let Some(unit) = &l.unit {
@@ -1623,14 +1629,14 @@ impl Lowerer {
                         Num::Hex(_) => fail!("Hex numbers cannot have a unit"),
                     }
                 }
-                Ok(Lit::Num(NumLit::new(num, loc_to_span(l.loc))))
+                Ok(Lit::Num(NumLit::new(num, loc_to_span(&l.loc))))
             }
             ast::Lit::String(l) => {
-                Ok(Lit::String(StringLit::new(l.value.clone(), loc_to_span(l.loc))))
+                Ok(Lit::String(StringLit::new(l.value.clone(), loc_to_span(&l.loc))))
             }
-            ast::Lit::Hex(l) => Ok(Lit::Hex(HexLit::new(l.value.clone(), loc_to_span(l.loc)))),
+            ast::Lit::Hex(l) => Ok(Lit::Hex(HexLit::new(l.value.clone(), loc_to_span(&l.loc)))),
             ast::Lit::Unicode(l) => {
-                Ok(Lit::Unicode(UnicodeLit::new(l.value.clone(), loc_to_span(l.loc))))
+                Ok(Lit::Unicode(UnicodeLit::new(l.value.clone(), loc_to_span(&l.loc))))
             }
         }
     }

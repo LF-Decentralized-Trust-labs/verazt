@@ -144,7 +144,7 @@ fn rewrite_function(
         .map(|m| sir::ModifierInvoc {
             name: m.name.clone(),
             args: rewrite_exprs(&m.args, map),
-            span: m.span,
+            span: m.span.clone(),
         })
         .collect();
     sir::FunctionDecl { body, modifier_invocs, ..func.clone() }
@@ -228,7 +228,7 @@ fn rewrite_expr(expr: &sir::Expr, map: &HashMap<String, Vec<String>>) -> sir::Ex
                 callee: Box::new(callee),
                 args,
                 ty: e.ty.clone(),
-                span: e.span,
+                span: e.span.clone(),
             })
         }
         sir::Expr::BinOp(e) => sir::Expr::BinOp(sir::BinOpExpr {
