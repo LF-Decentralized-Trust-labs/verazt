@@ -101,17 +101,22 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     use crate::detectors::*;
 
     // ── SIR structural detectors ─────────────────────────────────
+    registry.register(Box::new(ArithmeticOverflowSirDetector::new()));
+    registry.register(Box::new(BadRandomnessSirDetector::new()));
     registry.register(Box::new(CeiViolationSirDetector::new()));
     registry.register(Box::new(CentralizationRiskSirDetector::new()));
     registry.register(Box::new(ConstantStateVarSirDetector::new()));
     registry.register(Box::new(DeadCodeSirDetector::new()));
     registry.register(Box::new(DelegatecallSirDetector::new()));
+    registry.register(Box::new(DenialOfServiceSirDetector::new()));
     registry.register(Box::new(DeprecatedSirDetector::new()));
     registry.register(Box::new(FloatingPragmaSirDetector::new()));
+    registry.register(Box::new(FrontRunningSirDetector::new()));
     registry.register(Box::new(LowLevelCallSirDetector::new()));
     registry.register(Box::new(MissingAccessControlSirDetector::new()));
     registry.register(Box::new(ReentrancySirDetector::new()));
     registry.register(Box::new(ShadowingSirDetector::new()));
+    registry.register(Box::new(ShortAddressSirDetector::new()));
     registry.register(Box::new(TimestampDependenceSirDetector::new()));
     registry.register(Box::new(TxOriginSirDetector::new()));
     registry.register(Box::new(UncheckedCallSirDetector::new()));

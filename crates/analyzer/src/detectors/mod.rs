@@ -16,17 +16,22 @@ pub use base::{
 };
 
 // Re-export SIR structural detectors
+pub use sir::ArithmeticOverflowSirDetector;
+pub use sir::BadRandomnessSirDetector;
 pub use sir::CeiViolationSirDetector;
 pub use sir::CentralizationRiskSirDetector;
 pub use sir::ConstantStateVarSirDetector;
 pub use sir::DeadCodeSirDetector;
 pub use sir::DelegatecallSirDetector;
+pub use sir::DenialOfServiceSirDetector;
 pub use sir::DeprecatedSirDetector;
 pub use sir::FloatingPragmaSirDetector;
+pub use sir::FrontRunningSirDetector;
 pub use sir::LowLevelCallSirDetector;
 pub use sir::MissingAccessControlSirDetector;
 pub use sir::ReentrancySirDetector;
 pub use sir::ShadowingSirDetector;
+pub use sir::ShortAddressSirDetector;
 pub use sir::TimestampDependenceSirDetector;
 pub use sir::TxOriginSirDetector;
 pub use sir::UncheckedCallSirDetector;
