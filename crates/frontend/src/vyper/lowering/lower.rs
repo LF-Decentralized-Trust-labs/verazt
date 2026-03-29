@@ -8,7 +8,14 @@ use scirs::sir::*;
 
 /// Convert Vyper AST source location to SIR span.
 fn loc_to_span(loc: Option<&Loc>) -> Option<common::loc::Loc> {
-    loc.map(|l| common::loc::Loc::new(l.lineno, l.end_lineno))
+    loc.map(|l| {
+        common::loc::Loc::new(
+            l.lineno as usize,
+            l.col_offset as usize,
+            l.end_lineno as usize,
+            l.end_col_offset as usize,
+        )
+    })
 }
 
 /// Run all normalization passes on a Vyper source unit.
@@ -765,9 +772,14 @@ impl Lowerer {
                 Ok(Expr::Tuple(TupleExpr {
                     elems: exprs,
                     ty: Type::None,
-                    span: loc
-                        .as_ref()
-                        .and_then(|l| Some(common::loc::Loc::new(l.lineno, l.end_lineno))),
+                    span: loc.as_ref().and_then(|l| {
+                        Some(common::loc::Loc::new(
+                            l.lineno as usize,
+                            l.col_offset as usize,
+                            l.end_lineno as usize,
+                            l.end_col_offset as usize,
+                        ))
+                    }),
                 }))
             }
 

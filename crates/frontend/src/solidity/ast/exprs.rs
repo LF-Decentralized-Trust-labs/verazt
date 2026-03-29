@@ -256,21 +256,21 @@ impl Expr {
 
     pub fn loc(&self) -> Option<Loc> {
         match self {
-            Expr::Ident(id) => id.loc,
+            Expr::Ident(id) => id.loc.clone(),
             Expr::Lit(lit) => lit.loc(),
-            Expr::Unary(e) => e.loc,
-            Expr::Binary(e) => e.loc,
-            Expr::Assign(e) => e.loc,
-            Expr::Call(e) => e.loc,
-            Expr::CallOpts(e) => e.loc,
-            Expr::Tuple(e) => e.loc,
-            Expr::Index(e) => e.loc,
-            Expr::Slice(e) => e.loc,
-            Expr::Member(e) => e.loc,
-            Expr::Conditional(e) => e.loc,
-            Expr::InlineArray(e) => e.loc,
-            Expr::New(e) => e.loc,
-            Expr::TypeName(e) => e.loc,
+            Expr::Unary(e) => e.loc.clone(),
+            Expr::Binary(e) => e.loc.clone(),
+            Expr::Assign(e) => e.loc.clone(),
+            Expr::Call(e) => e.loc.clone(),
+            Expr::CallOpts(e) => e.loc.clone(),
+            Expr::Tuple(e) => e.loc.clone(),
+            Expr::Index(e) => e.loc.clone(),
+            Expr::Slice(e) => e.loc.clone(),
+            Expr::Member(e) => e.loc.clone(),
+            Expr::Conditional(e) => e.loc.clone(),
+            Expr::InlineArray(e) => e.loc.clone(),
+            Expr::New(e) => e.loc.clone(),
+            Expr::TypeName(e) => e.loc.clone(),
         }
     }
 

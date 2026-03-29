@@ -6,12 +6,15 @@
 
 use std::fmt::{self, Display};
 
+use common::loc::Loc;
+
 /// An attribute attached to an IR node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attr {
     pub namespace: String, // e.g. "sir", "evm", "move", "anchor"
     pub key: String,
     pub value: AttrValue,
+    pub span: Option<Loc>,
 }
 
 /// The value carried by an attribute.
@@ -25,7 +28,7 @@ pub enum AttrValue {
 
 impl Attr {
     pub fn new(namespace: &str, key: &str, value: AttrValue) -> Self {
-        Attr { namespace: namespace.to_string(), key: key.to_string(), value }
+        Attr { namespace: namespace.to_string(), key: key.to_string(), value, span: None }
     }
 
     /// Create a standard SIR attribute.
@@ -51,6 +54,12 @@ impl Attr {
     /// Create a Spec dialect attribute.
     pub fn spec(key: &str, value: AttrValue) -> Self {
         Self::new("spec", key, value)
+    }
+
+    /// Attach a source span to this attribute.
+    pub fn with_span(mut self, span: Option<Loc>) -> Self {
+        self.span = span;
+        self
     }
 }
 

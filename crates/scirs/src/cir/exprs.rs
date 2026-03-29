@@ -142,16 +142,16 @@ impl CanonExpr {
         }
     }
 
-    pub fn span(&self) -> Option<Loc> {
+    pub fn span(&self) -> Option<&Loc> {
         match self {
-            CanonExpr::Var(v) => v.span,
+            CanonExpr::Var(v) => v.span.as_ref(),
             CanonExpr::Lit(l) => l.span(),
-            CanonExpr::BinOp(e) => e.span,
-            CanonExpr::UnOp(e) => e.span,
-            CanonExpr::IndexAccess(e) => e.span,
-            CanonExpr::FieldAccess(e) => e.span,
-            CanonExpr::FunctionCall(e) => e.span,
-            CanonExpr::TypeCast(e) => e.span,
+            CanonExpr::BinOp(e) => e.span.as_ref(),
+            CanonExpr::UnOp(e) => e.span.as_ref(),
+            CanonExpr::IndexAccess(e) => e.span.as_ref(),
+            CanonExpr::FieldAccess(e) => e.span.as_ref(),
+            CanonExpr::FunctionCall(e) => e.span.as_ref(),
+            CanonExpr::TypeCast(e) => e.span.as_ref(),
             _ => None,
         }
     }

@@ -89,13 +89,13 @@ impl Lit {
         }
     }
 
-    pub fn span(&self) -> Option<Loc> {
+    pub fn span(&self) -> Option<&Loc> {
         match self {
-            Lit::Bool(b) => b.span,
-            Lit::Num(n) => n.span,
-            Lit::String(s) => s.span,
-            Lit::Hex(h) => h.span,
-            Lit::Unicode(u) => u.span,
+            Lit::Bool(b) => b.span.as_ref(),
+            Lit::Num(n) => n.span.as_ref(),
+            Lit::String(s) => s.span.as_ref(),
+            Lit::Hex(h) => h.span.as_ref(),
+            Lit::Unicode(u) => u.span.as_ref(),
         }
     }
 }

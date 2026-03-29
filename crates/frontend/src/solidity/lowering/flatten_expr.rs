@@ -52,7 +52,7 @@ impl ExprFlattener {
         } else {
             let typ = expr.typ();
             let loc = expr.loc();
-            let vdecl = self.create_inter_var_decl(typ.clone(), false, loc, expr);
+            let vdecl = self.create_inter_var_decl(typ.clone(), false, loc.clone(), expr);
             nvdecls.push(vdecl.clone());
             Identifier::new(None, vdecl.name, typ, loc).into()
         }
@@ -111,7 +111,7 @@ impl ExprFlattener {
 
         // Transform self-assignment expressions into a normal assignment
         let typ = expr.typ.clone();
-        let loc = expr.loc;
+        let loc = expr.loc.clone();
         let nrhs = match expr.operator {
             AssignOp::Assign => nrhs,
             AssignOp::AssignAdd => BinaryExpr::new(None, BinOp::Add, nlhs, nrhs, typ, loc).into(),
@@ -382,7 +382,7 @@ impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
             for mut vdecl in nvdecls.into_iter() {
                 // Lift initial value of [`VarDecl`] to the RHS of the [`VarDeclStmt`].
                 let value = vdecl.value.clone();
-                let loc = vdecl.loc;
+                let loc = vdecl.loc.clone();
                 vdecl.value = None;
                 let vdecl_stmt = VarDeclStmt::new(None, vec![Some(vdecl.clone())], value, loc);
                 nstmts.push(vdecl_stmt.into());

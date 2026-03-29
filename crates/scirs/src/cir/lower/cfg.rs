@@ -98,7 +98,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             };
 
             let op = Op::new(op_id, kind).with_result(SsaName::new(&name, 0), ty);
-            if let Some(span) = local_var.span {
+            if let Some(span) = local_var.span.clone() {
                 let op = op.with_span(span);
                 builder.append_op(current, op);
             } else {
@@ -113,7 +113,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             let name = expr_name(&assign.lhs);
             let ty = assign.rhs.typ();
             let mut op = Op::new(op_id, kind).with_result(SsaName::new(&name, 0), ty);
-            if let Some(span) = assign.span {
+            if let Some(span) = assign.span.clone() {
                 op = op.with_span(span);
             }
             builder.append_op(current, op);
@@ -133,7 +133,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             };
             let name = expr_name(&aug.lhs);
             let mut op = Op::new(op_id, kind).with_result(SsaName::new(&name, 0), aug.lhs.typ());
-            if let Some(span) = aug.span {
+            if let Some(span) = aug.span.clone() {
                 op = op.with_span(span);
             }
             builder.append_op(current, op);
@@ -144,7 +144,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             let expr_ref = lower_expr(builder, current, &expr_stmt.expr);
             let op_id = builder.new_op_id();
             let mut op = Op::new(op_id, OpKind::ExprStmt { expr: expr_ref });
-            if let Some(span) = expr_stmt.span {
+            if let Some(span) = expr_stmt.span.clone() {
                 op = op.with_span(span);
             }
             builder.append_op(current, op);
@@ -262,14 +262,14 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
                 let val_ref = lower_expr(builder, current, value);
                 let op_id = builder.new_op_id();
                 let mut op = Op::new(op_id, OpKind::Return(vec![val_ref]));
-                if let Some(span) = ret.span {
+                if let Some(span) = ret.span.clone() {
                     op = op.with_span(span);
                 }
                 builder.append_op(current, op);
             } else {
                 let op_id = builder.new_op_id();
                 let mut op = Op::new(op_id, OpKind::Return(vec![]));
-                if let Some(span) = ret.span {
+                if let Some(span) = ret.span.clone() {
                     op = op.with_span(span);
                 }
                 builder.append_op(current, op);
@@ -288,7 +288,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             let cond_ref = lower_expr(builder, current, &assert_stmt.cond);
             let op_id = builder.new_op_id();
             let mut op = Op::new(op_id, OpKind::Assert { cond: cond_ref });
-            if let Some(span) = assert_stmt.span {
+            if let Some(span) = assert_stmt.span.clone() {
                 op = op.with_span(span);
             }
             builder.append_op(current, op);
@@ -322,7 +322,7 @@ fn lower_expr(builder: &mut CfgBuilder, block: BlockId, expr: &Expr) -> OpRef {
     let name = expr_name(expr);
     let mut op = Op::new(op_id, kind).with_result(SsaName::new(&name, 0), ty);
     if let Some(span) = expr.span() {
-        op = op.with_span(span);
+        op = op.with_span(span.clone());
     }
     builder.append_op(block, op)
 }

@@ -231,7 +231,7 @@ fn subst_expr(expr: &sir::Expr, subst: &HashMap<String, sir::Expr>) -> sir::Expr
                 callee: Box::new(callee),
                 args,
                 ty: e.ty.clone(),
-                span: e.span,
+                span: e.span.clone(),
             })
         }
         sir::Expr::BinOp(e) => sir::Expr::BinOp(sir::BinOpExpr {

@@ -55,8 +55,8 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
                             func.id, op.id
                         ),
                     );
-                    if let Some(span) = op.span {
-                        err = err.with_span(span);
+                    if let Some(span) = &op.span {
+                        err = err.with_span(span.clone());
                     }
                     errors.push(err);
                 }

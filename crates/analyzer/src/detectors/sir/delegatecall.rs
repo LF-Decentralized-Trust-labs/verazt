@@ -82,7 +82,7 @@ impl BugDetectionPass for DelegatecallSirDetector {
             }
 
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
-                if matches!(d, DialectExpr::Evm(EvmExpr::Delegatecall(_))) {
+                if let DialectExpr::Evm(EvmExpr::Delegatecall(e)) = d {
                     self.bugs.push(Bug::new(
                         self.detector.name(),
                         Some(&format!(
@@ -91,7 +91,7 @@ impl BugDetectionPass for DelegatecallSirDetector {
                              to storage corruption and contract compromise.",
                             self.contract_name, self.func_name
                         )),
-                        Loc::new(0, 0, 0, 0),
+                        e.loc.clone(),
                         self.detector.bug_kind(),
                         self.detector.bug_category(),
                         self.detector.risk_level(),
@@ -111,7 +111,7 @@ impl BugDetectionPass for DelegatecallSirDetector {
                              to storage corruption and contract compromise.",
                             self.contract_name, self.func_name
                         )),
-                        Loc::new(0, 0, 0, 0),
+                        fa.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                         self.detector.bug_kind(),
                         self.detector.bug_category(),
                         self.detector.risk_level(),

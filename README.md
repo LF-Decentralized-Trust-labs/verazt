@@ -65,6 +65,17 @@ cargo test -p frontend --test compile_libsolidity
 cargo test -p frontend --test compile_smartbugs
 ```
 
+# Benchmarking
+
+You can use the benchmark CLI tool to evaluate the analyzer's accuracy against datasets with ground-truth bug annotations:
+
+```bash
+# Evaluate against a specific dataset
+cargo run -p benchmark -- --dataset solidity/smartbugs-curated
+```
+
+This will run the detection pipeline and display a summary of labelled versus detected bugs, along with source code snippets and evaluation metrics.
+
 # Notes
 
 - For Solidity: only support Solidity version >= 0.4.12

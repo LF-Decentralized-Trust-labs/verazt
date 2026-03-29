@@ -1,31 +1,12 @@
 use common::error::{Result, create_error};
-use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
 //-------------------------------------------------------------------------
 // Source code location
 //-------------------------------------------------------------------------
 
-/// Source code location.
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, Serialize, Deserialize)]
-pub struct Loc {
-    pub start_line: usize,
-    pub start_col: usize,
-    pub end_line: usize,
-    pub end_col: usize,
-}
-
-impl Loc {
-    pub fn new(start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> Self {
-        Loc { start_line, start_col, end_line, end_col }
-    }
-}
-
-impl Display for Loc {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}-{}:{}", self.start_line, self.start_col, self.end_line, self.end_col)
-    }
-}
+/// Source code location — unified type alias.
+pub type Loc = common::loc::Loc;
 
 //-------------------------------------------------------------------------
 // Data location

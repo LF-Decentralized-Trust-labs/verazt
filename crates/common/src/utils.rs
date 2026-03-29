@@ -1,5 +1,5 @@
 /// Print a formatted section header to stdout.
-pub fn print_section_header(title: &str) {
+pub fn print_header(title: &str) {
     let ruler = "=".repeat(75);
     println!();
     println!("{ruler}");
@@ -9,7 +9,7 @@ pub fn print_section_header(title: &str) {
 }
 
 /// Print a formatted subsection header to stdout.
-pub fn print_subsection_header(title: &str) {
+pub fn print_subheader(title: &str) {
     let ruler = "-".repeat(51);
     println!();
     println!("{ruler}");

@@ -27,7 +27,7 @@ impl<'a> Visit<'a> for TypeWellFormedChecker {
         {
             let mut err = VerifyError::new(PASS, "expression has `None` type");
             if let Some(span) = expr.span() {
-                err = err.with_span(span);
+                err = err.with_span(span.clone());
             }
             self.errors.push(err);
         }

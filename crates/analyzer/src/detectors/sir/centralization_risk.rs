@@ -93,7 +93,7 @@ impl BugDetectionPass for CentralizationRiskSirDetector {
             for decl in &module.decls {
                 if let Decl::Contract(contract) = decl {
                     let mut privileged_count = 0;
-                    let mut privileged_funcs = Vec::new();
+                    let mut privileged_funcs: Vec<(String, Option<Loc>)> = Vec::new();
 
                     for member in &contract.members {
                         if let MemberDecl::Function(func) = member {
@@ -120,14 +120,14 @@ impl BugDetectionPass for CentralizationRiskSirDetector {
 
                             if has_writes || has_structural_writes {
                                 privileged_count += 1;
-                                privileged_funcs.push(func.name.clone());
+                                privileged_funcs.push((func.name.clone(), func.span.clone()));
                             }
                         }
                     }
 
                     // Only report if there are multiple privileged functions
                     if privileged_count >= 3 {
-                        for fname in &privileged_funcs {
+                        for (fname, fspan) in &privileged_funcs {
                             bugs.push(Bug::new(
                                 self.name(),
                                 Some(&format!(
@@ -136,7 +136,7 @@ impl BugDetectionPass for CentralizationRiskSirDetector {
                                      timelocks or multi-sig for critical operations.",
                                     fname, contract.name
                                 )),
-                                Loc::new(0, 0, 0, 0),
+                                fspan.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                                 self.bug_kind(),
                                 self.bug_category(),
                                 self.risk_level(),

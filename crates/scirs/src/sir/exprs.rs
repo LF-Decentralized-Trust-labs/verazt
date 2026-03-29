@@ -245,18 +245,18 @@ impl Expr {
         }
     }
 
-    pub fn span(&self) -> Option<Loc> {
+    pub fn span(&self) -> Option<&Loc> {
         match self {
-            Expr::Var(v) => v.span,
+            Expr::Var(v) => v.span.as_ref(),
             Expr::Lit(l) => l.span(),
-            Expr::BinOp(e) => e.span,
-            Expr::UnOp(e) => e.span,
-            Expr::IndexAccess(e) => e.span,
-            Expr::FieldAccess(e) => e.span,
-            Expr::FunctionCall(e) => e.span,
-            Expr::TypeCast(e) => e.span,
-            Expr::Ternary(e) => e.span,
-            Expr::Tuple(e) => e.span,
+            Expr::BinOp(e) => e.span.as_ref(),
+            Expr::UnOp(e) => e.span.as_ref(),
+            Expr::IndexAccess(e) => e.span.as_ref(),
+            Expr::FieldAccess(e) => e.span.as_ref(),
+            Expr::FunctionCall(e) => e.span.as_ref(),
+            Expr::TypeCast(e) => e.span.as_ref(),
+            Expr::Ternary(e) => e.span.as_ref(),
+            Expr::Tuple(e) => e.span.as_ref(),
             _ => None,
         }
     }

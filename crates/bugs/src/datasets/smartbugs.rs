@@ -66,6 +66,12 @@ pub fn scan_dataset(dataset_dir: &Path) -> Vec<AnnotatedBug> {
 
     for entry in WalkDir::new(dataset_dir).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
+
+        // Skip files inside 'logs' directories
+        if path.components().any(|c| c.as_os_str() == "logs") {
+            continue;
+        }
+
         if path.extension().is_some_and(|ext| ext == "sol") {
             let annotations = parse_annotations(path);
             all_annotations.extend(annotations);
@@ -81,6 +87,12 @@ pub fn collect_sol_files(dataset_dir: &Path) -> Vec<PathBuf> {
 
     for entry in WalkDir::new(dataset_dir).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
+
+        // Skip files inside 'logs' directories
+        if path.components().any(|c| c.as_os_str() == "logs") {
+            continue;
+        }
+
         if path.extension().is_some_and(|ext| ext == "sol") {
             files.push(path.to_path_buf());
         }

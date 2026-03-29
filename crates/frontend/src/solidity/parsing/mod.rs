@@ -167,6 +167,16 @@ pub fn parse_input_file(
         },
     };
 
+    // Filter out versions < 0.4.12 as our parser requires compact-format AST
+    let best_solc_vers: Vec<Version> = best_solc_vers
+        .into_iter()
+        .filter(|v| check_version_constraint(v, ">=0.4.12"))
+        .collect();
+
+    if best_solc_vers.is_empty() {
+        fail!("No supported Solc version found for {} (requires >=0.4.12)", input_file);
+    }
+
     let mut compilation_errors = vec![];
     for solc_ver in &best_solc_vers {
         debug!("Compiling input contract using Solc: {solc_ver}");

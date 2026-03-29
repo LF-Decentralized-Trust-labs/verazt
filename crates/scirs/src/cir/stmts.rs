@@ -122,18 +122,18 @@ pub struct CanonAssertStmt {
 // ═══════════════════════════════════════════════════════════════════
 
 impl CanonStmt {
-    pub fn span(&self) -> Option<Loc> {
+    pub fn span(&self) -> Option<&Loc> {
         match self {
-            CanonStmt::LocalVar(s) => s.span,
-            CanonStmt::Assign(s) => s.span,
-            CanonStmt::AugAssign(s) => s.span,
-            CanonStmt::Expr(s) => s.span,
-            CanonStmt::If(s) => s.span,
-            CanonStmt::While(s) => s.span,
-            CanonStmt::For(s) => s.span,
-            CanonStmt::Return(s) => s.span,
-            CanonStmt::Revert(s) => s.span,
-            CanonStmt::Assert(s) => s.span,
+            CanonStmt::LocalVar(s) => s.span.as_ref(),
+            CanonStmt::Assign(s) => s.span.as_ref(),
+            CanonStmt::AugAssign(s) => s.span.as_ref(),
+            CanonStmt::Expr(s) => s.span.as_ref(),
+            CanonStmt::If(s) => s.span.as_ref(),
+            CanonStmt::While(s) => s.span.as_ref(),
+            CanonStmt::For(s) => s.span.as_ref(),
+            CanonStmt::Return(s) => s.span.as_ref(),
+            CanonStmt::Revert(s) => s.span.as_ref(),
+            CanonStmt::Assert(s) => s.span.as_ref(),
             CanonStmt::Break | CanonStmt::Continue | CanonStmt::Block(_) => None,
             CanonStmt::Dialect(_) => None,
         }

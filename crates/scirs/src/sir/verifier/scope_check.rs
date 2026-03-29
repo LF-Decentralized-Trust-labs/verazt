@@ -45,8 +45,8 @@ impl ScopeChecker {
                         PASS,
                         format!("variable `{}` used but not declared in scope", v.name),
                     );
-                    if let Some(span) = v.span {
-                        err = err.with_span(span);
+                    if let Some(span) = &v.span {
+                        err = err.with_span(span.clone());
                     }
                     self.errors.push(err);
                 }

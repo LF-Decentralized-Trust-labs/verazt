@@ -6,6 +6,7 @@
 use crate::bir::cfg::FunctionId;
 use crate::bir::ops::{Op, OpRef, SsaName};
 use crate::sir::Type;
+use common::loc::Loc;
 use std::fmt::{self, Display};
 
 /// The top-level FIR module — one per BIR Module.
@@ -27,6 +28,7 @@ pub struct Function {
     pub params: Vec<(SsaName, Type)>,
     pub body: Vec<Op>,
     pub term: Terminator,
+    pub span: Option<Loc>,
 }
 
 /// Data for a single tail call.
@@ -72,7 +74,12 @@ impl Function {
         body: Vec<Op>,
         term: Terminator,
     ) -> Self {
-        Function { id, params, body, term }
+        Function { id, params, body, term, span: None }
+    }
+
+    pub fn with_span(mut self, span: Option<Loc>) -> Self {
+        self.span = span;
+        self
     }
 }
 

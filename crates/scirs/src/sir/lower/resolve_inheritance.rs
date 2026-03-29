@@ -77,7 +77,7 @@ fn flatten_contract(
         parents: vec![], // flattened — no longer needed
         attrs: contract.attrs.clone(),
         members: merged,
-        span: contract.span,
+        span: contract.span.clone(),
     })
 }
 

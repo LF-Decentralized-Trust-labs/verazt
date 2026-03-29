@@ -95,7 +95,7 @@ impl BugDetectionPass for DeprecatedSirDetector {
                                 "Deprecated '{}' used in '{}.{}'. Use '{}' instead.",
                                 deprecated, self.contract_name, self.func_name, replacement
                             )),
-                            Loc::new(0, 0, 0, 0),
+                            v.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                             self.detector.bug_kind(),
                             self.detector.bug_category(),
                             self.detector.risk_level(),
@@ -115,7 +115,7 @@ impl BugDetectionPass for DeprecatedSirDetector {
                                 "Deprecated '{}' used in '{}.{}'. Use '{}' instead.",
                                 deprecated, self.contract_name, self.func_name, replacement
                             )),
-                            Loc::new(0, 0, 0, 0),
+                            fa.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
                             self.detector.bug_kind(),
                             self.detector.bug_category(),
                             self.detector.risk_level(),

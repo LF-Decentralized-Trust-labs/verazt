@@ -120,5 +120,8 @@ pub trait OutputFormatter {
 
 /// Format a location for display.
 pub fn format_location(bug: &Bug) -> String {
-    format!("<unknown>:{}:{}", bug.loc.start_line, bug.loc.start_col,)
+    match &bug.loc.file {
+        Some(file) => format!("{}:{}:{}", file, bug.loc.start_line, bug.loc.start_col),
+        None => format!("<unknown>:{}:{}", bug.loc.start_line, bug.loc.start_col),
+    }
 }
