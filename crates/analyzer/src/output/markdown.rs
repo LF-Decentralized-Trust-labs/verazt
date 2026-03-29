@@ -109,6 +109,12 @@ impl OutputFormatter for MarkdownFormatter {
                             output.push_str("\n\n");
                         }
 
+                        if let Some(ref remedy) = bug.remediation {
+                            output.push_str("**Remediation:**\n\n");
+                            output.push_str(remedy);
+                            output.push_str("\n\n");
+                        }
+
                         output.push_str("---\n\n");
                     }
                 }

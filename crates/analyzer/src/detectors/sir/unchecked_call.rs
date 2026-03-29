@@ -97,6 +97,7 @@ impl BugDetectionPass for UncheckedCallSirDetector {
                             self.detector.risk_level(),
                             self.detector.cwe_ids(),
                             self.detector.swc_ids(),
+                            Some(self.detector.recommendation()),
                         ));
                     }
                 }

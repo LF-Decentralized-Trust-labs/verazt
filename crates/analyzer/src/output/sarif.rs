@@ -84,6 +84,8 @@ pub struct SarifRule {
     pub short_description: SarifMessage,
     #[serde(rename = "fullDescription", skip_serializing_if = "Option::is_none")]
     pub full_description: Option<SarifMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help: Option<SarifMessage>,
     #[serde(rename = "helpUri", skip_serializing_if = "Option::is_none")]
     pub help_uri: Option<String>,
     #[serde(rename = "defaultConfiguration")]
@@ -178,6 +180,7 @@ impl From<&AnalysisReport> for SarifLog {
                             .description
                             .clone()
                             .map(|d| SarifMessage { text: d }),
+                        help: bug.remediation.clone().map(|r| SarifMessage { text: r }),
                         help_uri: bug
                             .swc_ids
                             .first()

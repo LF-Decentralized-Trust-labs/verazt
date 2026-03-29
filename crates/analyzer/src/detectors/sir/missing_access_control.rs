@@ -1,12 +1,7 @@
 //! Missing Access Control Detector
 //!
-//! This module previously contained a GREP-based detector for missing access
-//! control.  The functionality has been merged into the SIR structural
-//! detector in `sir_missing_access_control.rs`.
-//!
-//! A thin SIR wrapper is kept here so that the `MissingAccessControl`
-//! detector ID can still be registered independently of the
-//! `SirMissingAccessControl` ID if needed.
+//! Detects public functions that modify state without access control guards
+//! (e.g., `require`, `assert`, or modifier-based checks).
 
 use crate::context::AnalysisContext;
 use crate::detectors::base::id::DetectorId;
@@ -84,25 +79,22 @@ impl BugDetectionPass for MissingAccessControlSirDetector {
                                 continue;
                             }
 
-                            // Skip constructors / fallback / receive.
-                            let name_lower = func.name.to_lowercase();
-                            if name_lower.is_empty()
-                                || name_lower == "constructor"
-                                || name_lower == "fallback"
-                                || name_lower == "receive"
-                            {
+                            // Skip actual constructors / fallback / receive
+                            // using the SIR attribute rather than name matching.
+                            let is_ctor = func.attrs.iter().any(|a| {
+                                a.namespace == "sir"
+                                    && a.key == scirs::sir::evm_attrs::IS_CONSTRUCTOR
+                            });
+                            if is_ctor {
                                 continue;
                             }
 
-                            // Check for spec-based or assert-based guard.
-                            let has_spec_guard =
-                                func.spec.as_ref().is_some_and(|s| !s.requires.is_empty());
-
+                            // Check for assert/require-based guard.
                             let has_assert_guard = func.body.as_ref().map_or(false, |body| {
                                 ContractDecl::has_assert_before_storage_write(body, &storage_vars)
                             });
 
-                            if has_spec_guard || has_assert_guard {
+                            if has_assert_guard {
                                 continue;
                             }
 
@@ -130,6 +122,7 @@ impl BugDetectionPass for MissingAccessControlSirDetector {
                                     self.risk_level(),
                                     self.cwe_ids(),
                                     self.swc_ids(),
+                                    Some(self.recommendation()),
                                 ));
                             }
                         }
@@ -166,8 +159,10 @@ impl BugDetectionPass for MissingAccessControlSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Add access control modifiers (e.g., onlyOwner, onlyRole) to functions \
-         that modify sensitive state or perform privileged operations."
+        "Add access control modifiers (e.g., `onlyOwner` or OpenZeppelin's \
+         `AccessControl` with role-based checks) to functions that modify \
+         sensitive state. Use `Ownable2Step` for ownership to prevent \
+         accidental transfers."
     }
 
     fn references(&self) -> Vec<&'static str> {

@@ -545,8 +545,9 @@ fn format_text_output(report: &AnalysisReport) -> String {
             output.push_str(&format!("🐛 Issue {}: {} ({})\n\n", i + 1, bug.name, bug.category));
 
             let snippet_file = bug.loc.file.as_deref().unwrap_or("");
-            let display_file = common::utils::format_relative_path(std::path::Path::new(snippet_file));
-            
+            let display_file =
+                common::utils::format_relative_path(std::path::Path::new(snippet_file));
+
             let loc_str = if bug.loc.start_col == 0 || bug.loc.end_col == 0 {
                 format!("{}:{}", display_file, bug.loc.start_line)
             } else if bug.loc.start_line == bug.loc.end_line {
@@ -582,9 +583,12 @@ fn format_text_output(report: &AnalysisReport) -> String {
 
             output.push('\n');
             let desc = bug.description.as_deref().unwrap_or("None");
-            output.push_str(&format!("- Description: {}\n", desc));
-            output.push_str(&format!("- Severity: {}\n", bug.risk_level));
-            output.push_str(&format!("- Location: {}\n\n", loc_str));
+            output.push_str(&format!("Description: {}\n\n", desc));
+            output.push_str(&format!("Severity: {}\n\n", bug.risk_level));
+            if let Some(ref remedy) = bug.remediation {
+                output.push_str(&format!("Remediation: {}\n\n", remedy));
+            }
+            output.push_str(&format!("Location: {}\n\n", loc_str));
         }
     }
 

@@ -95,6 +95,7 @@ impl BugDetectionPass for TimestampDependenceSirDetector {
                         self.detector.risk_level(),
                         self.detector.cwe_ids(),
                         self.detector.swc_ids(),
+                        Some(self.detector.recommendation()),
                     ));
                 }
             }
@@ -136,7 +137,9 @@ impl BugDetectionPass for TimestampDependenceSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Avoid using block.timestamp for critical logic or randomness."
+        "Avoid using `block.timestamp` for critical logic. Miners/validators \
+         can manipulate it by ~15 seconds. For time-sensitive logic, use \
+         block numbers or an oracle. Never use it as a source of randomness."
     }
 
     fn references(&self) -> Vec<&'static str> {

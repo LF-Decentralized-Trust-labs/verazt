@@ -75,16 +75,14 @@ impl BugDetectionPass for FloatingPragmaSirDetector {
                             let loc = attr.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0));
                             bugs.push(Bug::new(
                                 self.name(),
-                                Some(&format!(
-                                    "Floating pragma version '{}'.",
-                                    version
-                                )),
+                                Some(&format!("Floating pragma version '{}'.", version)),
                                 loc,
                                 self.bug_kind(),
                                 self.bug_category(),
                                 self.risk_level(),
                                 self.cwe_ids(),
                                 self.swc_ids(),
+                                Some(self.recommendation()),
                             ));
                         }
                     }
@@ -120,7 +118,9 @@ impl BugDetectionPass for FloatingPragmaSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Lock the pragma version to a specific compiler version."
+        "Lock the pragma to a specific compiler version (e.g., \
+         `pragma solidity 0.8.20;` instead of `^0.8.20`). This ensures \
+         the contract is tested and deployed with the same compiler version."
     }
 
     fn references(&self) -> Vec<&'static str> {

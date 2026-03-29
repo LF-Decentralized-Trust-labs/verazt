@@ -67,6 +67,7 @@ impl CeiViolationSirDetector {
                     self.risk_level(),
                     self.cwe_ids(),
                     self.swc_ids(),
+                    Some(self.recommendation()),
                 ));
                 // Only report once per function.
                 return;

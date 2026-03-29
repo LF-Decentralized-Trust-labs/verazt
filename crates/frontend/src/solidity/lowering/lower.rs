@@ -315,6 +315,33 @@ impl Lowerer {
         let mut decl =
             FunctionDecl::new(f.name.to_string(), params, returns, body, loc_to_span(&f.loc));
         decl.modifier_invocs = modifier_invocs;
+
+        // Propagate visibility attribute to SIR.
+        let vis_str = match &f.visibility {
+            ast::FuncVis::Public => Some("public"),
+            ast::FuncVis::External => Some("external"),
+            ast::FuncVis::Internal => Some("internal"),
+            ast::FuncVis::Private => Some("private"),
+            ast::FuncVis::None => None,
+        };
+        if let Some(v) = vis_str {
+            decl.attrs
+                .push(Attr::sir(sir_attrs::VISIBILITY, AttrValue::String(v.to_string())));
+        }
+
+        // Propagate mutability attribute to SIR.
+        let mut_str = match &f.mutability {
+            ast::FuncMut::Pure => Some("pure"),
+            ast::FuncMut::View => Some("view"),
+            ast::FuncMut::Payable => Some("payable"),
+            ast::FuncMut::Constant => Some("constant"),
+            ast::FuncMut::NonPayable | ast::FuncMut::None => None,
+        };
+        if let Some(m) = mut_str {
+            decl.attrs
+                .push(Attr::sir(sir_attrs::MUTABILITY, AttrValue::String(m.to_string())));
+        }
+
         Ok(decl)
     }
 

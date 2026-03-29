@@ -101,6 +101,7 @@ impl BugDetectionPass for DeprecatedSirDetector {
                             self.detector.risk_level(),
                             self.detector.cwe_ids(),
                             self.detector.swc_ids(),
+                            Some(self.detector.recommendation()),
                         ));
                     }
                 }
@@ -121,6 +122,7 @@ impl BugDetectionPass for DeprecatedSirDetector {
                             self.detector.risk_level(),
                             self.detector.cwe_ids(),
                             self.detector.swc_ids(),
+                            Some(self.detector.recommendation()),
                         ));
                     }
                 }
@@ -164,7 +166,10 @@ impl BugDetectionPass for DeprecatedSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Replace deprecated features with their modern equivalents."
+        "Replace deprecated constructs with their modern equivalents: \
+         `suicide()` → `selfdestruct()`, `throw` → `revert()`, \
+         `sha3()` → `keccak256()`, `msg.gas` → `gasleft()`, \
+         `constant` (on functions) → `view` or `pure`."
     }
 
     fn references(&self) -> Vec<&'static str> {

@@ -100,7 +100,7 @@ impl DetectorRegistry {
 pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     use crate::detectors::*;
 
-    // ── Tier 1: SIR structural detectors (migrated from AST / GREP) ──
+    // ── SIR structural detectors ─────────────────────────────────
     registry.register(Box::new(CeiViolationSirDetector::new()));
     registry.register(Box::new(CentralizationRiskSirDetector::new()));
     registry.register(Box::new(ConstantStateVarSirDetector::new()));
@@ -117,20 +117,6 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     registry.register(Box::new(UncheckedCallSirDetector::new()));
     registry.register(Box::new(UninitializedSirDetector::new()));
     registry.register(Box::new(VisibilitySirDetector::new()));
-
-    // ── Tier 2: SIR structural detectors (multi-chain) ──────────────
-    registry.register(Box::new(SirMissingAccessControlDetector::new()));
-    registry.register(Box::new(SirMissingModifiesDetector::new()));
-    registry.register(Box::new(SirUncheckedArithmeticDetector::new()));
-    // Dialect-specific SIR detectors:
-    registry.register(Box::new(SirTxOriginAuthDetector::new())); // evm
-    registry.register(Box::new(SirAcquiresMismatchDetector::new())); // move
-    registry.register(Box::new(SirMissingPdaConstraintDetector::new())); // anchor
-
-    // ── Tier 3: BIR dataflow detectors ───────────────────────────
-    registry.register(Box::new(AIRReentrancyDetector::new()));
-    registry.register(Box::new(AIRAccessControlDetector::new()));
-    registry.register(Box::new(AIRArithmeticDetector::new()));
 }
 
 #[cfg(test)]

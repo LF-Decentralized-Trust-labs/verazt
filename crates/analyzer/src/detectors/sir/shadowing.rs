@@ -98,6 +98,7 @@ impl BugDetectionPass for ShadowingSirDetector {
                             self.detector.risk_level(),
                             self.detector.cwe_ids(),
                             self.detector.swc_ids(),
+                            Some(self.detector.recommendation()),
                         ));
                     }
                 }
@@ -119,6 +120,7 @@ impl BugDetectionPass for ShadowingSirDetector {
                             self.detector.risk_level(),
                             self.detector.cwe_ids(),
                             self.detector.swc_ids(),
+                            Some(self.detector.recommendation()),
                         ));
                     }
                 }
@@ -163,7 +165,9 @@ impl BugDetectionPass for ShadowingSirDetector {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Rename the shadowed variable to remove ambiguity."
+        "Rename the local variable to avoid shadowing the inherited state \
+         variable. Shadowing can cause unintended reads/writes to the wrong \
+         variable, leading to subtle logic bugs."
     }
 
     fn references(&self) -> Vec<&'static str> {
