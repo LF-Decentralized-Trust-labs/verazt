@@ -165,7 +165,7 @@ fn check_range_constraint(range: &Range, constraint: &str) -> bool {
 ///
 /// `vyper_ver` optionally constrains the compiler version (e.g. `"^0.3.9"`).
 pub fn parse_input_file(input_file: &str, vyper_ver: Option<&str>) -> Result<SourceUnit> {
-    println!("Compiling Vyper input file: {input_file}");
+    println!("\nCompiling Vyper input file: {input_file}");
     let input_path = Path::new(input_file);
     if !input_path.exists() {
         fail!("Input file does not exist: {input_file}");

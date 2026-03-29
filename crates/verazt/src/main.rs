@@ -17,12 +17,12 @@ struct Cli {
 enum Commands {
     /// Compile a smart contract and print its IR representations
     Compile(compile::Args),
-    /// Scan smart contracts for bugs and security vulnerabilities
+    /// Analyze smart contracts for bugs and security vulnerabilities
     #[command(trailing_var_arg = true, allow_hyphen_values = true)]
-    Scanner { args: Vec<String> },
+    Analyze { args: Vec<String> },
     /// Verify smart contracts properties
     #[command(trailing_var_arg = true, allow_hyphen_values = true)]
-    Verifier { args: Vec<String> },
+    Verify { args: Vec<String> },
 }
 
 fn main() {
@@ -37,12 +37,12 @@ fn main() {
                 std::process::exit(1);
             }
         }
-        Commands::Scanner { args } => {
-            let mut all_args = vec!["verazt check".to_string()];
+        Commands::Analyze { args } => {
+            let mut all_args = vec!["verazt analyze".to_string()];
             all_args.extend(args);
             analyzer::cli::run(all_args);
         }
-        Commands::Verifier { args } => {
+        Commands::Verify { args } => {
             let mut all_args = vec!["verazt verify".to_string()];
             all_args.extend(args);
             verifier::cli::run(all_args);

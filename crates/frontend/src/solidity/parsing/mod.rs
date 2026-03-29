@@ -120,7 +120,7 @@ pub fn parse_input_file(
     include_paths: &[String],
     solc_ver: Option<&str>,
 ) -> Result<Vec<ast::SourceUnit>> {
-    println!("Compiling input file: {input_file}");
+    println!("\nCompiling input file: {input_file}");
     let input_file_path = Path::new(input_file);
     if !input_file_path.exists() {
         fail!("Input file does not exist: {}", input_file);
@@ -179,7 +179,7 @@ pub fn parse_input_file(
 
     let mut compilation_errors = vec![];
     for solc_ver in &best_solc_vers {
-        debug!("Compiling input contract using Solc: {solc_ver}");
+        debug!("\nCompiling input contract using Solc: {solc_ver}");
         configure_solc_compiler(solc_ver)?;
 
         // Prepare compilation command.
@@ -230,7 +230,7 @@ pub fn parse_input_file(
             Ok(json_data) => {
                 let (output_dir, file_stem) = export::prepare_logging_directory(input_file)?;
                 let output_file_path = output_dir.join(format!("{file_stem}.sol.json"));
-                println!("Export JSON output to: {}", output_file_path.display());
+                println!("\nExport JSON output to: {}", output_file_path.display());
                 let mut file = File::create(output_file_path)?;
                 file.write_all(json_data.as_bytes())?;
                 let json_ast = JsonAst::new(json_data, Some(input_file), base_path);
