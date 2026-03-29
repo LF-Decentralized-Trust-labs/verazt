@@ -120,8 +120,9 @@ pub fn parse_input_file(
     include_paths: &[String],
     solc_ver: Option<&str>,
 ) -> Result<Vec<ast::SourceUnit>> {
-    println!("\nCompiling input file: {input_file}");
     let input_file_path = Path::new(input_file);
+    let rel_input_file = common::utils::format_relative_path(input_file_path);
+    println!("\nCompiling input file: {rel_input_file}");
     if !input_file_path.exists() {
         fail!("Input file does not exist: {}", input_file);
     }
@@ -230,7 +231,8 @@ pub fn parse_input_file(
             Ok(json_data) => {
                 let (output_dir, file_stem) = export::prepare_logging_directory(input_file)?;
                 let output_file_path = output_dir.join(format!("{file_stem}.sol.json"));
-                println!("\nExport JSON output to: {}", output_file_path.display());
+                let rel_output = common::utils::format_relative_path(&output_file_path);
+                println!("\nExport JSON output to: {rel_output}");
                 let mut file = File::create(output_file_path)?;
                 file.write_all(json_data.as_bytes())?;
                 let json_ast = JsonAst::new(json_data, Some(input_file), base_path);

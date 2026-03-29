@@ -362,7 +362,8 @@ fn run_analysis(args: Arguments) {
 
     for file in &args.input_files {
         if args.debug {
-            eprintln!("\nCompiling: {}", file);
+            let rel_file = common::utils::format_relative_path(std::path::Path::new(file));
+            eprintln!("\nCompiling: {}", rel_file);
         }
 
         match input_language {
@@ -544,17 +545,19 @@ fn format_text_output(report: &AnalysisReport) -> String {
             output.push_str(&format!("🐛 Issue {}: {} ({})\n\n", i + 1, bug.name, bug.category));
 
             let snippet_file = bug.loc.file.as_deref().unwrap_or("");
+            let display_file = common::utils::format_relative_path(std::path::Path::new(snippet_file));
+            
             let loc_str = if bug.loc.start_col == 0 || bug.loc.end_col == 0 {
-                format!("{}:{}", snippet_file, bug.loc.start_line)
+                format!("{}:{}", display_file, bug.loc.start_line)
             } else if bug.loc.start_line == bug.loc.end_line {
                 format!(
                     "{}:{}:{}-{}",
-                    snippet_file, bug.loc.start_line, bug.loc.start_col, bug.loc.end_col
+                    display_file, bug.loc.start_line, bug.loc.start_col, bug.loc.end_col
                 )
             } else {
                 format!(
                     "{}:{}:{}-{}:{}",
-                    snippet_file,
+                    display_file,
                     bug.loc.start_line,
                     bug.loc.start_col,
                     bug.loc.end_line,
