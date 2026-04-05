@@ -3,9 +3,7 @@
 //! - `base/` — abstract infrastructure: traits, metadata
 //! - `sir/` — passes operating on the SIR (source-level IR)
 //! - `bir/` — passes operating on the BIR (analysis IR)
-//! - `vir/` — placeholder for future VIR-layer passes
 
 pub mod base;
 pub mod bir;
 pub mod sir;
-pub mod vir;
