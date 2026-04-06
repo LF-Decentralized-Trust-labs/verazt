@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 analyzer = { workspace = true }
+scanner = { workspace = true }
 verifier = { workspace = true }
 common = { workspace = true }
 frontend = { workspace = true }

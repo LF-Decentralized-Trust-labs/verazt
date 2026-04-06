@@ -59,6 +59,34 @@ impl DetectorId {
             Self::Visibility => "visibility",
         }
     }
+
+    /// Parse a kebab-case string into a `DetectorId`.
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "arithmetic-overflow" => Self::ArithmeticOverflow,
+            "bad-randomness" => Self::BadRandomness,
+            "cei-violation" => Self::CeiViolation,
+            "centralization-risk" => Self::CentralizationRisk,
+            "constant-state-var" => Self::ConstantStateVar,
+            "dead-code" => Self::DeadCode,
+            "delegatecall" => Self::Delegatecall,
+            "denial-of-service" => Self::DenialOfService,
+            "deprecated" | "deprecated-features" => Self::Deprecated,
+            "floating-pragma" => Self::FloatingPragma,
+            "front-running" => Self::FrontRunning,
+            "low-level-call" => Self::LowLevelCall,
+            "missing-access-control" => Self::MissingAccessControl,
+            "reentrancy" => Self::Reentrancy,
+            "shadowing" => Self::Shadowing,
+            "short-address" => Self::ShortAddress,
+            "timestamp-dependence" => Self::TimestampDependence,
+            "tx-origin" => Self::TxOrigin,
+            "unchecked-call" => Self::UncheckedCall,
+            "uninitialized-storage" => Self::UninitializedStorage,
+            "visibility" => Self::Visibility,
+            _ => panic!("Unknown detector ID: {s}"),
+        }
+    }
 }
 
 impl std::fmt::Display for DetectorId {

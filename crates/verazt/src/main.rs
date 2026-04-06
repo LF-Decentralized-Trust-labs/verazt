@@ -20,6 +20,9 @@ enum Commands {
     /// Analyze smart contracts for bugs and security vulnerabilities
     #[command(trailing_var_arg = true, allow_hyphen_values = true)]
     Analyze { args: Vec<String> },
+    /// Fast syntactic security scan (lightweight, no dataflow)
+    #[command(trailing_var_arg = true, allow_hyphen_values = true)]
+    Scan { args: Vec<String> },
     /// Verify smart contracts properties
     #[command(trailing_var_arg = true, allow_hyphen_values = true)]
     Verify { args: Vec<String> },
@@ -41,6 +44,11 @@ fn main() {
             let mut all_args = vec!["verazt analyze".to_string()];
             all_args.extend(args);
             analyzer::cli::run(all_args);
+        }
+        Commands::Scan { args } => {
+            let mut all_args = vec!["verazt scan".to_string()];
+            all_args.extend(args);
+            scanner::cli::run(all_args);
         }
         Commands::Verify { args } => {
             let mut all_args = vec!["verazt verify".to_string()];

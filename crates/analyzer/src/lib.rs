@@ -20,7 +20,7 @@
 //! - `detectors`: Bug detection framework and implementations
 //!   - `base/`: Infrastructure (`BugDetectionPass`, `DetectorId`,
 //!     `DetectorRegistry`)
-//!   - `sir/`: SIR structural detectors using the `Visit<'a>` trait
+//!   - `scan_adapter`: Wraps `scanner::ScanDetector` → `BugDetectionPass`
 //!   - `bir/`: BIR dataflow detectors
 //! - `output`: Report formatting (JSON, SARIF, Markdown)
 
