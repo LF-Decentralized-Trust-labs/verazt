@@ -1,40 +1,25 @@
-//! CEI Violation Detector (SIR structural)
+//! Reentrancy Detector
 //!
-//! Detects violations of the Checks-Effects-Interactions pattern
-//! by walking SIR function bodies.
-//!
-//! The CEI pattern requires that:
-//! 1. Checks (conditions, requires) come first
-//! 2. Effects (state changes) come second
-//! 3. Interactions (external calls) come last
+//! Detects potential reentrancy vulnerabilities by finding storage writes
+//! after external calls.
 
-use crate::context::AnalysisContext;
-use crate::detectors::base::id::DetectorId;
-use crate::detectors::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use crate::passes::base::Pass;
-use crate::passes::base::meta::PassLevel;
-use crate::passes::base::meta::PassRepresentation;
+use crate::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::Loc;
+use common::loc::Loc;
 use scirs::sir::ContractDecl;
 use scirs::sir::dialect::{EvmCallExt, EvmFunctionExt};
 use scirs::sir::utils::visit::{self, Visit};
-use scirs::sir::{CallExpr, Decl, MemberDecl, Stmt};
-use std::any::TypeId;
+use scirs::sir::{CallExpr, FunctionDecl, Module, Stmt};
 
-/// SIR structural detector for CEI (Checks-Effects-Interactions) pattern
-/// violations.
+/// Scan detector for reentrancy vulnerabilities.
 #[derive(Debug, Default)]
-pub struct CeiViolationSirDetector;
+pub struct ReentrancyDetector;
 
-impl CeiViolationSirDetector {
+impl ReentrancyDetector {
     pub fn new() -> Self {
         Self
     }
 
-    /// Walk statements sequentially. Track whether we have seen an external
-    /// call so far; if a subsequent statement writes to storage, flag a
-    /// violation.
     fn check_stmts(
         &self,
         stmts: &[Stmt],
@@ -45,20 +30,16 @@ impl CeiViolationSirDetector {
         func_name: &str,
     ) {
         for stmt in stmts {
-            // First: mark if this statement contains an external call.
             if !*seen_ext_call && self.stmt_has_external_call(stmt) {
                 *seen_ext_call = true;
             }
 
-            // Second: if we already saw an external call, check for storage
-            // writes.
             if *seen_ext_call && self.stmt_has_storage_write(stmt, storage_vars) {
                 bugs.push(Bug::new(
                     self.name(),
                     Some(&format!(
-                        "CEI violation in '{}.{}': state update occurs after \
-                         an external call. This violates the \
-                         Checks-Effects-Interactions pattern.",
+                        "Potential reentrancy in '{}.{}': state modification \
+                         after external call.",
                         contract_name, func_name,
                     )),
                     stmt.span().cloned().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
@@ -69,11 +50,9 @@ impl CeiViolationSirDetector {
                     self.swc_ids(),
                     Some(self.recommendation()),
                 ));
-                // Only report once per function.
                 return;
             }
 
-            // Recurse into compound statements.
             match stmt {
                 Stmt::If(s) => {
                     let mut branch_seen = *seen_ext_call;
@@ -134,7 +113,6 @@ impl CeiViolationSirDetector {
         }
     }
 
-    /// Check if a single statement contains an external call expression.
     fn stmt_has_external_call(&self, stmt: &Stmt) -> bool {
         struct CallFinder {
             found: bool,
@@ -154,7 +132,6 @@ impl CeiViolationSirDetector {
         finder.found
     }
 
-    /// Check if a single statement writes to storage.
     fn stmt_has_storage_write(&self, stmt: &Stmt, storage_vars: &[String]) -> bool {
         match stmt {
             Stmt::Assign(a) => ContractDecl::expr_references_storage(&a.lhs, storage_vars),
@@ -164,73 +141,18 @@ impl CeiViolationSirDetector {
     }
 }
 
-impl Pass for CeiViolationSirDetector {
+impl ScanDetector for ReentrancyDetector {
+    fn id(&self) -> &'static str {
+        "reentrancy"
+    }
+
     fn name(&self) -> &'static str {
-        "CEI Pattern Violation"
+        "Reentrancy"
     }
 
     fn description(&self) -> &'static str {
-        "Detects violations of the Checks-Effects-Interactions pattern using SIR tree walking"
-    }
-
-    fn level(&self) -> PassLevel {
-        PassLevel::Program
-    }
-
-    fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
-    }
-
-    fn dependencies(&self) -> Vec<TypeId> {
-        vec![]
-    }
-}
-
-impl BugDetectionPass for CeiViolationSirDetector {
-    fn detector_id(&self) -> DetectorId {
-        DetectorId::CeiViolation
-    }
-
-    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        let mut bugs = Vec::new();
-
-        if !context.has_ir() {
-            return Ok(bugs);
-        }
-
-        for module in context.ir_units() {
-            for decl in &module.decls {
-                if let Decl::Contract(contract) = decl {
-                    let storage_vars = contract.storage_names();
-                    if storage_vars.is_empty() {
-                        continue;
-                    }
-
-                    for member in &contract.members {
-                        if let MemberDecl::Function(func) = member {
-                            // Skip functions with reentrancy guard
-                            if func.has_reentrancy_guard() {
-                                continue;
-                            }
-
-                            if let Some(body) = &func.body {
-                                let mut seen_ext_call = false;
-                                self.check_stmts(
-                                    body,
-                                    &storage_vars,
-                                    &mut seen_ext_call,
-                                    &mut bugs,
-                                    &contract.name,
-                                    &func.name,
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(bugs)
+        "Detects potential reentrancy vulnerabilities using SIR tree walking. \
+         Finds state modifications after external calls."
     }
 
     fn bug_kind(&self) -> BugKind {
@@ -242,32 +164,72 @@ impl BugDetectionPass for CeiViolationSirDetector {
     }
 
     fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
+        RiskLevel::Critical
     }
 
-    fn confidence(&self) -> ConfidenceLevel {
-        ConfidenceLevel::Medium
+    fn confidence(&self) -> Confidence {
+        Confidence::Medium
+    }
+
+    fn target(&self) -> Target {
+        Target::Evm
+    }
+
+    fn level(&self) -> DetectionLevel {
+        DetectionLevel::Function
     }
 
     fn cwe_ids(&self) -> Vec<usize> {
-        vec![841] // CWE-841: Improper Enforcement of Behavioral Workflow
+        vec![841]
     }
 
     fn swc_ids(&self) -> Vec<usize> {
-        vec![107] // SWC-107: Reentrancy
+        vec![107]
     }
 
     fn recommendation(&self) -> &'static str {
-        "Follow the Checks-Effects-Interactions pattern: perform all checks first, \
-         then make state changes, and finally interact with external contracts. \
-         Consider using OpenZeppelin's ReentrancyGuard."
+        "Follow the Checks-Effects-Interactions pattern: perform all state changes \
+         before making external calls. Consider using a reentrancy guard \
+         (e.g., OpenZeppelin's ReentrancyGuard)."
     }
 
     fn references(&self) -> Vec<&'static str> {
         vec![
             "https://swcregistry.io/docs/SWC-107",
-            "https://fravoll.github.io/solidity-patterns/checks_effects_interactions.html",
+            "https://consensys.github.io/smart-contract-best-practices/attacks/reentrancy/",
         ]
+    }
+
+    fn check_function(
+        &self,
+        func: &FunctionDecl,
+        contract: &ContractDecl,
+        _module: &Module,
+    ) -> Vec<Bug> {
+        let mut bugs = Vec::new();
+
+        if func.has_reentrancy_guard() {
+            return bugs;
+        }
+
+        let storage_vars = contract.storage_names();
+        if storage_vars.is_empty() {
+            return bugs;
+        }
+
+        if let Some(body) = &func.body {
+            let mut seen_ext_call = false;
+            self.check_stmts(
+                body,
+                &storage_vars,
+                &mut seen_ext_call,
+                &mut bugs,
+                &contract.name,
+                &func.name,
+            );
+        }
+
+        bugs
     }
 }
 
@@ -276,10 +238,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_cei_violation_detector() {
-        let detector = CeiViolationSirDetector::new();
-        assert_eq!(detector.detector_id(), DetectorId::CeiViolation);
-        assert_eq!(detector.risk_level(), RiskLevel::High);
-        assert_eq!(detector.swc_ids(), vec![107]);
+    fn test_reentrancy_detector() {
+        let detector = ReentrancyDetector::new();
+        assert_eq!(detector.id(), "reentrancy");
+        assert_eq!(detector.risk_level(), RiskLevel::Critical);
     }
 }

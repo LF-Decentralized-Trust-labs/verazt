@@ -1217,3 +1217,62 @@ FUNCTION (13):
   deprecated               Deprecated Features         Refactoring   Low
   shadowing                Shadowing                   Refactoring   Low
 ```
+
+---
+
+## Execution Checklist
+
+### Phase 1 & 2: Scouting and Scaffolding
+- [x] Initialize `crates/scanner` package and add to workspace.
+- [x] Create `crates/scanner/src/lib.rs` and the required module structure (detector, engine, registry).
+- [x] Implement `DetectionLevel`, `Target`, and `ScanDetector` trait in `detector.rs`.
+- [x] Implement the `ScanEngine` in `engine.rs`, enabling single-pass AST traversal and level-based dispatch.
+- [x] Create scaffolding for detector levels (`evm/module`, `evm/contract`, `evm/function`).
+
+### Phase 3: Registry Setup
+- [x] Implement `ScanRegistry` in `registry.rs` to group detectors and provide target-based filtering.
+- [x] Setup `register_all_detectors` (leave body empty/commented initially).
+
+### Phase 4: Migration of 21 Detectors
+- [x] Migrate `floating_pragma` to `evm/module/` implementing `check_module`.
+- [x] Migrate 7 contract-level EVM detectors to `evm/contract/`, implementing `check_contract`:
+  - [x] `centralization_risk`
+  - [x] `constant_state_var`
+  - [x] `dead_code`
+  - [x] `front_running`
+  - [x] `missing_access_control`
+  - [x] `uninitialized`
+  - [x] `visibility`
+- [x] Migrate 13 function-level EVM detectors to `evm/function/`, implementing `check_function`:
+  - [x] `arithmetic_overflow`
+  - [x] `bad_randomness`
+  - [x] `cei_violation`
+  - [x] `delegatecall`
+  - [x] `denial_of_service`
+  - [x] `deprecated_features`
+  - [x] `low_level_call`
+  - [x] `reentrancy`
+  - [x] `shadowing`
+  - [x] `short_address`
+  - [x] `timestamp_dependence`
+  - [x] `tx_origin`
+  - [x] `unchecked_call`
+- [x] Add all migrated detectors into `register_all_detectors`.
+
+### Phase 5: CLI Subcommand
+- [x] Write `crates/scanner/src/cli.rs` specifying `verazt scan` logic.
+- [x] Update `crates/verazt/src/main.rs` to interpret the `Scan` command and execute it.
+- [x] Declare dependencies between `verazt` and `scanner`.
+
+### Phase 6: Analyzer Integration and Cleanup
+- [x] Design and implement adapter in `crates/analyzer/src/detectors/scan_adapter.rs`.
+- [x] Update `analyzer`'s registry (`crates/analyzer/src/detectors/base/registry.rs`) to include scan detectors dynamically.
+- [x] Delete `crates/analyzer/src/detectors/sir/`.
+- [x] Refactor `DetectorId::from_str` ensuring all scanner detector IDs are securely mapped.
+- [x] Update `analyzer` `Cargo.toml` and `mod.rs` files appropriately.
+
+### Phase 7 & 8: Verification
+- [x] Run `cargo check 2>&1` & `cargo build 2>&1`. Resolve any issues.
+- [x] Run `cargo test --workspace 2>&1`.
+- [x] Execute `verazt scan --list-detectors` to confirm UI changes.
+- [x] Run `verazt analyze` on known bugs to verify parity with previous version.

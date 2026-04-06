@@ -1,32 +1,29 @@
-//! Low-Level Call Detector (SIR structural)
+//! Low-Level Call Detector
 //!
-//! Detects usage of low-level calls (`.call`, `.delegatecall`, `.staticcall`)
-//! by walking the SIR tree for EvmExpr dialect nodes and FieldAccess patterns.
+//! Detects usage of low-level calls (`.call`, `.delegatecall`, `.staticcall`).
 
-use crate::context::AnalysisContext;
-use crate::detectors::base::id::DetectorId;
-use crate::detectors::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use crate::passes::base::Pass;
-use crate::passes::base::meta::PassLevel;
-use crate::passes::base::meta::PassRepresentation;
+use crate::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::Loc;
+use common::loc::Loc;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::utils::visit::{self, Visit};
-use scirs::sir::{ContractDecl, DialectExpr, FieldAccessExpr, FunctionDecl};
-use std::any::TypeId;
+use scirs::sir::{ContractDecl, DialectExpr, FieldAccessExpr, FunctionDecl, Module};
 
-/// SIR structural detector for low-level calls.
+/// Scan detector for low-level calls.
 #[derive(Debug, Default)]
-pub struct LowLevelCallSirDetector;
+pub struct LowLevelCallDetector;
 
-impl LowLevelCallSirDetector {
+impl LowLevelCallDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for LowLevelCallSirDetector {
+impl ScanDetector for LowLevelCallDetector {
+    fn id(&self) -> &'static str {
+        "low-level-call"
+    }
+
     fn name(&self) -> &'static str {
         "Low-Level Calls"
     }
@@ -35,49 +32,66 @@ impl Pass for LowLevelCallSirDetector {
         "Detects usage of low-level EVM calls on SIR."
     }
 
-    fn level(&self) -> PassLevel {
-        PassLevel::Expression
+    fn bug_kind(&self) -> BugKind {
+        BugKind::Vulnerability
     }
 
-    fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::UncheckedLowLevelCalls
     }
 
-    fn dependencies(&self) -> Vec<TypeId> {
+    fn risk_level(&self) -> RiskLevel {
+        RiskLevel::Medium
+    }
+
+    fn confidence(&self) -> Confidence {
+        Confidence::Medium
+    }
+
+    fn target(&self) -> Target {
+        Target::Evm
+    }
+
+    fn level(&self) -> DetectionLevel {
+        DetectionLevel::Function
+    }
+
+    fn cwe_ids(&self) -> Vec<usize> {
         vec![]
     }
-}
 
-impl BugDetectionPass for LowLevelCallSirDetector {
-    fn detector_id(&self) -> DetectorId {
-        DetectorId::LowLevelCall
+    fn swc_ids(&self) -> Vec<usize> {
+        vec![]
     }
 
-    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+    fn recommendation(&self) -> &'static str {
+        "Avoid low-level `.call()`, `.delegatecall()`, and `.staticcall()` \
+         where possible. Use Solidity interfaces or OpenZeppelin's `Address` \
+         library for safer external calls. Always check the return value."
+    }
+
+    fn references(&self) -> Vec<&'static str> {
+        vec![
+            "https://docs.soliditylang.org/en/latest/units-and-global-variables.html#members-of-address-types",
+        ]
+    }
+
+    fn check_function(
+        &self,
+        func: &FunctionDecl,
+        contract: &ContractDecl,
+        _module: &Module,
+    ) -> Vec<Bug> {
         let mut bugs = Vec::new();
 
-        if !context.has_ir() {
-            return Ok(bugs);
-        }
-
         struct Visitor<'b> {
-            detector: &'b LowLevelCallSirDetector,
+            detector: &'b LowLevelCallDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
         }
 
         impl<'a, 'b> Visit<'a> for Visitor<'b> {
-            fn visit_contract_decl(&mut self, contract: &'a ContractDecl) {
-                self.contract_name = contract.name.clone();
-                visit::default::visit_contract_decl(self, contract);
-            }
-
-            fn visit_function_decl(&mut self, func: &'a FunctionDecl) {
-                self.func_name = func.name.clone();
-                visit::default::visit_function_decl(self, func);
-            }
-
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
                 let call_info = match d {
                     DialectExpr::Evm(EvmExpr::LowLevelCall(e)) => Some(("call", e.loc.clone())),
@@ -133,48 +147,12 @@ impl BugDetectionPass for LowLevelCallSirDetector {
         let mut visitor = Visitor {
             detector: self,
             bugs: &mut bugs,
-            contract_name: String::new(),
-            func_name: String::new(),
+            contract_name: contract.name.clone(),
+            func_name: func.name.clone(),
         };
-        visitor.visit_modules(context.ir_units());
+        visitor.visit_function_decl(func);
 
-        Ok(bugs)
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::UncheckedLowLevelCalls
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Medium
-    }
-
-    fn confidence(&self) -> ConfidenceLevel {
-        ConfidenceLevel::Medium
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Avoid low-level `.call()`, `.delegatecall()`, and `.staticcall()` \
-         where possible. Use Solidity interfaces or OpenZeppelin's `Address` \
-         library for safer external calls. Always check the return value."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://docs.soliditylang.org/en/latest/units-and-global-variables.html#members-of-address-types",
-        ]
+        bugs
     }
 }
 
@@ -183,9 +161,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_low_level_call_sir_detector() {
-        let detector = LowLevelCallSirDetector::new();
-        assert_eq!(detector.detector_id(), DetectorId::LowLevelCall);
+    fn test_low_level_call_detector() {
+        let detector = LowLevelCallDetector::new();
+        assert_eq!(detector.id(), "low-level-call");
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

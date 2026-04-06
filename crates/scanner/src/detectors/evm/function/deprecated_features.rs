@@ -1,21 +1,13 @@
-//! Deprecated Features Detector (SIR structural)
+//! Deprecated Features Detector
 //!
-//! Detects usage of deprecated Solidity features by walking the SIR tree
-//! for function calls to `suicide`, `sha3`, `callcode`, and `block.blockhash`.
+//! Detects usage of deprecated Solidity features.
 
-use crate::context::AnalysisContext;
-use crate::detectors::base::id::DetectorId;
-use crate::detectors::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use crate::passes::base::Pass;
-use crate::passes::base::meta::PassLevel;
-use crate::passes::base::meta::PassRepresentation;
+use crate::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::Loc;
+use common::loc::Loc;
 use scirs::sir::utils::visit::{self, Visit};
-use scirs::sir::{ContractDecl, FieldAccessExpr, FunctionDecl, VarExpr};
-use std::any::TypeId;
+use scirs::sir::{ContractDecl, FieldAccessExpr, FunctionDecl, Module, VarExpr};
 
-/// Deprecated Solidity constructs with their replacements.
 const DEPRECATED_IDENTS: &[(&str, &str)] = &[
     ("suicide", "selfdestruct"),
     ("sha3", "keccak256"),
@@ -24,17 +16,21 @@ const DEPRECATED_IDENTS: &[(&str, &str)] = &[
 
 const DEPRECATED_FIELDS: &[(&str, &str)] = &[("callcode", "delegatecall")];
 
-/// SIR structural detector for deprecated features.
+/// Scan detector for deprecated features.
 #[derive(Debug, Default)]
-pub struct DeprecatedSirDetector;
+pub struct DeprecatedFeaturesDetector;
 
-impl DeprecatedSirDetector {
+impl DeprecatedFeaturesDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Pass for DeprecatedSirDetector {
+impl ScanDetector for DeprecatedFeaturesDetector {
+    fn id(&self) -> &'static str {
+        "deprecated-features"
+    }
+
     fn name(&self) -> &'static str {
         "Deprecated Features"
     }
@@ -43,49 +39,65 @@ impl Pass for DeprecatedSirDetector {
         "Detects usage of deprecated Solidity constructs on SIR."
     }
 
-    fn level(&self) -> PassLevel {
-        PassLevel::Expression
+    fn bug_kind(&self) -> BugKind {
+        BugKind::Refactoring
     }
 
-    fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::CodeQuality
     }
 
-    fn dependencies(&self) -> Vec<TypeId> {
+    fn risk_level(&self) -> RiskLevel {
+        RiskLevel::Low
+    }
+
+    fn confidence(&self) -> Confidence {
+        Confidence::High
+    }
+
+    fn target(&self) -> Target {
+        Target::Evm
+    }
+
+    fn level(&self) -> DetectionLevel {
+        DetectionLevel::Function
+    }
+
+    fn cwe_ids(&self) -> Vec<usize> {
         vec![]
     }
-}
 
-impl BugDetectionPass for DeprecatedSirDetector {
-    fn detector_id(&self) -> DetectorId {
-        DetectorId::Deprecated
+    fn swc_ids(&self) -> Vec<usize> {
+        vec![111]
     }
 
-    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+    fn recommendation(&self) -> &'static str {
+        "Replace deprecated constructs with their modern equivalents: \
+         `suicide()` → `selfdestruct()`, `throw` → `revert()`, \
+         `sha3()` → `keccak256()`, `msg.gas` → `gasleft()`, \
+         `constant` (on functions) → `view` or `pure`."
+    }
+
+    fn references(&self) -> Vec<&'static str> {
+        vec!["https://swcregistry.io/docs/SWC-111"]
+    }
+
+    fn check_function(
+        &self,
+        func: &FunctionDecl,
+        contract: &ContractDecl,
+        _module: &Module,
+    ) -> Vec<Bug> {
         let mut bugs = Vec::new();
 
-        if !context.has_ir() {
-            return Ok(bugs);
-        }
-
         struct Visitor<'b> {
-            detector: &'b DeprecatedSirDetector,
+            detector: &'b DeprecatedFeaturesDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
         }
 
         impl<'a, 'b> Visit<'a> for Visitor<'b> {
-            fn visit_contract_decl(&mut self, contract: &'a ContractDecl) {
-                self.contract_name = contract.name.clone();
-                visit::default::visit_contract_decl(self, contract);
-            }
-
-            fn visit_function_decl(&mut self, func: &'a FunctionDecl) {
-                self.func_name = func.name.clone();
-                visit::default::visit_function_decl(self, func);
-            }
-
             fn visit_var_expr(&mut self, v: &'a VarExpr) {
                 for (deprecated, replacement) in DEPRECATED_IDENTS {
                     if v.name == *deprecated {
@@ -133,47 +145,12 @@ impl BugDetectionPass for DeprecatedSirDetector {
         let mut visitor = Visitor {
             detector: self,
             bugs: &mut bugs,
-            contract_name: String::new(),
-            func_name: String::new(),
+            contract_name: contract.name.clone(),
+            func_name: func.name.clone(),
         };
-        visitor.visit_modules(context.ir_units());
+        visitor.visit_function_decl(func);
 
-        Ok(bugs)
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Refactoring
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::CodeQuality
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Low
-    }
-
-    fn confidence(&self) -> ConfidenceLevel {
-        ConfidenceLevel::High
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![111] // SWC-111: Use of Deprecated Solidity Functions
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Replace deprecated constructs with their modern equivalents: \
-         `suicide()` → `selfdestruct()`, `throw` → `revert()`, \
-         `sha3()` → `keccak256()`, `msg.gas` → `gasleft()`, \
-         `constant` (on functions) → `view` or `pure`."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec!["https://swcregistry.io/docs/SWC-111"]
+        bugs
     }
 }
 
@@ -182,10 +159,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_deprecated_sir_detector() {
-        let detector = DeprecatedSirDetector::new();
-        assert_eq!(detector.detector_id(), DetectorId::Deprecated);
-        assert_eq!(detector.swc_ids(), vec![111]);
+    fn test_deprecated_features_detector() {
+        let detector = DeprecatedFeaturesDetector::new();
+        assert_eq!(detector.id(), "deprecated-features");
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

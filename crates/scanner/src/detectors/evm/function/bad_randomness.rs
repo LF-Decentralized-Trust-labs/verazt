@@ -1,39 +1,27 @@
-//! Bad Randomness Detector (SIR structural)
+//! Bad Randomness Detector
 //!
 //! Detects use of on-chain attributes (block.timestamp, blockhash,
 //! block.number, block.difficulty, block.coinbase, block.gaslimit) as
-//! sources of randomness. These are predictable by miners and other
-//! chain participants.
+//! sources of randomness.
 
-use crate::context::AnalysisContext;
-use crate::detectors::base::id::DetectorId;
-use crate::detectors::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use crate::passes::base::Pass;
-use crate::passes::base::meta::PassLevel;
-use crate::passes::base::meta::PassRepresentation;
+use crate::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::Loc;
+use common::loc::Loc;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::exprs::{BinOp, Expr};
 use scirs::sir::utils::visit::{self, Visit};
-use scirs::sir::{BinOpExpr, ContractDecl, DialectExpr, FunctionDecl};
-use std::any::TypeId;
+use scirs::sir::{BinOpExpr, ContractDecl, DialectExpr, FunctionDecl, Module};
 
-/// SIR structural detector for bad randomness.
-///
-/// Flags usage of on-chain attributes (blockhash, timestamp, block.number,
-/// block.difficulty, etc.) as sources of randomness.
+/// Scan detector for bad randomness.
 #[derive(Debug, Default)]
-pub struct BadRandomnessSirDetector;
+pub struct BadRandomnessDetector;
 
-impl BadRandomnessSirDetector {
+impl BadRandomnessDetector {
     pub fn new() -> Self {
         Self
     }
 }
 
-/// Returns the name of a randomness-source EVM expression, or `None` if
-/// the expression is not a known weak randomness source.
 fn randomness_source_name(evm: &EvmExpr) -> Option<&'static str> {
     match evm {
         EvmExpr::Blockhash(_) => Some("blockhash"),
@@ -46,7 +34,6 @@ fn randomness_source_name(evm: &EvmExpr) -> Option<&'static str> {
     }
 }
 
-/// Returns the location from a randomness-source EVM expression.
 fn randomness_source_loc(evm: &EvmExpr) -> Loc {
     match evm {
         EvmExpr::Blockhash(e) => e.loc.clone(),
@@ -59,7 +46,6 @@ fn randomness_source_loc(evm: &EvmExpr) -> Loc {
     }
 }
 
-/// Recursively check if an expression contains a weak randomness source.
 fn contains_randomness_source(expr: &Expr) -> bool {
     match expr {
         Expr::Dialect(DialectExpr::Evm(evm)) => randomness_source_name(evm).is_some(),
@@ -97,7 +83,6 @@ fn contains_randomness_source(expr: &Expr) -> bool {
     }
 }
 
-/// Collect all randomness source names from an expression tree.
 fn collect_randomness_sources(expr: &Expr, sources: &mut Vec<&'static str>) {
     match expr {
         Expr::Dialect(DialectExpr::Evm(evm)) => {
@@ -142,7 +127,11 @@ fn collect_randomness_sources(expr: &Expr, sources: &mut Vec<&'static str>) {
     }
 }
 
-impl Pass for BadRandomnessSirDetector {
+impl ScanDetector for BadRandomnessDetector {
+    fn id(&self) -> &'static str {
+        "bad-randomness"
+    }
+
     fn name(&self) -> &'static str {
         "Bad Randomness"
     }
@@ -151,68 +140,78 @@ impl Pass for BadRandomnessSirDetector {
         "Detects use of on-chain attributes as sources of randomness."
     }
 
-    fn level(&self) -> PassLevel {
-        PassLevel::Expression
+    fn bug_kind(&self) -> BugKind {
+        BugKind::Vulnerability
     }
 
-    fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
+    fn bug_category(&self) -> BugCategory {
+        BugCategory::BadRandomness
     }
 
-    fn dependencies(&self) -> Vec<TypeId> {
-        vec![]
-    }
-}
-
-impl BugDetectionPass for BadRandomnessSirDetector {
-    fn detector_id(&self) -> DetectorId {
-        DetectorId::BadRandomness
+    fn risk_level(&self) -> RiskLevel {
+        RiskLevel::High
     }
 
-    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
+    fn confidence(&self) -> Confidence {
+        Confidence::Medium
+    }
+
+    fn target(&self) -> Target {
+        Target::Evm
+    }
+
+    fn level(&self) -> DetectionLevel {
+        DetectionLevel::Function
+    }
+
+    fn cwe_ids(&self) -> Vec<usize> {
+        vec![330]
+    }
+
+    fn swc_ids(&self) -> Vec<usize> {
+        vec![120]
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Do not use on-chain data (blockhash, block.timestamp, block.number, \
+         block.difficulty) as a source of randomness. Use Chainlink VRF or \
+         a commit-reveal scheme instead."
+    }
+
+    fn references(&self) -> Vec<&'static str> {
+        vec![
+            "https://swcregistry.io/docs/SWC-120",
+            "https://docs.chain.link/vrf/v2/introduction",
+        ]
+    }
+
+    fn check_function(
+        &self,
+        func: &FunctionDecl,
+        contract: &ContractDecl,
+        _module: &Module,
+    ) -> Vec<Bug> {
         let mut bugs = Vec::new();
 
-        if !context.has_ir() {
-            return Ok(bugs);
-        }
-
         struct Visitor<'b> {
-            detector: &'b BadRandomnessSirDetector,
+            detector: &'b BadRandomnessDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
         }
 
         impl<'a, 'b> Visit<'a> for Visitor<'b> {
-            fn visit_contract_decl(&mut self, contract: &'a ContractDecl) {
-                self.contract_name = contract.name.clone();
-                visit::default::visit_contract_decl(self, contract);
-            }
-
-            fn visit_function_decl(&mut self, func: &'a FunctionDecl) {
-                self.func_name = func.name.clone();
-                visit::default::visit_function_decl(self, func);
-            }
-
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
-                // Pattern 1: Direct usage of weak randomness sources
-                // inside hash functions (detected by checking the parent
-                // context in visit_call_expr and visit_binop_expr below).
-                // Here we just flag any direct usage of blockhash as it is
-                // the most common bad-randomness source.
                 if let DialectExpr::Evm(evm) = d {
-                    if let Some(source_name) = randomness_source_name(evm) {
-                        // Only flag blockhash directly — other block
-                        // attributes are flagged when used in hash or
-                        // modulo context.
+                    if let Some(_source_name) = randomness_source_name(evm) {
                         if matches!(evm, EvmExpr::Blockhash(_)) {
                             self.bugs.push(Bug::new(
                                 self.detector.name(),
                                 Some(&format!(
-                                    "Weak randomness source: '{}' used in '{}.{}'. \
+                                    "Weak randomness source: 'blockhash' used in '{}.{}'. \
                                      blockhash is predictable and should not be used \
                                      for randomness.",
-                                    source_name, self.contract_name, self.func_name
+                                    self.contract_name, self.func_name
                                 )),
                                 randomness_source_loc(evm),
                                 self.detector.bug_kind(),
@@ -228,8 +227,6 @@ impl BugDetectionPass for BadRandomnessSirDetector {
             }
 
             fn visit_call_expr(&mut self, call: &'a scirs::sir::CallExpr) {
-                // Pattern 2: Randomness source used as argument to hash
-                // functions (keccak256, sha256).
                 if let Expr::Dialect(DialectExpr::Evm(
                     EvmExpr::Keccak256(_) | EvmExpr::Sha256(_),
                 )) = &*call.callee
@@ -261,7 +258,6 @@ impl BugDetectionPass for BadRandomnessSirDetector {
                     }
                 }
 
-                // Also check EVM hash dialect expressions directly
                 match &*call.callee {
                     Expr::Dialect(DialectExpr::Evm(EvmExpr::Keccak256(k))) => {
                         if contains_randomness_source(&k.expr) {
@@ -316,7 +312,6 @@ impl BugDetectionPass for BadRandomnessSirDetector {
             }
 
             fn visit_binop_expr(&mut self, expr: &'a BinOpExpr) {
-                // Pattern 3: Randomness source used as operand of modulo
                 if expr.op == BinOp::Mod && contains_randomness_source(&expr.lhs) {
                     let mut sources = Vec::new();
                     collect_randomness_sources(&expr.lhs, &mut sources);
@@ -338,7 +333,6 @@ impl BugDetectionPass for BadRandomnessSirDetector {
                         Some(self.detector.recommendation()),
                     ));
                 }
-
                 visit::default::visit_binop_expr(self, expr);
             }
         }
@@ -346,49 +340,12 @@ impl BugDetectionPass for BadRandomnessSirDetector {
         let mut visitor = Visitor {
             detector: self,
             bugs: &mut bugs,
-            contract_name: String::new(),
-            func_name: String::new(),
+            contract_name: contract.name.clone(),
+            func_name: func.name.clone(),
         };
-        visitor.visit_modules(context.ir_units());
+        visitor.visit_function_decl(func);
 
-        Ok(bugs)
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::BadRandomness
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> ConfidenceLevel {
-        ConfidenceLevel::Medium
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![330] // CWE-330: Use of Insufficiently Random Values
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![120] // SWC-120: Weak Sources of Randomness from Chain Attributes
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Do not use on-chain data (blockhash, block.timestamp, block.number, \
-         block.difficulty) as a source of randomness. Use Chainlink VRF or \
-         a commit-reveal scheme instead."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-120",
-            "https://docs.chain.link/vrf/v2/introduction",
-        ]
+        bugs
     }
 }
 
@@ -397,12 +354,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bad_randomness_sir_detector() {
-        let detector = BadRandomnessSirDetector::new();
-        assert_eq!(detector.detector_id(), DetectorId::BadRandomness);
-        assert_eq!(detector.swc_ids(), vec![120]);
-        assert_eq!(detector.cwe_ids(), vec![330]);
+    fn test_bad_randomness_detector() {
+        let detector = BadRandomnessDetector::new();
+        assert_eq!(detector.id(), "bad-randomness");
         assert_eq!(detector.risk_level(), RiskLevel::High);
-        assert_eq!(detector.bug_category(), BugCategory::BadRandomness);
     }
 }

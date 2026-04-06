@@ -1,26 +1,17 @@
-//! Dead Code Detector (SIR structural)
+//! Dead Code Detector
 //!
 //! Detects unreachable code by walking SIR function bodies.
-//!
-//! This detector finds:
-//! - Statements after return/revert (unreachable code)
 
-use crate::context::AnalysisContext;
-use crate::detectors::base::id::DetectorId;
-use crate::detectors::{BugDetectionPass, ConfidenceLevel, DetectorResult};
-use crate::passes::base::Pass;
-use crate::passes::base::meta::PassLevel;
-use crate::passes::base::meta::PassRepresentation;
+use crate::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::Loc;
-use scirs::sir::{Decl, MemberDecl, Stmt};
-use std::any::TypeId;
+use common::loc::Loc;
+use scirs::sir::{ContractDecl, MemberDecl, Module, Stmt};
 
-/// SIR structural detector for dead code (unreachable statements).
+/// Scan detector for dead code (unreachable statements).
 #[derive(Debug, Default)]
-pub struct DeadCodeSirDetector;
+pub struct DeadCodeDetector;
 
-impl DeadCodeSirDetector {
+impl DeadCodeDetector {
     pub fn new() -> Self {
         Self
     }
@@ -97,55 +88,17 @@ impl DeadCodeSirDetector {
     }
 }
 
-impl Pass for DeadCodeSirDetector {
+impl ScanDetector for DeadCodeDetector {
+    fn id(&self) -> &'static str {
+        "dead-code"
+    }
+
     fn name(&self) -> &'static str {
         "Dead Code"
     }
 
     fn description(&self) -> &'static str {
         "Detects unreachable code after return/revert using SIR tree walking"
-    }
-
-    fn level(&self) -> PassLevel {
-        PassLevel::Program
-    }
-
-    fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
-    }
-
-    fn dependencies(&self) -> Vec<TypeId> {
-        vec![]
-    }
-}
-
-impl BugDetectionPass for DeadCodeSirDetector {
-    fn detector_id(&self) -> DetectorId {
-        DetectorId::DeadCode
-    }
-
-    fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        let mut bugs = Vec::new();
-
-        if !context.has_ir() {
-            return Ok(bugs);
-        }
-
-        for module in context.ir_units() {
-            for decl in &module.decls {
-                if let Decl::Contract(contract) = decl {
-                    for member in &contract.members {
-                        if let MemberDecl::Function(func) = member {
-                            if let Some(body) = &func.body {
-                                self.check_stmts(body, &contract.name, &func.name, &mut bugs);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(bugs)
     }
 
     fn bug_kind(&self) -> BugKind {
@@ -160,16 +113,20 @@ impl BugDetectionPass for DeadCodeSirDetector {
         RiskLevel::Low
     }
 
-    fn confidence(&self) -> ConfidenceLevel {
-        ConfidenceLevel::High
+    fn confidence(&self) -> Confidence {
+        Confidence::High
+    }
+
+    fn target(&self) -> Target {
+        Target::Evm
+    }
+
+    fn level(&self) -> DetectionLevel {
+        DetectionLevel::Contract
     }
 
     fn cwe_ids(&self) -> Vec<usize> {
-        vec![561] // CWE-561: Dead Code
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![]
+        vec![561]
     }
 
     fn recommendation(&self) -> &'static str {
@@ -180,6 +137,20 @@ impl BugDetectionPass for DeadCodeSirDetector {
     fn references(&self) -> Vec<&'static str> {
         vec!["https://cwe.mitre.org/data/definitions/561.html"]
     }
+
+    fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
+        let mut bugs = Vec::new();
+
+        for member in &contract.members {
+            if let MemberDecl::Function(func) = member {
+                if let Some(body) = &func.body {
+                    self.check_stmts(body, &contract.name, &func.name, &mut bugs);
+                }
+            }
+        }
+
+        bugs
+    }
 }
 
 #[cfg(test)]
@@ -188,8 +159,8 @@ mod tests {
 
     #[test]
     fn test_dead_code_detector() {
-        let detector = DeadCodeSirDetector::new();
-        assert_eq!(detector.detector_id(), DetectorId::DeadCode);
+        let detector = DeadCodeDetector::new();
+        assert_eq!(detector.id(), "dead-code");
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }
