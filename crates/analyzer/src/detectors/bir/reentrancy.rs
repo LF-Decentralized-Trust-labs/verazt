@@ -24,8 +24,9 @@ use crate::passes::bir::{FunctionEffects, FunctionEffectsArtifact, FunctionEffec
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::bir::cfg::{BlockId, Function, FunctionId};
-use scirs::bir::ops::{CallTarget, Op, OpKind, Resource};
+use scirs::bir::ops::{CallTarget, Op, OpId, OpKind, OpRef, Resource};
 use scirs::sir::attrs::{evm_attrs, sir_attrs};
+use scirs::sir::{Lit, Num, NumLit};
 use std::any::TypeId;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -52,9 +53,20 @@ struct OpPos {
 
 /// Ops of one function, addressable by block index.
 struct FunctionView<'f> {
+    /// The op defining each SSA value.
+    defs: HashMap<OpId, &'f Op>,
     func: &'f Function,
     /// Block index of each block ID.
     index: HashMap<BlockId, usize>,
+}
+
+/// An access to contract state: a location such as `@balances` and the
+/// keys it is indexed by.
+struct StateAccess {
+    /// Each key's integer value when it is a constant (e.g. `balances[2]`),
+    /// `None` otherwise. Empty when the keys are unknown altogether.
+    keys: Vec<Option<String>>,
+    location: String,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -164,12 +176,15 @@ impl ReentrancyFlowDetector {
             if has_mutex_guard(&view, &before, &after) {
                 continue;
             }
-            let written: BTreeSet<String> =
-                after.iter().flat_map(|pos| facts.state_written_by(view.op(*pos))).collect();
-            let read: BTreeSet<String> =
-                before.iter().filter_map(|pos| state_read_by(view.op(*pos))).collect();
-            let stale: BTreeSet<&String> =
-                written.iter().filter(|w| read.iter().any(|r| overlaps(w, r))).collect();
+            let written: Vec<StateAccess> =
+                after.iter().flat_map(|pos| facts.state_written_by(&view, view.op(*pos))).collect();
+            let read: Vec<StateAccess> =
+                before.iter().filter_map(|pos| state_read_by(&view, view.op(*pos))).collect();
+            let stale: BTreeSet<&str> = written
+                .iter()
+                .filter(|w| read.iter().any(|r| w.may_alias(r)))
+                .map(|w| w.location.as_str())
+                .collect();
             if stale.is_empty() {
                 continue;
             }
@@ -190,13 +205,25 @@ impl ReentrancyFlowDetector {
     }
 }
 
-fn describe(func: &Function, stale: &BTreeSet<&String>) -> String {
-    let names = stale.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(", ");
+fn describe(func: &Function, stale: &BTreeSet<&str>) -> String {
+    let names = stale.iter().copied().collect::<Vec<_>>().join(", ");
     format!(
         "Potential reentrancy in '{}': state ({names}) is read before an external call \
          that may re-enter, and written after it.",
         func.id.0
     )
+}
+
+impl StateAccess {
+    /// Returns `true` if the two accesses may touch the same state: their
+    /// locations overlap and no key position holds two different constants.
+    fn may_alias(&self, other: &StateAccess) -> bool {
+        let keys_may_match = self.keys.iter().zip(&other.keys).all(|keys| match keys {
+            (Some(a), Some(b)) => a == b,
+            _ => true,
+        });
+        overlaps(&self.location, &other.location) && keys_may_match
+    }
 }
 
 /// Returns `true` if two state locations may overlap: they are equal, or
@@ -208,10 +235,10 @@ fn overlaps(a: &str, b: &str) -> bool {
     a == b || inside(a, b) || inside(b, a)
 }
 
-/// The contract state location read by `op`, if any.
-fn state_read_by(op: &Op) -> Option<String> {
+/// The contract state read by `op`, if any.
+fn state_read_by(view: &FunctionView, op: &Op) -> Option<StateAccess> {
     let access = op.kind.storage_access()?;
-    (!access.is_write).then(|| access.resource.to_string())
+    (!access.is_write).then(|| view.state_access(&access.resource, &access.keys))
 }
 
 /// Returns `true` if the function carries a reentrancy-guard attribute.
@@ -227,7 +254,7 @@ fn has_guard_attr(func: &Function) -> bool {
 /// constant again after it (e.g. an inlined `nonReentrant` modifier).
 fn has_mutex_guard(view: &FunctionView, before: &[OpPos], after: &[OpPos]) -> bool {
     let set_to_const = |positions: &[OpPos]| -> HashSet<String> {
-        positions.iter().filter_map(|pos| constant_store(view.func, view.op(*pos))).collect()
+        positions.iter().filter_map(|pos| constant_store(view, view.op(*pos))).collect()
     };
     let set_before = set_to_const(before);
     let set_after = set_to_const(after);
@@ -239,14 +266,13 @@ fn has_mutex_guard(view: &FunctionView, before: &[OpPos], after: &[OpPos]) -> bo
 /// The plain (unindexed) state variable that `op` sets to a constant, as
 /// its resource name (e.g. `@locked`), if any. Mutex flags are scalars;
 /// indexed entries such as `balances[a] = 0` are data, not locks.
-fn constant_store(func: &Function, op: &Op) -> Option<String> {
+fn constant_store(view: &FunctionView, op: &Op) -> Option<String> {
     let OpKind::Store(store) = &op.kind else { return None };
     if !matches!(store.resource, Resource::StateVar(_)) || !store.keys.is_empty() {
         return None;
     }
     let value = store.value?;
-    let defining = func.blocks.iter().flat_map(|b| &b.ops).find(|o| o.id == value.0)?;
-    matches!(defining.kind, OpKind::Const(_)).then(|| store.resource.to_string())
+    view.constant(value).map(|_| store.resource.to_string())
 }
 
 /// Returns `true` if `op` reads the state resource named `resource` (e.g.
@@ -271,20 +297,27 @@ impl ModuleFacts<'_> {
         }
     }
 
-    /// The state locations written by `op`, directly or through an internal
-    /// call.
-    fn state_written_by(&self, op: &Op) -> BTreeSet<String> {
+    /// The contract state written by `op`, directly or through an internal
+    /// call (whose keys are unknown here).
+    fn state_written_by(&self, view: &FunctionView, op: &Op) -> Vec<StateAccess> {
         if let Some(access) = op.kind.storage_access() {
-            return access.is_write.then(|| access.resource.to_string()).into_iter().collect();
+            return access
+                .is_write
+                .then(|| view.state_access(&access.resource, &access.keys))
+                .into_iter()
+                .collect();
         }
         match &op.kind {
             OpKind::Call(call) => match &call.target {
-                CallTarget::Internal(callee) => {
-                    self.effects_of(callee).map(|e| e.writes.clone()).unwrap_or_default()
-                }
-                CallTarget::External(_) => BTreeSet::new(),
+                CallTarget::Internal(callee) => self
+                    .effects_of(callee)
+                    .into_iter()
+                    .flat_map(|e| &e.writes)
+                    .map(|location| StateAccess { location: location.clone(), keys: vec![] })
+                    .collect(),
+                CallTarget::External(_) => vec![],
             },
-            _ => BTreeSet::new(),
+            _ => vec![],
         }
     }
 
@@ -300,7 +333,26 @@ impl ModuleFacts<'_> {
 impl<'f> FunctionView<'f> {
     fn new(func: &'f Function) -> Self {
         let index = func.blocks.iter().enumerate().map(|(i, b)| (b.id, i)).collect();
-        FunctionView { func, index }
+        let defs = func.blocks.iter().flat_map(|b| &b.ops).map(|op| (op.id, op)).collect();
+        FunctionView { defs, func, index }
+    }
+
+    /// The literal `value` is defined as, if it is a constant.
+    fn constant(&self, value: OpRef) -> Option<&'f Lit> {
+        match &self.defs.get(&value.0)?.kind {
+            OpKind::Const(lit) => Some(lit),
+            _ => None,
+        }
+    }
+
+    /// The access to `resource` indexed by `keys`, with constant integer keys
+    /// resolved.
+    fn state_access(&self, resource: &Resource, keys: &[OpRef]) -> StateAccess {
+        let int_key = |key: &OpRef| match self.constant(*key)? {
+            Lit::Num(NumLit { value: Num::Int(n), .. }) => Some(n.value.to_string()),
+            _ => None,
+        };
+        StateAccess { keys: keys.iter().map(int_key).collect(), location: resource.to_string() }
     }
 
     fn op(&self, pos: OpPos) -> &'f Op {
@@ -384,10 +436,11 @@ mod tests {
     use crate::passes::base::AnalysisPass;
     use scirs::sir::attrs::sir_attrs;
     use scirs::sir::evm::{EvmExpr, EvmLowLevelCall, EvmMsgSender, EvmTransfer};
+    use num_traits::Zero;
     use scirs::sir::{
         AssignStmt, Attr, AttrValue, BoolLit, CallArgs, CallExpr, ContractDecl, Decl, DialectExpr,
-        Expr, ExprStmt, FunctionDecl, IfStmt, IndexAccessExpr, Lit, MemberDecl, Param, RevertStmt,
-        StorageDecl, Stmt, StringLit, Type, VarExpr, WhileStmt,
+        Expr, ExprStmt, FunctionDecl, IfStmt, IndexAccessExpr, IntNum, Lit, MemberDecl, Num,
+        NumLit, Param, RevertStmt, StorageDecl, Stmt, StringLit, Type, VarExpr, WhileStmt,
     };
 
     fn var(name: &str) -> Expr {
@@ -428,24 +481,38 @@ mod tests {
 
     /// `balances[msg.sender] = false`
     fn write_balance() -> Stmt {
-        let lhs = Expr::IndexAccess(IndexAccessExpr {
-            base: Box::new(var("balances")),
-            index: Some(Box::new(sender())),
-            ty: Type::I256,
-            span: None,
-        });
-        Stmt::Assign(AssignStmt { lhs, rhs: lit(false), span: None })
+        write_balance_at(sender())
     }
 
     /// `if (balances[msg.sender]) {}`: reads the balance before the call.
     fn read_balance() -> Stmt {
-        let balance = Expr::IndexAccess(IndexAccessExpr {
+        read_balance_at(sender())
+    }
+
+    /// `balances[key]`
+    fn balance_at(key: Expr) -> Expr {
+        Expr::IndexAccess(IndexAccessExpr {
             base: Box::new(var("balances")),
-            index: Some(Box::new(sender())),
+            index: Some(Box::new(key)),
             ty: Type::I256,
             span: None,
-        });
-        Stmt::If(IfStmt { cond: balance, then_body: vec![], else_body: None, span: None })
+        })
+    }
+
+    /// `balances[key] = false`
+    fn write_balance_at(key: Expr) -> Stmt {
+        Stmt::Assign(AssignStmt { lhs: balance_at(key), rhs: lit(false), span: None })
+    }
+
+    /// `if (balances[key]) {}`
+    fn read_balance_at(key: Expr) -> Stmt {
+        Stmt::If(IfStmt { cond: balance_at(key), then_body: vec![], else_body: None, span: None })
+    }
+
+    /// The integer literal `0` or `1`.
+    fn int(one: bool) -> Expr {
+        let value = if one { IntNum::one() } else { IntNum::new(Zero::zero(), Type::I256) };
+        Expr::Lit(Lit::Num(NumLit::new(Num::Int(value), None)))
     }
 
     fn set_locked(value: bool) -> Stmt {
@@ -555,6 +622,21 @@ mod tests {
         ];
         let bugs = detect(vec![function("withdraw", true, body)]);
         assert!(bugs.is_empty());
+    }
+
+    #[test]
+    fn test_ignores_disjoint_constant_keys() {
+        // balances[0] is read before the call; only balances[1] is written.
+        let body = vec![read_balance_at(int(false)), call_out(), write_balance_at(int(true))];
+        let bugs = detect(vec![function("withdraw", true, body)]);
+        assert!(bugs.is_empty());
+    }
+
+    #[test]
+    fn test_flags_same_constant_key() {
+        let body = vec![read_balance_at(int(true)), call_out(), write_balance_at(int(true))];
+        let bugs = detect(vec![function("withdraw", true, body)]);
+        assert_eq!(bugs.len(), 1);
     }
 
     #[test]
