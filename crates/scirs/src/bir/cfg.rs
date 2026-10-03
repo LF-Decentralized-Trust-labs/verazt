@@ -214,20 +214,34 @@ impl Display for Terminator {
 /// An ICFG node type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ICFGNode {
-    /// Entry point for a transaction / public function.
+    /// Entry of a function (a transaction entry when it is public).
     TxnEntry { func: FunctionId },
-    /// Exit point for a transaction (normal or reverted).
+    /// Exit of a function (normal or reverted).
     TxnExit { func: FunctionId, reverted: bool },
-    /// A call site (implements CallOp).
-    CallSite { op: OpId },
-    /// A return site after a call.
-    ReturnSite { op: OpId },
-    /// An external call node (reentrancy risk).
-    ExternalCallNode { op: OpId },
-    /// A re-entry point for reentrancy analysis.
-    ReentryPoint { func: FunctionId },
-    /// A regular statement node.
-    StmtNode { op: OpId },
+    /// The start of a basic block.
+    BlockEntry(BlockLoc),
+    /// An internal call; control continues in the callee.
+    CallSite(OpLoc),
+    /// The point where control resumes after a call.
+    ReturnSite(OpLoc),
+    /// An external call; may re-enter the contract's public functions.
+    ExternalCallNode(OpLoc),
+    /// Any other op.
+    StmtNode(OpLoc),
+}
+
+/// A basic block, qualified by its function.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BlockLoc {
+    pub func: FunctionId,
+    pub block: BlockId,
+}
+
+/// An op, qualified by its function (`OpId`s are unique per function).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OpLoc {
+    pub func: FunctionId,
+    pub op: OpId,
 }
 
 /// Edge kind in the ICFG.
@@ -239,7 +253,7 @@ pub enum EdgeKind {
     CallEdge,
     /// Return edge from callee exit to return site.
     ReturnEdge,
-    /// Re-entry edge from external call to re-entry point.
+    /// Re-entry edge from an external call to a public function's entry.
     ReentryEdge,
 }
 

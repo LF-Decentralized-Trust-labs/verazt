@@ -46,6 +46,13 @@ pub struct ContractScope {
     pub storage_vars: HashSet<String>,
 }
 
+/// Where `break` and `continue` jump inside a loop.
+#[derive(Clone, Copy)]
+struct LoopTargets {
+    break_to: BlockId,
+    continue_to: BlockId,
+}
+
 /// State for the CFG builder.
 struct CfgBuilder<'s> {
     blocks: Vec<BasicBlock>,
@@ -53,6 +60,8 @@ struct CfgBuilder<'s> {
     current_defs: HashMap<BlockId, HashMap<String, OpRef>>,
     /// Parameters and local variables; they shadow state variables.
     locals: HashSet<String>,
+    /// Enclosing loops, innermost last.
+    loops: Vec<LoopTargets>,
     next_block_id: usize,
     next_op_id: usize,
     /// Block parameters awaiting incoming arguments: (block, variable, index).
@@ -73,6 +82,7 @@ impl<'s> CfgBuilder<'s> {
             blocks: Vec::new(),
             current_defs: HashMap::new(),
             locals: HashSet::new(),
+            loops: Vec::new(),
             next_block_id: 0,
             next_op_id: 0,
             pending_params: Vec::new(),
@@ -533,8 +543,9 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
                 Terminator::branch(cond_ref, body_block, after_block),
             );
 
-            // Body
-            let body_exit = flatten_stmts(builder, &while_stmt.body, body_block);
+            // Body: `continue` re-evaluates the condition
+            let targets = LoopTargets { break_to: after_block, continue_to: header };
+            let body_exit = flatten_loop_body(builder, &while_stmt.body, body_block, targets);
             if builder.block_mut(body_exit).term == Terminator::Unreachable {
                 builder.set_terminator(body_exit, Terminator::jump(header));
             }
@@ -564,12 +575,17 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
                 builder.set_terminator(header, Terminator::jump(body_block));
             }
 
-            // Body + update
-            let body_exit = flatten_stmts(builder, &for_stmt.body, body_block);
-            let update_exit = if let Some(update) = &for_stmt.update {
-                flatten_stmt(builder, update, body_exit)
-            } else {
-                body_exit
+            // Body, then the update in a separate latch block that
+            // `continue` also jumps to
+            let latch = builder.new_block();
+            let targets = LoopTargets { break_to: after_block, continue_to: latch };
+            let body_exit = flatten_loop_body(builder, &for_stmt.body, body_block, targets);
+            if builder.block_mut(body_exit).term == Terminator::Unreachable {
+                builder.set_terminator(body_exit, Terminator::jump(latch));
+            }
+            let update_exit = match &for_stmt.update {
+                Some(update) => flatten_stmt(builder, update, latch),
+                None => latch,
             };
             if builder.block_mut(update_exit).term == Terminator::Unreachable {
                 builder.set_terminator(update_exit, Terminator::jump(header));
@@ -603,16 +619,43 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             current
         }
 
-        Stmt::Break | Stmt::Continue => {
-            // Break/continue are handled as jumps to loop exit/header.
-            // For simplicity, they are treated as opaque stmts.
-            current
+        Stmt::Break => {
+            let target = builder.loops.last().map(|targets| targets.break_to);
+            flatten_loop_exit(builder, current, target)
+        }
+
+        Stmt::Continue => {
+            let target = builder.loops.last().map(|targets| targets.continue_to);
+            flatten_loop_exit(builder, current, target)
         }
 
         Stmt::Block(stmts) => flatten_stmts(builder, stmts, current),
 
         Stmt::Dialect(dialect_stmt) => flatten_dialect_stmt(builder, dialect_stmt, current),
     }
+}
+
+/// Flatten a loop body with `targets` as the destinations of `break` and
+/// `continue`, returning the body's exit block.
+fn flatten_loop_body(
+    builder: &mut CfgBuilder,
+    body: &[Stmt],
+    entry: BlockId,
+    targets: LoopTargets,
+) -> BlockId {
+    builder.loops.push(targets);
+    let exit = flatten_stmts(builder, body, entry);
+    builder.loops.pop();
+    exit
+}
+
+/// Jump from `current` to the loop exit or continuation `target`. Outside a
+/// loop (malformed input) the statement has no effect.
+fn flatten_loop_exit(builder: &mut CfgBuilder, current: BlockId, target: Option<BlockId>) -> BlockId {
+    let Some(target) = target else { return current };
+    builder.set_terminator(current, Terminator::jump(target));
+    // Statements after the jump are unreachable
+    builder.new_block()
 }
 
 /// Flatten a dialect statement, returning the block to continue from.
@@ -1166,8 +1209,8 @@ mod tests {
     use crate::cir::lower::ssa;
     use crate::sir::evm::{EvmLowLevelCall, EvmMsgSender};
     use crate::sir::{
-        AssignStmt, BinOp, BinOpExpr, ExprStmt, IfStmt, IndexAccessExpr, OverflowSemantics,
-        ReturnStmt, StringLit, VarExpr, WhileStmt,
+        AssignStmt, BinOp, BinOpExpr, ExprStmt, ForStmt, IfStmt, IndexAccessExpr,
+        OverflowSemantics, ReturnStmt, StringLit, VarExpr, WhileStmt,
     };
 
     fn var(name: &str) -> Expr {
@@ -1362,6 +1405,44 @@ mod tests {
         };
         assert_eq!(*lhs, x_param);
         assert!(matches!(find_op(&blocks, *rhs).kind, OpKind::Param { index: 0 }));
+    }
+
+    #[test]
+    fn test_break_and_continue_jump_to_loop_exit_and_latch() {
+        // for (i = false; i < n; i = i + true) { if (c) continue; if (d) break; }
+        let jump_if = |cond: &str, stmt: Stmt| {
+            Stmt::If(IfStmt { cond: var(cond), then_body: vec![stmt], else_body: None, span: None })
+        };
+        let body = vec![Stmt::For(ForStmt {
+            init: Some(Box::new(assign("i", lit(false)))),
+            cond: Some(binop(BinOp::Lt, var("i"), var("n"))),
+            update: Some(Box::new(assign("i", binop(BinOp::Add, var("i"), lit(true))))),
+            body: vec![jump_if("c", Stmt::Continue), jump_if("d", Stmt::Break)],
+            invariant: None,
+            span: None,
+        })];
+        let blocks = build_cfg(&body, &params(&["n", "c", "d"]), &scope_with_state(&[]));
+        let transfers_into = |target: BlockId| {
+            blocks.iter().flat_map(|b| b.term.successors()).filter(|s| *s == target).count()
+        };
+
+        // The loop exit is reached when the condition fails and on `break`.
+        let header = blocks
+            .iter()
+            .find(|b| matches!(&b.term, Terminator::Branch { cond, .. }
+                if matches!(find_op(&blocks, *cond).kind, OpKind::BinOp { op: BinOp::Lt, .. })))
+            .unwrap();
+        let Terminator::Branch { else_dest, .. } = &header.term else { unreachable!() };
+        assert_eq!(transfers_into(else_dest.block), 2);
+
+        // The latch runs the update; it is reached on `continue` and at the
+        // end of the body, and loops back to the header.
+        let latch = blocks
+            .iter()
+            .find(|b| b.ops.iter().any(|op| matches!(op.kind, OpKind::BinOp { op: BinOp::Add, .. })))
+            .unwrap();
+        assert_eq!(transfers_into(latch.id), 2);
+        assert_eq!(latch.term.successors(), vec![header.id]);
     }
 
     #[test]
