@@ -3,6 +3,7 @@
 use crate::solidity::ast::yul as yast;
 use crate::solidity::ast::{DataLoc, Loc, Name};
 use crate::solidity::parsing::yul_parser;
+use crate::solidity::ast::utils::Visit;
 use crate::solidity::{ast::*, parsing::type_parser::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
@@ -47,6 +48,12 @@ pub struct JsonAst {
     pub json_data: String, // JSON content
     pub file_name: Option<String>,
     pub base_path: Option<String>, // Base path that is used to look for source tree.
+}
+
+/// Records whether a placeholder `_` occurs anywhere in the visited code.
+#[derive(Default)]
+struct PlaceholderFinder {
+    found: bool,
 }
 
 //------------------------------------------------------------------
@@ -657,10 +664,12 @@ impl AstParser {
             .filter(|v| !v.is_null())
             .and_then(|v| self.parse_block(v, false).ok());
         // For modifiers, ensure the body always contains a placeholder `_`
-        // statement. Old Solidity ASTs may have null/empty body blocks.
+        // statement, possibly nested (e.g. `if (c) _;`). Old Solidity ASTs
+        // may have null/empty body blocks.
         let body = body.map(|mut blk| {
-            let has_placeholder = blk.body.iter().any(|s| matches!(s, Stmt::Placeholder(_)));
-            if !has_placeholder {
+            let mut finder = PlaceholderFinder::default();
+            finder.visit_block(&blk);
+            if !finder.found {
                 blk.body.push(PlaceholderStmt::new(None, None).into());
             }
             blk
@@ -2390,5 +2399,15 @@ impl AstParser {
             }
             _ => Ok(yast::YulType::Unkn),
         }
+    }
+}
+
+//------------------------------------------------------------------
+// Placeholder search
+//------------------------------------------------------------------
+
+impl Visit<'_> for PlaceholderFinder {
+    fn visit_place_holder_stmt(&mut self, _stmt: &PlaceholderStmt) {
+        self.found = true;
     }
 }
