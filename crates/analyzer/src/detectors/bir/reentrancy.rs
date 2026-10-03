@@ -177,7 +177,7 @@ impl ReentrancyFlowDetector {
             bugs.push(Bug::new(
                 self.name(),
                 Some(&description),
-                view.loc_of(site),
+                view.report_loc_of(site),
                 self.bug_kind(),
                 self.bug_category(),
                 self.risk_level(),
@@ -350,6 +350,27 @@ impl<'f> FunctionView<'f> {
             .or_else(|| ops[..pos.op].iter().rev().find_map(located))
             .unwrap_or_default()
     }
+
+    /// The location to report for the op at `pos`: its own, unless it lies
+    /// outside the function (code inlined from a modifier), in which case
+    /// the function that applies the modifier is reported.
+    fn report_loc_of(&self, pos: OpPos) -> Loc {
+        let loc = self.loc_of(pos);
+        match &self.func.span {
+            Some(span) if !is_within(&loc, span) => span.clone(),
+            _ => loc,
+        }
+    }
+}
+
+/// Returns `true` if `inner` lies within the lines of `outer` (and in the
+/// same file, when both files are known).
+fn is_within(inner: &Loc, outer: &Loc) -> bool {
+    let same_file = match (&inner.file, &outer.file) {
+        (Some(a), Some(b)) => a == b,
+        _ => true,
+    };
+    same_file && outer.start_line <= inner.start_line && inner.end_line <= outer.end_line
 }
 
 // ========================================================================
@@ -534,5 +555,16 @@ mod tests {
         ];
         let bugs = detect(vec![function("withdraw", true, body)]);
         assert!(bugs.is_empty());
+    }
+
+    #[test]
+    fn test_is_within_rejects_lines_outside_function() {
+        // A function on lines 15-17; its modifier's code sits on line 21.
+        let function = Loc::new(15, 3, 17, 4);
+        assert!(is_within(&Loc::new(16, 5, 16, 30), &function));
+        assert!(!is_within(&Loc::new(21, 5, 21, 80), &function));
+        let elsewhere = Loc::new(16, 5, 16, 30).with_file("Base.sol".to_string());
+        let function = function.with_file("Main.sol".to_string());
+        assert!(!is_within(&elsewhere, &function));
     }
 }
