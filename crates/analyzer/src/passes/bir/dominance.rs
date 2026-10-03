@@ -1,13 +1,14 @@
 //! Dominance Analysis Pass
 //!
 //! Computes the dominator tree for each BIR function using the existing
-//! `DomTree` infrastructure in `frameworks::cfa::domtree`.  The result
-//! is stored as a typed artifact mapping function name → `DomTree`.
+//! `DomTree` infrastructure in `frameworks::cfa::domtree`, keyed by module
+//! and function.
 
 use crate::context::{AnalysisContext, ContextKey};
 use crate::frameworks::cfa::domtree::DomTree;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
+use scirs::bir::cfg::FunctionId;
 use std::any::TypeId;
 use std::collections::HashMap;
 
@@ -17,11 +18,11 @@ use std::collections::HashMap;
 
 /// Artifact key for dominance analysis.
 ///
-/// Maps function name → `DomTree`.
+/// Maps BIR module id → function → `DomTree`.
 pub struct DominanceArtifact;
 
 impl ContextKey for DominanceArtifact {
-    type Value = HashMap<String, DomTree>;
+    type Value = HashMap<String, HashMap<FunctionId, DomTree>>;
     const NAME: &'static str = "dominance";
 }
 
@@ -56,15 +57,18 @@ impl Pass for DominancePass {
 
 impl AnalysisPass for DominancePass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let mut result: HashMap<String, DomTree> = HashMap::new();
-
-        for module in ctx.bir_units() {
-            for func in &module.functions {
-                if let Some(dom) = DomTree::build(func) {
-                    result.insert(func.id.0.clone(), dom);
-                }
-            }
-        }
+        let result = ctx
+            .bir_units()
+            .iter()
+            .map(|module| {
+                let doms = module
+                    .functions
+                    .iter()
+                    .filter_map(|func| Some((func.id.clone(), DomTree::build(func)?)))
+                    .collect();
+                (module.source_module_id.clone(), doms)
+            })
+            .collect();
 
         ctx.store::<DominanceArtifact>(result);
         ctx.mark_pass_completed(self.id());
@@ -110,7 +114,7 @@ mod tests {
         pass.run(&mut ctx).unwrap();
 
         let doms = ctx.get::<DominanceArtifact>().unwrap();
-        let dom = doms.get("test").unwrap();
+        let dom = &doms["test"][&FunctionId("test".into())];
 
         assert!(dom.dominates(BlockId(0), BlockId(1)));
         assert!(dom.dominates(BlockId(0), BlockId(3)));

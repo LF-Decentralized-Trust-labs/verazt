@@ -11,7 +11,7 @@ use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
 use crate::pass_manager::manager::{PassManager, PassManagerConfig};
 use crate::passes::base::AnalysisPass;
-use crate::passes::bir::{FunctionEffectsPass, TaintPropagationPass};
+use crate::passes::bir::{DominancePass, FunctionEffectsPass, TaintPropagationPass};
 use bugs::bug::Bug;
 use std::any::TypeId;
 use std::collections::HashSet;
@@ -375,7 +375,9 @@ fn run_single_detector(
 ///
 /// This factory function maps TypeIds to their concrete implementations.
 fn create_analysis_pass(pass_id: TypeId) -> Option<Box<dyn AnalysisPass>> {
-    if pass_id == TypeId::of::<FunctionEffectsPass>() {
+    if pass_id == TypeId::of::<DominancePass>() {
+        Some(Box::new(DominancePass))
+    } else if pass_id == TypeId::of::<FunctionEffectsPass>() {
         Some(Box::new(FunctionEffectsPass))
     } else if pass_id == TypeId::of::<TaintPropagationPass>() {
         Some(Box::new(TaintPropagationPass))

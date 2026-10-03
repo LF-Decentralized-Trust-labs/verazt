@@ -17,10 +17,13 @@ use crate::context::AnalysisContext;
 use crate::detectors::base::id::DetectorId;
 use crate::detectors::base::traits::{ConfidenceLevel, DetectorError, DetectorResult};
 use crate::detectors::BugDetectionPass;
+use crate::frameworks::cfa::domtree::DomTree;
 use crate::frameworks::cfa::reachability::ReachabilitySet;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::Pass;
-use crate::passes::bir::{FunctionEffects, FunctionEffectsArtifact, FunctionEffectsPass};
+use crate::passes::bir::{
+    DominanceArtifact, DominancePass, FunctionEffects, FunctionEffectsArtifact, FunctionEffectsPass,
+};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::bir::cfg::{BlockId, Function, FunctionId};
@@ -28,7 +31,7 @@ use scirs::bir::ops::{CallTarget, Op, OpId, OpKind, OpRef, Resource};
 use scirs::sir::attrs::{evm_attrs, sir_attrs};
 use scirs::sir::{Lit, Num, NumLit};
 use std::any::TypeId;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 // ═══════════════════════════════════════════════════════════════════
 // Data Structures
@@ -40,6 +43,8 @@ pub struct ReentrancyFlowDetector;
 
 /// Interprocedural facts about the functions of one module.
 struct ModuleFacts<'a> {
+    /// Dominator tree of each function, from `DominancePass`.
+    doms: &'a HashMap<FunctionId, DomTree>,
     /// Transitive effects of each function, from `FunctionEffectsPass`.
     effects: &'a HashMap<FunctionId, FunctionEffects>,
 }
@@ -92,7 +97,7 @@ impl Pass for ReentrancyFlowDetector {
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
-        vec![TypeId::of::<FunctionEffectsPass>()]
+        vec![TypeId::of::<DominancePass>(), TypeId::of::<FunctionEffectsPass>()]
     }
 }
 
@@ -105,10 +110,16 @@ impl BugDetectionPass for ReentrancyFlowDetector {
         let all_effects = context
             .get::<FunctionEffectsArtifact>()
             .ok_or_else(|| DetectorError::MissingAnalysis(FunctionEffectsPass.name().into()))?;
+        let all_doms = context
+            .get::<DominanceArtifact>()
+            .ok_or_else(|| DetectorError::MissingAnalysis(DominancePass.name().into()))?;
         let mut bugs = Vec::new();
         for module in context.bir_units() {
-            let Some(effects) = all_effects.get(&module.source_module_id) else { continue };
-            let facts = ModuleFacts { effects };
+            let id = &module.source_module_id;
+            let (Some(effects), Some(doms)) = (all_effects.get(id), all_doms.get(id)) else {
+                continue;
+            };
+            let facts = ModuleFacts { doms, effects };
             for func in module.functions.iter().filter(|f| f.is_public && !has_guard_attr(f)) {
                 bugs.extend(self.check_function(func, &facts));
             }
@@ -169,11 +180,12 @@ impl ReentrancyFlowDetector {
     /// written.
     fn check_function(&self, func: &Function, facts: &ModuleFacts) -> Vec<Bug> {
         let view = FunctionView::new(func);
+        let dom = facts.doms.get(&func.id);
         let mut bugs = Vec::new();
         for site in view.positions().filter(|pos| facts.is_reentrant_call(view.op(*pos))) {
             let before = view.positions_before(site);
             let after = view.positions_after(site);
-            if has_mutex_guard(&view, &before, &after) {
+            if dom.is_some_and(|dom| has_mutex_guard(&view, dom, site, &before, &after)) {
                 continue;
             }
             let written: Vec<StateAccess> =
@@ -249,30 +261,36 @@ fn has_guard_attr(func: &Function) -> bool {
     })
 }
 
-/// Returns `true` if the call site is protected by an inlined mutex: some
-/// state flag is read and set to a constant before the call, and set to a
-/// constant again after it (e.g. an inlined `nonReentrant` modifier).
-fn has_mutex_guard(view: &FunctionView, before: &[OpPos], after: &[OpPos]) -> bool {
-    let set_to_const = |positions: &[OpPos]| -> HashSet<String> {
-        positions.iter().filter_map(|pos| constant_store(view, view.op(*pos))).collect()
+/// Returns `true` if the call site is protected by an inlined mutex: a state
+/// flag that is read before the call, set on every path to it, and set again
+/// by another store after it (e.g. an inlined `nonReentrant` modifier).
+fn has_mutex_guard(
+    view: &FunctionView,
+    dom: &DomTree,
+    site: OpPos,
+    before: &[OpPos],
+    after: &[OpPos],
+) -> bool {
+    let flag_stores = |positions: &[OpPos]| -> Vec<(OpPos, String)> {
+        positions.iter().filter_map(|pos| Some((*pos, flag_store(view.op(*pos))?))).collect()
     };
-    let set_before = set_to_const(before);
-    let set_after = set_to_const(after);
-    set_before.intersection(&set_after).any(|flag| {
-        before.iter().any(|pos| reads_state(view.op(*pos), flag))
-    })
+    let resets = flag_stores(after);
+    flag_stores(before)
+        .into_iter()
+        .filter(|(set, _)| view.always_precedes(dom, *set, site))
+        .any(|(set, flag)| {
+            resets.iter().any(|(reset, reset_flag)| *reset != set && *reset_flag == flag)
+                && before.iter().any(|pos| reads_state(view.op(*pos), &flag))
+        })
 }
 
-/// The plain (unindexed) state variable that `op` sets to a constant, as
-/// its resource name (e.g. `@locked`), if any. Mutex flags are scalars;
-/// indexed entries such as `balances[a] = 0` are data, not locks.
-fn constant_store(view: &FunctionView, op: &Op) -> Option<String> {
+/// The plain (unindexed) state variable that `op` sets, as its resource name
+/// (e.g. `@locked`), if any. Mutex flags are scalars; indexed entries such as
+/// `balances[a] = 0` are data, not locks.
+fn flag_store(op: &Op) -> Option<String> {
     let OpKind::Store(store) = &op.kind else { return None };
-    if !matches!(store.resource, Resource::StateVar(_)) || !store.keys.is_empty() {
-        return None;
-    }
-    let value = store.value?;
-    view.constant(value).map(|_| store.resource.to_string())
+    let is_scalar = matches!(store.resource, Resource::StateVar(_)) && store.keys.is_empty();
+    is_scalar.then(|| store.resource.to_string())
 }
 
 /// Returns `true` if `op` reads the state resource named `resource` (e.g.
@@ -357,6 +375,16 @@ impl<'f> FunctionView<'f> {
 
     fn op(&self, pos: OpPos) -> &'f Op {
         &self.func.blocks[pos.block].ops[pos.op]
+    }
+
+    /// Returns `true` if every path that reaches `later` executes `earlier`
+    /// first.
+    fn always_precedes(&self, dom: &DomTree, earlier: OpPos, later: OpPos) -> bool {
+        if earlier.block == later.block {
+            return earlier.op < later.op;
+        }
+        let block_id = |pos: OpPos| self.func.blocks[pos.block].id;
+        dom.dominates(block_id(earlier), block_id(later))
     }
 
     fn positions(&self) -> impl Iterator<Item = OpPos> + '_ {
@@ -515,6 +543,12 @@ mod tests {
         Expr::Lit(Lit::Num(NumLit::new(Num::Int(value), None)))
     }
 
+    /// `if (locked) revert();`
+    fn check_locked() -> Stmt {
+        let revert = Stmt::Revert(RevertStmt { error: None, args: vec![], span: None });
+        Stmt::If(IfStmt { cond: var("locked"), then_body: vec![revert], else_body: None, span: None })
+    }
+
     fn set_locked(value: bool) -> Stmt {
         Stmt::Assign(AssignStmt { lhs: var("locked"), rhs: lit(value), span: None })
     }
@@ -548,6 +582,7 @@ mod tests {
         let contract = ContractDecl::new("C".to_string(), members, None);
         let module = scirs::sir::Module::new("test", vec![Decl::Contract(contract)]);
         let mut context = AnalysisContext::new(vec![module], AnalysisConfig::default());
+        DominancePass.run(&mut context).unwrap();
         FunctionEffectsPass.run(&mut context).unwrap();
         ReentrancyFlowDetector.detect(&context).unwrap()
     }
@@ -605,20 +640,55 @@ mod tests {
     #[test]
     fn test_skips_inlined_mutex_guard() {
         // if (locked) revert(); locked = true; call(); write; locked = false;
-        let revert = Stmt::Revert(RevertStmt { error: None, args: vec![], span: None });
-        let check = Stmt::If(IfStmt {
-            cond: var("locked"),
-            then_body: vec![revert],
-            else_body: None,
-            span: None,
-        });
         let body = vec![
-            check,
+            check_locked(),
             set_locked(true),
             read_balance(),
             call_out(),
             write_balance(),
             set_locked(false),
+        ];
+        let bugs = detect(vec![function("withdraw", true, body)]);
+        assert!(bugs.is_empty());
+    }
+
+    #[test]
+    fn test_flags_mutex_set_on_one_path_only() {
+        // if (c) { locked = true; } call(); ...: the call is unguarded when
+        // `c` is false.
+        let lock_if = Stmt::If(IfStmt {
+            cond: var("c"),
+            then_body: vec![set_locked(true)],
+            else_body: None,
+            span: None,
+        });
+        let body = vec![
+            check_locked(),
+            lock_if,
+            read_balance(),
+            call_out(),
+            write_balance(),
+            set_locked(false),
+        ];
+        let bugs = detect(vec![function("withdraw", true, body)]);
+        assert_eq!(bugs.len(), 1);
+    }
+
+    #[test]
+    fn test_skips_guard_set_to_computed_value() {
+        // mark = locked; locked = amount; call(); write; locked = mark;
+        let set_locked_to = |value: &str| Stmt::Assign(AssignStmt {
+            lhs: var("locked"),
+            rhs: var(value),
+            span: None,
+        });
+        let body = vec![
+            check_locked(),
+            set_locked_to("amount"),
+            read_balance(),
+            call_out(),
+            write_balance(),
+            set_locked_to("mark"),
         ];
         let bugs = detect(vec![function("withdraw", true, body)]);
         assert!(bugs.is_empty());
