@@ -33,6 +33,14 @@ struct Args {
     /// Solc version override
     #[arg(long, default_value = "0.4.26")]
     solc_version: String,
+
+    /// Only run these detectors (comma-separated IDs, e.g. "reentrancy-flow")
+    #[arg(long, value_delimiter = ',')]
+    enable: Vec<String>,
+
+    /// Skip these detectors (comma-separated IDs)
+    #[arg(long, value_delimiter = ',')]
+    disable: Vec<String>,
 }
 
 /// Resolve the workspace root by searching upward for the workspace Cargo.toml.
@@ -91,7 +99,8 @@ fn main() {
 
     // Run evaluation
     let datasets_root = workspace_root.join("datasets");
-    let result = evaluate::evaluate_dataset(&sol_files, &args.solc_version, &datasets_root);
+    let filter = evaluate::DetectorFilter { enabled: args.enable, disabled: args.disable };
+    let result = evaluate::evaluate_dataset(&sol_files, &args.solc_version, &datasets_root, &filter);
 
     // Print report
     report::print_report(&result, args.verbose);
