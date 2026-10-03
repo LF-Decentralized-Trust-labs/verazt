@@ -1,6 +1,6 @@
 //! Visit pattern for BIR — read-only traversal.
 
-use crate::bir::cfg::{BasicBlock, Function, Terminator};
+use crate::bir::cfg::{BasicBlock, BlockCall, Function, Terminator};
 use crate::bir::module::Module;
 use crate::bir::ops::*;
 
@@ -24,7 +24,6 @@ pub trait Visit<'a> {
     fn visit_const_op(&mut self, _lit: &'a crate::sir::Lit) {}
     fn visit_binop_op(&mut self, _op: &'a crate::sir::BinOp, _lhs: &'a OpRef, _rhs: &'a OpRef) {}
     fn visit_unop_op(&mut self, _op: &'a crate::sir::UnOp, _operand: &'a OpRef) {}
-    fn visit_phi_op(&mut self, _entries: &'a [(crate::bir::cfg::BlockId, OpRef)]) {}
     fn visit_assert_op(&mut self, _cond: &'a OpRef) {}
     fn visit_return_op(&mut self, _vals: &'a [OpRef]) {}
     fn visit_param_op(&mut self, _index: &'a ParamIndex) {}
@@ -44,11 +43,11 @@ pub trait Visit<'a> {
     fn visit_branch_term(
         &mut self,
         _cond: &'a OpRef,
-        _then_bb: &'a crate::bir::cfg::BlockId,
-        _else_bb: &'a crate::bir::cfg::BlockId,
+        _then_dest: &'a BlockCall,
+        _else_dest: &'a BlockCall,
     ) {
     }
-    fn visit_jump_term(&mut self, _target: &'a crate::bir::cfg::BlockId) {}
+    fn visit_jump_term(&mut self, _dest: &'a BlockCall) {}
     fn visit_txn_exit_term(&mut self, _reverted: bool) {}
 }
 
@@ -83,7 +82,6 @@ pub mod default {
             OpKind::Const(lit) => visitor.visit_const_op(lit),
             OpKind::BinOp { op: binop, lhs, rhs, .. } => visitor.visit_binop_op(binop, lhs, rhs),
             OpKind::UnOp { op: unop, operand } => visitor.visit_unop_op(unop, operand),
-            OpKind::Phi(entries) => visitor.visit_phi_op(entries),
             OpKind::Assert { cond } => visitor.visit_assert_op(cond),
             OpKind::Return(vals) => visitor.visit_return_op(vals),
             OpKind::Param { index } => visitor.visit_param_op(index),
@@ -94,7 +92,7 @@ pub mod default {
             OpKind::Env(var) => visitor.visit_env_op(var),
             OpKind::Emit(emit) => visitor.visit_emit_op(emit),
             OpKind::Dialect(dialect) => visitor.visit_dialect_op(dialect),
-            OpKind::PseudoValue { .. } => {}
+            OpKind::Symbol { .. } => {}
             OpKind::Opaque { description, operands } => {
                 visitor.visit_opaque_op(description, operands)
             }
@@ -103,8 +101,8 @@ pub mod default {
 
     pub fn visit_terminator<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, term: &'a Terminator) {
         match term {
-            Terminator::Branch { cond, then_bb, else_bb } => {
-                visitor.visit_branch_term(cond, then_bb, else_bb)
+            Terminator::Branch { cond, then_dest, else_dest } => {
+                visitor.visit_branch_term(cond, then_dest, else_dest)
             }
             Terminator::Jump(target) => visitor.visit_jump_term(target),
             Terminator::TxnExit { reverted } => visitor.visit_txn_exit_term(*reverted),

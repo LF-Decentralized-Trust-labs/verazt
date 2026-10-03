@@ -1,33 +1,24 @@
-//! Step 3: SSA Renaming
+//! Step 2: SSA Name Numbering
 //!
-//! Standard Cytron et al. pruned SSA construction.
-//! Assigns unique version numbers to each variable definition.
-//!
-//! Uses a single global counter so that every SSA name gets a unique
-//! `%vN` identifier across the entire function.
+//! SSA form itself is built during CFG construction (`cfg.rs`). This step
+//! only gives every definition (block parameter or op result) a unique,
+//! monotonically increasing version, displayed as `%vN`.
 
 use crate::bir::cfg::BasicBlock;
-use crate::bir::ops::OpKind;
 
-/// Rename all variables in the basic blocks to SSA form.
-///
-/// Uses a single global counter so that every definition receives a
-/// unique, monotonically increasing ID displayed as `%vN`.
+/// Number all SSA definitions in the basic blocks.
 pub fn rename_to_ssa(blocks: &mut [BasicBlock]) {
     let mut next_id: u32 = 0;
 
     for block in blocks.iter_mut() {
+        for param in &mut block.params {
+            param.name.version = next_id;
+            next_id += 1;
+        }
         for op in &mut block.ops {
-            // If this op has a result, assign the next global ID
             if let Some((ssa_name, _ty)) = &mut op.result {
                 ssa_name.version = next_id;
                 next_id += 1;
-            }
-
-            // For phi nodes, ensure each incoming value has a proper version
-            if let OpKind::Phi(entries) = &mut op.kind {
-                // Phi entries reference other ops; versions are already assigned
-                let _ = entries;
             }
         }
     }

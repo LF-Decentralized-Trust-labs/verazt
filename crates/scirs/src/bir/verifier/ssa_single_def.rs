@@ -34,6 +34,19 @@ fn collect_defs(
     defs: &mut HashMap<SsaName, (usize, OpId)>,
     errors: &mut Vec<VerifyError>,
 ) {
+    for param in &block.params {
+        if let Some((_prev_block, prev_op)) = defs.get(&param.name) {
+            errors.push(VerifyError::new(
+                PASS,
+                format!(
+                    "SSA name `{}` defined multiple times: first at {prev_op}, again at block parameter {}",
+                    param.name, param.id
+                ),
+            ));
+        } else {
+            defs.insert(param.name.clone(), (block.id.0, param.id));
+        }
+    }
     for op in &block.ops {
         if let Some((name, _ty)) = &op.result {
             if let Some((_prev_block, prev_op)) = defs.get(name) {

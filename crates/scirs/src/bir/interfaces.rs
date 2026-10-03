@@ -147,7 +147,6 @@ impl OpKind {
         match self {
             OpKind::BinOp { lhs, rhs, .. } => vec![*lhs, *rhs],
             OpKind::UnOp { operand, .. } => vec![*operand],
-            OpKind::Phi(args) => args.iter().map(|(_, r)| *r).collect(),
             OpKind::Assert { cond } => vec![*cond],
             OpKind::Return(vals) => vals.clone(),
             OpKind::ExprStmt { expr } => vec![*expr],
@@ -160,7 +159,34 @@ impl OpKind {
             OpKind::Const(_)
             | OpKind::Param { .. }
             | OpKind::Env(_)
-            | OpKind::PseudoValue { .. } => vec![],
+            | OpKind::Symbol { .. } => vec![],
+        }
+    }
+
+    /// Mutable access to all SSA operands, in the same order as `operands`.
+    pub fn operands_mut(&mut self) -> Vec<&mut OpRef> {
+        match self {
+            OpKind::BinOp { lhs, rhs, .. } => vec![lhs, rhs],
+            OpKind::UnOp { operand, .. } => vec![operand],
+            OpKind::Assert { cond } => vec![cond],
+            OpKind::Return(vals) => vals.iter_mut().collect(),
+            OpKind::ExprStmt { expr } => vec![expr],
+            OpKind::Load(load) => load.keys.iter_mut().collect(),
+            OpKind::Store(store) => store.keys.iter_mut().chain(store.value.as_mut()).collect(),
+            OpKind::Call(call) => {
+                let address = match &mut call.target {
+                    CallTarget::External(callee) => callee.address.as_mut(),
+                    CallTarget::Internal(_) => None,
+                };
+                address.into_iter().chain(call.args.iter_mut()).chain(call.value.as_mut()).collect()
+            }
+            OpKind::Emit(emit) => emit.args.iter_mut().collect(),
+            OpKind::Dialect(op) => dialect_operands_mut(op),
+            OpKind::Opaque { operands, .. } => operands.iter_mut().collect(),
+            OpKind::Const(_)
+            | OpKind::Param { .. }
+            | OpKind::Env(_)
+            | OpKind::Symbol { .. } => vec![],
         }
     }
 
@@ -194,7 +220,6 @@ impl OpKind {
             | OpKind::Const(_)
             | OpKind::BinOp { .. }
             | OpKind::UnOp { .. }
-            | OpKind::Phi(_)
             | OpKind::Assert { .. }
             | OpKind::Return(_)
             | OpKind::Param { .. }
@@ -202,7 +227,7 @@ impl OpKind {
             | OpKind::Call(_)
             | OpKind::Env(_)
             | OpKind::Emit(_)
-            | OpKind::PseudoValue { .. }
+            | OpKind::Symbol { .. }
             | OpKind::Opaque { .. } => None,
         }
     }
@@ -221,14 +246,13 @@ impl OpKind {
             | OpKind::Const(_)
             | OpKind::BinOp { .. }
             | OpKind::UnOp { .. }
-            | OpKind::Phi(_)
             | OpKind::Assert { .. }
             | OpKind::Return(_)
             | OpKind::Param { .. }
             | OpKind::ExprStmt { .. }
             | OpKind::Store(_)
             | OpKind::Emit(_)
-            | OpKind::PseudoValue { .. }
+            | OpKind::Symbol { .. }
             | OpKind::Opaque { .. } => None,
         }
     }
@@ -257,13 +281,12 @@ impl OpKind {
             | OpKind::Const(_)
             | OpKind::BinOp { .. }
             | OpKind::UnOp { .. }
-            | OpKind::Phi(_)
             | OpKind::Return(_)
             | OpKind::Param { .. }
             | OpKind::ExprStmt { .. }
             | OpKind::Load(_)
             | OpKind::Env(_)
-            | OpKind::PseudoValue { .. }
+            | OpKind::Symbol { .. }
             | OpKind::Opaque { .. } => None,
         }
     }
@@ -347,6 +370,24 @@ fn dialect_operands(op: &DialectOp) -> Vec<OpRef> {
         | DialectOp::Move(MoveOp::MoveFrom(op)) => vec![op.addr],
         DialectOp::Move(MoveOp::SignerAddress(signer)) => vec![*signer],
         DialectOp::Move(MoveOp::WriteRef(op)) => vec![op.reference, op.value],
+    }
+}
+
+fn dialect_operands_mut(op: &mut DialectOp) -> Vec<&mut OpRef> {
+    match op {
+        DialectOp::Anchor(AnchorOp::AccountLoadMut(account))
+        | DialectOp::Anchor(AnchorOp::SignerKey(account)) => vec![account],
+        DialectOp::Anchor(AnchorOp::FindProgramAddress(pda)) => {
+            pda.seeds.iter_mut().chain([&mut pda.program_id]).collect()
+        }
+        DialectOp::Evm(EvmOp::Builtin(builtin)) => builtin.args.iter_mut().collect(),
+        DialectOp::Evm(EvmOp::InlineAsm(_)) => vec![],
+        DialectOp::Evm(EvmOp::Selfdestruct(recipient)) => vec![recipient],
+        DialectOp::Move(MoveOp::BorrowGlobalMut(op))
+        | DialectOp::Move(MoveOp::Exists(op))
+        | DialectOp::Move(MoveOp::MoveFrom(op)) => vec![&mut op.addr],
+        DialectOp::Move(MoveOp::SignerAddress(signer)) => vec![signer],
+        DialectOp::Move(MoveOp::WriteRef(op)) => vec![&mut op.reference, &mut op.value],
     }
 }
 

@@ -36,9 +36,6 @@ pub trait Fold<'a, T: Default> {
     fn fold_unop_op(&mut self, _op: &'a crate::sir::UnOp, _operand: &'a OpRef) -> T {
         T::default()
     }
-    fn fold_phi_op(&mut self, _entries: &'a [(crate::bir::cfg::BlockId, OpRef)]) -> T {
-        T::default()
-    }
     fn fold_assert_op(&mut self, _cond: &'a OpRef) -> T {
         T::default()
     }
@@ -133,7 +130,6 @@ pub mod default {
             OpKind::Const(lit) => folder.fold_const_op(lit),
             OpKind::BinOp { op: binop, lhs, rhs, .. } => folder.fold_binop_op(binop, lhs, rhs),
             OpKind::UnOp { op: unop, operand } => folder.fold_unop_op(unop, operand),
-            OpKind::Phi(entries) => folder.fold_phi_op(entries),
             OpKind::Assert { cond } => folder.fold_assert_op(cond),
             OpKind::Return(vals) => folder.fold_return_op(vals),
             OpKind::Param { index } => folder.fold_param_op(index),
@@ -144,7 +140,7 @@ pub mod default {
             OpKind::Env(var) => folder.fold_env_op(var),
             OpKind::Emit(emit) => folder.fold_emit_op(emit),
             OpKind::Dialect(dialect) => folder.fold_dialect_op(dialect),
-            OpKind::PseudoValue { .. } => T::default(),
+            OpKind::Symbol { .. } => T::default(),
             OpKind::Opaque { description, operands } => folder.fold_opaque_op(description, operands),
         }
     }

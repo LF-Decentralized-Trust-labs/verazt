@@ -6,7 +6,6 @@
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::bir::cfg::Terminator;
 use scirs::bir::ops::{OpId, OpRef};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
@@ -60,8 +59,12 @@ impl AnalysisPass for DefUsePass {
 
         for module in ctx.air_units() {
             for func in &module.functions {
-                // Ensure every defined op has an entry (possibly empty)
+                // Ensure every definition (block parameter or op) has an
+                // entry (possibly empty)
                 for block in &func.blocks {
+                    for param in &block.params {
+                        result.entry(param.id).or_default();
+                    }
                     for op in &block.ops {
                         result.entry(op.id).or_default();
                     }
@@ -73,12 +76,10 @@ impl AnalysisPass for DefUsePass {
                             result.entry(def_id).or_default().insert(op.id);
                         }
                     }
-                    // Terminator operands
-                    match &block.term {
-                        Terminator::Branch { cond: OpRef(def_id), .. } => {
-                            result.entry(*def_id).or_default();
-                        }
-                        _ => {}
+                    // Terminator operands (conditions and block arguments)
+                    // have no op id; just make sure their definitions appear
+                    for OpRef(def_id) in block.term.operands() {
+                        result.entry(def_id).or_default();
                     }
                 }
             }

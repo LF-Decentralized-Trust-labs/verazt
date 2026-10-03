@@ -11,7 +11,7 @@
 //! Taint sources/sinks, storage references, and call risks are not stored
 //! on ops; they are derived from the op kind (see `bir::interfaces`).
 
-use crate::bir::cfg::{BlockId, FunctionId};
+use crate::bir::cfg::FunctionId;
 use crate::sir::{Attr, BinOp, Lit, Loc, OverflowSemantics, Type, UnOp};
 use std::fmt::{self, Display};
 
@@ -127,8 +127,6 @@ pub enum OpKind {
     },
     /// Unary operation.
     UnOp { op: UnOp, operand: OpRef },
-    /// Phi function (block arguments).
-    Phi(Vec<(BlockId, OpRef)>),
     /// Assertion.
     Assert { cond: OpRef },
     /// Return from function.
@@ -154,9 +152,10 @@ pub enum OpKind {
     /// A chain-specific operation that does not generalize.
     Dialect(DialectOp),
 
-    // ── SSA pseudo-values ────────────────────────────────────
-    /// A reference to a named local variable, resolved by SSA construction.
-    PseudoValue { label: String },
+    // ── Unresolved names ─────────────────────────────────────
+    /// A name not bound to a local definition: a contract, library, or
+    /// type name, a specification variable, or an undeclared identifier.
+    Symbol { name: String },
 
     /// A construct not yet lowered to a typed op. Operands are kept so
     /// that def-use and taint still flow through it.
@@ -171,10 +170,6 @@ impl Display for OpKind {
                 write!(f, "binop {op} {lhs}, {rhs} [{overflow:?}]")
             }
             OpKind::UnOp { op, operand } => write!(f, "unop {op} {operand}"),
-            OpKind::Phi(args) => {
-                let parts: Vec<_> = args.iter().map(|(bb, r)| format!("{bb}: {r}")).collect();
-                write!(f, "phi [{}]", parts.join(", "))
-            }
             OpKind::Assert { cond } => write!(f, "assert {cond}"),
             OpKind::Return(vals) => write!(f, "return {}", join_refs(vals)),
             OpKind::Param { index } => write!(f, "param {index}"),
@@ -185,7 +180,7 @@ impl Display for OpKind {
             OpKind::Env(var) => write!(f, "env {var}"),
             OpKind::Emit(emit) => write!(f, "{emit}"),
             OpKind::Dialect(op) => write!(f, "{op}"),
-            OpKind::PseudoValue { label } => write!(f, "pseudo_value \"{label}\""),
+            OpKind::Symbol { name } => write!(f, "symbol \"{name}\""),
             OpKind::Opaque { description, operands } => {
                 write!(f, "opaque({description})")?;
                 if !operands.is_empty() {

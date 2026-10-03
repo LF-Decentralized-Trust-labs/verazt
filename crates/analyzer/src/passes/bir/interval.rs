@@ -7,7 +7,7 @@
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::bir::cfg::{BlockId, Terminator};
+use scirs::bir::cfg::BlockId;
 use scirs::bir::ops::{OpId, OpKind, OpRef};
 use scirs::sir::{BinOp, Lit};
 use std::any::TypeId;
@@ -188,16 +188,7 @@ impl AnalysisPass for IntervalPass {
                 let back_edge_targets: HashSet<BlockId> = func
                     .blocks
                     .iter()
-                    .flat_map(|b| {
-                        let succs = match &b.term {
-                            Terminator::Jump(t) => vec![*t],
-                            Terminator::Branch { then_bb, else_bb, .. } => {
-                                vec![*then_bb, *else_bb]
-                            }
-                            _ => vec![],
-                        };
-                        succs.into_iter().filter(move |s| s.0 <= b.id.0)
-                    })
+                    .flat_map(|b| b.term.successors().into_iter().filter(move |s| s.0 <= b.id.0))
                     .collect();
 
                 // Worklist-based iteration
@@ -239,15 +230,25 @@ impl AnalysisPass for IntervalPass {
                         result.insert(op.id, final_interval);
                     }
 
-                    // Add successors to worklist
-                    let succs = match &block.term {
-                        Terminator::Jump(t) => vec![*t],
-                        Terminator::Branch { then_bb, else_bb, .. } => {
-                            vec![*then_bb, *else_bb]
+                    // Bind successor block parameters to the incoming arguments
+                    for call in block.term.block_calls() {
+                        let Some(target) = func.blocks.iter().find(|b| b.id == call.block) else {
+                            continue;
+                        };
+                        let widen = back_edge_targets.contains(&call.block);
+                        for (param, OpRef(arg)) in target.params.iter().zip(&call.args) {
+                            let incoming = result.get(arg).cloned().unwrap_or(Interval::Top);
+                            let bound = match result.get(&param.id) {
+                                Some(old) if widen => old.widen(&incoming),
+                                Some(old) => old.join(&incoming),
+                                None => incoming,
+                            };
+                            result.insert(param.id, bound);
                         }
-                        _ => vec![],
-                    };
-                    for s in succs {
+                    }
+
+                    // Add successors to worklist
+                    for s in block.term.successors() {
                         if !visited.contains(&s) || back_edge_targets.contains(&s) {
                             worklist.push_back(s);
                         }
@@ -287,14 +288,6 @@ fn eval_op(kind: &OpKind, state: &HashMap<OpId, Interval>) -> Interval {
             }
         }
         OpKind::Param { .. } => Interval::Top,
-        OpKind::Phi(args) => {
-            let mut result = Interval::Bottom;
-            for (_, OpRef(id)) in args {
-                let incoming = state.get(id).cloned().unwrap_or(Interval::Top);
-                result = result.join(&incoming);
-            }
-            result
-        }
         _ => Interval::Top,
     }
 }

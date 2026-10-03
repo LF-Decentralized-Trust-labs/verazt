@@ -17,7 +17,7 @@
 
 use petgraph::algo::dominators;
 use petgraph::graph::{DiGraph, NodeIndex};
-use scirs::bir::cfg::{BlockId, Function, Terminator};
+use scirs::bir::cfg::{BlockId, Function};
 use std::collections::HashMap;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -149,7 +149,7 @@ impl PostDomTree {
 
         // Connect exit blocks to virtual exit, then reverse all edges.
         for block in &func.blocks {
-            let successors = terminator_successors(&block.term);
+            let successors = block.term.successors();
             if successors.is_empty() {
                 // This is an exit block → connect virtual exit → this block (reversed).
                 graph.add_edge(exit_node, block_to_node[&block.id], ());
@@ -214,15 +214,6 @@ impl PostDomTree {
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
 
-/// Extract successor block IDs from a terminator.
-pub(super) fn terminator_successors(term: &Terminator) -> Vec<BlockId> {
-    match term {
-        Terminator::Jump(bb) => vec![*bb],
-        Terminator::Branch { then_bb, else_bb, .. } => vec![*then_bb, *else_bb],
-        Terminator::TxnExit { .. } | Terminator::Unreachable => vec![],
-    }
-}
-
 /// Build a petgraph DiGraph from a function's blocks (forward edges).
 fn build_forward_graph(
     func: &Function,
@@ -239,7 +230,7 @@ fn build_forward_graph(
 
     for block in &func.blocks {
         let from = block_to_node[&block.id];
-        for succ_id in terminator_successors(&block.term) {
+        for succ_id in block.term.successors() {
             if let Some(&to) = block_to_node.get(&succ_id) {
                 graph.add_edge(from, to, ());
             }
@@ -267,17 +258,17 @@ mod tests {
         let mut func = Function::new(FunctionId("diamond".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
-        bb0.term = Terminator::Branch {
-            cond: scirs::bir::ops::OpRef(scirs::bir::ops::OpId(0)),
-            then_bb: BlockId(1),
-            else_bb: BlockId(2),
-        };
+        bb0.term = Terminator::branch(
+            scirs::bir::ops::OpRef(scirs::bir::ops::OpId(0)),
+            BlockId(1),
+            BlockId(2),
+        );
 
         let mut bb1 = BasicBlock::new(BlockId(1));
-        bb1.term = Terminator::Jump(BlockId(3));
+        bb1.term = Terminator::jump(BlockId(3));
 
         let mut bb2 = BasicBlock::new(BlockId(2));
-        bb2.term = Terminator::Jump(BlockId(3));
+        bb2.term = Terminator::jump(BlockId(3));
 
         let mut bb3 = BasicBlock::new(BlockId(3));
         bb3.term = Terminator::TxnExit { reverted: false };
@@ -334,10 +325,10 @@ mod tests {
         let mut func = Function::new(FunctionId("chain".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
-        bb0.term = Terminator::Jump(BlockId(1));
+        bb0.term = Terminator::jump(BlockId(1));
 
         let mut bb1 = BasicBlock::new(BlockId(1));
-        bb1.term = Terminator::Jump(BlockId(2));
+        bb1.term = Terminator::jump(BlockId(2));
 
         let mut bb2 = BasicBlock::new(BlockId(2));
         bb2.term = Terminator::TxnExit { reverted: false };

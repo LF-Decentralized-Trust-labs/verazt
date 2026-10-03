@@ -15,7 +15,7 @@
 //! - Taint DFA solver can process loop headers correctly and avoid redundant
 //!   re-propagation over unreachable back-edges.
 
-use super::domtree::{DomTree, terminator_successors};
+use super::domtree::DomTree;
 use scirs::bir::cfg::{BlockId, Function};
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -61,7 +61,7 @@ impl LoopInfo {
         // A back-edge is (tail → header) where header dominates tail.
         let mut back_edges: Vec<(BlockId, BlockId)> = Vec::new();
         for block in &func.blocks {
-            for succ in terminator_successors(&block.term) {
+            for succ in block.term.successors() {
                 if dom.dominates(succ, block.id) {
                     back_edges.push((block.id, succ));
                 }
@@ -109,7 +109,7 @@ impl LoopInfo {
                 if !lp.body.contains(&block.id) {
                     continue;
                 }
-                for succ in terminator_successors(&block.term) {
+                for succ in block.term.successors() {
                     if !lp.body.contains(&succ) {
                         lp.exits.insert(succ);
                     }
@@ -174,7 +174,7 @@ impl LoopInfo {
 fn build_predecessor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
     let mut preds: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
     for block in &func.blocks {
-        for succ in terminator_successors(&block.term) {
+        for succ in block.term.successors() {
             preds.entry(succ).or_default().push(block.id);
         }
     }
@@ -202,14 +202,13 @@ mod tests {
         let mut func = Function::new(FunctionId("while_loop".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
-        bb0.term = Terminator::Jump(BlockId(1));
+        bb0.term = Terminator::jump(BlockId(1));
 
         let mut bb1 = BasicBlock::new(BlockId(1));
-        bb1.term =
-            Terminator::Branch { cond: OpRef(OpId(0)), then_bb: BlockId(2), else_bb: BlockId(3) };
+        bb1.term = Terminator::branch(OpRef(OpId(0)), BlockId(2), BlockId(3));
 
         let mut bb2 = BasicBlock::new(BlockId(2));
-        bb2.term = Terminator::Jump(BlockId(1)); // back-edge
+        bb2.term = Terminator::jump(BlockId(1)); // back-edge
 
         let mut bb3 = BasicBlock::new(BlockId(3));
         bb3.term = Terminator::TxnExit { reverted: false };
@@ -254,9 +253,9 @@ mod tests {
         let mut func = Function::new(FunctionId("no_loop".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
-        bb0.term = Terminator::Jump(BlockId(1));
+        bb0.term = Terminator::jump(BlockId(1));
         let mut bb1 = BasicBlock::new(BlockId(1));
-        bb1.term = Terminator::Jump(BlockId(2));
+        bb1.term = Terminator::jump(BlockId(2));
         let mut bb2 = BasicBlock::new(BlockId(2));
         bb2.term = Terminator::TxnExit { reverted: false };
 
@@ -291,27 +290,21 @@ mod tests {
         let mut func = Function::new(FunctionId("nested".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
-        bb0.term = Terminator::Jump(BlockId(1));
+        bb0.term = Terminator::jump(BlockId(1));
 
         let mut bb1 = BasicBlock::new(BlockId(1));
-        bb1.term = Terminator::Jump(BlockId(2));
+        bb1.term = Terminator::jump(BlockId(2));
 
         let mut bb2 = BasicBlock::new(BlockId(2));
-        bb2.term = Terminator::Jump(BlockId(3));
+        bb2.term = Terminator::jump(BlockId(3));
 
         let mut bb3 = BasicBlock::new(BlockId(3));
-        bb3.term = Terminator::Branch {
-            cond: OpRef(OpId(0)),
-            then_bb: BlockId(2), // inner back-edge
-            else_bb: BlockId(4),
-        };
+        // bb3 → bb2 is the inner back-edge
+        bb3.term = Terminator::branch(OpRef(OpId(0)), BlockId(2), BlockId(4));
 
         let mut bb4 = BasicBlock::new(BlockId(4));
-        bb4.term = Terminator::Branch {
-            cond: OpRef(OpId(1)),
-            then_bb: BlockId(1), // outer back-edge
-            else_bb: BlockId(5),
-        };
+        // bb4 → bb1 is the outer back-edge
+        bb4.term = Terminator::branch(OpRef(OpId(1)), BlockId(1), BlockId(5));
 
         let mut bb5 = BasicBlock::new(BlockId(5));
         bb5.term = Terminator::TxnExit { reverted: false };

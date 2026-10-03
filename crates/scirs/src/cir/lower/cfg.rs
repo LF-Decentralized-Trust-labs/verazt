@@ -6,7 +6,7 @@
 //! become `Call` with their arguments, environment reads become `Env`, and
 //! dialect constructs become shared feature ops or typed `Dialect` ops.
 
-use crate::bir::cfg::{BasicBlock, BlockId, FunctionId, Terminator};
+use crate::bir::cfg::{BasicBlock, BlockId, BlockParam, FunctionId, Terminator};
 use crate::bir::ops::{
     AnchorOp, AnchorPdaOp, CallOp, CallTarget, DialectOp, EmitOp, EnvVar, EvmBuiltin,
     EvmBuiltinOp, EvmOp, ExternalCallee, ExternalKind, LoadOp, MoveGlobalOp, MoveOp,
@@ -16,7 +16,7 @@ use crate::sir::anchor::{AnchorExpr, AnchorStmt};
 use crate::sir::evm::{EvmExpr, EvmStmt, EvmTryCatch};
 use crate::sir::move_lang::{MoveExpr, MoveStmt};
 use crate::sir::{BoolLit, CallExpr, DialectExpr, DialectStmt, Expr, Lit, Loc, Param, Stmt, Type};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 // ═══════════════════════════════════════════════════════════════════
 // Constants
@@ -24,6 +24,13 @@ use std::collections::HashSet;
 
 /// Name used for SSA values that do not correspond to a source variable.
 const TMP_NAME: &str = "_tmp";
+
+/// The function entry block.
+const ENTRY: BlockId = BlockId(0);
+
+/// Placeholder for a block argument whose value is not yet known; every
+/// placeholder is overwritten when the parameter is filled.
+const UNFILLED_ARG: OpRef = OpRef(OpId(usize::MAX));
 
 // ═══════════════════════════════════════════════════════════════════
 // Data Structures
@@ -42,21 +49,37 @@ pub struct ContractScope {
 /// State for the CFG builder.
 struct CfgBuilder<'s> {
     blocks: Vec<BasicBlock>,
+    /// Current SSA definition of each local variable, per block.
+    current_defs: HashMap<BlockId, HashMap<String, OpRef>>,
     /// Parameters and local variables; they shadow state variables.
     locals: HashSet<String>,
     next_block_id: usize,
     next_op_id: usize,
+    /// Block parameters awaiting incoming arguments: (block, variable, index).
+    pending_params: Vec<(BlockId, String, usize)>,
+    /// Distinct predecessors of each block; `None` until the CFG is complete
+    /// (all blocks are unsealed while statements are being flattened).
+    preds: Option<HashMap<BlockId, Vec<BlockId>>>,
     scope: &'s ContractScope,
+    /// `Symbol` ops (in the entry block) for names with no local definition.
+    symbols: HashMap<String, OpRef>,
+    /// Declared type of each local variable, used for block parameters.
+    var_types: HashMap<String, Type>,
 }
 
 impl<'s> CfgBuilder<'s> {
     fn new(scope: &'s ContractScope) -> Self {
         CfgBuilder {
             blocks: Vec::new(),
+            current_defs: HashMap::new(),
             locals: HashSet::new(),
             next_block_id: 0,
             next_op_id: 0,
+            pending_params: Vec::new(),
+            preds: None,
             scope,
+            symbols: HashMap::new(),
+            var_types: HashMap::new(),
         }
     }
 
@@ -136,6 +159,198 @@ impl<'s> CfgBuilder<'s> {
             _ => true,
         }
     }
+
+    fn declare_local(&mut self, name: &str, ty: Type) {
+        self.locals.insert(name.to_string());
+        self.var_types.insert(name.to_string(), ty);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SSA construction
+// ═══════════════════════════════════════════════════════════════════
+//
+// Braun et al., "Simple and Efficient Construction of Static Single
+// Assignment Form" (CC 2013), with block parameters instead of phi nodes.
+// Every block stays unsealed until the whole CFG is built: a read that is
+// not defined locally creates a block parameter, whose incoming arguments
+// are filled once all predecessors are known. Parameters that receive a
+// single distinct value are then removed.
+
+impl CfgBuilder<'_> {
+    /// Record `value` as the current definition of `name` in `block`.
+    fn write_variable(&mut self, block: BlockId, name: &str, value: OpRef) {
+        self.current_defs.entry(block).or_default().insert(name.to_string(), value);
+    }
+
+    /// The SSA value of local variable `name` at the current end of `block`.
+    fn read_variable(&mut self, block: BlockId, name: &str) -> OpRef {
+        if let Some(value) = self.current_defs.get(&block).and_then(|defs| defs.get(name)) {
+            return *value;
+        }
+        let preds = self.preds.as_ref().map(|preds| preds.get(&block).cloned().unwrap_or_default());
+        let value = match preds.as_deref() {
+            None if block == ENTRY => self.symbol(name),
+            None => {
+                let (value, index) = self.add_block_param(block, name);
+                self.pending_params.push((block, name.to_string(), index));
+                value
+            }
+            Some([]) => self.symbol(name),
+            Some([pred]) => self.read_variable(*pred, name),
+            Some(_) => {
+                let (value, index) = self.add_block_param(block, name);
+                // Define before filling, so reads around a loop terminate.
+                self.write_variable(block, name, value);
+                self.fill_block_param(block, name, index);
+                return value;
+            }
+        };
+        self.write_variable(block, name, value);
+        value
+    }
+
+    /// The `Symbol` op for a name with no local definition.
+    fn symbol(&mut self, name: &str) -> OpRef {
+        if let Some(symbol) = self.symbols.get(name) {
+            return *symbol;
+        }
+        let kind = OpKind::Symbol { name: name.to_string() };
+        let ty = self.var_types.get(name).cloned().unwrap_or(Type::None);
+        let symbol = self.emit_value(ENTRY, kind, name, ty, None);
+        self.symbols.insert(name.to_string(), symbol);
+        symbol
+    }
+
+    /// Add a parameter for variable `name` to `block`, returning its value
+    /// and index.
+    fn add_block_param(&mut self, block: BlockId, name: &str) -> (OpRef, usize) {
+        let id = self.new_op_id();
+        let ty = self.var_types.get(name).cloned().unwrap_or(Type::None);
+        let params = &mut self.block_mut(block).params;
+        params.push(BlockParam { id, name: SsaName::new(name, 0), ty });
+        let index = params.len() - 1;
+        if self.preds.is_some() {
+            self.reserve_arg_slots(block);
+        }
+        (OpRef(id), index)
+    }
+
+    /// Give every transfer into `block` one argument slot per parameter.
+    fn reserve_arg_slots(&mut self, block: BlockId) {
+        let arity = self.blocks[block.0].params.len();
+        for pred in self.preds_of(block) {
+            for call in self.blocks[pred.0].term.block_calls_mut() {
+                if call.block == block {
+                    call.args.resize(arity, UNFILLED_ARG);
+                }
+            }
+        }
+    }
+
+    /// Pass the value of `name` from every predecessor as argument `index`.
+    fn fill_block_param(&mut self, block: BlockId, name: &str, index: usize) {
+        for pred in self.preds_of(block) {
+            let value = self.read_variable(pred, name);
+            for call in self.blocks[pred.0].term.block_calls_mut() {
+                if call.block == block {
+                    call.args[index] = value;
+                }
+            }
+        }
+    }
+
+    fn preds_of(&self, block: BlockId) -> Vec<BlockId> {
+        self.preds.as_ref().and_then(|preds| preds.get(&block).cloned()).unwrap_or_default()
+    }
+
+    /// Mark the CFG complete and fill all pending block parameters.
+    fn seal_blocks(&mut self) {
+        let mut preds: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
+        for block in &self.blocks {
+            for succ in block.term.successors() {
+                let entry = preds.entry(succ).or_default();
+                if !entry.contains(&block.id) {
+                    entry.push(block.id);
+                }
+            }
+        }
+        self.preds = Some(preds);
+
+        for index in 0..self.blocks.len() {
+            self.reserve_arg_slots(BlockId(index));
+        }
+        for (block, name, index) in std::mem::take(&mut self.pending_params) {
+            self.fill_block_param(block, &name, index);
+        }
+    }
+
+    /// Remove parameters whose incoming arguments are all the same value
+    /// (ignoring the parameter itself), and rewrite their uses.
+    fn remove_trivial_params(&mut self) {
+        let mut replacements: HashMap<OpRef, OpRef> = HashMap::new();
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for block_index in 0..self.blocks.len() {
+                let block = BlockId(block_index);
+                for index in (0..self.blocks[block_index].params.len()).rev() {
+                    let param = OpRef(self.blocks[block_index].params[index].id);
+                    let incoming: HashSet<OpRef> = self
+                        .incoming_args(block, index)
+                        .into_iter()
+                        .map(|arg| resolve(&replacements, arg))
+                        .filter(|arg| *arg != param)
+                        .collect();
+                    if let [value] = incoming.into_iter().collect::<Vec<_>>()[..] {
+                        replacements.insert(param, value);
+                        self.remove_block_param(block, index);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        for block in &mut self.blocks {
+            for op in &mut block.ops {
+                for operand in op.kind.operands_mut() {
+                    *operand = resolve(&replacements, *operand);
+                }
+            }
+            for operand in block.term.operands_mut() {
+                *operand = resolve(&replacements, *operand);
+            }
+        }
+    }
+
+    /// Argument `index` of every transfer into `block`.
+    fn incoming_args(&self, block: BlockId, index: usize) -> Vec<OpRef> {
+        self.preds_of(block)
+            .into_iter()
+            .flat_map(|pred| self.blocks[pred.0].term.block_calls())
+            .filter(|call| call.block == block)
+            .map(|call| call.args[index])
+            .collect()
+    }
+
+    fn remove_block_param(&mut self, block: BlockId, index: usize) {
+        self.blocks[block.0].params.remove(index);
+        for pred in self.preds_of(block) {
+            for call in self.blocks[pred.0].term.block_calls_mut() {
+                if call.block == block {
+                    call.args.remove(index);
+                }
+            }
+        }
+    }
+}
+
+/// Follow replacement chains to the final value.
+fn resolve(replacements: &HashMap<OpRef, OpRef>, mut value: OpRef) -> OpRef {
+    while let Some(next) = replacements.get(&value) {
+        value = *next;
+    }
+    value
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -149,8 +364,10 @@ pub fn build_cfg(stmts: &[Stmt], params: &[Param], scope: &ContractScope) -> Vec
 
     // Create parameter ops
     for (i, param) in params.iter().enumerate() {
-        builder.locals.insert(param.name.clone());
-        builder.emit_value(entry, OpKind::Param { index: i }, &param.name, param.ty.clone(), None);
+        builder.declare_local(&param.name, param.ty.clone());
+        let kind = OpKind::Param { index: i };
+        let value = builder.emit_value(entry, kind, &param.name, param.ty.clone(), None);
+        builder.write_variable(entry, &param.name, value);
     }
 
     // Flatten the statement list into basic blocks
@@ -160,6 +377,10 @@ pub fn build_cfg(stmts: &[Stmt], params: &[Param], scope: &ContractScope) -> Vec
     if builder.block_mut(exit).term == Terminator::Unreachable {
         builder.set_terminator(exit, Terminator::TxnExit { reverted: false });
     }
+
+    // Complete SSA form now that every block's predecessors are known
+    builder.seal_blocks();
+    builder.remove_trivial_params();
 
     builder.blocks
 }
@@ -176,23 +397,37 @@ fn flatten_stmts(builder: &mut CfgBuilder, stmts: &[Stmt], mut current: BlockId)
 fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> BlockId {
     match stmt {
         Stmt::LocalVar(local_var) => {
-            for decl in local_var.vars.iter().flatten() {
-                builder.locals.insert(decl.name.clone());
+            let span = local_var.span.as_ref();
+            let decls: Vec<_> = local_var.vars.iter().collect();
+            for decl in decls.iter().copied().flatten() {
+                builder.declare_local(&decl.name, decl.ty.clone());
             }
-            // Determine variable name and type
-            let (name, ty) = if let Some(Some(decl)) = local_var.vars.first() {
-                (decl.name.clone(), decl.ty.clone())
-            } else {
-                (TMP_NAME.to_string(), Type::None)
-            };
-
-            match &local_var.init {
-                Some(init) => {
-                    lower_expr_named(builder, current, init, &name, ty);
+            match (decls.as_slice(), &local_var.init) {
+                // `T x = init;`
+                ([Some(decl)], Some(init)) => {
+                    let value = lower_expr_named(builder, current, init, &decl.name, decl.ty.clone());
+                    builder.write_variable(current, &decl.name, value);
                 }
-                None => {
-                    let kind = OpKind::Const(Lit::Bool(BoolLit::new(false, None)));
-                    builder.emit_value(current, kind, &name, ty, local_var.span.as_ref());
+                // `(T a, , T c) = init;`
+                (_, Some(init)) => {
+                    let value = lower_expr(builder, current, init);
+                    for (index, decl) in decls.iter().enumerate() {
+                        let Some(decl) = decl else { continue };
+                        let part = OpKind::Opaque {
+                            description: format!("tuple_get {index}"),
+                            operands: vec![value],
+                        };
+                        let part = builder.emit_value(current, part, &decl.name, decl.ty.clone(), span);
+                        builder.write_variable(current, &decl.name, part);
+                    }
+                }
+                // `T x;` declares default-initialized variables.
+                (_, None) => {
+                    for decl in decls.iter().copied().flatten() {
+                        let kind = OpKind::Const(Lit::Bool(BoolLit::new(false, None)));
+                        let value = builder.emit_value(current, kind, &decl.name, decl.ty.clone(), span);
+                        builder.write_variable(current, &decl.name, value);
+                    }
                 }
             }
             current
@@ -210,7 +445,9 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
                 builder.emit_effect(current, kind, assign.span.as_ref());
             } else {
                 let name = expr_name(&assign.lhs);
-                lower_expr_named(builder, current, &assign.rhs, &name, assign.rhs.typ());
+                let value =
+                    lower_expr_named(builder, current, &assign.rhs, &name, assign.rhs.typ());
+                assign_local(builder, current, &assign.lhs, value, assign.span.as_ref());
             }
             current
         }
@@ -237,6 +474,8 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
                     value: Some(value),
                 });
                 builder.emit_effect(current, kind, span);
+            } else {
+                assign_local(builder, current, &aug.lhs, value, span);
             }
             current
         }
@@ -256,31 +495,23 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
 
             let then_exit = flatten_stmts(builder, &if_stmt.then_body, then_block);
             if builder.block_mut(then_exit).term == Terminator::Unreachable {
-                builder.set_terminator(then_exit, Terminator::Jump(merge_block));
+                builder.set_terminator(then_exit, Terminator::jump(merge_block));
             }
 
             if let Some(else_body) = &if_stmt.else_body {
                 let else_block = builder.new_block();
                 let else_exit = flatten_stmts(builder, else_body, else_block);
                 if builder.block_mut(else_exit).term == Terminator::Unreachable {
-                    builder.set_terminator(else_exit, Terminator::Jump(merge_block));
+                    builder.set_terminator(else_exit, Terminator::jump(merge_block));
                 }
                 builder.set_terminator(
                     current,
-                    Terminator::Branch {
-                        cond: cond_ref,
-                        then_bb: then_block,
-                        else_bb: else_block,
-                    },
+                    Terminator::branch(cond_ref, then_block, else_block),
                 );
             } else {
                 builder.set_terminator(
                     current,
-                    Terminator::Branch {
-                        cond: cond_ref,
-                        then_bb: then_block,
-                        else_bb: merge_block,
-                    },
+                    Terminator::branch(cond_ref, then_block, merge_block),
                 );
             }
 
@@ -293,19 +524,19 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             let after_block = builder.new_block();
 
             // Jump from current to header
-            builder.set_terminator(current, Terminator::Jump(header));
+            builder.set_terminator(current, Terminator::jump(header));
 
             // Header: evaluate condition
             let cond_ref = lower_expr(builder, header, &while_stmt.cond);
             builder.set_terminator(
                 header,
-                Terminator::Branch { cond: cond_ref, then_bb: body_block, else_bb: after_block },
+                Terminator::branch(cond_ref, body_block, after_block),
             );
 
             // Body
             let body_exit = flatten_stmts(builder, &while_stmt.body, body_block);
             if builder.block_mut(body_exit).term == Terminator::Unreachable {
-                builder.set_terminator(body_exit, Terminator::Jump(header));
+                builder.set_terminator(body_exit, Terminator::jump(header));
             }
 
             after_block
@@ -323,21 +554,14 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
             let body_block = builder.new_block();
             let after_block = builder.new_block();
 
-            builder.set_terminator(init_exit, Terminator::Jump(header));
+            builder.set_terminator(init_exit, Terminator::jump(header));
 
             // Condition
             if let Some(cond) = &for_stmt.cond {
                 let cond_ref = lower_expr(builder, header, cond);
-                builder.set_terminator(
-                    header,
-                    Terminator::Branch {
-                        cond: cond_ref,
-                        then_bb: body_block,
-                        else_bb: after_block,
-                    },
-                );
+                builder.set_terminator(header, Terminator::branch(cond_ref, body_block, after_block));
             } else {
-                builder.set_terminator(header, Terminator::Jump(body_block));
+                builder.set_terminator(header, Terminator::jump(body_block));
             }
 
             // Body + update
@@ -348,7 +572,7 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &Stmt, current: BlockId) -> Bloc
                 body_exit
             };
             if builder.block_mut(update_exit).term == Terminator::Unreachable {
-                builder.set_terminator(update_exit, Terminator::Jump(header));
+                builder.set_terminator(update_exit, Terminator::jump(header));
             }
 
             after_block
@@ -436,18 +660,14 @@ fn flatten_dialect_stmt(builder: &mut CfgBuilder, stmt: &DialectStmt, current: B
 /// reverts.
 fn flatten_try_catch(builder: &mut CfgBuilder, try_catch: &EvmTryCatch, current: BlockId) -> BlockId {
     let span = Some(&try_catch.loc);
-    let (name, ty) = match try_catch.returns.first() {
-        Some((name, ty)) => (name.clone(), ty.clone()),
-        None => (TMP_NAME.to_string(), try_catch.guarded_expr.typ()),
-    };
-    builder.locals.extend(try_catch.returns.iter().map(|(name, _)| name.clone()));
-    let guarded = lower_expr_named(builder, current, &try_catch.guarded_expr, &name, ty);
+    let guarded = lower_expr(builder, current, &try_catch.guarded_expr);
+    bind_parts(builder, current, &try_catch.returns, "try_return", guarded, span);
 
     let after_block = builder.new_block();
     let body_block = builder.new_block();
     let body_exit = flatten_stmts(builder, &try_catch.body, body_block);
     if builder.block_mut(body_exit).term == Terminator::Unreachable {
-        builder.set_terminator(body_exit, Terminator::Jump(after_block));
+        builder.set_terminator(body_exit, Terminator::jump(after_block));
     }
 
     let succeeded = OpKind::Opaque {
@@ -458,31 +678,114 @@ fn flatten_try_catch(builder: &mut CfgBuilder, try_catch: &EvmTryCatch, current:
     let mut dispatch = builder.new_block();
     builder.set_terminator(
         current,
-        Terminator::Branch { cond, then_bb: body_block, else_bb: dispatch },
+        Terminator::branch(cond, body_block, dispatch),
     );
 
     for clause in &try_catch.catch_clauses {
-        builder.locals.extend(clause.params.iter().map(|(name, _)| name.clone()));
         let error = clause.error.as_deref().unwrap_or("*");
         let matches = OpKind::Opaque { description: format!("catch_matches({error})"), operands: vec![] };
         let cond = builder.emit_value(dispatch, matches, TMP_NAME, Type::Bool, Some(&clause.loc));
 
         let catch_block = builder.new_block();
+        let reason = OpKind::Opaque { description: "catch_reason".to_string(), operands: vec![guarded] };
+        let reason = builder.emit_value(catch_block, reason, TMP_NAME, Type::Bytes, Some(&clause.loc));
+        bind_parts(builder, catch_block, &clause.params, "catch_param", reason, Some(&clause.loc));
         let catch_exit = flatten_stmts(builder, &clause.body, catch_block);
         if builder.block_mut(catch_exit).term == Terminator::Unreachable {
-            builder.set_terminator(catch_exit, Terminator::Jump(after_block));
+            builder.set_terminator(catch_exit, Terminator::jump(after_block));
         }
 
         let next = builder.new_block();
         builder.set_terminator(
             dispatch,
-            Terminator::Branch { cond, then_bb: catch_block, else_bb: next },
+            Terminator::branch(cond, catch_block, next),
         );
         dispatch = next;
     }
     builder.set_terminator(dispatch, Terminator::TxnExit { reverted: true });
 
     after_block
+}
+
+/// Declare the variables `vars` and bind each to component `i` of `value`
+/// (or to `value` itself when there is a single variable).
+fn bind_parts(
+    builder: &mut CfgBuilder,
+    block: BlockId,
+    vars: &[(String, Type)],
+    what: &str,
+    value: OpRef,
+    span: Option<&Loc>,
+) {
+    for (index, (name, ty)) in vars.iter().enumerate() {
+        builder.declare_local(name, ty.clone());
+        let part = if vars.len() == 1 {
+            value
+        } else {
+            let kind =
+                OpKind::Opaque { description: format!("{what} {index}"), operands: vec![value] };
+            builder.emit_value(block, kind, name, ty.clone(), span)
+        };
+        builder.write_variable(block, name, part);
+    }
+}
+
+/// Assign `value` to a non-storage place: a local variable, an element or
+/// field of a local aggregate (rebuilding the aggregate), or a tuple of
+/// places.
+fn assign_local(
+    builder: &mut CfgBuilder,
+    block: BlockId,
+    lhs: &Expr,
+    value: OpRef,
+    span: Option<&Loc>,
+) {
+    match lhs {
+        Expr::Var(var) => builder.write_variable(block, &var.name, value),
+        Expr::IndexAccess(access) => {
+            let parts = std::iter::once(&*access.base).chain(access.index.as_deref());
+            let mut operands = lower_exprs(builder, block, parts.collect());
+            operands.push(value);
+            let kind = OpKind::Opaque { description: "index_update".to_string(), operands };
+            let name = expr_name(&access.base);
+            let updated = builder.emit_value(block, kind, &name, access.base.typ(), span);
+            assign_local(builder, block, &access.base, updated, span);
+        }
+        Expr::FieldAccess(access) => {
+            let base = lower_expr(builder, block, &access.base);
+            let kind = OpKind::Opaque {
+                description: format!("field_update .{}", access.field),
+                operands: vec![base, value],
+            };
+            let name = expr_name(&access.base);
+            let updated = builder.emit_value(block, kind, &name, access.base.typ(), span);
+            assign_local(builder, block, &access.base, updated, span);
+        }
+        Expr::Tuple(tuple) => {
+            for (index, elem) in tuple.elems.iter().enumerate() {
+                let Some(elem) = elem else { continue };
+                let kind = OpKind::Opaque {
+                    description: format!("tuple_get {index}"),
+                    operands: vec![value],
+                };
+                let part = builder.emit_value(block, kind, &expr_name(elem), elem.typ(), span);
+                assign_local(builder, block, elem, part, span);
+            }
+        }
+        // Other expressions do not denote places; the assignment has no
+        // effect on local state.
+        Expr::Lit(_)
+        | Expr::BinOp(_)
+        | Expr::UnOp(_)
+        | Expr::FunctionCall(_)
+        | Expr::TypeCast(_)
+        | Expr::Ternary(_)
+        | Expr::Old(_)
+        | Expr::Result(_)
+        | Expr::Forall { .. }
+        | Expr::Exists { .. }
+        | Expr::Dialect(_) => {}
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -514,8 +817,8 @@ fn lower_expr_named(
             resource: Resource::StateVar(var.name.clone()),
             keys: vec![],
         }),
-        // Local reads are resolved to their definitions by SSA construction.
-        Expr::Var(var) => OpKind::PseudoValue { label: var.name.clone() },
+        // A local read is its reaching definition; no op is emitted.
+        Expr::Var(var) => return builder.read_variable(block, &var.name),
         Expr::IndexAccess(access) => match builder.storage_path(expr) {
             Some((path, key_exprs)) => load_state_var(builder, block, path, key_exprs),
             None => {
@@ -732,7 +1035,7 @@ fn lower_move_expr(builder: &mut CfgBuilder, block: BlockId, expr: &MoveExpr) ->
             let addr = lower_expr(builder, block, &e.addr);
             move_op(MoveOp::Exists(MoveGlobalOp { addr, ty: e.ty.clone() }))
         }
-        MoveExpr::GhostVar(e) => OpKind::PseudoValue { label: e.name.clone() },
+        MoveExpr::GhostVar(e) => OpKind::Symbol { name: e.name.clone() },
         MoveExpr::MoveFrom(e) => {
             let addr = lower_expr(builder, block, &e.addr);
             move_op(MoveOp::MoveFrom(MoveGlobalOp { addr, ty: e.ty.clone() }))
@@ -858,11 +1161,76 @@ fn expr_name(expr: &Expr) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bir::cfg::{Function, FunctionId};
+    use crate::bir::module::Module;
+    use crate::cir::lower::ssa;
     use crate::sir::evm::{EvmLowLevelCall, EvmMsgSender};
-    use crate::sir::{AssignStmt, ExprStmt, IndexAccessExpr, StringLit, VarExpr};
+    use crate::sir::{
+        AssignStmt, BinOp, BinOpExpr, ExprStmt, IfStmt, IndexAccessExpr, OverflowSemantics,
+        ReturnStmt, StringLit, VarExpr, WhileStmt,
+    };
 
     fn var(name: &str) -> Expr {
         Expr::Var(VarExpr::new(name.to_string(), Type::I256, None))
+    }
+
+    fn lit(value: bool) -> Expr {
+        Expr::Lit(Lit::Bool(BoolLit::new(value, None)))
+    }
+
+    fn binop(op: BinOp, lhs: Expr, rhs: Expr) -> Expr {
+        Expr::BinOp(BinOpExpr {
+            op,
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            overflow: OverflowSemantics::Checked,
+            span: None,
+        })
+    }
+
+    fn assign(name: &str, rhs: Expr) -> Stmt {
+        Stmt::Assign(AssignStmt { lhs: var(name), rhs, span: None })
+    }
+
+    fn params(names: &[&str]) -> Vec<Param> {
+        names.iter().map(|n| Param::new(n.to_string(), Type::I256)).collect()
+    }
+
+    /// `i = false; while (i < n) { i = i + true; }`
+    fn counting_loop() -> Vec<Stmt> {
+        let body = vec![assign("i", binop(BinOp::Add, var("i"), lit(true)))];
+        let cond = binop(BinOp::Lt, var("i"), var("n"));
+        vec![
+            assign("i", lit(false)),
+            Stmt::While(WhileStmt { cond, body, invariant: None, span: None }),
+        ]
+    }
+
+    /// `x = a; y = a; if (c) { x = b; } return x + y;`
+    fn conditional_update() -> Vec<Stmt> {
+        let then_body = vec![assign("x", var("b"))];
+        let sum = binop(BinOp::Add, var("x"), var("y"));
+        vec![
+            assign("x", var("a")),
+            assign("y", var("a")),
+            Stmt::If(IfStmt { cond: var("c"), then_body, else_body: None, span: None }),
+            Stmt::Return(ReturnStmt { value: Some(sum), span: None }),
+        ]
+    }
+
+    /// Blocks that take parameters.
+    fn param_blocks(blocks: &[BasicBlock]) -> Vec<&BasicBlock> {
+        blocks.iter().filter(|b| !b.params.is_empty()).collect()
+    }
+
+    /// The ops passed as argument `index` on every transfer into `block`.
+    fn incoming<'b>(blocks: &'b [BasicBlock], block: BlockId, index: usize) -> Vec<&'b Op> {
+        blocks
+            .iter()
+            .flat_map(|b| b.term.block_calls())
+            .filter(|call| call.block == block)
+            .map(|call| find_op(blocks, call.args[index]))
+            .collect()
     }
 
     fn scope_with_state(vars: &[&str]) -> ContractScope {
@@ -940,5 +1308,73 @@ mod tests {
             .flat_map(|b| &b.ops)
             .any(|op| op.kind.storage_access().is_some());
         assert!(!has_storage_op);
+    }
+
+    #[test]
+    fn test_loop_carried_variable_becomes_header_param() {
+        let blocks = build_cfg(&counting_loop(), &params(&["n"]), &scope_with_state(&[]));
+
+        // Only the loop header merges values of `i`.
+        let [header] = param_blocks(&blocks)[..] else { panic!("expected one header") };
+        assert_eq!(header.params.len(), 1);
+        let i_param = OpRef(header.params[0].id);
+
+        // The loop condition reads the header parameter.
+        let Terminator::Branch { cond, .. } = &header.term else { panic!("expected branch") };
+        let OpKind::BinOp { lhs, .. } = &find_op(&blocks, *cond).kind else { panic!() };
+        assert_eq!(*lhs, i_param);
+
+        // `i` enters as the initial constant and loops back as `i + 1`.
+        let args = incoming(&blocks, header.id, 0);
+        assert_eq!(args.len(), 2);
+        assert!(args.iter().any(|op| matches!(op.kind, OpKind::Const(_))));
+        assert!(args
+            .iter()
+            .any(|op| matches!(op.kind, OpKind::BinOp { lhs, .. } if lhs == i_param)));
+    }
+
+    #[test]
+    fn test_merge_param_only_for_variables_changed_on_a_path() {
+        let params = params(&["a", "b", "c"]);
+        let blocks = build_cfg(&conditional_update(), &params, &scope_with_state(&[]));
+
+        // `x` differs between the paths; `y` does not, so it gets no param.
+        let [merge] = param_blocks(&blocks)[..] else { panic!("expected one merge block") };
+        assert_eq!(merge.params.len(), 1);
+        let x_param = OpRef(merge.params[0].id);
+        let args = incoming(&blocks, merge.id, 0);
+        let indices: HashSet<_> = args
+            .iter()
+            .map(|op| match op.kind {
+                OpKind::Param { index } => index,
+                _ => panic!("expected a function parameter"),
+            })
+            .collect();
+        assert_eq!(indices, HashSet::from([0, 1]));
+
+        // `return x + y` reads the merged `x` and the parameter `a` for `y`.
+        let ret = blocks.iter().flat_map(|b| &b.ops).find_map(|op| match &op.kind {
+            OpKind::Return(vals) => Some(vals[0]),
+            _ => None,
+        });
+        let OpKind::BinOp { lhs, rhs, .. } = &find_op(&blocks, ret.unwrap()).kind else {
+            panic!("expected x + y")
+        };
+        assert_eq!(*lhs, x_param);
+        assert!(matches!(find_op(&blocks, *rhs).kind, OpKind::Param { index: 0 }));
+    }
+
+    #[test]
+    fn test_ssa_output_passes_bir_verifier() {
+        let mut module = Module::new("m".to_string());
+        let bodies = [(counting_loop(), params(&["n"])), (conditional_update(), params(&["a", "b", "c"]))];
+        for (index, (body, params)) in bodies.iter().enumerate() {
+            let mut blocks = build_cfg(body, params, &scope_with_state(&[]));
+            ssa::rename_to_ssa(&mut blocks);
+            let mut func = Function::new(FunctionId(format!("C.f{index}")), true);
+            func.blocks = blocks;
+            module.functions.push(func);
+        }
+        assert!(crate::bir::verifier::verify(&module, false).is_ok());
     }
 }
