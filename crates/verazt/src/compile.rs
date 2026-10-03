@@ -52,10 +52,6 @@ pub struct Args {
     /// Print the Analysis IR (BIR).
     #[arg(long)]
     pub print_air: bool,
-
-    /// Print the Functional IR (FIR).
-    #[arg(long)]
-    pub print_fir: bool,
 }
 
 /// Detect the language from the file extension.
@@ -219,21 +215,6 @@ fn compile_solidity(file: &str, args: &Args) -> Result<()> {
             print_verify_header("BIR");
             report_verify_result("BIR", scirs::bir::verifier::verify(&air_module, true))?;
         }
-
-        // Step 8: Lower BIR → FIR
-        let fir_module = scirs::bir::lower::lower_module(&air_module);
-
-        if args.print_fir || args.debug {
-            print_header("FIR");
-            print!("{fir_module}");
-        }
-
-        // Verify FIR
-        if args.debug {
-            print_subheader("FIR Verification");
-            print_verify_header("FIR");
-            report_verify_result("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
-        }
     }
 
     println!("Successfully compiled {file}");
@@ -302,21 +283,6 @@ fn compile_vyper(file: &str, args: &Args) -> Result<()> {
         print_subheader("BIR Verification");
         print_verify_header("BIR");
         report_verify_result("BIR", scirs::bir::verifier::verify(&air_module, true))?;
-    }
-
-    // Step 8: Lower BIR → FIR
-    let fir_module = scirs::bir::lower::lower_module(&air_module);
-
-    if args.print_fir || args.debug {
-        print_header("FIR");
-        print!("{fir_module}");
-    }
-
-    // Verify FIR
-    if args.debug {
-        print_subheader("FIR Verification");
-        print_verify_header("FIR");
-        report_verify_result("FIR", scirs::fir::verifier::verify(&fir_module, true))?;
     }
 
     println!("Successfully compiled {file}");

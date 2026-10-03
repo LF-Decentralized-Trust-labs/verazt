@@ -9,7 +9,6 @@ pub mod alias;
 pub mod call_graph;
 pub mod cfg;
 pub mod interfaces;
-pub mod lower;
 pub mod module;
 pub mod ops;
 pub mod pdg;
