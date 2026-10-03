@@ -210,30 +210,14 @@ fn add_call_flow(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cir::lower::cfg::{ContractScope, build_cfg};
+    use crate::cir::lower::test_support::*;
     use crate::sir::evm::{EvmExpr, EvmLowLevelCall};
-    use crate::sir::{
-        CallArgs, CallExpr, DialectExpr, Expr, ExprStmt, Lit, Loc, Param, Stmt, StringLit, Type,
-        VarExpr,
-    };
+    use crate::sir::{CallArgs, CallExpr, DialectExpr, Expr, Lit, Loc, StringLit, Type};
     use std::collections::{HashSet, VecDeque};
-
-    fn var(name: &str) -> Expr {
-        Expr::Var(VarExpr::new(name.to_string(), Type::I256, None))
-    }
-
-    fn expr_stmt(expr: Expr) -> Stmt {
-        Stmt::Expr(ExprStmt { expr, span: None })
-    }
 
     /// Public `f(recipient)` runs `g(); recipient.call("");`, and internal
     /// `g()` is empty.
     fn module_with_calls() -> Module {
-        let scope = ContractScope {
-            contract: "C".to_string(),
-            functions: HashSet::from(["f".to_string(), "g".to_string()]),
-            storage_vars: HashSet::new(),
-        };
         let call_g = Expr::FunctionCall(CallExpr {
             callee: Box::new(var("g")),
             args: CallArgs::Positional(vec![]),
@@ -247,17 +231,14 @@ mod tests {
             gas: None,
             loc: Loc::default(),
         })));
-        let f_body = vec![expr_stmt(call_g), expr_stmt(call_out)];
-        let f_params = vec![Param::new("recipient".to_string(), Type::I256)];
-
-        let mut module = Module::new("m".to_string());
-        let mut f = Function::new(FunctionId("C.f".to_string()), true);
-        f.blocks = build_cfg(&f_body, &f_params, &scope);
-        let mut g = Function::new(FunctionId("C.g".to_string()), false);
-        g.blocks = build_cfg(&[], &[], &scope);
-        module.functions = vec![f, g];
-        build_icfg(&mut module);
-        module
+        let f = TestFunction {
+            name: "f",
+            params: params(&["recipient"]),
+            body: vec![expr_stmt(call_g), expr_stmt(call_out)],
+            public: true,
+        };
+        let g = TestFunction { name: "g", params: vec![], body: vec![], public: false };
+        lower_contract(&[], vec![f, g])
     }
 
     fn node_id(icfg: &ICFG, node: &ICFGNode) -> ICFGNodeId {

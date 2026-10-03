@@ -3,8 +3,8 @@
 //! Structurally identical to SIR statements, but using `CanonExpr` instead of
 //! `sir::Expr` and `CanonStmt` recursively.
 
-use crate::cir::exprs::CanonExpr;
-use crate::sir::dialect::DialectStmt;
+use crate::cir::dialect::CanonDialectStmt;
+use crate::cir::exprs::{CanonExpr, CanonResource};
 use crate::sir::exprs::BinOp;
 use crate::sir::types::Type;
 use common::loc::Loc;
@@ -30,7 +30,12 @@ pub enum CanonStmt {
     Break,
     Continue,
     Block(Vec<CanonStmt>),
-    Dialect(DialectStmt),
+    /// Write (or delete) persistent state.
+    Store(CanonStoreStmt),
+    /// Emit an event / log entry.
+    Emit(CanonEmitStmt),
+    /// Chain-specific remainder.
+    Dialect(CanonDialectStmt),
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -117,6 +122,23 @@ pub struct CanonAssertStmt {
     pub span: Option<Loc>,
 }
 
+/// `resource[keys...] = value`, a write of persistent state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonStoreStmt {
+    pub resource: CanonResource,
+    pub keys: Vec<CanonExpr>,
+    /// The stored value; `None` deletes the entry.
+    pub value: Option<CanonExpr>,
+    pub span: Option<Loc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonEmitStmt {
+    pub event: String,
+    pub args: Vec<CanonExpr>,
+    pub span: Option<Loc>,
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Implementations
 // ═══════════════════════════════════════════════════════════════════
@@ -134,6 +156,8 @@ impl CanonStmt {
             CanonStmt::Return(s) => s.span.as_ref(),
             CanonStmt::Revert(s) => s.span.as_ref(),
             CanonStmt::Assert(s) => s.span.as_ref(),
+            CanonStmt::Store(s) => s.span.as_ref(),
+            CanonStmt::Emit(s) => s.span.as_ref(),
             CanonStmt::Break | CanonStmt::Continue | CanonStmt::Block(_) => None,
             CanonStmt::Dialect(_) => None,
         }
@@ -166,8 +190,27 @@ impl Display for CanonStmt {
                 }
                 write!(f, "}}")
             }
+            CanonStmt::Store(s) => write!(f, "{s}"),
+            CanonStmt::Emit(s) => {
+                let args: Vec<_> = s.args.iter().map(|a| a.to_string()).collect();
+                write!(f, "emit {}({});", s.event, args.join(", "))
+            }
             CanonStmt::Dialect(s) => write!(f, "{s}"),
         }
+    }
+}
+
+impl Display for CanonStoreStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let verb = if self.value.is_some() { "store" } else { "delete" };
+        write!(f, "{verb} {}", self.resource)?;
+        for key in &self.keys {
+            write!(f, "[{key}]")?;
+        }
+        if let Some(value) = &self.value {
+            write!(f, " = {value}")?;
+        }
+        write!(f, ";")
     }
 }
 

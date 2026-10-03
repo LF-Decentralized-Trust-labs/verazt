@@ -4,8 +4,13 @@
 //! - `Ternary` is removed (lowered to `if` statement).
 //! - `Tuple` is removed (unrolled).
 //! - `FunctionCall` args must be atoms (Var or Lit) — no nested calls.
+//! - Chain semantics are explicit: contract state reads are `Load`, resolved
+//!   calls are `InternalCall` / `ExternalCall`, environment reads are `Env`,
+//!   and the remaining chain-specific forms are typed `Dialect` expressions.
+//!   A `Var` always names a local variable or a non-value symbol.
 
-use crate::sir::dialect::DialectExpr;
+use crate::cir::dialect::CanonDialectExpr;
+use crate::semantics::{EnvVar, ExternalKind};
 use crate::sir::exprs::{BinOp, OverflowSemantics, UnOp};
 use crate::sir::lits::Lit;
 use crate::sir::types::Type;
@@ -24,9 +29,20 @@ pub enum CanonExpr {
     UnOp(CanonUnOpExpr),
     IndexAccess(CanonIndexAccessExpr),
     FieldAccess(CanonFieldAccessExpr),
-    /// Function call — args must be atoms (Var or Lit).
+    /// Unresolved call (builtin, library, or type constructor) — args must
+    /// be atoms (Var or Lit).
     FunctionCall(CanonCallExpr),
     TypeCast(CanonTypeCastExpr),
+
+    // ── Shared chain semantics ─────────────────────────────────
+    /// Read of persistent state.
+    Load(CanonLoadExpr),
+    /// Call to a function of the same contract.
+    InternalCall(CanonInternalCallExpr),
+    /// Call leaving the current contract/program.
+    ExternalCall(CanonExternalCallExpr),
+    /// Read of an execution-environment value.
+    Env(CanonEnvExpr),
 
     // NOTE: Ternary is removed — lowered to if statement.
     // NOTE: Tuple is removed — unrolled.
@@ -45,8 +61,8 @@ pub enum CanonExpr {
         body: Box<CanonExpr>,
     },
 
-    // ── Dialect extension ──────────────────────────────────────
-    Dialect(DialectExpr),
+    // ── Chain-specific remainder ───────────────────────────────
+    Dialect(CanonDialectExpr),
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -107,6 +123,58 @@ pub struct CanonTypeCastExpr {
     pub span: Option<Loc>,
 }
 
+/// `resource[keys...]`, a read of persistent state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonLoadExpr {
+    pub resource: CanonResource,
+    /// Index operands (mapping keys, array indices, owner address).
+    pub keys: Vec<CanonExpr>,
+    pub ty: Type,
+    pub span: Option<Loc>,
+}
+
+/// A persistent-state location family.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CanonResource {
+    /// A Solana/Anchor account, identified by the account expression.
+    AnchorAccount(Box<CanonExpr>),
+    /// A Move global resource of the given type, keyed by owner address.
+    MoveGlobal(Type),
+    /// A contract state variable, as a dotted path for struct fields
+    /// (e.g. `balances`, `config.owner`).
+    StateVar(String),
+}
+
+/// A call to function `func` of the same contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonInternalCallExpr {
+    pub func: String,
+    pub args: Vec<CanonExpr>,
+    pub ty: Type,
+    pub span: Option<Loc>,
+}
+
+/// A call leaving the current contract/program.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonExternalCallExpr {
+    pub kind: ExternalKind,
+    /// The called address/program, when it is explicit.
+    pub address: Option<Box<CanonExpr>>,
+    pub args: Vec<CanonExpr>,
+    /// Native value transferred with the call (ETH, lamports).
+    pub value: Option<Box<CanonExpr>>,
+    pub ty: Type,
+    pub span: Option<Loc>,
+}
+
+/// A read of an execution-environment value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanonEnvExpr {
+    pub var: EnvVar,
+    pub ty: Type,
+    pub span: Option<Loc>,
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Implementations
 // ═══════════════════════════════════════════════════════════════════
@@ -135,10 +203,14 @@ impl CanonExpr {
             CanonExpr::FieldAccess(e) => e.ty.clone(),
             CanonExpr::FunctionCall(e) => e.ty.clone(),
             CanonExpr::TypeCast(e) => e.ty.clone(),
+            CanonExpr::Load(e) => e.ty.clone(),
+            CanonExpr::InternalCall(e) => e.ty.clone(),
+            CanonExpr::ExternalCall(e) => e.ty.clone(),
+            CanonExpr::Env(e) => e.ty.clone(),
             CanonExpr::Old(inner) => inner.typ(),
             CanonExpr::Result(_) => Type::None,
             CanonExpr::Forall { .. } | CanonExpr::Exists { .. } => Type::Bool,
-            CanonExpr::Dialect(_) => Type::None,
+            CanonExpr::Dialect(e) => e.ty.clone(),
         }
     }
 
@@ -152,7 +224,15 @@ impl CanonExpr {
             CanonExpr::FieldAccess(e) => e.span.as_ref(),
             CanonExpr::FunctionCall(e) => e.span.as_ref(),
             CanonExpr::TypeCast(e) => e.span.as_ref(),
-            _ => None,
+            CanonExpr::Load(e) => e.span.as_ref(),
+            CanonExpr::InternalCall(e) => e.span.as_ref(),
+            CanonExpr::ExternalCall(e) => e.span.as_ref(),
+            CanonExpr::Env(e) => e.span.as_ref(),
+            CanonExpr::Dialect(e) => e.span.as_ref(),
+            CanonExpr::Old(_)
+            | CanonExpr::Result(_)
+            | CanonExpr::Forall { .. }
+            | CanonExpr::Exists { .. } => None,
         }
     }
 }
@@ -184,6 +264,26 @@ impl Display for CanonExpr {
                 write!(f, "{}({})", e.callee, args.join(", "))
             }
             CanonExpr::TypeCast(e) => write!(f, "{}({})", e.ty, e.expr),
+            CanonExpr::Load(e) => {
+                write!(f, "load {}", e.resource)?;
+                for key in &e.keys {
+                    write!(f, "[{key}]")?;
+                }
+                Ok(())
+            }
+            CanonExpr::InternalCall(e) => write!(f, "{}({})", e.func, join(&e.args)),
+            CanonExpr::ExternalCall(e) => {
+                write!(f, "external.{:?}", e.kind)?;
+                if let Some(address) = &e.address {
+                    write!(f, " {address}")?;
+                }
+                write!(f, "({})", join(&e.args))?;
+                if let Some(value) = &e.value {
+                    write!(f, " value {value}")?;
+                }
+                Ok(())
+            }
+            CanonExpr::Env(e) => write!(f, "env.{}", e.var),
             CanonExpr::Old(inner) => write!(f, "old({inner})"),
             CanonExpr::Result(idx) => write!(f, "result({idx})"),
             CanonExpr::Forall { var, ty, body } => write!(f, "forall({var}: {ty}, {body})"),
@@ -191,4 +291,18 @@ impl Display for CanonExpr {
             CanonExpr::Dialect(d) => write!(f, "{d}"),
         }
     }
+}
+
+impl Display for CanonResource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CanonResource::AnchorAccount(account) => write!(f, "anchor.account<{account}>"),
+            CanonResource::MoveGlobal(ty) => write!(f, "move.global<{ty}>"),
+            CanonResource::StateVar(name) => write!(f, "@{name}"),
+        }
+    }
+}
+
+fn join(exprs: &[CanonExpr]) -> String {
+    exprs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
 }
