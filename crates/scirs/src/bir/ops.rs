@@ -103,8 +103,9 @@ impl Op {
 
 impl Display for Op {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some((name, ty)) = &self.result {
-            write!(f, "{}: {ty} = ", name)?;
+        // Results are printed as op ids, the same namespace operands use.
+        if let Some((_, ty)) = &self.result {
+            write!(f, "{}: {ty} = ", self.id)?;
         }
         write!(f, "{}", self.kind)
     }

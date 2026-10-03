@@ -853,12 +853,15 @@ impl AstParser {
                     .collect::<Result<Vec<Expr>>>()
             })
             .unwrap_or(Ok(vec![]))?;
-        let kind = node
-            .get("kind")
-            .ok_or_else(|| error!("Modifier invocation kind not found: {node}"))?
-            .as_str()
-            .ok_or_else(|| error!("Modifier invocation kind invalid: {node}"))
-            .and_then(CallKind::new)?;
+        // Older solc versions do not emit `kind`; such nodes are modifier
+        // invocations.
+        let kind = match node.get("kind").filter(|v| !v.is_null()) {
+            Some(kind) => kind
+                .as_str()
+                .ok_or_else(|| error!("Modifier invocation kind invalid: {node}"))
+                .and_then(CallKind::new)?,
+            None => CallKind::ModifierInvoc,
+        };
         let arg_typs: Vec<Type> = args.iter().map(|arg| arg.typ()).collect();
         let typ: Type = FuncType::new(arg_typs, vec![], FuncVis::None, FuncMut::None).into();
         let loc = self.parse_source_location(node);
@@ -1019,8 +1022,10 @@ impl AstParser {
             .get("trueBody")
             .ok_or_else(|| error!("If statement: true body not found: {node}"))
             .map(|v| self.parse_stmt(v))??;
+        // Older solc versions emit `"falseBody": null` when there is no else.
         let false_br = node
             .get("falseBody")
+            .filter(|v| !v.is_null())
             .map(|v| self.parse_stmt(v))
             .transpose()?;
         let loc = self.parse_source_location(node);
@@ -1113,7 +1118,8 @@ impl AstParser {
     /// Parse a `return` statement.
     fn parse_return_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = self.parse_id(node).ok();
-        let expr = match node.get("expression") {
+        // Older solc versions emit `"expression": null` for a bare `return;`.
+        let expr = match node.get("expression").filter(|v| !v.is_null()) {
             Some(v) => Some(self.parse_expr(v)?),
             None => None,
         };

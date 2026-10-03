@@ -1,7 +1,7 @@
 //! CFG and ICFG data structures for BIR.
 
 use crate::bir::ops::{Op, OpId, OpRef, SsaName};
-use crate::sir::Type;
+use crate::sir::{Attr, Type};
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -311,13 +311,20 @@ impl Display for ICFG {
 #[derive(Debug, Clone)]
 pub struct Function {
     pub id: FunctionId,
+    /// Source attributes of the function (visibility, guards, ...).
+    pub attrs: Vec<Attr>,
     pub blocks: Vec<BasicBlock>,
     pub is_public: bool,
 }
 
 impl Function {
     pub fn new(id: FunctionId, is_public: bool) -> Self {
-        Function { id, blocks: Vec::new(), is_public }
+        Function { id, attrs: Vec::new(), blocks: Vec::new(), is_public }
+    }
+
+    pub fn with_attrs(mut self, attrs: Vec<Attr>) -> Self {
+        self.attrs = attrs;
+        self
     }
 }
 

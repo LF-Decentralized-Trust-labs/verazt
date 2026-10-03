@@ -62,12 +62,14 @@ pub fn lower_source_unit(source_unit: &ast::SourceUnit) -> Result<Module> {
 }
 
 pub struct Lowerer {
+    /// Whether a modifier body is being lowered (placeholders are allowed).
+    in_modifier: bool,
     tmp_var_index: usize,
 }
 
 impl Lowerer {
     pub fn new() -> Self {
-        Lowerer { tmp_var_index: 0 }
+        Lowerer { in_modifier: false, tmp_var_index: 0 }
     }
 
     fn fresh_var_name(&mut self) -> String {
@@ -378,10 +380,15 @@ impl Lowerer {
 
     fn lower_modifier_def(&mut self, f: &ast::FuncDef) -> Result<MemberDecl> {
         let params = self.lower_param_list(&f.params)?;
+        // Placeholders may appear anywhere in a modifier body, including
+        // nested statements such as `if (owner == msg.sender) _;`.
+        self.in_modifier = true;
         let body = match &f.body {
-            Some(blk) => self.lower_block_with_placeholder(blk)?,
-            None => vec![],
+            Some(blk) => self.lower_block(blk),
+            None => Ok(vec![]),
         };
+        self.in_modifier = false;
+        let body = body?;
         Ok(MemberDecl::Dialect(DialectMemberDecl::Evm(EvmMemberDecl::ModifierDef(
             EvmModifierDef {
                 name: f.name.to_string(),
@@ -393,23 +400,6 @@ impl Lowerer {
                 loc: Default::default(),
             },
         ))))
-    }
-
-    fn lower_block_with_placeholder(&mut self, blk: &ast::Block) -> Result<Vec<Stmt>> {
-        let mut stmts = vec![];
-        for s in &blk.body {
-            stmts.extend(self.lower_stmt_with_placeholder(s)?);
-        }
-        Ok(stmts)
-    }
-
-    fn lower_stmt_with_placeholder(&mut self, stmt: &ast::Stmt) -> Result<Vec<Stmt>> {
-        match stmt {
-            ast::Stmt::Placeholder(_) => Ok(vec![Stmt::Dialect(DialectStmt::Evm(
-                EvmStmt::Placeholder(EvmPlaceholder { loc: Default::default() }),
-            ))]),
-            _ => self.lower_stmt(stmt),
-        }
     }
 
     fn lower_param_list(&mut self, params: &[ast::VarDecl]) -> Result<Vec<Param>> {
@@ -443,8 +433,11 @@ impl Lowerer {
             ast::Stmt::Asm(s) => Ok(self.lower_asm_stmt(s)),
             ast::Stmt::Block(blk) => self.lower_block(blk),
             ast::Stmt::Break(_) => Ok(vec![Stmt::Break]),
+            ast::Stmt::Placeholder(_) if self.in_modifier => Ok(vec![Stmt::Dialect(
+                DialectStmt::Evm(EvmStmt::Placeholder(EvmPlaceholder { loc: Default::default() })),
+            )]),
             ast::Stmt::Placeholder(_) => {
-                fail!("PlaceholderStmt must be eliminated at AST level!")
+                fail!("PlaceholderStmt outside a modifier body!")
             }
             ast::Stmt::Continue(_) => Ok(vec![Stmt::Continue]),
             ast::Stmt::DoWhile(s) => self.lower_do_while_stmt(s),
