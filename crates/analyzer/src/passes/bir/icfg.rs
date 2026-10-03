@@ -7,9 +7,8 @@
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::bir::cfg::{EdgeKind, FunctionId, ICFG, ICFGNode};
-use scirs::bir::interfaces::CallTarget;
-use scirs::bir::ops::OpKind;
+use scirs::bir::cfg::{EdgeKind, ICFG, ICFGNode};
+use scirs::bir::ops::{CallTarget, OpKind};
 use std::any::TypeId;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -73,16 +72,15 @@ impl AnalysisPass for ICFGPass {
                             let call_node_id = icfg.add_node(ICFGNode::CallSite { op: op.id });
                             let return_node_id = icfg.add_node(ICFGNode::ReturnSite { op: op.id });
 
-                            match &call_op.callee {
-                                CallTarget::Static(callee_name) => {
+                            match &call_op.target {
+                                CallTarget::Internal(callee) => {
                                     // Internal call: add call/return edges
-                                    let callee_entry = icfg.add_node(ICFGNode::TxnEntry {
-                                        func: FunctionId(callee_name.clone()),
-                                    });
+                                    let callee_entry =
+                                        icfg.add_node(ICFGNode::TxnEntry { func: callee.clone() });
                                     icfg.add_edge(call_node_id, callee_entry, EdgeKind::CallEdge);
                                     // Also link return back
                                     let callee_exit = icfg.add_node(ICFGNode::TxnExit {
-                                        func: FunctionId(callee_name.clone()),
+                                        func: callee.clone(),
                                         reverted: false,
                                     });
                                     icfg.add_edge(
@@ -91,12 +89,12 @@ impl AnalysisPass for ICFGPass {
                                         EdgeKind::ReturnEdge,
                                     );
                                 }
-                                CallTarget::Dynamic => {
+                                CallTarget::External(_) => {
                                     // External call: tag as re-entry point
                                     let ext_node =
                                         icfg.add_node(ICFGNode::ExternalCallNode { op: op.id });
                                     icfg.add_edge(call_node_id, ext_node, EdgeKind::CallEdge);
-                                    if call_op.call_risk.reentrancy {
+                                    if call_op.may_reenter() {
                                         let reentry = icfg.add_node(ICFGNode::ReentryPoint {
                                             func: func.id.clone(),
                                         });

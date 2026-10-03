@@ -7,7 +7,7 @@ use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
 use scirs::bir::cfg::Terminator;
-use scirs::bir::ops::{OpId, OpKind, OpRef};
+use scirs::bir::ops::{OpId, OpRef};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
@@ -69,8 +69,7 @@ impl AnalysisPass for DefUsePass {
                 // Collect uses
                 for block in &func.blocks {
                     for op in &block.ops {
-                        let operands = collect_operands(&op.kind);
-                        for OpRef(def_id) in operands {
+                        for OpRef(def_id) in op.kind.operands() {
                             result.entry(def_id).or_default().insert(op.id);
                         }
                     }
@@ -95,42 +94,13 @@ impl AnalysisPass for DefUsePass {
     }
 }
 
-/// Extract all OpRef operands from an OpKind.
-fn collect_operands(kind: &OpKind) -> Vec<OpRef> {
-    match kind {
-        OpKind::BinOp { lhs, rhs, .. } => vec![*lhs, *rhs],
-        OpKind::UnOp { operand, .. } => vec![*operand],
-        OpKind::Phi(args) => args.iter().map(|(_, r)| *r).collect(),
-        OpKind::Assert { cond } => vec![*cond],
-        OpKind::Return(vals) => vals.clone(),
-        OpKind::ExprStmt { expr } => vec![*expr],
-        OpKind::Storage(s) => {
-            let mut ops = vec![];
-            if let Some(k) = s.key_operand {
-                ops.push(k);
-            }
-            if let Some(v) = s.value_operand {
-                ops.push(v);
-            }
-            ops
-        }
-        OpKind::Call(c) => c.args.clone(),
-        OpKind::Const(_)
-        | OpKind::Param { .. }
-        | OpKind::TaintSrc(_)
-        | OpKind::TaintSnk(_)
-        | OpKind::PseudoValue { .. }
-        | OpKind::Opaque { .. } => vec![],
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
     use scirs::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
     use scirs::bir::ops::{Op, OpId, OpKind, OpRef, SsaName};
-    use scirs::sir::{BinOp, Lit, NumLit, OverflowSemantics, Type};
+    use scirs::sir::{BinOp, OverflowSemantics, Type};
 
     #[test]
     fn test_def_use_basic() {

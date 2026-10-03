@@ -1,9 +1,10 @@
 //! BIR — Basic Block IR
 //!
 //! BIR is a graph-structured, SSA-form IR optimised for static dataflow
-//! analysis. Its key invariant: every dialect construct that reaches BIR
-//! implements at least one of `StorageOp`, `CallOp`, `TaintSource`, or
-//! `TaintSink`.
+//! analysis and verification. Dialect constructs lower either to shared
+//! feature ops (`Load`, `Store`, `Call`, `Env`, `Emit`) or to typed
+//! per-chain ops (`Dialect`); generic analyses use the derived semantics in
+//! `interfaces` (operands, storage accesses, taint sources/sinks, call risk).
 
 pub mod alias;
 pub mod call_graph;

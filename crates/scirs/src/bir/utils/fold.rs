@@ -51,19 +51,25 @@ pub trait Fold<'a, T: Default> {
     fn fold_expr_stmt_op(&mut self, _expr: &'a OpRef) -> T {
         T::default()
     }
-    fn fold_storage_op(&mut self, _op: &'a StorageDialectOp) -> T {
+    fn fold_load_op(&mut self, _op: &'a LoadOp) -> T {
         T::default()
     }
-    fn fold_call_op(&mut self, _op: &'a CallDialectOp) -> T {
+    fn fold_store_op(&mut self, _op: &'a StoreOp) -> T {
         T::default()
     }
-    fn fold_taint_src_op(&mut self, _op: &'a TaintSourceOp) -> T {
+    fn fold_call_op(&mut self, _op: &'a CallOp) -> T {
         T::default()
     }
-    fn fold_taint_snk_op(&mut self, _op: &'a TaintSinkOp) -> T {
+    fn fold_env_op(&mut self, _var: &'a EnvVar) -> T {
         T::default()
     }
-    fn fold_opaque_op(&mut self, _description: &'a str) -> T {
+    fn fold_emit_op(&mut self, _op: &'a EmitOp) -> T {
+        T::default()
+    }
+    fn fold_dialect_op(&mut self, _op: &'a DialectOp) -> T {
+        T::default()
+    }
+    fn fold_opaque_op(&mut self, _description: &'a str, _operands: &'a [OpRef]) -> T {
         T::default()
     }
 
@@ -132,12 +138,14 @@ pub mod default {
             OpKind::Return(vals) => folder.fold_return_op(vals),
             OpKind::Param { index } => folder.fold_param_op(index),
             OpKind::ExprStmt { expr } => folder.fold_expr_stmt_op(expr),
-            OpKind::Storage(s) => folder.fold_storage_op(s),
-            OpKind::Call(c) => folder.fold_call_op(c),
-            OpKind::TaintSrc(t) => folder.fold_taint_src_op(t),
-            OpKind::TaintSnk(t) => folder.fold_taint_snk_op(t),
+            OpKind::Load(load) => folder.fold_load_op(load),
+            OpKind::Store(store) => folder.fold_store_op(store),
+            OpKind::Call(call) => folder.fold_call_op(call),
+            OpKind::Env(var) => folder.fold_env_op(var),
+            OpKind::Emit(emit) => folder.fold_emit_op(emit),
+            OpKind::Dialect(dialect) => folder.fold_dialect_op(dialect),
             OpKind::PseudoValue { .. } => T::default(),
-            OpKind::Opaque { description } => folder.fold_opaque_op(description),
+            OpKind::Opaque { description, operands } => folder.fold_opaque_op(description, operands),
         }
     }
 

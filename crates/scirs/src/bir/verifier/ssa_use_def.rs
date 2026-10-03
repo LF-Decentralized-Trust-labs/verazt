@@ -57,49 +57,8 @@ fn check_ref(
 }
 
 fn check_op_uses(op: &Op, defined: &HashSet<OpId>, errors: &mut Vec<VerifyError>) {
-    match &op.kind {
-        OpKind::BinOp { lhs, rhs, .. } => {
-            check_ref(lhs, defined, op.span.as_ref(), errors);
-            check_ref(rhs, defined, op.span.as_ref(), errors);
-        }
-        OpKind::UnOp { operand, .. } => {
-            check_ref(operand, defined, op.span.as_ref(), errors);
-        }
-        OpKind::Phi(entries) => {
-            for (_block, r) in entries {
-                check_ref(r, defined, op.span.as_ref(), errors);
-            }
-        }
-        OpKind::Assert { cond } => {
-            check_ref(cond, defined, op.span.as_ref(), errors);
-        }
-        OpKind::Return(vals) => {
-            for r in vals {
-                check_ref(r, defined, op.span.as_ref(), errors);
-            }
-        }
-        OpKind::ExprStmt { expr } => {
-            check_ref(expr, defined, op.span.as_ref(), errors);
-        }
-        OpKind::Storage(s) => {
-            if let Some(k) = &s.key_operand {
-                check_ref(k, defined, op.span.as_ref(), errors);
-            }
-            if let Some(v) = &s.value_operand {
-                check_ref(v, defined, op.span.as_ref(), errors);
-            }
-        }
-        OpKind::Call(c) => {
-            for arg in &c.args {
-                check_ref(arg, defined, op.span.as_ref(), errors);
-            }
-        }
-        OpKind::Const(_)
-        | OpKind::Param { .. }
-        | OpKind::TaintSrc(_)
-        | OpKind::TaintSnk(_)
-        | OpKind::PseudoValue { .. }
-        | OpKind::Opaque { .. } => {}
+    for operand in op.kind.operands() {
+        check_ref(&operand, defined, op.span.as_ref(), errors);
     }
 }
 

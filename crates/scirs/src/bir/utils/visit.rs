@@ -29,11 +29,13 @@ pub trait Visit<'a> {
     fn visit_return_op(&mut self, _vals: &'a [OpRef]) {}
     fn visit_param_op(&mut self, _index: &'a ParamIndex) {}
     fn visit_expr_stmt_op(&mut self, _expr: &'a OpRef) {}
-    fn visit_storage_op(&mut self, _op: &'a StorageDialectOp) {}
-    fn visit_call_op(&mut self, _op: &'a CallDialectOp) {}
-    fn visit_taint_src_op(&mut self, _op: &'a TaintSourceOp) {}
-    fn visit_taint_snk_op(&mut self, _op: &'a TaintSinkOp) {}
-    fn visit_opaque_op(&mut self, _description: &'a str) {}
+    fn visit_load_op(&mut self, _op: &'a LoadOp) {}
+    fn visit_store_op(&mut self, _op: &'a StoreOp) {}
+    fn visit_call_op(&mut self, _op: &'a CallOp) {}
+    fn visit_env_op(&mut self, _var: &'a EnvVar) {}
+    fn visit_emit_op(&mut self, _op: &'a EmitOp) {}
+    fn visit_dialect_op(&mut self, _op: &'a DialectOp) {}
+    fn visit_opaque_op(&mut self, _description: &'a str, _operands: &'a [OpRef]) {}
 
     // ── Terminators ─────────────────────────────────
     fn visit_terminator(&mut self, term: &'a Terminator) {
@@ -86,12 +88,16 @@ pub mod default {
             OpKind::Return(vals) => visitor.visit_return_op(vals),
             OpKind::Param { index } => visitor.visit_param_op(index),
             OpKind::ExprStmt { expr } => visitor.visit_expr_stmt_op(expr),
-            OpKind::Storage(s) => visitor.visit_storage_op(s),
-            OpKind::Call(c) => visitor.visit_call_op(c),
-            OpKind::TaintSrc(t) => visitor.visit_taint_src_op(t),
-            OpKind::TaintSnk(t) => visitor.visit_taint_snk_op(t),
+            OpKind::Load(load) => visitor.visit_load_op(load),
+            OpKind::Store(store) => visitor.visit_store_op(store),
+            OpKind::Call(call) => visitor.visit_call_op(call),
+            OpKind::Env(var) => visitor.visit_env_op(var),
+            OpKind::Emit(emit) => visitor.visit_emit_op(emit),
+            OpKind::Dialect(dialect) => visitor.visit_dialect_op(dialect),
             OpKind::PseudoValue { .. } => {}
-            OpKind::Opaque { description } => visitor.visit_opaque_op(description),
+            OpKind::Opaque { description, operands } => {
+                visitor.visit_opaque_op(description, operands)
+            }
         }
     }
 

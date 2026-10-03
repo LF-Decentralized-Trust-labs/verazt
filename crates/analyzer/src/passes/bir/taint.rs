@@ -68,12 +68,12 @@ impl AnalysisPass for TaintPass {
                 taint_map.entry(seed.op).or_default().insert(seed.label);
             }
 
-            // Also seed from TaintSrc ops in functions
+            // Also seed from taint-source ops in functions
             for func in &module.functions {
                 for block in &func.blocks {
                     for op in &block.ops {
-                        if let OpKind::TaintSrc(src) = &op.kind {
-                            taint_map.entry(op.id).or_default().insert(src.label);
+                        if let Some(label) = op.kind.taint_source() {
+                            taint_map.entry(op.id).or_default().insert(label);
                         }
                     }
                 }
@@ -179,7 +179,7 @@ mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
     use scirs::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use scirs::bir::ops::{Op, OpId, OpKind, OpRef, SsaName, TaintSourceOp};
+    use scirs::bir::ops::{EnvVar, Op, OpId, OpKind, SsaName};
     use scirs::sir::Type;
 
     #[test]
@@ -187,16 +187,9 @@ mod tests {
         let mut func = Function::new(FunctionId("test".into()), true);
         let mut bb0 = BasicBlock::new(BlockId(0));
 
-        // %0 = taint source (UserControlled)
-        let op0 = Op::new(
-            OpId(0),
-            OpKind::TaintSrc(TaintSourceOp {
-                label: TaintLabel::UserControlled,
-                dialect_name: "evm".into(),
-                op_name: "msg_sender".into(),
-            }),
-        )
-        .with_result(SsaName::new("sender", 0), Type::Si256);
+        // %0 = env Caller (msg.sender, a UserControlled source)
+        let op0 = Op::new(OpId(0), OpKind::Env(EnvVar::Caller))
+            .with_result(SsaName::new("sender", 0), Type::Si256);
 
         bb0.ops = vec![op0];
         bb0.term = Terminator::TxnExit { reverted: false };

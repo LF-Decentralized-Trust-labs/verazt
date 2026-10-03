@@ -1,22 +1,19 @@
 //! Pass 2a: CIR → BIR lowering.
 //!
-//! This module orchestrates the four-step transformation from
+//! This module orchestrates the three-step transformation from
 //! CIR (Canonical IR) into BIR.
 
 pub mod cfg;
-pub mod dialect_lower;
 pub mod icfg;
 pub mod ssa;
 
 use crate::bir::module::Module;
+use std::collections::HashSet;
 use thiserror::Error;
 
 /// Errors that can occur during CIR → BIR lowering.
 #[derive(Debug, Error)]
 pub enum LowerError {
-    #[error("Untagged dialect op after Step 3: {0}")]
-    UntaggedDialectOp(String),
-
     #[error("SSA renaming error: {0}")]
     SsaError(String),
 
@@ -29,14 +26,13 @@ pub enum LowerError {
 
 /// Lower a CIR CanonModule into an BIR Module.
 ///
-/// This runs the four-step Pass 2a transformation:
-///   1. CFG Construction
+/// This runs the three-step Pass 2a transformation:
+///   1. CFG Construction with typed op lowering (dialect constructs become
+///      shared feature ops or typed dialect ops)
 ///   2. SSA Renaming
-///   3. Dialect Lowering
-///   4. ICFG + Alias + Taint init
+///   3. ICFG + Alias + Taint init
 ///
-/// NOTE: Modifier expansion (formerly Step 1) is now handled by the
-/// CIR lowering pass.
+/// NOTE: Modifier expansion is handled by the CIR lowering pass.
 pub fn lower_module(cir: &crate::cir::CanonModule) -> Result<Module, LowerError> {
     use crate::bir::cfg::{Function, FunctionId};
 
@@ -48,6 +44,7 @@ pub fn lower_module(cir: &crate::cir::CanonModule) -> Result<Module, LowerError>
             crate::cir::CanonDecl::Contract(c) => c,
             crate::cir::CanonDecl::Dialect(_) => continue,
         };
+        let scope = contract_scope(contract);
 
         // Process each member declaration
         for member in &contract.members {
@@ -76,14 +73,11 @@ pub fn lower_module(cir: &crate::cir::CanonModule) -> Result<Module, LowerError>
 
                     let func_id = FunctionId(format!("{}.{}", contract.name, func_decl.name));
 
-                    // Step 1: CFG construction
-                    let mut blocks = cfg::build_cfg(&sir_body, &sir_params);
+                    // Step 1: CFG construction and typed op lowering
+                    let mut blocks = cfg::build_cfg(&sir_body, &sir_params, &scope);
 
                     // Step 2: SSA renaming
                     ssa::rename_to_ssa(&mut blocks);
-
-                    // Step 3: Dialect lowering
-                    dialect_lower::lower_dialect_ops(&mut blocks, &cir.attrs)?;
 
                     let mut air_func = Function::new(func_id, is_public);
                     air_func.blocks = blocks;
@@ -94,10 +88,30 @@ pub fn lower_module(cir: &crate::cir::CanonModule) -> Result<Module, LowerError>
         }
     }
 
-    // Step 4: ICFG, alias sets, and taint graph initialization
+    // Step 3: ICFG, alias sets, and taint graph initialization
     icfg::build_icfg(&mut air_module);
 
     Ok(air_module)
+}
+
+/// Collect the contract-level names the CFG lowering needs.
+fn contract_scope(contract: &crate::cir::CanonContractDecl) -> cfg::ContractScope {
+    let mut functions = HashSet::new();
+    let mut storage_vars = HashSet::new();
+    for member in &contract.members {
+        match member {
+            crate::cir::CanonMemberDecl::Function(func) => {
+                functions.insert(func.name.clone());
+            }
+            crate::cir::CanonMemberDecl::Storage(storage) => {
+                storage_vars.insert(storage.name.clone());
+            }
+            crate::cir::CanonMemberDecl::TypeAlias(_)
+            | crate::cir::CanonMemberDecl::GlobalInvariant(_)
+            | crate::cir::CanonMemberDecl::Dialect(_) => {}
+        }
+    }
+    cfg::ContractScope { contract: contract.name.clone(), functions, storage_vars }
 }
 
 /// Convert CIR canonical statements back to SIR statements.
