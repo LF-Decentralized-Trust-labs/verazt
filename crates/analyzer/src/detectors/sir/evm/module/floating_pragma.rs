@@ -3,6 +3,7 @@
 //! Detects unlocked compiler versions by inspecting the `#sir.pragma_solidity`
 //! attribute on SIR modules.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -26,8 +27,8 @@ impl FloatingPragmaDetector {
 }
 
 impl ScanDetector for FloatingPragmaDetector {
-    fn id(&self) -> &'static str {
-        "floating-pragma"
+    fn id(&self) -> DetectorId {
+        DetectorId::FloatingPragma
     }
 
     fn name(&self) -> &'static str {
@@ -115,7 +116,7 @@ mod tests {
     #[test]
     fn test_floating_pragma_detector() {
         let detector = FloatingPragmaDetector::new();
-        assert_eq!(detector.id(), "floating-pragma");
+        assert_eq!(detector.id(), DetectorId::FloatingPragma);
         assert_eq!(detector.swc_ids(), vec![103]);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }

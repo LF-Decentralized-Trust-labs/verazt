@@ -2,6 +2,7 @@
 //!
 //! Detects local variable declarations that shadow storage variables.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -20,8 +21,8 @@ impl ShadowingDetector {
 }
 
 impl ScanDetector for ShadowingDetector {
-    fn id(&self) -> &'static str {
-        "shadowing"
+    fn id(&self) -> DetectorId {
+        DetectorId::Shadowing
     }
 
     fn name(&self) -> &'static str {
@@ -160,7 +161,7 @@ mod tests {
     #[test]
     fn test_shadowing_detector() {
         let detector = ShadowingDetector::new();
-        assert_eq!(detector.id(), "shadowing");
+        assert_eq!(detector.id(), DetectorId::Shadowing);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

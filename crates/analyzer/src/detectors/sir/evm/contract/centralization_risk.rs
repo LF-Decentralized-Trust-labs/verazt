@@ -3,6 +3,7 @@
 //! Detects centralization risks by identifying privileged functions that
 //! have write sets covering security-sensitive storage variables.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -46,8 +47,8 @@ impl CentralizationRiskDetector {
 }
 
 impl ScanDetector for CentralizationRiskDetector {
-    fn id(&self) -> &'static str {
-        "centralization-risk"
+    fn id(&self) -> DetectorId {
+        DetectorId::CentralizationRisk
     }
 
     fn name(&self) -> &'static str {
@@ -165,7 +166,7 @@ mod tests {
     #[test]
     fn test_centralization_risk_detector() {
         let detector = CentralizationRiskDetector::new();
-        assert_eq!(detector.id(), "centralization-risk");
+        assert_eq!(detector.id(), DetectorId::CentralizationRisk);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

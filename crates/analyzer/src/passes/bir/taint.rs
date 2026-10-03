@@ -50,7 +50,7 @@ impl Pass for TaintPass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Air
+        PassRepresentation::Bir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -62,7 +62,7 @@ impl AnalysisPass for TaintPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut taint_map: HashMap<OpId, HashSet<TaintLabel>> = HashMap::new();
 
-        for module in ctx.air_units() {
+        for module in ctx.bir_units() {
             // Phase 1: Seed taint sources from taint graph and ops
             for seed in &module.taint_graph.seeds {
                 taint_map.entry(seed.op).or_default().insert(seed.label);
@@ -199,7 +199,7 @@ mod tests {
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
-        ctx.set_air_units(vec![air_module]);
+        ctx.set_bir_units(vec![air_module]);
 
         // Run ICFGPass first (dependency)
         crate::passes::bir::icfg::ICFGPass.run(&mut ctx).unwrap();

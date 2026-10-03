@@ -3,6 +3,7 @@
 //! Detects potential reentrancy vulnerabilities by finding storage writes
 //! after external calls.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -142,8 +143,8 @@ impl ReentrancyDetector {
 }
 
 impl ScanDetector for ReentrancyDetector {
-    fn id(&self) -> &'static str {
-        "reentrancy"
+    fn id(&self) -> DetectorId {
+        DetectorId::Reentrancy
     }
 
     fn name(&self) -> &'static str {
@@ -240,7 +241,7 @@ mod tests {
     #[test]
     fn test_reentrancy_detector() {
         let detector = ReentrancyDetector::new();
-        assert_eq!(detector.id(), "reentrancy");
+        assert_eq!(detector.id(), DetectorId::Reentrancy);
         assert_eq!(detector.risk_level(), RiskLevel::Critical);
     }
 }

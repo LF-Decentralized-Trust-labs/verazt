@@ -3,6 +3,7 @@
 //! Detects state variables that could be declared constant or immutable
 //! by checking if they are initialized but never modified.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -20,8 +21,8 @@ impl ConstantStateVarDetector {
 }
 
 impl ScanDetector for ConstantStateVarDetector {
-    fn id(&self) -> &'static str {
-        "constant-state-var"
+    fn id(&self) -> DetectorId {
+        DetectorId::ConstantStateVar
     }
 
     fn name(&self) -> &'static str {
@@ -134,7 +135,7 @@ mod tests {
     #[test]
     fn test_constant_state_var_detector() {
         let detector = ConstantStateVarDetector::new();
-        assert_eq!(detector.id(), "constant-state-var");
+        assert_eq!(detector.id(), DetectorId::ConstantStateVar);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

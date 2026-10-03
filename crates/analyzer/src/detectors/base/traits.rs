@@ -7,7 +7,7 @@ use super::id::DetectorId;
 use crate::context::AnalysisContext;
 use crate::passes::base::Pass;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
-use frontend::solidity::ast::Loc;
+use common::loc::Loc;
 
 /// Confidence level for a detection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -68,7 +68,7 @@ pub enum DetectorError {
 ///     fn name(&self) -> &'static str { "TX Origin" }
 ///     fn description(&self) -> &'static str { "Detects tx.origin usage" }
 ///     fn level(&self) -> PassLevel { PassLevel::Expression }
-///     fn representation(&self) -> PassRepresentation { PassRepresentation::Ast }
+///     fn representation(&self) -> PassRepresentation { PassRepresentation::Sir }
 ///     fn dependencies(&self) -> Vec<TypeId> { vec![] }
 /// }
 ///
@@ -119,6 +119,12 @@ pub trait BugDetectionPass: Pass {
 
     /// Get references/documentation links.
     fn references(&self) -> Vec<&'static str> {
+        vec![]
+    }
+
+    /// Detectors whose findings this one subsumes. When both would run, the
+    /// pipeline drops the superseded ones unless they are explicitly enabled.
+    fn supersedes(&self) -> Vec<DetectorId> {
         vec![]
     }
 

@@ -42,7 +42,7 @@ impl Pass for ScanDetectorAdapter {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
+        PassRepresentation::Sir
     }
 
     fn dependencies(&self) -> Vec<std::any::TypeId> {
@@ -52,14 +52,14 @@ impl Pass for ScanDetectorAdapter {
 
 impl BugDetectionPass for ScanDetectorAdapter {
     fn detector_id(&self) -> DetectorId {
-        DetectorId::from_str(self.detector.id())
+        self.detector.id()
     }
 
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        if !context.has_ir() {
+        if !context.has_sir() {
             return Ok(vec![]);
         }
-        let modules = context.ir_units();
+        let modules = context.sir_units();
         let mut bugs = Vec::new();
 
         match self.detector.level() {

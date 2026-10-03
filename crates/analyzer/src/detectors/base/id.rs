@@ -1,8 +1,8 @@
 //! Detector Identity
 //!
-//! `DetectorId` enumerates the scanner's built-in bug detectors.
-//! Unlike the analysis crate's `TypeId`-based pass identity, detector IDs
-//! are a closed enum because the scanner needs them for CLI filtering,
+//! `DetectorId` enumerates the analyzer's built-in bug detectors (SIR and
+//! BIR). Unlike the analysis crate's `TypeId`-based pass identity, detector
+//! IDs are a closed enum because they are needed for CLI filtering,
 //! human-readable output, and stable serialization.
 
 /// Unique identifier for each built-in bug detector.
@@ -30,6 +30,9 @@ pub enum DetectorId {
     UncheckedCall,
     UninitializedStorage,
     Visibility,
+
+    // ── BIR dataflow detectors ──────────────────────────────────
+    ReentrancyFlow,
 }
 
 impl DetectorId {
@@ -50,6 +53,7 @@ impl DetectorId {
             Self::LowLevelCall => "low-level-call",
             Self::MissingAccessControl => "missing-access-control",
             Self::Reentrancy => "reentrancy",
+            Self::ReentrancyFlow => "reentrancy-flow",
             Self::Shadowing => "shadowing",
             Self::ShortAddress => "short-address",
             Self::TimestampDependence => "timestamp-dependence",
@@ -57,34 +61,6 @@ impl DetectorId {
             Self::UncheckedCall => "unchecked-call",
             Self::UninitializedStorage => "uninitialized-storage",
             Self::Visibility => "visibility",
-        }
-    }
-
-    /// Parse a kebab-case string into a `DetectorId`.
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "arithmetic-overflow" => Self::ArithmeticOverflow,
-            "bad-randomness" => Self::BadRandomness,
-            "cei-violation" => Self::CeiViolation,
-            "centralization-risk" => Self::CentralizationRisk,
-            "constant-state-var" => Self::ConstantStateVar,
-            "dead-code" => Self::DeadCode,
-            "delegatecall" => Self::Delegatecall,
-            "denial-of-service" => Self::DenialOfService,
-            "deprecated" | "deprecated-features" => Self::Deprecated,
-            "floating-pragma" => Self::FloatingPragma,
-            "front-running" => Self::FrontRunning,
-            "low-level-call" => Self::LowLevelCall,
-            "missing-access-control" => Self::MissingAccessControl,
-            "reentrancy" => Self::Reentrancy,
-            "shadowing" => Self::Shadowing,
-            "short-address" => Self::ShortAddress,
-            "timestamp-dependence" => Self::TimestampDependence,
-            "tx-origin" => Self::TxOrigin,
-            "unchecked-call" => Self::UncheckedCall,
-            "uninitialized-storage" => Self::UninitializedStorage,
-            "visibility" => Self::Visibility,
-            _ => panic!("Unknown detector ID: {s}"),
         }
     }
 }

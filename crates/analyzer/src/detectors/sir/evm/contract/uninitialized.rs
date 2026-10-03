@@ -2,6 +2,7 @@
 //!
 //! Detects uninitialized storage variables of mapping/array type.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -19,8 +20,8 @@ impl UninitializedDetector {
 }
 
 impl ScanDetector for UninitializedDetector {
-    fn id(&self) -> &'static str {
-        "uninitialized-storage"
+    fn id(&self) -> DetectorId {
+        DetectorId::UninitializedStorage
     }
 
     fn name(&self) -> &'static str {
@@ -115,7 +116,7 @@ mod tests {
     #[test]
     fn test_uninitialized_detector() {
         let detector = UninitializedDetector::new();
-        assert_eq!(detector.id(), "uninitialized-storage");
+        assert_eq!(detector.id(), DetectorId::UninitializedStorage);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

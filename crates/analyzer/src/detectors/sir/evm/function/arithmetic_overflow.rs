@@ -3,6 +3,7 @@
 //! Detects arithmetic operations with wrapping semantics (Solidity <0.8
 //! without SafeMath) by walking `BinOpExpr` and `AugAssignStmt` nodes.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -44,8 +45,8 @@ fn is_arithmetic_op(op: BinOp) -> bool {
 }
 
 impl ScanDetector for ArithmeticOverflowDetector {
-    fn id(&self) -> &'static str {
-        "arithmetic-overflow"
+    fn id(&self) -> DetectorId {
+        DetectorId::ArithmeticOverflow
     }
 
     fn name(&self) -> &'static str {
@@ -207,7 +208,7 @@ mod tests {
     #[test]
     fn test_arithmetic_overflow_detector() {
         let detector = ArithmeticOverflowDetector::new();
-        assert_eq!(detector.id(), "arithmetic-overflow");
+        assert_eq!(detector.id(), DetectorId::ArithmeticOverflow);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

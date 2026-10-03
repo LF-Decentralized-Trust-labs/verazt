@@ -271,7 +271,7 @@ mod tests {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Ir
+            PassRepresentation::Sir
         }
         fn dependencies(&self) -> Vec<TypeId> {
             vec![]
@@ -279,13 +279,11 @@ mod tests {
     }
     impl AnalysisPass for MockPassA {
         fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
-            #[allow(deprecated)]
-            context.store_artifact("mock-a", true);
+            context.mark_pass_completed(self.id());
             Ok(())
         }
         fn is_completed(&self, context: &AnalysisContext) -> bool {
-            #[allow(deprecated)]
-            context.has_artifact("mock-a")
+            context.is_pass_completed(self.id())
         }
     }
 
@@ -301,7 +299,7 @@ mod tests {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Ir
+            PassRepresentation::Sir
         }
         fn dependencies(&self) -> Vec<TypeId> {
             vec![TypeId::of::<MockPassA>()]
@@ -309,13 +307,11 @@ mod tests {
     }
     impl AnalysisPass for MockPassB {
         fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
-            #[allow(deprecated)]
-            context.store_artifact("mock-b", true);
+            context.mark_pass_completed(self.id());
             Ok(())
         }
         fn is_completed(&self, context: &AnalysisContext) -> bool {
-            #[allow(deprecated)]
-            context.has_artifact("mock-b")
+            context.is_pass_completed(self.id())
         }
     }
 

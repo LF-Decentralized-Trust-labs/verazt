@@ -2,6 +2,7 @@
 //!
 //! Detects usage of `tx.origin` for authentication.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use scirs::sir::dialect::evm::EvmExpr;
@@ -19,8 +20,8 @@ impl TxOriginDetector {
 }
 
 impl ScanDetector for TxOriginDetector {
-    fn id(&self) -> &'static str {
-        "tx-origin"
+    fn id(&self) -> DetectorId {
+        DetectorId::TxOrigin
     }
 
     fn name(&self) -> &'static str {
@@ -132,7 +133,7 @@ mod tests {
     #[test]
     fn test_tx_origin_detector() {
         let detector = TxOriginDetector::new();
-        assert_eq!(detector.id(), "tx-origin");
+        assert_eq!(detector.id(), DetectorId::TxOrigin);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

@@ -106,6 +106,9 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     for detector in scan_registry.into_detectors() {
         registry.register(Box::new(ScanDetectorAdapter::new(detector)));
     }
+
+    // BIR dataflow detectors
+    registry.register(Box::new(crate::detectors::bir::ReentrancyFlowDetector));
 }
 
 #[cfg(test)]

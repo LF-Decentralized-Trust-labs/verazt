@@ -1,4 +1,4 @@
-//! Analyzer - AST-based Smart Contract Security Analyzer CLI
+//! Analyzer - Smart Contract Security Analyzer CLI
 //!
 //! This is the main entry point for the Analyzer tool.
 
@@ -19,7 +19,7 @@ use std::fs;
     author,
     version = crate_version!(),
     term_width = 80,
-    about = "Analyzer - AST-based Smart Contract Security Analyzer",
+    about = "Analyzer - Smart Contract Security Analyzer",
     long_about = None
 )]
 pub struct Arguments {
@@ -357,7 +357,7 @@ fn run_analysis(args: Arguments) {
     // Detect input language
     let input_language = detect_language(&args.input_files, args.language.as_deref());
 
-    let mut ir_units: Vec<scirs::sir::Module> = Vec::new();
+    let mut sir_units: Vec<scirs::sir::Module> = Vec::new();
     let mut files_analyzed: Vec<String> = Vec::new();
 
     for file in &args.input_files {
@@ -408,7 +408,7 @@ fn run_analysis(args: Arguments) {
                 // Lower AST to SIR
                 match frontend::solidity::lowering::lower_source_units(&source_units) {
                     Ok(modules) => {
-                        ir_units.extend(modules);
+                        sir_units.extend(modules);
                     }
                     Err(err) => {
                         eprintln!("Error lowering {}: {}", file, err);
@@ -418,13 +418,13 @@ fn run_analysis(args: Arguments) {
             }
             InputLanguage::Vyper => match frontend::vyper::compile_file(file, vyper_ver) {
                 Ok(module) => {
-                    ir_units.push(module);
+                    sir_units.push(module);
                 }
                 Err(err) => {
                     // Try auto-install recovery
                     match try_install_and_compile_vyper(file, vyper_ver, args.install_compiler) {
                         Some(module) => {
-                            ir_units.push(module);
+                            sir_units.push(module);
                         }
                         None => {
                             eprintln!("Error compiling {}: {}", file, err);
@@ -452,7 +452,7 @@ fn run_analysis(args: Arguments) {
 
     // Create analysis context
     let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
-    let mut context = AnalysisContext::new(ir_units, analysis_config);
+    let mut context = AnalysisContext::new(sir_units, analysis_config);
 
     // Create and run the pipeline
     let engine = PipelineEngine::new(PipelineConfig {

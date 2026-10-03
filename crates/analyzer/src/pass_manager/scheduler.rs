@@ -19,25 +19,25 @@ pub struct ExecutionLevel {
     pub sir_passes: Vec<TypeId>,
 
     /// BIR passes at this level.
-    pub air_passes: Vec<TypeId>,
+    pub bir_passes: Vec<TypeId>,
 }
 
 impl ExecutionLevel {
     /// Check if this level is empty.
     pub fn is_empty(&self) -> bool {
-        self.sir_passes.is_empty() && self.air_passes.is_empty()
+        self.sir_passes.is_empty() && self.bir_passes.is_empty()
     }
 
     /// Get total number of passes at this level.
     pub fn len(&self) -> usize {
-        self.sir_passes.len() + self.air_passes.len()
+        self.sir_passes.len() + self.bir_passes.len()
     }
 
     /// Get all passes at this level.
     pub fn all_passes(&self) -> Vec<TypeId> {
         let mut passes = Vec::with_capacity(self.len());
         passes.extend(&self.sir_passes);
-        passes.extend(&self.air_passes);
+        passes.extend(&self.bir_passes);
         passes
     }
 }
@@ -123,9 +123,8 @@ impl PassScheduler {
             for &pass_id in pass_ids {
                 // Categorize by representation
                 match self.representations.get(&pass_id) {
-                    Some(PassRepresentation::Ir) => level.sir_passes.push(pass_id),
-                    Some(PassRepresentation::Air) => level.air_passes.push(pass_id),
-                    _ => level.sir_passes.push(pass_id), // Default to SIR
+                    Some(PassRepresentation::Bir) => level.bir_passes.push(pass_id),
+                    Some(PassRepresentation::Sir) | None => level.sir_passes.push(pass_id),
                 }
             }
 
@@ -188,7 +187,7 @@ mod tests {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Ir
+            PassRepresentation::Sir
         }
         fn dependencies(&self) -> Vec<TypeId> {
             vec![]
@@ -207,7 +206,7 @@ mod tests {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Ir
+            PassRepresentation::Sir
         }
         fn dependencies(&self) -> Vec<TypeId> {
             vec![TypeId::of::<MockCfgPass>()]
@@ -226,7 +225,7 @@ mod tests {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Ir
+            PassRepresentation::Sir
         }
         fn dependencies(&self) -> Vec<TypeId> {
             vec![TypeId::of::<MockCfgPass>()]

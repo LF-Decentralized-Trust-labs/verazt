@@ -2,6 +2,7 @@
 //!
 //! Detects public functions that modify state without access control guards.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -20,8 +21,8 @@ impl MissingAccessControlDetector {
 }
 
 impl ScanDetector for MissingAccessControlDetector {
-    fn id(&self) -> &'static str {
-        "missing-access-control"
+    fn id(&self) -> DetectorId {
+        DetectorId::MissingAccessControl
     }
 
     fn name(&self) -> &'static str {
@@ -146,7 +147,7 @@ mod tests {
     #[test]
     fn test_missing_access_control_detector() {
         let detector = MissingAccessControlDetector::new();
-        assert_eq!(detector.id(), "missing-access-control");
+        assert_eq!(detector.id(), DetectorId::MissingAccessControl);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

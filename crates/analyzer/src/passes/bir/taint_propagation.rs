@@ -2,7 +2,7 @@
 //!
 //! Iterative forward dataflow over SSA def-use edges to propagate taint labels.
 
-use crate::context::AnalysisContext;
+use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
 use scirs::bir::interfaces::TaintLabel;
@@ -12,6 +12,14 @@ use std::collections::HashMap;
 
 /// Artifact stored in context after taint propagation.
 pub type TaintMap = HashMap<OpId, TaintLabel>;
+
+/// Artifact key for the propagated taint map.
+pub struct TaintMapArtifact;
+
+impl ContextKey for TaintMapArtifact {
+    type Value = TaintMap;
+    const NAME: &'static str = "taint_map";
+}
 
 /// Taint propagation analysis pass.
 pub struct TaintPropagationPass;
@@ -34,7 +42,7 @@ impl Pass for TaintPropagationPass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Air
+        PassRepresentation::Bir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -46,7 +54,7 @@ impl AnalysisPass for TaintPropagationPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut taint_map: TaintMap = HashMap::new();
 
-        for module in ctx.air_units() {
+        for module in ctx.bir_units() {
             // Initialize from taint seeds
             for seed in &module.taint_graph.seeds {
                 let existing = taint_map.entry(seed.op).or_insert(TaintLabel::Clean);
@@ -87,8 +95,7 @@ impl AnalysisPass for TaintPropagationPass {
             }
         }
 
-        #[allow(deprecated)]
-        ctx.store_artifact("BIR.taint_map", taint_map);
+        ctx.store::<TaintMapArtifact>(taint_map);
         ctx.mark_pass_completed(self.id());
         Ok(())
     }

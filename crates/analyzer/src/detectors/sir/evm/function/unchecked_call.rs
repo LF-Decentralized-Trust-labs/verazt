@@ -2,6 +2,7 @@
 //!
 //! Detects low-level calls whose return values are not checked.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -20,8 +21,8 @@ impl UncheckedCallDetector {
 }
 
 impl ScanDetector for UncheckedCallDetector {
-    fn id(&self) -> &'static str {
-        "unchecked-call"
+    fn id(&self) -> DetectorId {
+        DetectorId::UncheckedCall
     }
 
     fn name(&self) -> &'static str {
@@ -132,7 +133,7 @@ mod tests {
     #[test]
     fn test_unchecked_call_detector() {
         let detector = UncheckedCallDetector::new();
-        assert_eq!(detector.id(), "unchecked-call");
+        assert_eq!(detector.id(), DetectorId::UncheckedCall);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

@@ -6,13 +6,12 @@
 //!    dependency level
 //! 2. **Detection Phase**: Run all enabled detectors fully in parallel
 
-use crate::config::InputLanguage;
 use crate::context::AnalysisContext;
-use crate::detectors::BugDetectionPass;
+use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
 use crate::pass_manager::manager::{PassManager, PassManagerConfig};
 use crate::passes::base::AnalysisPass;
-use crate::passes::base::meta::PassRepresentation;
+use crate::passes::bir::{FunctionEffectsPass, TaintPropagationPass};
 use bugs::bug::Bug;
 use std::any::TypeId;
 use std::collections::HashSet;
@@ -123,31 +122,17 @@ impl PipelineEngine {
     pub fn run(&self, context: &mut AnalysisContext) -> PipelineResult {
         let start = Instant::now();
 
-        // Step 1: Resolve which detectors to run (language-aware)
-        let enabled_detectors = self.resolve_detectors_for_language(context.input_language);
+        // Step 1: Resolve which detectors to run
+        let enabled_detectors = self.resolve_detectors();
 
-        // Step 2: Phase 1 - AST + IR analysis (existing)
+        // Step 2: Phase 1 - Analysis passes the detectors depend on
         let analysis_start = Instant::now();
         if let Err(e) = self.run_analysis_phase(&enabled_detectors, context) {
             log::error!("Analysis phase failed: {}", e);
         }
-
-        // Phase 2 — SIR structural analysis
-        if context.has_ir() {
-            if let Err(e) = self.run_sir_phase(context) {
-                log::error!("SIR structural phase failed: {}", e);
-            }
-        }
-
-        // Phase 3 — BIR dataflow analysis
-        if context.has_air() {
-            if let Err(e) = self.run_air_phase(context) {
-                log::error!("BIR dataflow phase failed: {}", e);
-            }
-        }
         let analysis_duration = analysis_start.elapsed();
 
-        // Step 3: Phase 4 - Detection (parallel)
+        // Step 3: Phase 2 - Detection (parallel)
         let detection_start = Instant::now();
         let (bugs, detector_stats) = self.run_detection_phase(&enabled_detectors, context);
         let detection_duration = detection_start.elapsed();
@@ -164,52 +149,31 @@ impl PipelineEngine {
         }
     }
 
-    /// Resolve which detectors should run based on config.
+    /// Resolve which detectors should run based on config. A detector
+    /// superseded by another selected one is dropped unless explicitly
+    /// enabled.
     fn resolve_detectors(&self) -> Vec<&dyn BugDetectionPass> {
-        self.registry
-            .all()
-            .filter(|d| self.is_detector_enabled(*d))
-            .collect()
-    }
-
-    /// Resolve which detectors should run, taking into account the input
-    /// language. AST-only (GREP) detectors are skipped for Vyper because
-    /// they operate on Solidity AST types.
-    fn resolve_detectors_for_language(
-        &self,
-        language: InputLanguage,
-    ) -> Vec<&dyn BugDetectionPass> {
-        self.resolve_detectors()
+        let selected: Vec<&dyn BugDetectionPass> =
+            self.registry.all().filter(|d| self.is_detector_enabled(*d)).collect();
+        let superseded: HashSet<DetectorId> =
+            selected.iter().flat_map(|d| d.supersedes()).collect();
+        selected
             .into_iter()
             .filter(|d| {
-                if language == InputLanguage::Vyper {
-                    // Only keep detectors that operate on IR or hybrid;
-                    // skip pure AST (GREP) detectors since they target
-                    // Solidity AST types.
-                    d.representation() != PassRepresentation::Ast
-                } else {
-                    true
-                }
+                !superseded.contains(&d.detector_id()) || is_listed(&self.config.enabled, *d)
             })
             .collect()
     }
 
     /// Check if a detector is enabled based on config.
     fn is_detector_enabled(&self, detector: &dyn BugDetectionPass) -> bool {
-        let name = detector.name();
-        let id = detector.detector_id().as_str();
-
         // Check if explicitly disabled
-        if self.config.disabled.iter().any(|d| d == name || d == id) {
+        if is_listed(&self.config.disabled, detector) {
             return false;
         }
 
         // If enabled list is non-empty, detector must be in it
-        if !self.config.enabled.is_empty() {
-            return self.config.enabled.iter().any(|d| d == name || d == id);
-        }
-
-        true
+        self.config.enabled.is_empty() || is_listed(&self.config.enabled, detector)
     }
 
     // ========================================================================
@@ -226,11 +190,24 @@ impl PipelineEngine {
         enabled_detectors: &[&dyn BugDetectionPass],
         context: &mut AnalysisContext,
     ) -> Result<(), String> {
-        // Collect required passes from detector dependencies
-        let required: HashSet<TypeId> = enabled_detectors
-            .iter()
-            .flat_map(|d| d.dependencies())
-            .collect();
+        // Collect required passes from detector dependencies, then close
+        // over the passes' own dependencies.
+        let mut pending: Vec<TypeId> =
+            enabled_detectors.iter().flat_map(|d| d.dependencies()).collect();
+        let mut required: Vec<Box<dyn AnalysisPass>> = Vec::new();
+        let mut seen: HashSet<TypeId> = HashSet::new();
+        while let Some(pass_id) = pending.pop() {
+            if !seen.insert(pass_id) {
+                continue;
+            }
+            match create_analysis_pass(pass_id) {
+                Some(pass) => {
+                    pending.extend(pass.dependencies());
+                    required.push(pass);
+                }
+                None => return Err(format!("no analysis pass registered for {pass_id:?}")),
+            }
+        }
 
         if required.is_empty() {
             log::debug!("No analysis passes required by enabled detectors");
@@ -248,14 +225,8 @@ impl PipelineEngine {
             timing: true,
         });
 
-        // Create and register only the required analysis passes
-        // (including transitive dependencies via the pass's own dependencies())
-        for &pass_id in &required {
-            // Note: Vyper AST-level pass filtering removed (TypeId has no representation
-            // info)
-            if let Some(pass) = create_analysis_pass(pass_id) {
-                pass_manager.register_analysis_pass(pass);
-            }
+        for pass in required {
+            pass_manager.register_analysis_pass(pass);
         }
 
         // The PassManager handles dependency resolution and parallel execution
@@ -273,42 +244,7 @@ impl PipelineEngine {
     }
 
     // ========================================================================
-    // Phase 2: SIR Structural Analysis
-    // ========================================================================
-
-    /// Run SIR structural analysis passes.
-    ///
-    /// These passes operate on `scirs::sir::Module` and detect issues visible
-    /// in the SIR tree structure (missing annotations, wrong overflow
-    /// semantics, etc.).
-    fn run_sir_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
-        log::info!("SIR structural phase");
-        // SIR structural passes store their findings as context data.
-        // They are registered as analysis passes and run via the normal
-        // PassManager scheduling.  The create_analysis_pass factory already
-        // handles them; this method is a logical grouping marker for now.
-        Ok(())
-    }
-
-    // ========================================================================
-    // Phase 3: BIR Dataflow Analysis
-    // ========================================================================
-
-    /// Run BIR generation and dataflow analysis passes.
-    ///
-    /// Dependency order:
-    ///   AIRGeneration → AIRTaintPropagation → {AIRReentrancy,
-    /// AIRAccessControl, AIRArithmetic, ...}
-    fn run_air_phase(&self, _context: &mut AnalysisContext) -> Result<(), String> {
-        log::info!("BIR dataflow phase");
-        // BIR passes are also registered as analysis passes with the
-        // correct dependencies.  The PassManager scheduler will
-        // naturally place them after AIRGeneration.
-        Ok(())
-    }
-
-    // ========================================================================
-    // Phase 4: Detection
+    // Phase 2: Detection
     // ========================================================================
 
     /// Run all enabled detectors.
@@ -397,6 +333,13 @@ impl PipelineEngine {
     }
 }
 
+/// Returns `true` if `list` names the detector by its name or ID.
+fn is_listed(list: &[String], detector: &dyn BugDetectionPass) -> bool {
+    let name = detector.name();
+    let id = detector.detector_id().as_str();
+    list.iter().any(|d| d == name || d == id)
+}
+
 /// Run a single detector and collect results.
 fn run_single_detector(
     detector: &dyn BugDetectionPass,
@@ -432,10 +375,11 @@ fn run_single_detector(
 ///
 /// This factory function maps TypeIds to their concrete implementations.
 fn create_analysis_pass(pass_id: TypeId) -> Option<Box<dyn AnalysisPass>> {
-    if pass_id == TypeId::of::<crate::passes::bir::TaintPropagationPass>() {
-        Some(Box::new(crate::passes::bir::TaintPropagationPass))
+    if pass_id == TypeId::of::<FunctionEffectsPass>() {
+        Some(Box::new(FunctionEffectsPass))
+    } else if pass_id == TypeId::of::<TaintPropagationPass>() {
+        Some(Box::new(TaintPropagationPass))
     } else {
-        log::warn!("No analysis pass implementation for {:?}", pass_id);
         None
     }
 }
@@ -443,6 +387,8 @@ fn create_analysis_pass(pass_id: TypeId) -> Option<Box<dyn AnalysisPass>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::AnalysisConfig;
+    use crate::passes::bir::FunctionEffectsArtifact;
 
     #[test]
     fn test_pipeline_config_default() {
@@ -482,12 +428,68 @@ mod tests {
         assert_eq!(detectors.len(), 1);
     }
 
+    fn resolved_ids(config: PipelineConfig) -> Vec<DetectorId> {
+        let engine = PipelineEngine::new(config);
+        engine.resolve_detectors().iter().map(|d| d.detector_id()).collect()
+    }
+
+    fn ids(names: &[&str]) -> Vec<String> {
+        names.iter().map(|n| n.to_string()).collect()
+    }
+
     #[test]
-    fn test_create_analysis_pass() {
-        assert!(
-            create_analysis_pass(TypeId::of::<crate::passes::bir::TaintPropagationPass>())
-                .is_some()
-        );
+    fn test_resolve_detectors_drops_superseded() {
+        let resolved = resolved_ids(PipelineConfig::default());
+        assert!(resolved.contains(&DetectorId::ReentrancyFlow));
+        assert!(!resolved.contains(&DetectorId::Reentrancy));
+        assert!(!resolved.contains(&DetectorId::CeiViolation));
+    }
+
+    #[test]
+    fn test_resolve_detectors_keeps_explicitly_enabled_superseded() {
+        let config = PipelineConfig {
+            enabled: ids(&["reentrancy", "reentrancy-flow"]),
+            ..PipelineConfig::default()
+        };
+        let resolved = resolved_ids(config);
+        assert!(resolved.contains(&DetectorId::Reentrancy));
+        assert!(resolved.contains(&DetectorId::ReentrancyFlow));
+    }
+
+    #[test]
+    fn test_resolve_detectors_restores_superseded_when_superseder_disabled() {
+        let config =
+            PipelineConfig { disabled: ids(&["reentrancy-flow"]), ..PipelineConfig::default() };
+        let resolved = resolved_ids(config);
+        assert!(resolved.contains(&DetectorId::Reentrancy));
+        assert!(resolved.contains(&DetectorId::CeiViolation));
+    }
+
+    #[test]
+    fn test_every_detector_dependency_has_a_pass() {
+        let engine = PipelineEngine::new(PipelineConfig::default());
+        for detector in engine.registry().all() {
+            for dep in detector.dependencies() {
+                assert!(
+                    create_analysis_pass(dep).is_some(),
+                    "'{}' depends on a pass missing from create_analysis_pass",
+                    detector.name()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_run_schedules_detector_dependencies() {
+        let engine = PipelineEngine::new(PipelineConfig {
+            parallel: false,
+            enabled: ids(&["reentrancy-flow"]),
+            ..PipelineConfig::default()
+        });
+        let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
+        context.set_bir_units(vec![scirs::bir::Module::new("m".to_string())]);
+        engine.run(&mut context);
+        assert!(context.has::<FunctionEffectsArtifact>());
     }
 
     #[test]

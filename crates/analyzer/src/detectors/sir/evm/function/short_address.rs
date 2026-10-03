@@ -3,6 +3,7 @@
 //! Detects ERC-20 `transfer` and `transferFrom` functions that don't
 //! validate `msg.data.length`.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -82,8 +83,8 @@ fn expr_references_msg_data(expr: &Expr) -> bool {
 }
 
 impl ScanDetector for ShortAddressDetector {
-    fn id(&self) -> &'static str {
-        "short-address"
+    fn id(&self) -> DetectorId {
+        DetectorId::ShortAddress
     }
 
     fn name(&self) -> &'static str {
@@ -184,7 +185,7 @@ mod tests {
     #[test]
     fn test_short_address_detector() {
         let detector = ShortAddressDetector::new();
-        assert_eq!(detector.id(), "short-address");
+        assert_eq!(detector.id(), DetectorId::ShortAddress);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

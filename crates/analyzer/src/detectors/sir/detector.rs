@@ -1,3 +1,4 @@
+use crate::detectors::DetectorId;
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use scirs::sir::{ContractDecl, FunctionDecl, Module};
 
@@ -33,8 +34,8 @@ pub enum Target {
 /// The SIR hierarchy level at which a detector operates.
 ///
 /// Inspired by `analyzer::PassLevel`, but simplified to the three
-/// levels that scanner detectors actually need. The `ScanEngine`
-/// uses this to dispatch detectors during its single-pass walk.
+/// levels that scanner detectors actually need. `ScanDetectorAdapter`
+/// uses this to dispatch detectors while walking the SIR tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DetectionLevel {
     /// Operates on whole modules (e.g., pragma checks).
@@ -51,13 +52,13 @@ pub enum DetectionLevel {
 /// `Pass`, `AnalysisContext`, or any analysis framework.
 ///
 /// Each detector declares its `level()`, and only the corresponding
-/// `check_*` method is called by the `ScanEngine` during its single
-/// walk of the SIR tree.
+/// `check_*` method is called by `ScanDetectorAdapter` as it walks the
+/// SIR tree.
 pub trait ScanDetector: Send + Sync {
     // ── Identity ────────────────────────────────────────
 
-    /// Stable kebab-case identifier (e.g., `"front-running"`).
-    fn id(&self) -> &'static str;
+    /// The detector's identity for filtering and output.
+    fn id(&self) -> DetectorId;
 
     /// Human-readable name (e.g., `"Front Running"`).
     fn name(&self) -> &'static str;

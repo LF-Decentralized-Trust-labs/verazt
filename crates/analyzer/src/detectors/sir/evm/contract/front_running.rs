@@ -6,6 +6,7 @@
 //! 2. State-dependent ETH transfers where another public function can modify
 //!    the state variable
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -242,8 +243,8 @@ struct FuncInfo {
 }
 
 impl ScanDetector for FrontRunningDetector {
-    fn id(&self) -> &'static str {
-        "front-running"
+    fn id(&self) -> DetectorId {
+        DetectorId::FrontRunning
     }
 
     fn name(&self) -> &'static str {
@@ -407,7 +408,7 @@ mod tests {
     #[test]
     fn test_front_running_detector() {
         let detector = FrontRunningDetector::new();
-        assert_eq!(detector.id(), "front-running");
+        assert_eq!(detector.id(), DetectorId::FrontRunning);
         assert_eq!(detector.swc_ids(), vec![114]);
         assert_eq!(detector.cwe_ids(), vec![362]);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);

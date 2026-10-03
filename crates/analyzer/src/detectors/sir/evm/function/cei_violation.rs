@@ -3,6 +3,7 @@
 //! Detects violations of the Checks-Effects-Interactions pattern
 //! by walking SIR function bodies.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -143,8 +144,8 @@ impl CeiViolationDetector {
 }
 
 impl ScanDetector for CeiViolationDetector {
-    fn id(&self) -> &'static str {
-        "cei-violation"
+    fn id(&self) -> DetectorId {
+        DetectorId::CeiViolation
     }
 
     fn name(&self) -> &'static str {
@@ -240,7 +241,7 @@ mod tests {
     #[test]
     fn test_cei_violation_detector() {
         let detector = CeiViolationDetector::new();
-        assert_eq!(detector.id(), "cei-violation");
+        assert_eq!(detector.id(), DetectorId::CeiViolation);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

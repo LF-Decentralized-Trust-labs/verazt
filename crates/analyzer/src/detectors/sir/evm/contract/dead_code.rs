@@ -2,6 +2,7 @@
 //!
 //! Detects unreachable code by walking SIR function bodies.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -89,8 +90,8 @@ impl DeadCodeDetector {
 }
 
 impl ScanDetector for DeadCodeDetector {
-    fn id(&self) -> &'static str {
-        "dead-code"
+    fn id(&self) -> DetectorId {
+        DetectorId::DeadCode
     }
 
     fn name(&self) -> &'static str {
@@ -160,7 +161,7 @@ mod tests {
     #[test]
     fn test_dead_code_detector() {
         let detector = DeadCodeDetector::new();
-        assert_eq!(detector.id(), "dead-code");
+        assert_eq!(detector.id(), DetectorId::DeadCode);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

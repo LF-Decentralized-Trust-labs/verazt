@@ -5,6 +5,7 @@
 //! 2. `require(addr.send(...))` pattern (SWC-113)
 //! 3. Unbounded loops over dynamic storage arrays (SWC-128)
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -104,8 +105,8 @@ fn contains_length_access(expr: &Expr) -> bool {
 }
 
 impl ScanDetector for DenialOfServiceDetector {
-    fn id(&self) -> &'static str {
-        "denial-of-service"
+    fn id(&self) -> DetectorId {
+        DetectorId::DenialOfService
     }
 
     fn name(&self) -> &'static str {
@@ -294,7 +295,7 @@ mod tests {
     #[test]
     fn test_denial_of_service_detector() {
         let detector = DenialOfServiceDetector::new();
-        assert_eq!(detector.id(), "denial-of-service");
+        assert_eq!(detector.id(), DetectorId::DenialOfService);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

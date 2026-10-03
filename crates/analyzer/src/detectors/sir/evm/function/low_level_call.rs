@@ -2,6 +2,7 @@
 //!
 //! Detects usage of low-level calls (`.call`, `.delegatecall`, `.staticcall`).
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -20,8 +21,8 @@ impl LowLevelCallDetector {
 }
 
 impl ScanDetector for LowLevelCallDetector {
-    fn id(&self) -> &'static str {
-        "low-level-call"
+    fn id(&self) -> DetectorId {
+        DetectorId::LowLevelCall
     }
 
     fn name(&self) -> &'static str {
@@ -163,7 +164,7 @@ mod tests {
     #[test]
     fn test_low_level_call_detector() {
         let detector = LowLevelCallDetector::new();
-        assert_eq!(detector.id(), "low-level-call");
+        assert_eq!(detector.id(), DetectorId::LowLevelCall);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

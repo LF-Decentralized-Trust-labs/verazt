@@ -43,7 +43,7 @@ impl Pass for ICFGPass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Air
+        PassRepresentation::Bir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -53,7 +53,7 @@ impl Pass for ICFGPass {
 
 impl AnalysisPass for ICFGPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let icfgs: Vec<ICFG> = ctx.air_units().iter().map(|module| module.icfg.clone()).collect();
+        let icfgs: Vec<ICFG> = ctx.bir_units().iter().map(|module| module.icfg.clone()).collect();
         ctx.store::<ICFGArtifact>(icfgs);
         ctx.mark_pass_completed(self.id());
         Ok(())

@@ -67,7 +67,7 @@ impl Pass for CfgPass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
+        PassRepresentation::Sir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -78,23 +78,20 @@ impl Pass for CfgPass {
 impl AnalysisPass for CfgPass {
     fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
         // Check if IR is available
-        if context.ir_units.is_none() {
-            return Err(crate::passes::base::PassError::IrNotAvailable(self.name().to_string()));
+        if context.sir_units.is_none() {
+            return Err(crate::passes::base::PassError::SirNotAvailable(self.name().to_string()));
         }
 
         // For now, just mark as completed
         // TODO: Iterate over IR functions and build CFGs
 
-        // Store a placeholder artifact to indicate pass completed
-        #[allow(deprecated)]
-        context.store_artifact("cfg_constructed", true);
+        context.mark_pass_completed(self.id());
 
         Ok(())
     }
 
     fn is_completed(&self, context: &AnalysisContext) -> bool {
-        #[allow(deprecated)]
-        context.has_artifact("cfg_constructed")
+        context.is_pass_completed(self.id())
     }
 }
 
@@ -170,6 +167,6 @@ mod tests {
     fn test_cfg_pass() {
         let pass = CfgPass::new();
         assert_eq!(pass.id(), TypeId::of::<CfgPass>());
-        assert_eq!(pass.representation(), PassRepresentation::Ir);
+        assert_eq!(pass.representation(), PassRepresentation::Sir);
     }
 }

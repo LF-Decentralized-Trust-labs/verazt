@@ -165,7 +165,7 @@ impl Pass for IntervalPass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Air
+        PassRepresentation::Bir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -177,7 +177,7 @@ impl AnalysisPass for IntervalPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut result: HashMap<OpId, Interval> = HashMap::new();
 
-        for module in ctx.air_units() {
+        for module in ctx.bir_units() {
             for func in &module.functions {
                 if func.blocks.is_empty() {
                     continue;

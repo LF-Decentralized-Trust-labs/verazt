@@ -46,7 +46,7 @@ impl Pass for DominancePass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Air
+        PassRepresentation::Bir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -58,7 +58,7 @@ impl AnalysisPass for DominancePass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut result: HashMap<String, DomTree> = HashMap::new();
 
-        for module in ctx.air_units() {
+        for module in ctx.bir_units() {
             for func in &module.functions {
                 if let Some(dom) = DomTree::build(func) {
                     result.insert(func.id.0.clone(), dom);
@@ -104,7 +104,7 @@ mod tests {
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
-        ctx.set_air_units(vec![air_module]);
+        ctx.set_bir_units(vec![air_module]);
 
         let pass = DominancePass;
         pass.run(&mut ctx).unwrap();

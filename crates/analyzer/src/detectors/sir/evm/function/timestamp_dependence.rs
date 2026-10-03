@@ -2,6 +2,7 @@
 //!
 //! Detects usage of `block.timestamp` which can be manipulated by miners.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use scirs::sir::dialect::evm::EvmExpr;
@@ -19,8 +20,8 @@ impl TimestampDependenceDetector {
 }
 
 impl ScanDetector for TimestampDependenceDetector {
-    fn id(&self) -> &'static str {
-        "timestamp-dependence"
+    fn id(&self) -> DetectorId {
+        DetectorId::TimestampDependence
     }
 
     fn name(&self) -> &'static str {
@@ -130,7 +131,7 @@ mod tests {
     #[test]
     fn test_timestamp_dependence_detector() {
         let detector = TimestampDependenceDetector::new();
-        assert_eq!(detector.id(), "timestamp-dependence");
+        assert_eq!(detector.id(), DetectorId::TimestampDependence);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

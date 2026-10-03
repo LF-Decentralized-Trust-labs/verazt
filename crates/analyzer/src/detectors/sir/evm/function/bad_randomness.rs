@@ -4,6 +4,7 @@
 //! block.number, block.difficulty, block.coinbase, block.gaslimit) as
 //! sources of randomness.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -128,8 +129,8 @@ fn collect_randomness_sources(expr: &Expr, sources: &mut Vec<&'static str>) {
 }
 
 impl ScanDetector for BadRandomnessDetector {
-    fn id(&self) -> &'static str {
-        "bad-randomness"
+    fn id(&self) -> DetectorId {
+        DetectorId::BadRandomness
     }
 
     fn name(&self) -> &'static str {
@@ -356,7 +357,7 @@ mod tests {
     #[test]
     fn test_bad_randomness_detector() {
         let detector = BadRandomnessDetector::new();
-        assert_eq!(detector.id(), "bad-randomness");
+        assert_eq!(detector.id(), DetectorId::BadRandomness);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }

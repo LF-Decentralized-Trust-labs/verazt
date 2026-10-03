@@ -2,6 +2,7 @@
 //!
 //! Detects missing visibility specifiers on function declarations.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -19,8 +20,8 @@ impl VisibilityDetector {
 }
 
 impl ScanDetector for VisibilityDetector {
-    fn id(&self) -> &'static str {
-        "visibility"
+    fn id(&self) -> DetectorId {
+        DetectorId::Visibility
     }
 
     fn name(&self) -> &'static str {
@@ -127,7 +128,7 @@ mod tests {
     #[test]
     fn test_visibility_detector() {
         let detector = VisibilityDetector::new();
-        assert_eq!(detector.id(), "visibility");
+        assert_eq!(detector.id(), DetectorId::Visibility);
         assert_eq!(detector.risk_level(), RiskLevel::Medium);
     }
 }

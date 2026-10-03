@@ -2,6 +2,7 @@
 //!
 //! Detects usage of deprecated Solidity features.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -27,8 +28,8 @@ impl DeprecatedFeaturesDetector {
 }
 
 impl ScanDetector for DeprecatedFeaturesDetector {
-    fn id(&self) -> &'static str {
-        "deprecated-features"
+    fn id(&self) -> DetectorId {
+        DetectorId::Deprecated
     }
 
     fn name(&self) -> &'static str {
@@ -161,7 +162,7 @@ mod tests {
     #[test]
     fn test_deprecated_features_detector() {
         let detector = DeprecatedFeaturesDetector::new();
-        assert_eq!(detector.id(), "deprecated-features");
+        assert_eq!(detector.id(), DetectorId::Deprecated);
         assert_eq!(detector.risk_level(), RiskLevel::Low);
     }
 }

@@ -2,6 +2,7 @@
 //!
 //! Detects dangerous usage of delegatecall.
 
+use crate::detectors::DetectorId;
 use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
@@ -20,8 +21,8 @@ impl DelegatecallDetector {
 }
 
 impl ScanDetector for DelegatecallDetector {
-    fn id(&self) -> &'static str {
-        "delegatecall"
+    fn id(&self) -> DetectorId {
+        DetectorId::Delegatecall
     }
 
     fn name(&self) -> &'static str {
@@ -154,7 +155,7 @@ mod tests {
     #[test]
     fn test_delegatecall_detector() {
         let detector = DelegatecallDetector::new();
-        assert_eq!(detector.id(), "delegatecall");
+        assert_eq!(detector.id(), DetectorId::Delegatecall);
         assert_eq!(detector.risk_level(), RiskLevel::High);
     }
 }
