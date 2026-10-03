@@ -1,15 +1,13 @@
 //! Interprocedural CFG (ICFG) Pass
 //!
-//! Extends the existing per-module ICFG with call/return edges and
-//! external-call re-entry nodes.  The result augments the ICFG that
-//! is already built by the BIR lowering step.
+//! Publishes the per-module ICFGs built by the BIR lowering step (block
+//! and op nodes, call/return edges, and external-call re-entry edges) as
+//! an analysis artifact.
 
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::bir::cfg::{EdgeKind, FunctionId, ICFG, ICFGNode};
-use scirs::bir::interfaces::CallTarget;
-use scirs::bir::ops::OpKind;
+use scirs::bir::cfg::ICFG;
 use std::any::TypeId;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -37,7 +35,7 @@ impl Pass for ICFGPass {
     }
 
     fn description(&self) -> &'static str {
-        "Build interprocedural control flow graphs"
+        "Collect interprocedural control flow graphs"
     }
 
     fn level(&self) -> PassLevel {
@@ -55,66 +53,7 @@ impl Pass for ICFGPass {
 
 impl AnalysisPass for ICFGPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let mut icfgs: Vec<ICFG> = Vec::new();
-
-        for module in ctx.air_units() {
-            let mut icfg = module.icfg.clone();
-
-            // Add transaction entry/exit nodes for each function
-            for func in &module.functions {
-                let entry_id = icfg.add_node(ICFGNode::TxnEntry { func: func.id.clone() });
-                let exit_id =
-                    icfg.add_node(ICFGNode::TxnExit { func: func.id.clone(), reverted: false });
-
-                // Walk all ops to find call sites and external calls
-                for block in &func.blocks {
-                    for op in &block.ops {
-                        if let OpKind::Call(call_op) = &op.kind {
-                            let call_node_id = icfg.add_node(ICFGNode::CallSite { op: op.id });
-                            let return_node_id = icfg.add_node(ICFGNode::ReturnSite { op: op.id });
-
-                            match &call_op.callee {
-                                CallTarget::Static(callee_name) => {
-                                    // Internal call: add call/return edges
-                                    let callee_entry = icfg.add_node(ICFGNode::TxnEntry {
-                                        func: FunctionId(callee_name.clone()),
-                                    });
-                                    icfg.add_edge(call_node_id, callee_entry, EdgeKind::CallEdge);
-                                    // Also link return back
-                                    let callee_exit = icfg.add_node(ICFGNode::TxnExit {
-                                        func: FunctionId(callee_name.clone()),
-                                        reverted: false,
-                                    });
-                                    icfg.add_edge(
-                                        callee_exit,
-                                        return_node_id,
-                                        EdgeKind::ReturnEdge,
-                                    );
-                                }
-                                CallTarget::Dynamic => {
-                                    // External call: tag as re-entry point
-                                    let ext_node =
-                                        icfg.add_node(ICFGNode::ExternalCallNode { op: op.id });
-                                    icfg.add_edge(call_node_id, ext_node, EdgeKind::CallEdge);
-                                    if call_op.call_risk.reentrancy {
-                                        let reentry = icfg.add_node(ICFGNode::ReentryPoint {
-                                            func: func.id.clone(),
-                                        });
-                                        icfg.add_edge(ext_node, reentry, EdgeKind::ReentryEdge);
-                                    }
-                                    icfg.add_edge(ext_node, return_node_id, EdgeKind::ReturnEdge);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let _ = (entry_id, exit_id); // nodes are stored in icfg
-            }
-
-            icfgs.push(icfg);
-        }
-
+        let icfgs: Vec<ICFG> = ctx.air_units().iter().map(|module| module.icfg.clone()).collect();
         ctx.store::<ICFGArtifact>(icfgs);
         ctx.mark_pass_completed(self.id());
         Ok(())

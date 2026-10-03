@@ -11,7 +11,7 @@ use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
 use crate::passes::bir::icfg::ICFGPass;
 use scirs::bir::interfaces::TaintLabel;
-use scirs::bir::ops::{OpId, OpKind};
+use scirs::bir::ops::{DialectOp, EvmOp, OpId, OpKind};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
@@ -68,12 +68,12 @@ impl AnalysisPass for TaintPass {
                 taint_map.entry(seed.op).or_default().insert(seed.label);
             }
 
-            // Also seed from TaintSrc ops in functions
+            // Also seed from taint-source ops in functions
             for func in &module.functions {
                 for block in &func.blocks {
                     for op in &block.ops {
-                        if let OpKind::TaintSrc(src) = &op.kind {
-                            taint_map.entry(op.id).or_default().insert(src.label);
+                        if let Some(label) = op.kind.taint_source() {
+                            taint_map.entry(op.id).or_default().insert(label);
                         }
                     }
                 }
@@ -109,54 +109,23 @@ impl AnalysisPass for TaintPass {
 
                 for func in &module.functions {
                     for block in &func.blocks {
+                        // Values computed from operands carry their labels
                         for op in &block.ops {
-                            // For BinOp: propagate labels from both operands
-                            if let OpKind::BinOp { lhs, rhs, .. } = &op.kind {
-                                let mut labels = HashSet::new();
-                                if let Some(l) = taint_map.get(&lhs.0) {
-                                    labels.extend(l.iter());
-                                }
-                                if let Some(r) = taint_map.get(&rhs.0) {
-                                    labels.extend(r.iter());
-                                }
-                                if !labels.is_empty() {
-                                    let entry = taint_map.entry(op.id).or_default();
-                                    for label in labels {
-                                        if entry.insert(label) {
-                                            changed = true;
-                                        }
-                                    }
-                                }
+                            if propagates_taint(&op.kind) {
+                                let sources: Vec<OpId> =
+                                    op.kind.operands().iter().map(|r| r.0).collect();
+                                changed |= merge_labels(&mut taint_map, &sources, op.id);
                             }
+                        }
 
-                            // For UnOp: propagate from operand
-                            if let OpKind::UnOp { operand, .. } = &op.kind {
-                                if let Some(labels) = taint_map.get(&operand.0).cloned() {
-                                    let entry = taint_map.entry(op.id).or_default();
-                                    for label in labels {
-                                        if entry.insert(label) {
-                                            changed = true;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // For Phi: union from all incoming
-                            if let OpKind::Phi(args) = &op.kind {
-                                let mut labels = HashSet::new();
-                                for (_, incoming) in args {
-                                    if let Some(l) = taint_map.get(&incoming.0) {
-                                        labels.extend(l.iter());
-                                    }
-                                }
-                                if !labels.is_empty() {
-                                    let entry = taint_map.entry(op.id).or_default();
-                                    for label in labels {
-                                        if entry.insert(label) {
-                                            changed = true;
-                                        }
-                                    }
-                                }
+                        // Block parameters receive the labels of their arguments
+                        for call in block.term.block_calls() {
+                            let Some(target) = func.blocks.iter().find(|b| b.id == call.block)
+                            else {
+                                continue;
+                            };
+                            for (param, arg) in target.params.iter().zip(&call.args) {
+                                changed |= merge_labels(&mut taint_map, &[arg.0], param.id);
                             }
                         }
                     }
@@ -174,12 +143,43 @@ impl AnalysisPass for TaintPass {
     }
 }
 
+/// Returns `true` if the op's result is computed from its operands, so it
+/// inherits their taint. Calls, loads, and effects introduce or consume
+/// values instead.
+fn propagates_taint(kind: &OpKind) -> bool {
+    matches!(
+        kind,
+        OpKind::BinOp { .. }
+            | OpKind::UnOp { .. }
+            | OpKind::Opaque { .. }
+            | OpKind::Dialect(DialectOp::Evm(EvmOp::Builtin(_)))
+    )
+}
+
+/// Add the labels of all `sources` to `target`; returns `true` if any label
+/// was new.
+fn merge_labels(
+    taint_map: &mut HashMap<OpId, HashSet<TaintLabel>>,
+    sources: &[OpId],
+    target: OpId,
+) -> bool {
+    let labels: HashSet<TaintLabel> =
+        sources.iter().filter_map(|s| taint_map.get(s)).flatten().copied().collect();
+    if labels.is_empty() {
+        return false;
+    }
+    let entry = taint_map.entry(target).or_default();
+    let before = entry.len();
+    entry.extend(labels);
+    entry.len() != before
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
     use scirs::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use scirs::bir::ops::{Op, OpId, OpKind, OpRef, SsaName, TaintSourceOp};
+    use scirs::bir::ops::{EnvVar, Op, OpId, OpKind, SsaName};
     use scirs::sir::Type;
 
     #[test]
@@ -187,16 +187,9 @@ mod tests {
         let mut func = Function::new(FunctionId("test".into()), true);
         let mut bb0 = BasicBlock::new(BlockId(0));
 
-        // %0 = taint source (UserControlled)
-        let op0 = Op::new(
-            OpId(0),
-            OpKind::TaintSrc(TaintSourceOp {
-                label: TaintLabel::UserControlled,
-                dialect_name: "evm".into(),
-                op_name: "msg_sender".into(),
-            }),
-        )
-        .with_result(SsaName::new("sender", 0), Type::Si256);
+        // %0 = env Caller (msg.sender, a UserControlled source)
+        let op0 = Op::new(OpId(0), OpKind::Env(EnvVar::Caller))
+            .with_result(SsaName::new("sender", 0), Type::Si256);
 
         bb0.ops = vec![op0];
         bb0.term = Terminator::TxnExit { reverted: false };

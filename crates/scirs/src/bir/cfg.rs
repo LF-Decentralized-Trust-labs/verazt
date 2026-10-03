@@ -1,6 +1,7 @@
 //! CFG and ICFG data structures for BIR.
 
-use crate::bir::ops::{Op, OpId, OpRef};
+use crate::bir::ops::{Op, OpId, OpRef, SsaName};
+use crate::sir::Type;
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -42,11 +43,30 @@ impl Display for ICFGNodeId {
 // ═══════════════════════════════════════════════════════════════════
 
 /// A basic block in the CFG.
+///
+/// Blocks take parameters instead of using phi nodes (MLIR style): each
+/// predecessor's terminator passes one argument per parameter.
 #[derive(Debug, Clone)]
 pub struct BasicBlock {
     pub id: BlockId,
+    pub params: Vec<BlockParam>,
     pub ops: Vec<Op>,
     pub term: Terminator,
+}
+
+/// A block parameter: an SSA value bound on entry to the block.
+#[derive(Debug, Clone)]
+pub struct BlockParam {
+    pub id: OpId,
+    pub name: SsaName,
+    pub ty: Type,
+}
+
+/// A control transfer to `block` that binds its parameters to `args`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockCall {
+    pub block: BlockId,
+    pub args: Vec<OpRef>,
 }
 
 /// A terminator instruction at the end of a basic block.
@@ -55,11 +75,11 @@ pub enum Terminator {
     /// Conditional branch.
     Branch {
         cond: OpRef,
-        then_bb: BlockId,
-        else_bb: BlockId,
+        then_dest: BlockCall,
+        else_dest: BlockCall,
     },
     /// Unconditional jump.
-    Jump(BlockId),
+    Jump(BlockCall),
     /// Transaction exit (normal or reverted).
     TxnExit { reverted: bool },
     /// Unreachable (e.g., after a revert with no continuation).
@@ -68,13 +88,88 @@ pub enum Terminator {
 
 impl BasicBlock {
     pub fn new(id: BlockId) -> Self {
-        BasicBlock { id, ops: Vec::new(), term: Terminator::Unreachable }
+        BasicBlock { id, params: Vec::new(), ops: Vec::new(), term: Terminator::Unreachable }
+    }
+}
+
+impl BlockCall {
+    /// A transfer to `block` passing no arguments.
+    pub fn new(block: BlockId) -> Self {
+        BlockCall { block, args: Vec::new() }
+    }
+}
+
+impl Terminator {
+    /// An unconditional jump to `block` passing no arguments.
+    pub fn jump(block: BlockId) -> Self {
+        Terminator::Jump(BlockCall::new(block))
+    }
+
+    /// A conditional branch passing no arguments to either successor.
+    pub fn branch(cond: OpRef, then_bb: BlockId, else_bb: BlockId) -> Self {
+        Terminator::Branch {
+            cond,
+            then_dest: BlockCall::new(then_bb),
+            else_dest: BlockCall::new(else_bb),
+        }
+    }
+
+    /// The outgoing control transfers, in order.
+    pub fn block_calls(&self) -> Vec<&BlockCall> {
+        match self {
+            Terminator::Branch { then_dest, else_dest, .. } => vec![then_dest, else_dest],
+            Terminator::Jump(dest) => vec![dest],
+            Terminator::TxnExit { .. } | Terminator::Unreachable => vec![],
+        }
+    }
+
+    /// The outgoing control transfers, mutably.
+    pub fn block_calls_mut(&mut self) -> Vec<&mut BlockCall> {
+        match self {
+            Terminator::Branch { then_dest, else_dest, .. } => vec![then_dest, else_dest],
+            Terminator::Jump(dest) => vec![dest],
+            Terminator::TxnExit { .. } | Terminator::Unreachable => vec![],
+        }
+    }
+
+    /// The successor blocks, in order.
+    pub fn successors(&self) -> Vec<BlockId> {
+        self.block_calls().iter().map(|call| call.block).collect()
+    }
+
+    /// All SSA values read by the terminator (condition and block arguments).
+    pub fn operands(&self) -> Vec<OpRef> {
+        let cond = match self {
+            Terminator::Branch { cond, .. } => Some(*cond),
+            Terminator::Jump(_) | Terminator::TxnExit { .. } | Terminator::Unreachable => None,
+        };
+        let args = self.block_calls().into_iter().flat_map(|call| call.args.iter().copied());
+        cond.into_iter().chain(args).collect()
+    }
+
+    /// Mutable access to all SSA values read by the terminator, in the same
+    /// order as `operands`.
+    pub fn operands_mut(&mut self) -> Vec<&mut OpRef> {
+        match self {
+            Terminator::Branch { cond, then_dest, else_dest } => std::iter::once(cond)
+                .chain(then_dest.args.iter_mut())
+                .chain(else_dest.args.iter_mut())
+                .collect(),
+            Terminator::Jump(dest) => dest.args.iter_mut().collect(),
+            Terminator::TxnExit { .. } | Terminator::Unreachable => vec![],
+        }
     }
 }
 
 impl Display for BasicBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "  {}:", self.id)?;
+        write!(f, "  {}", self.id)?;
+        if !self.params.is_empty() {
+            let params: Vec<_> =
+                self.params.iter().map(|p| format!("{}: {}", p.id, p.ty)).collect();
+            write!(f, "({})", params.join(", "))?;
+        }
+        writeln!(f, ":")?;
         for op in &self.ops {
             writeln!(f, "    {op}")?;
         }
@@ -82,13 +177,24 @@ impl Display for BasicBlock {
     }
 }
 
+impl Display for BlockCall {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.block)?;
+        if !self.args.is_empty() {
+            let args: Vec<_> = self.args.iter().map(|a| a.to_string()).collect();
+            write!(f, "({})", args.join(", "))?;
+        }
+        Ok(())
+    }
+}
+
 impl Display for Terminator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Terminator::Branch { cond, then_bb, else_bb } => {
-                write!(f, "branch {cond}, {then_bb}, {else_bb}")
+            Terminator::Branch { cond, then_dest, else_dest } => {
+                write!(f, "branch {cond}, {then_dest}, {else_dest}")
             }
-            Terminator::Jump(bb) => write!(f, "jump {bb}"),
+            Terminator::Jump(dest) => write!(f, "jump {dest}"),
             Terminator::TxnExit { reverted } => {
                 if *reverted {
                     write!(f, "txn_exit(reverted)")
@@ -108,20 +214,34 @@ impl Display for Terminator {
 /// An ICFG node type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ICFGNode {
-    /// Entry point for a transaction / public function.
+    /// Entry of a function (a transaction entry when it is public).
     TxnEntry { func: FunctionId },
-    /// Exit point for a transaction (normal or reverted).
+    /// Exit of a function (normal or reverted).
     TxnExit { func: FunctionId, reverted: bool },
-    /// A call site (implements CallOp).
-    CallSite { op: OpId },
-    /// A return site after a call.
-    ReturnSite { op: OpId },
-    /// An external call node (reentrancy risk).
-    ExternalCallNode { op: OpId },
-    /// A re-entry point for reentrancy analysis.
-    ReentryPoint { func: FunctionId },
-    /// A regular statement node.
-    StmtNode { op: OpId },
+    /// The start of a basic block.
+    BlockEntry(BlockLoc),
+    /// An internal call; control continues in the callee.
+    CallSite(OpLoc),
+    /// The point where control resumes after a call.
+    ReturnSite(OpLoc),
+    /// An external call; may re-enter the contract's public functions.
+    ExternalCallNode(OpLoc),
+    /// Any other op.
+    StmtNode(OpLoc),
+}
+
+/// A basic block, qualified by its function.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BlockLoc {
+    pub func: FunctionId,
+    pub block: BlockId,
+}
+
+/// An op, qualified by its function (`OpId`s are unique per function).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OpLoc {
+    pub func: FunctionId,
+    pub op: OpId,
 }
 
 /// Edge kind in the ICFG.
@@ -133,7 +253,7 @@ pub enum EdgeKind {
     CallEdge,
     /// Return edge from callee exit to return site.
     ReturnEdge,
-    /// Re-entry edge from external call to re-entry point.
+    /// Re-entry edge from an external call to a public function's entry.
     ReentryEdge,
 }
 

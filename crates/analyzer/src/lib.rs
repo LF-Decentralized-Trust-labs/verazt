@@ -20,12 +20,13 @@
 //! - `detectors`: Bug detection framework and implementations
 //!   - `base/`: Infrastructure (`BugDetectionPass`, `DetectorId`,
 //!     `DetectorRegistry`)
-//!   - `scan_adapter`: Wraps `scanner::ScanDetector` → `BugDetectionPass`
+//!   - `sir/`: SIR syntactic scan detectors (single-pass tree walk)
 //!   - `bir/`: BIR dataflow detectors
 //! - `output`: Report formatting (JSON, SARIF, Markdown)
 
-// CLI entry module
+// CLI entry modules (`verazt analyze` and `verazt scan`)
 pub mod cli;
+pub mod scan_cli;
 
 // Flattened analysis modules (formerly under analysis/)
 pub mod context;

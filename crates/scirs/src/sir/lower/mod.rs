@@ -16,18 +16,28 @@
 //! - Drops `ModifierDef` member declarations (already inlined).
 //! - Converts `sir::Expr` → `cir::CanonExpr`.
 //! - Converts `sir::Stmt` → `cir::CanonStmt`.
+//! - Makes chain semantics explicit: reads and writes of contract state
+//!   become `Load` / `Store` (locals shadow state variables per block
+//!   scope), calls to the contract's own functions become `InternalCall`,
+//!   member calls on values become `ExternalCall`, and dialect constructs
+//!   are mapped by `lower_dialect`.
 
 mod elim_modifiers;
 mod elim_named_args;
 mod elim_using;
 mod flatten_expr;
+mod lower_dialect;
 mod resolve_inheritance;
 
 use crate::cir::defs::*;
 use crate::cir::exprs::*;
 use crate::cir::module::*;
 use crate::cir::stmts::*;
+use crate::semantics::ExternalKind;
 use crate::sir;
+use crate::sir::dialect::move_lang::MoveExpr;
+use crate::sir::dialect::DialectExpr;
+use std::collections::HashSet;
 use thiserror::Error;
 
 /// Errors that can occur during SIR → CIR lowering.
@@ -53,14 +63,79 @@ pub fn lower_module(sir_module: &sir::Module) -> Result<CanonModule, CirLowerErr
     lowerer.lower_module(&module)
 }
 
+/// Prefix of temporaries introduced by lowering.
+const TMP_PREFIX: &str = "__cir_tmp";
+
 /// Internal state for the SIR → CIR lowering.
 struct CirLowerer {
-    _tmp_var_index: usize,
+    /// Names of the current contract's functions (internal call targets).
+    functions: HashSet<String>,
+    /// Local variable scopes of the current function, innermost last.
+    scopes: Vec<HashSet<String>>,
+    /// Names of the current contract's state variables.
+    storage_vars: HashSet<String>,
+    /// Counter for temporaries introduced by lowering.
+    tmp_index: usize,
 }
 
 impl CirLowerer {
     fn new() -> Self {
-        CirLowerer { _tmp_var_index: 0 }
+        CirLowerer {
+            functions: HashSet::new(),
+            scopes: Vec::new(),
+            storage_vars: HashSet::new(),
+            tmp_index: 0,
+        }
+    }
+
+    // ─── Name classification ─────────────────────────────────────
+
+    fn is_local(&self, name: &str) -> bool {
+        self.scopes.iter().any(|scope| scope.contains(name))
+    }
+
+    fn is_state_var(&self, name: &str) -> bool {
+        self.storage_vars.contains(name) && !self.is_local(name)
+    }
+
+    fn declare_local(&mut self, name: &str) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name.to_string());
+        }
+    }
+
+    /// If `expr` denotes contract state, return its path (struct fields
+    /// joined by `.`) and its index expressions in order.
+    fn storage_path<'e>(&self, expr: &'e sir::Expr) -> Option<(String, Vec<&'e sir::Expr>)> {
+        match expr {
+            sir::Expr::Var(var) if self.is_state_var(&var.name) => {
+                Some((var.name.clone(), vec![]))
+            }
+            sir::Expr::IndexAccess(access) => {
+                let (path, mut keys) = self.storage_path(&access.base)?;
+                keys.extend(access.index.as_deref());
+                Some((path, keys))
+            }
+            sir::Expr::FieldAccess(access) => {
+                let (path, keys) = self.storage_path(&access.base)?;
+                Some((format!("{path}.{}", access.field), keys))
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns `true` if `expr` evaluates to a value (as opposed to naming a
+    /// contract, library, or type), so a member call on it is external.
+    fn is_value_receiver(&self, expr: &sir::Expr) -> bool {
+        match expr {
+            sir::Expr::Var(var) => self.is_local(&var.name) || self.is_state_var(&var.name),
+            _ => true,
+        }
+    }
+
+    fn fresh_tmp(&mut self) -> String {
+        self.tmp_index += 1;
+        format!("{TMP_PREFIX}{}", self.tmp_index)
     }
 
     fn lower_module(&mut self, module: &sir::Module) -> Result<CanonModule, CirLowerError> {
@@ -86,6 +161,23 @@ impl CirLowerer {
         &mut self,
         contract: &sir::ContractDecl,
     ) -> Result<CanonContractDecl, CirLowerError> {
+        self.functions.clear();
+        self.storage_vars.clear();
+        for member in &contract.members {
+            match member {
+                sir::MemberDecl::Function(f) => {
+                    self.functions.insert(f.name.clone());
+                }
+                sir::MemberDecl::Storage(s) => {
+                    self.storage_vars.insert(s.name.clone());
+                }
+                sir::MemberDecl::TypeAlias(_)
+                | sir::MemberDecl::GlobalInvariant(_)
+                | sir::MemberDecl::Dialect(_)
+                | sir::MemberDecl::UsingFor(_) => {}
+            }
+        }
+
         let mut members = Vec::new();
 
         for member in &contract.members {
@@ -159,8 +251,9 @@ impl CirLowerer {
             .map(|p| CanonParam::new(p.name.clone(), p.ty.clone()))
             .collect();
 
+        let param_names = func.params.iter().map(|p| p.name.clone());
         let body = match &func.body {
-            Some(stmts) => self.lower_stmts(stmts)?,
+            Some(stmts) => self.lower_scoped(param_names, stmts)?,
             None => vec![],
         };
 
@@ -188,6 +281,18 @@ impl CirLowerer {
         stmts.iter().map(|s| self.lower_stmt(s)).collect()
     }
 
+    /// Lower `stmts` in a new local scope that starts with `declared`.
+    fn lower_scoped(
+        &mut self,
+        declared: impl IntoIterator<Item = String>,
+        stmts: &[sir::Stmt],
+    ) -> Result<Vec<CanonStmt>, CirLowerError> {
+        self.scopes.push(declared.into_iter().collect());
+        let lowered = self.lower_stmts(stmts);
+        self.scopes.pop();
+        lowered
+    }
+
     fn lower_stmt(&mut self, stmt: &sir::Stmt) -> Result<CanonStmt, CirLowerError> {
         match stmt {
             sir::Stmt::LocalVar(s) => {
@@ -199,39 +304,62 @@ impl CirLowerer {
                             .map(|d| CanonLocalVarDecl { name: d.name.clone(), ty: d.ty.clone() })
                     })
                     .collect();
+                // The initializer is evaluated before the variables are in scope.
                 let init = match &s.init {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
                 };
+                for decl in s.vars.iter().flatten() {
+                    self.declare_local(&decl.name);
+                }
                 Ok(CanonStmt::LocalVar(CanonLocalVarStmt { vars, init, span: s.span.clone() }))
             }
-            sir::Stmt::Assign(s) => Ok(CanonStmt::Assign(CanonAssignStmt {
-                lhs: self.lower_expr(&s.lhs)?,
-                rhs: self.lower_expr(&s.rhs)?,
-                span: s.span.clone(),
-            })),
-            sir::Stmt::AugAssign(s) => Ok(CanonStmt::AugAssign(CanonAugAssignStmt {
-                op: s.op,
-                lhs: self.lower_expr(&s.lhs)?,
-                rhs: self.lower_expr(&s.rhs)?,
-                span: s.span.clone(),
-            })),
-            sir::Stmt::Expr(s) => Ok(CanonStmt::Expr(CanonExprStmt {
-                expr: self.lower_expr(&s.expr)?,
-                span: s.span.clone(),
-            })),
+            sir::Stmt::Assign(s) => match self.storage_path(&s.lhs) {
+                Some((path, key_exprs)) => {
+                    let keys = self.lower_exprs(&key_exprs)?;
+                    Ok(CanonStmt::Store(CanonStoreStmt {
+                        resource: CanonResource::StateVar(path),
+                        keys,
+                        value: Some(self.lower_expr(&s.rhs)?),
+                        span: s.span.clone(),
+                    }))
+                }
+                None => Ok(CanonStmt::Assign(CanonAssignStmt {
+                    lhs: self.lower_expr(&s.lhs)?,
+                    rhs: self.lower_expr(&s.rhs)?,
+                    span: s.span.clone(),
+                })),
+            },
+            sir::Stmt::AugAssign(s) => match self.storage_path(&s.lhs) {
+                Some((path, key_exprs)) => self.lower_state_aug_assign(s, path, &key_exprs),
+                None => Ok(CanonStmt::AugAssign(CanonAugAssignStmt {
+                    op: s.op,
+                    lhs: self.lower_expr(&s.lhs)?,
+                    rhs: self.lower_expr(&s.rhs)?,
+                    span: s.span.clone(),
+                })),
+            },
+            sir::Stmt::Expr(s) => match &s.expr {
+                sir::Expr::Dialect(DialectExpr::Move(MoveExpr::MoveTo(move_to))) => {
+                    self.lower_move_to(move_to)
+                }
+                expr => Ok(CanonStmt::Expr(CanonExprStmt {
+                    expr: self.lower_expr(expr)?,
+                    span: s.span.clone(),
+                })),
+            },
             sir::Stmt::If(s) => {
                 let cond = self.lower_expr(&s.cond)?;
-                let then_body = self.lower_stmts(&s.then_body)?;
+                let then_body = self.lower_scoped([], &s.then_body)?;
                 let else_body = match &s.else_body {
-                    Some(stmts) => Some(self.lower_stmts(stmts)?),
+                    Some(stmts) => Some(self.lower_scoped([], stmts)?),
                     None => None,
                 };
                 Ok(CanonStmt::If(CanonIfStmt { cond, then_body, else_body, span: s.span.clone() }))
             }
             sir::Stmt::While(s) => {
                 let cond = self.lower_expr(&s.cond)?;
-                let body = self.lower_stmts(&s.body)?;
+                let body = self.lower_scoped([], &s.body)?;
                 let invariant = match &s.invariant {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
@@ -244,31 +372,11 @@ impl CirLowerer {
                 }))
             }
             sir::Stmt::For(s) => {
-                let init = match &s.init {
-                    Some(stmt) => Some(Box::new(self.lower_stmt(stmt)?)),
-                    None => None,
-                };
-                let cond = match &s.cond {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                let update = match &s.update {
-                    Some(stmt) => Some(Box::new(self.lower_stmt(stmt)?)),
-                    None => None,
-                };
-                let body = self.lower_stmts(&s.body)?;
-                let invariant = match &s.invariant {
-                    Some(e) => Some(self.lower_expr(e)?),
-                    None => None,
-                };
-                Ok(CanonStmt::For(CanonForStmt {
-                    init,
-                    cond,
-                    update,
-                    body,
-                    invariant,
-                    span: s.span.clone(),
-                }))
+                // Variables declared in the init clause are scoped to the loop.
+                self.scopes.push(HashSet::new());
+                let lowered = self.lower_for(s);
+                self.scopes.pop();
+                lowered
             }
             sir::Stmt::Return(s) => {
                 let value = match &s.value {
@@ -299,14 +407,109 @@ impl CirLowerer {
             }
             sir::Stmt::Break => Ok(CanonStmt::Break),
             sir::Stmt::Continue => Ok(CanonStmt::Continue),
-            sir::Stmt::Block(stmts) => Ok(CanonStmt::Block(self.lower_stmts(stmts)?)),
-            sir::Stmt::Dialect(s) => Ok(CanonStmt::Dialect(s.clone())),
+            sir::Stmt::Block(stmts) => Ok(CanonStmt::Block(self.lower_scoped([], stmts)?)),
+            sir::Stmt::Dialect(s) => self.lower_dialect_stmt(s),
         }
+    }
+
+    fn lower_for(&mut self, s: &sir::ForStmt) -> Result<CanonStmt, CirLowerError> {
+        let init = match &s.init {
+            Some(stmt) => Some(Box::new(self.lower_stmt(stmt)?)),
+            None => None,
+        };
+        let cond = match &s.cond {
+            Some(e) => Some(self.lower_expr(e)?),
+            None => None,
+        };
+        let update = match &s.update {
+            Some(stmt) => Some(Box::new(self.lower_stmt(stmt)?)),
+            None => None,
+        };
+        let body = self.lower_scoped([], &s.body)?;
+        let invariant = match &s.invariant {
+            Some(e) => Some(self.lower_expr(e)?),
+            None => None,
+        };
+        Ok(CanonStmt::For(CanonForStmt { init, cond, update, body, invariant, span: s.span.clone() }))
+    }
+
+    /// Lower `state[keys] op= rhs` to `state[keys] = state[keys] op rhs`.
+    /// Keys that are not side-effect-free atoms are bound to temporaries
+    /// first, so they are evaluated once.
+    fn lower_state_aug_assign(
+        &mut self,
+        s: &sir::AugAssignStmt,
+        path: String,
+        key_exprs: &[&sir::Expr],
+    ) -> Result<CanonStmt, CirLowerError> {
+        let mut stmts = Vec::new();
+        let mut keys = Vec::new();
+        for key_expr in key_exprs {
+            let key = self.lower_expr(key_expr)?;
+            if is_pure_atom(&key) {
+                keys.push(key);
+                continue;
+            }
+            let name = self.fresh_tmp();
+            let ty = key.typ();
+            stmts.push(CanonStmt::LocalVar(CanonLocalVarStmt {
+                vars: vec![Some(CanonLocalVarDecl { name: name.clone(), ty: ty.clone() })],
+                init: Some(key),
+                span: s.span.clone(),
+            }));
+            self.declare_local(&name);
+            keys.push(CanonExpr::Var(CanonVarExpr::new(name, ty, s.span.clone())));
+        }
+
+        let resource = CanonResource::StateVar(path);
+        let current = CanonExpr::Load(CanonLoadExpr {
+            resource: resource.clone(),
+            keys: keys.clone(),
+            ty: s.lhs.typ(),
+            span: s.span.clone(),
+        });
+        let value = CanonExpr::BinOp(CanonBinOpExpr {
+            op: s.op,
+            lhs: Box::new(current),
+            rhs: Box::new(self.lower_expr(&s.rhs)?),
+            overflow: crate::sir::OverflowSemantics::Checked,
+            span: s.span.clone(),
+        });
+        let store =
+            CanonStmt::Store(CanonStoreStmt { resource, keys, value: Some(value), span: s.span.clone() });
+        if stmts.is_empty() {
+            return Ok(store);
+        }
+        stmts.push(store);
+        Ok(CanonStmt::Block(stmts))
     }
 
     // ─── Expression lowering ─────────────────────────────────────
 
+    fn lower_exprs(&mut self, exprs: &[&sir::Expr]) -> Result<Vec<CanonExpr>, CirLowerError> {
+        exprs.iter().map(|e| self.lower_expr(e)).collect()
+    }
+
+    /// `state[keys...]` as a `Load`.
+    fn lower_state_load(
+        &mut self,
+        path: String,
+        key_exprs: &[&sir::Expr],
+        ty: &crate::sir::Type,
+        span: Option<&crate::sir::Loc>,
+    ) -> Result<CanonExpr, CirLowerError> {
+        Ok(CanonExpr::Load(CanonLoadExpr {
+            resource: CanonResource::StateVar(path),
+            keys: self.lower_exprs(key_exprs)?,
+            ty: ty.clone(),
+            span: span.cloned(),
+        }))
+    }
+
     fn lower_expr(&mut self, expr: &sir::Expr) -> Result<CanonExpr, CirLowerError> {
+        if let Some((path, key_exprs)) = self.storage_path(expr) {
+            return self.lower_state_load(path, &key_exprs, &expr.typ(), expr.span());
+        }
         match expr {
             sir::Expr::Var(v) => Ok(CanonExpr::Var(CanonVarExpr {
                 name: v.name.clone(),
@@ -345,6 +548,9 @@ impl CirLowerer {
                 span: e.span.clone(),
             })),
             sir::Expr::FunctionCall(e) => {
+                if let Some(call) = self.lower_resolved_call(e)? {
+                    return Ok(call);
+                }
                 let args = match &e.args {
                     sir::CallArgs::Positional(args) => args
                         .iter()
@@ -423,7 +629,190 @@ impl CirLowerer {
                 ty: ty.clone(),
                 body: Box::new(self.lower_expr(body)?),
             }),
-            sir::Expr::Dialect(d) => Ok(CanonExpr::Dialect(d.clone())),
+            sir::Expr::Dialect(d) => self.lower_dialect_expr(d),
         }
+    }
+
+    /// Lower a call whose target is known: a function of this contract, or
+    /// a member call on a value (an external call). Returns `None` for
+    /// unresolved calls (builtins, libraries, type constructors).
+    fn lower_resolved_call(
+        &mut self,
+        call: &sir::CallExpr,
+    ) -> Result<Option<CanonExpr>, CirLowerError> {
+        let sir::CallArgs::Positional(arg_exprs) = &call.args else {
+            return Ok(None);
+        };
+        match &*call.callee {
+            sir::Expr::Var(var) if self.functions.contains(&var.name) && !self.is_local(&var.name) => {
+                let args = arg_exprs.iter().map(|a| self.lower_expr(a)).collect::<Result<_, _>>()?;
+                Ok(Some(CanonExpr::InternalCall(CanonInternalCallExpr {
+                    func: var.name.clone(),
+                    args,
+                    ty: call.ty.clone(),
+                    span: call.span.clone(),
+                })))
+            }
+            sir::Expr::FieldAccess(access) if self.is_value_receiver(&access.base) => {
+                let address = self.lower_expr(&access.base)?;
+                let mut args: Vec<CanonExpr> =
+                    arg_exprs.iter().map(|a| self.lower_expr(a)).collect::<Result<_, _>>()?;
+                let (kind, value) = match access.field.as_str() {
+                    "call" => (ExternalKind::Call, None),
+                    "delegatecall" => (ExternalKind::DelegateCall, None),
+                    "staticcall" => (ExternalKind::StaticCall, None),
+                    "transfer" if args.len() == 1 => (ExternalKind::Transfer, args.pop()),
+                    "send" if args.len() == 1 => (ExternalKind::Send, args.pop()),
+                    _ => (ExternalKind::HighLevel, None),
+                };
+                Ok(Some(CanonExpr::ExternalCall(CanonExternalCallExpr {
+                    kind,
+                    address: Some(Box::new(address)),
+                    args,
+                    value: value.map(Box::new),
+                    ty: call.ty.clone(),
+                    span: call.span.clone(),
+                })))
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
+/// Returns `true` if evaluating `expr` twice is equivalent to evaluating it
+/// once: locals, literals, environment reads, and state reads with such
+/// keys.
+fn is_pure_atom(expr: &CanonExpr) -> bool {
+    match expr {
+        CanonExpr::Var(_) | CanonExpr::Lit(_) | CanonExpr::Env(_) => true,
+        CanonExpr::Load(load) => load.keys.iter().all(is_pure_atom),
+        CanonExpr::BinOp(_)
+        | CanonExpr::UnOp(_)
+        | CanonExpr::IndexAccess(_)
+        | CanonExpr::FieldAccess(_)
+        | CanonExpr::FunctionCall(_)
+        | CanonExpr::TypeCast(_)
+        | CanonExpr::InternalCall(_)
+        | CanonExpr::ExternalCall(_)
+        | CanonExpr::Old(_)
+        | CanonExpr::Result(_)
+        | CanonExpr::Forall { .. }
+        | CanonExpr::Exists { .. }
+        | CanonExpr::Dialect(_) => false,
+    }
+}
+
+// ========================================================================
+// Tests
+// ========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cir::utils::visit::{self, Visit};
+    use crate::sir::{
+        AssignStmt, AugAssignStmt, BinOp, BoolLit, CallArgs, CallExpr, ContractDecl, Decl, Expr,
+        FunctionDecl, IfStmt, IndexAccessExpr, Lit, LocalVarDecl, LocalVarStmt, MemberDecl,
+        StorageDecl, Stmt, Type, VarExpr,
+    };
+
+    fn var(name: &str) -> Expr {
+        Expr::Var(VarExpr::new(name.to_string(), Type::I256, None))
+    }
+
+    fn lit() -> Expr {
+        Expr::Lit(Lit::Bool(BoolLit::new(true, None)))
+    }
+
+    /// Lower contract `C { uint balances; function f(c) { body } }` and
+    /// return the CIR body of `f`.
+    fn lower_body(body: Vec<Stmt>) -> Vec<CanonStmt> {
+        let storage = StorageDecl::new("balances".to_string(), Type::I256, None, None);
+        let params = vec![sir::Param::new("c".to_string(), Type::Bool)];
+        let func = FunctionDecl::new("f".to_string(), params, vec![], Some(body), None);
+        let members = vec![MemberDecl::Storage(storage), MemberDecl::Function(func)];
+        let contract = ContractDecl::new("C".to_string(), members, None);
+        let module = lower_module(&sir::Module::new("m", vec![Decl::Contract(contract)])).unwrap();
+        let CanonDecl::Contract(contract) = &module.decls[0] else { panic!("expected contract") };
+        contract
+            .members
+            .iter()
+            .find_map(|m| match m {
+                CanonMemberDecl::Function(f) => Some(f.body.clone()),
+                _ => None,
+            })
+            .unwrap()
+    }
+
+    /// Counts stores and unresolved calls anywhere in a body.
+    #[derive(Default)]
+    struct Counter {
+        calls: usize,
+        stores: usize,
+    }
+
+    impl<'a> Visit<'a> for Counter {
+        fn visit_store_stmt(&mut self, stmt: &'a CanonStoreStmt) {
+            self.stores += 1;
+            visit::default::visit_store_stmt(self, stmt);
+        }
+
+        fn visit_call_expr(&mut self, expr: &'a CanonCallExpr) {
+            self.calls += 1;
+            visit::default::visit_call_expr(self, expr);
+        }
+    }
+
+    fn count(stmts: &[CanonStmt]) -> Counter {
+        let mut counter = Counter::default();
+        counter.visit_stmts(stmts);
+        counter
+    }
+
+    #[test]
+    fn test_local_shadows_state_only_inside_its_block() {
+        // if (c) { uint balances = true; balances = true; } balances = true;
+        let local = Stmt::LocalVar(LocalVarStmt {
+            vars: vec![Some(LocalVarDecl { name: "balances".to_string(), ty: Type::I256 })],
+            init: Some(lit()),
+            span: None,
+        });
+        let write = || Stmt::Assign(AssignStmt { lhs: var("balances"), rhs: lit(), span: None });
+        let branch = Stmt::If(IfStmt {
+            cond: var("c"),
+            then_body: vec![local, write()],
+            else_body: None,
+            span: None,
+        });
+        let body = lower_body(vec![branch, write()]);
+
+        // Only the write after the block reaches contract state.
+        let CanonStmt::If(branch) = &body[0] else { panic!("expected if") };
+        assert_eq!(count(&branch.then_body).stores, 0);
+        assert!(matches!(&body[1], CanonStmt::Store(s)
+            if s.resource == CanonResource::StateVar("balances".to_string())));
+    }
+
+    #[test]
+    fn test_state_aug_assign_evaluates_impure_key_once() {
+        // balances[next()] += true;
+        let key = Expr::FunctionCall(CallExpr {
+            callee: Box::new(var("next")),
+            args: CallArgs::Positional(vec![]),
+            ty: Type::I256,
+            span: None,
+        });
+        let lhs = Expr::IndexAccess(IndexAccessExpr {
+            base: Box::new(var("balances")),
+            index: Some(Box::new(key)),
+            ty: Type::I256,
+            span: None,
+        });
+        let aug = Stmt::AugAssign(AugAssignStmt { op: BinOp::Add, lhs, rhs: lit(), span: None });
+        let body = lower_body(vec![aug]);
+
+        let counter = count(&body);
+        assert_eq!(counter.stores, 1);
+        assert_eq!(counter.calls, 1, "the key must be evaluated exactly once");
     }
 }

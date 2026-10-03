@@ -10,7 +10,7 @@
 //! - **Reentrancy**: check whether an external call can *reach* a storage write
 //!   on any path — a direct reachability query, no full DFA pass required.
 
-use scirs::bir::cfg::{BlockId, Function, Terminator};
+use scirs::bir::cfg::{BlockId, Function};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -135,18 +135,10 @@ pub fn can_reach_backward(func: &Function, from: BlockId, to: BlockId) -> bool {
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
 
-fn terminator_successors(term: &Terminator) -> Vec<BlockId> {
-    match term {
-        Terminator::Jump(bb) => vec![*bb],
-        Terminator::Branch { then_bb, else_bb, .. } => vec![*then_bb, *else_bb],
-        Terminator::TxnExit { .. } | Terminator::Unreachable => vec![],
-    }
-}
-
 fn build_successor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
     let mut map: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
     for block in &func.blocks {
-        map.insert(block.id, terminator_successors(&block.term));
+        map.insert(block.id, block.term.successors());
     }
     map
 }
@@ -154,7 +146,7 @@ fn build_successor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
 fn build_predecessor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
     let mut preds: HashMap<BlockId, Vec<BlockId>> = HashMap::new();
     for block in &func.blocks {
-        for succ in terminator_successors(&block.term) {
+        for succ in block.term.successors() {
             preds.entry(succ).or_default().push(block.id);
         }
     }
@@ -191,11 +183,11 @@ mod tests {
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term =
-            Terminator::Branch { cond: OpRef(OpId(0)), then_bb: BlockId(1), else_bb: BlockId(2) };
+            Terminator::branch(OpRef(OpId(0)), BlockId(1), BlockId(2));
         let mut bb1 = BasicBlock::new(BlockId(1));
-        bb1.term = Terminator::Jump(BlockId(3));
+        bb1.term = Terminator::jump(BlockId(3));
         let mut bb2 = BasicBlock::new(BlockId(2));
-        bb2.term = Terminator::Jump(BlockId(3));
+        bb2.term = Terminator::jump(BlockId(3));
         let mut bb3 = BasicBlock::new(BlockId(3));
         bb3.term = Terminator::TxnExit { reverted: false };
 

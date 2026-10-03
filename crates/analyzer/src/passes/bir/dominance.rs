@@ -90,11 +90,11 @@ mod tests {
 
         let mut bb0 = BasicBlock::new(BlockId(0));
         bb0.term =
-            Terminator::Branch { cond: OpRef(OpId(0)), then_bb: BlockId(1), else_bb: BlockId(2) };
+            Terminator::branch(OpRef(OpId(0)), BlockId(1), BlockId(2));
         let mut bb1 = BasicBlock::new(BlockId(1));
-        bb1.term = Terminator::Jump(BlockId(3));
+        bb1.term = Terminator::jump(BlockId(3));
         let mut bb2 = BasicBlock::new(BlockId(2));
-        bb2.term = Terminator::Jump(BlockId(3));
+        bb2.term = Terminator::jump(BlockId(3));
         let mut bb3 = BasicBlock::new(BlockId(3));
         bb3.term = Terminator::TxnExit { reverted: false };
 

@@ -3,10 +3,10 @@
 use crate::bir::module::Module;
 use crate::verify::VerifyError;
 
+pub mod block_args;
 pub mod cfg_entry_exit;
 pub mod cfg_well_formed;
 pub mod op_id_unique;
-pub mod phi_consistency;
 pub mod ssa_single_def;
 pub mod ssa_use_def;
 
@@ -18,7 +18,7 @@ pub fn verify(module: &Module, verbose: bool) -> Result<(), Vec<VerifyError>> {
     run_pass(2, "ssa_use_def", ssa_use_def::check(module), verbose, &mut errors);
     run_pass(3, "cfg_well_formed", cfg_well_formed::check(module), verbose, &mut errors);
     run_pass(4, "cfg_entry_exit", cfg_entry_exit::check(module), verbose, &mut errors);
-    run_pass(5, "phi_consistency", phi_consistency::check(module), verbose, &mut errors);
+    run_pass(5, "block_args", block_args::check(module), verbose, &mut errors);
     run_pass(6, "op_id_unique", op_id_unique::check(module), verbose, &mut errors);
 
     if errors.is_empty() {

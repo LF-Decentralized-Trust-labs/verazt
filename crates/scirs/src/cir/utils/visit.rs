@@ -89,10 +89,32 @@ pub trait Visit<'a> {
     fn visit_type_cast_expr(&mut self, expr: &'a CanonTypeCastExpr) {
         default::visit_type_cast_expr(self, expr)
     }
+    fn visit_load_expr(&mut self, expr: &'a CanonLoadExpr) {
+        default::visit_load_expr(self, expr)
+    }
+    fn visit_internal_call_expr(&mut self, expr: &'a CanonInternalCallExpr) {
+        default::visit_internal_call_expr(self, expr)
+    }
+    fn visit_external_call_expr(&mut self, expr: &'a CanonExternalCallExpr) {
+        default::visit_external_call_expr(self, expr)
+    }
+    fn visit_env_expr(&mut self, _expr: &'a CanonEnvExpr) {}
+
+    // ── Shared chain statements ─────────────────────
+    fn visit_store_stmt(&mut self, stmt: &'a CanonStoreStmt) {
+        default::visit_store_stmt(self, stmt)
+    }
+    fn visit_emit_stmt(&mut self, stmt: &'a CanonEmitStmt) {
+        default::visit_emit_stmt(self, stmt)
+    }
 
     // ── Dialect ─────────────────────────────────────
-    fn visit_dialect_expr(&mut self, _expr: &'a DialectExpr) {}
-    fn visit_dialect_stmt(&mut self, _stmt: &'a DialectStmt) {}
+    fn visit_dialect_expr(&mut self, expr: &'a CanonDialectExpr) {
+        default::visit_dialect_expr(self, expr)
+    }
+    fn visit_dialect_stmt(&mut self, stmt: &'a CanonDialectStmt) {
+        default::visit_dialect_stmt(self, stmt)
+    }
     fn visit_dialect_member_decl(&mut self, _decl: &'a DialectMemberDecl) {}
 }
 
@@ -174,7 +196,47 @@ pub mod default {
             CanonStmt::Assert(s) => visitor.visit_assert_stmt(s),
             CanonStmt::Break | CanonStmt::Continue => {}
             CanonStmt::Block(stmts) => visitor.visit_stmts(stmts),
+            CanonStmt::Store(s) => visitor.visit_store_stmt(s),
+            CanonStmt::Emit(s) => visitor.visit_emit_stmt(s),
             CanonStmt::Dialect(s) => visitor.visit_dialect_stmt(s),
+        }
+    }
+
+    pub fn visit_store_stmt<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, stmt: &'a CanonStoreStmt) {
+        visit_resource(visitor, &stmt.resource);
+        for key in &stmt.keys {
+            visitor.visit_expr(key);
+        }
+        if let Some(value) = &stmt.value {
+            visitor.visit_expr(value);
+        }
+    }
+
+    pub fn visit_emit_stmt<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, stmt: &'a CanonEmitStmt) {
+        for arg in &stmt.args {
+            visitor.visit_expr(arg);
+        }
+    }
+
+    pub fn visit_dialect_stmt<'a, T: Visit<'a> + ?Sized>(
+        visitor: &mut T,
+        stmt: &'a CanonDialectStmt,
+    ) {
+        match stmt {
+            CanonDialectStmt::Evm(CanonEvmStmt::Selfdestruct(s)) => visitor.visit_expr(&s.recipient),
+            CanonDialectStmt::Evm(CanonEvmStmt::TryCatch(s)) => {
+                visitor.visit_expr(&s.guarded);
+                visitor.visit_stmts(&s.body);
+                for clause in &s.catch_clauses {
+                    visitor.visit_stmts(&clause.body);
+                }
+            }
+            CanonDialectStmt::Move(CanonMoveStmt::Abort(s)) => visitor.visit_expr(&s.code),
+            CanonDialectStmt::Move(CanonMoveStmt::SpecBlock(s)) => {
+                for assertion in &s.assertions {
+                    visitor.visit_expr(assertion);
+                }
+            }
         }
     }
 
@@ -279,6 +341,10 @@ pub mod default {
             CanonExpr::FieldAccess(e) => visitor.visit_field_access_expr(e),
             CanonExpr::FunctionCall(e) => visitor.visit_call_expr(e),
             CanonExpr::TypeCast(e) => visitor.visit_type_cast_expr(e),
+            CanonExpr::Load(e) => visitor.visit_load_expr(e),
+            CanonExpr::InternalCall(e) => visitor.visit_internal_call_expr(e),
+            CanonExpr::ExternalCall(e) => visitor.visit_external_call_expr(e),
+            CanonExpr::Env(e) => visitor.visit_env_expr(e),
             CanonExpr::Old(inner) => visitor.visit_expr(inner),
             CanonExpr::Result(_) => {}
             CanonExpr::Forall { body, .. } => visitor.visit_expr(body),
@@ -325,5 +391,52 @@ pub mod default {
         expr: &'a CanonTypeCastExpr,
     ) {
         visitor.visit_expr(&expr.expr);
+    }
+
+    pub fn visit_load_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a CanonLoadExpr) {
+        visit_resource(visitor, &expr.resource);
+        for key in &expr.keys {
+            visitor.visit_expr(key);
+        }
+    }
+
+    pub fn visit_internal_call_expr<'a, T: Visit<'a> + ?Sized>(
+        visitor: &mut T,
+        expr: &'a CanonInternalCallExpr,
+    ) {
+        for arg in &expr.args {
+            visitor.visit_expr(arg);
+        }
+    }
+
+    pub fn visit_external_call_expr<'a, T: Visit<'a> + ?Sized>(
+        visitor: &mut T,
+        expr: &'a CanonExternalCallExpr,
+    ) {
+        if let Some(address) = &expr.address {
+            visitor.visit_expr(address);
+        }
+        for arg in &expr.args {
+            visitor.visit_expr(arg);
+        }
+        if let Some(value) = &expr.value {
+            visitor.visit_expr(value);
+        }
+    }
+
+    pub fn visit_dialect_expr<'a, T: Visit<'a> + ?Sized>(
+        visitor: &mut T,
+        expr: &'a CanonDialectExpr,
+    ) {
+        for operand in expr.operands() {
+            visitor.visit_expr(operand);
+        }
+    }
+
+    fn visit_resource<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, resource: &'a CanonResource) {
+        match resource {
+            CanonResource::AnchorAccount(account) => visitor.visit_expr(account),
+            CanonResource::MoveGlobal(_) | CanonResource::StateVar(_) => {}
+        }
     }
 }

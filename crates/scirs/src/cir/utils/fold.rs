@@ -92,6 +92,32 @@ pub trait Fold<'a, T: Default> {
     fn fold_type_cast_expr(&mut self, expr: &'a CanonTypeCastExpr) -> T {
         default::fold_type_cast_expr(self, expr)
     }
+    fn fold_load_expr(&mut self, expr: &'a CanonLoadExpr) -> T {
+        default::fold_load_expr(self, expr)
+    }
+    fn fold_internal_call_expr(&mut self, expr: &'a CanonInternalCallExpr) -> T {
+        default::fold_exprs(self, &expr.args)
+    }
+    fn fold_external_call_expr(&mut self, expr: &'a CanonExternalCallExpr) -> T {
+        default::fold_external_call_expr(self, expr)
+    }
+    fn fold_env_expr(&mut self, _expr: &'a CanonEnvExpr) -> T {
+        T::default()
+    }
+    fn fold_dialect_expr(&mut self, expr: &'a CanonDialectExpr) -> T {
+        default::fold_expr_refs(self, expr.operands())
+    }
+
+    // ── Shared chain and dialect statements ─────────
+    fn fold_store_stmt(&mut self, stmt: &'a CanonStoreStmt) -> T {
+        default::fold_store_stmt(self, stmt)
+    }
+    fn fold_emit_stmt(&mut self, stmt: &'a CanonEmitStmt) -> T {
+        default::fold_exprs(self, &stmt.args)
+    }
+    fn fold_dialect_stmt(&mut self, stmt: &'a CanonDialectStmt) -> T {
+        default::fold_dialect_stmt(self, stmt)
+    }
 
     /// Combine two folded values.
     fn combine(&mut self, a: T, _b: T) -> T {
@@ -189,7 +215,38 @@ pub mod default {
             CanonStmt::Assert(s) => folder.fold_assert_stmt(s),
             CanonStmt::Break | CanonStmt::Continue => T::default(),
             CanonStmt::Block(stmts) => folder.fold_stmts(stmts),
-            CanonStmt::Dialect(_) => T::default(),
+            CanonStmt::Store(s) => folder.fold_store_stmt(s),
+            CanonStmt::Emit(s) => folder.fold_emit_stmt(s),
+            CanonStmt::Dialect(s) => folder.fold_dialect_stmt(s),
+        }
+    }
+
+    pub fn fold_store_stmt<'a, T: Default, F: Fold<'a, T> + ?Sized>(
+        folder: &mut F,
+        stmt: &'a CanonStoreStmt,
+    ) -> T {
+        let exprs = resource_exprs(&stmt.resource).chain(&stmt.keys).chain(&stmt.value);
+        fold_expr_refs(folder, exprs.collect())
+    }
+
+    pub fn fold_dialect_stmt<'a, T: Default, F: Fold<'a, T> + ?Sized>(
+        folder: &mut F,
+        stmt: &'a CanonDialectStmt,
+    ) -> T {
+        match stmt {
+            CanonDialectStmt::Evm(CanonEvmStmt::Selfdestruct(s)) => folder.fold_expr(&s.recipient),
+            CanonDialectStmt::Evm(CanonEvmStmt::TryCatch(s)) => {
+                let mut result = folder.fold_expr(&s.guarded);
+                let body = folder.fold_stmts(&s.body);
+                result = folder.combine(result, body);
+                for clause in &s.catch_clauses {
+                    let r = folder.fold_stmts(&clause.body);
+                    result = folder.combine(result, r);
+                }
+                result
+            }
+            CanonDialectStmt::Move(CanonMoveStmt::Abort(s)) => folder.fold_expr(&s.code),
+            CanonDialectStmt::Move(CanonMoveStmt::SpecBlock(s)) => fold_exprs(folder, &s.assertions),
         }
     }
 
@@ -312,12 +369,61 @@ pub mod default {
             CanonExpr::FieldAccess(e) => folder.fold_field_access_expr(e),
             CanonExpr::FunctionCall(e) => folder.fold_call_expr(e),
             CanonExpr::TypeCast(e) => folder.fold_type_cast_expr(e),
+            CanonExpr::Load(e) => folder.fold_load_expr(e),
+            CanonExpr::InternalCall(e) => folder.fold_internal_call_expr(e),
+            CanonExpr::ExternalCall(e) => folder.fold_external_call_expr(e),
+            CanonExpr::Env(e) => folder.fold_env_expr(e),
             CanonExpr::Old(inner) => folder.fold_expr(inner),
             CanonExpr::Result(_) => T::default(),
             CanonExpr::Forall { body, .. } => folder.fold_expr(body),
             CanonExpr::Exists { body, .. } => folder.fold_expr(body),
-            CanonExpr::Dialect(_) => T::default(),
+            CanonExpr::Dialect(e) => folder.fold_dialect_expr(e),
         }
+    }
+
+    pub fn fold_load_expr<'a, T: Default, F: Fold<'a, T> + ?Sized>(
+        folder: &mut F,
+        expr: &'a CanonLoadExpr,
+    ) -> T {
+        fold_expr_refs(folder, resource_exprs(&expr.resource).chain(&expr.keys).collect())
+    }
+
+    pub fn fold_external_call_expr<'a, T: Default, F: Fold<'a, T> + ?Sized>(
+        folder: &mut F,
+        expr: &'a CanonExternalCallExpr,
+    ) -> T {
+        let exprs = expr.address.as_deref().into_iter().chain(&expr.args).chain(expr.value.as_deref());
+        fold_expr_refs(folder, exprs.collect())
+    }
+
+    /// Fold each expression in order and combine the results.
+    pub fn fold_exprs<'a, T: Default, F: Fold<'a, T> + ?Sized>(
+        folder: &mut F,
+        exprs: &'a [CanonExpr],
+    ) -> T {
+        fold_expr_refs(folder, exprs.iter().collect())
+    }
+
+    /// Fold each referenced expression in order and combine the results.
+    pub fn fold_expr_refs<'a, T: Default, F: Fold<'a, T> + ?Sized>(
+        folder: &mut F,
+        exprs: Vec<&'a CanonExpr>,
+    ) -> T {
+        let mut result = T::default();
+        for expr in exprs {
+            let r = folder.fold_expr(expr);
+            result = folder.combine(result, r);
+        }
+        result
+    }
+
+    /// The expressions a resource refers to (an Anchor account operand).
+    fn resource_exprs(resource: &CanonResource) -> impl Iterator<Item = &CanonExpr> {
+        let account = match resource {
+            CanonResource::AnchorAccount(account) => Some(&**account),
+            CanonResource::MoveGlobal(_) | CanonResource::StateVar(_) => None,
+        };
+        account.into_iter()
     }
 
     pub fn fold_binop_expr<'a, T: Default, F: Fold<'a, T> + ?Sized>(

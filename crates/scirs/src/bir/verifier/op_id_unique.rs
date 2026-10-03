@@ -23,6 +23,17 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
     let mut seen: HashSet<usize> = HashSet::new();
 
     for block in &func.blocks {
+        for param in &block.params {
+            if !seen.insert(param.id.0) {
+                errors.push(VerifyError::new(
+                    PASS,
+                    format!(
+                        "in {}, duplicate OpId {} for a parameter of block {}",
+                        func.id, param.id, block.id
+                    ),
+                ));
+            }
+        }
         for op in &block.ops {
             if !seen.insert(op.id.0) {
                 let mut err = VerifyError::new(

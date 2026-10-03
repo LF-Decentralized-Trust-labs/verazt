@@ -98,11 +98,11 @@ impl DetectorRegistry {
 
 /// Register all built-in detectors.
 pub fn register_all_detectors(registry: &mut DetectorRegistry) {
-    use crate::detectors::scan_adapter::ScanDetectorAdapter;
+    use crate::detectors::sir::{ScanDetectorAdapter, ScanRegistry, registry};
 
     // Wrap all scan detectors as BugDetectionPass via the adapter
-    let mut scan_registry = scanner::ScanRegistry::new();
-    scanner::register_all_detectors(&mut scan_registry);
+    let mut scan_registry = ScanRegistry::new();
+    registry::register_all_detectors(&mut scan_registry);
     for detector in scan_registry.into_detectors() {
         registry.register(Box::new(ScanDetectorAdapter::new(detector)));
     }
