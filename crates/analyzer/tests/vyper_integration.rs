@@ -7,26 +7,29 @@ use analyzer::{
     AnalysisConfig, AnalysisContext, AnalysisReport, InputLanguage, JsonFormatter,
     OutputFormatter, PipelineConfig, PipelineEngine,
 };
+use std::path::Path;
+use std::process::Command;
 
-/// Helper: run the full Verazt Analyzer pipeline on a Vyper file (via
-/// `frontend::vyper::compile_file`) and return the pipeline result.
+/// Helper: run the full Verazt Analyzer pipeline on the Vyper example
+/// `name` of the workspace (via `frontend::vyper::compile_file`) and return
+/// the pipeline result.
 ///
-/// Skipped at runtime when the Vyper compiler is not available (CI
-/// environments, etc.).
-fn run_vyper_pipeline(vyper_file: &str) -> Option<analyzer::PipelineResult> {
-    let module = match frontend::vyper::compile_file(vyper_file, None) {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!("Skipping Vyper test (compiler not available): {e}");
-            return None;
-        }
-    };
+/// Returns `None`, skipping the test, only when the `vyper` compiler cannot
+/// be run (CI environments, etc.); any other compile error fails the test.
+fn run_vyper_pipeline(name: &str) -> Option<analyzer::PipelineResult> {
+    if let Err(e) = Command::new("vyper").arg("--version").output() {
+        eprintln!("Skipping Vyper test (cannot run `vyper`: {e})");
+        return None;
+    }
+
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/vyper").join(name);
+    let file = path.to_str().expect("UTF-8 path");
+    let module = frontend::vyper::compile_file(file, None)
+        .unwrap_or_else(|e| panic!("compiling {file} failed: {e}"));
 
     let config =
         AnalysisConfig { input_language: InputLanguage::Vyper, ..AnalysisConfig::default() };
-
-    let mut context = AnalysisContext::new(vec![], config);
-    context.set_sir_units(vec![module]);
+    let mut context = AnalysisContext::new(vec![module], config);
 
     let engine = PipelineEngine::new(PipelineConfig::default());
     Some(engine.run(&mut context))
@@ -93,7 +96,7 @@ fn test_input_language_default() {
 /// token.vy — clean contract, expect 0 high-severity bugs.
 #[test]
 fn test_vyper_token_clean() {
-    let result = match run_vyper_pipeline("examples/vyper/token.vy") {
+    let result = match run_vyper_pipeline("token.vy") {
         Some(r) => r,
         None => return, // skip if compiler unavailable
     };
@@ -116,7 +119,7 @@ fn test_vyper_token_clean() {
 /// vault.vy — clean vault contract, expect 0 high-severity bugs.
 #[test]
 fn test_vyper_vault_clean() {
-    let result = match run_vyper_pipeline("examples/vyper/vault.vy") {
+    let result = match run_vyper_pipeline("vault.vy") {
         Some(r) => r,
         None => return,
     };
@@ -143,7 +146,7 @@ fn test_vyper_vault_clean() {
 /// should be updated to assert specific bug findings.
 #[test]
 fn test_vyper_vault_buggy() {
-    let result = match run_vyper_pipeline("examples/vyper/vault_buggy.vy") {
+    let result = match run_vyper_pipeline("vault_buggy.vy") {
         Some(r) => r,
         None => return,
     };

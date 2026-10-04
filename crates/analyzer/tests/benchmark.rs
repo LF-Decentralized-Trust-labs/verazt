@@ -4,237 +4,168 @@
 //! These tests use annotations from the `bugs` crate to run analyze
 //! and compare its findings with the ground truth.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use analyzer::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
-use bugs::bug::BugCategory;
+use bugs::bug::{Bug, BugCategory};
 use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
 
-/// Represents a bug detected by the local analyzer.
-#[derive(Debug, Clone)]
-struct DetectedBug {
-    pub name: String,
-    pub category: BugCategory,
-    pub start_line: usize,
-    pub severity: String,
-}
+/// Minimum recall on the reentrancy subset. Measured at 31/32 (96.9%).
+const REENTRANCY_RECALL_FLOOR: f64 = 0.95;
 
-/// Represents the matching outcome for a single file.
+/// Minimum recall on the whole dataset, over the files that compile.
+/// Measured at 104/185 (56.2%).
+const OVERALL_RECALL_FLOOR: f64 = 0.55;
+
+/// Matching outcome counts.
 #[derive(Debug, Default)]
-struct MatchResult {
-    pub true_positives: Vec<MatchedBug>,
-    pub false_positives: Vec<DetectedBug>,
-    pub false_negatives: Vec<AnnotatedBug>,
+struct MatchCounts {
+    true_positives: usize,
+    false_positives: usize,
+    false_negatives: usize,
 }
 
-#[derive(Debug)]
-struct MatchedBug {
-    #[allow(dead_code)]
-    pub annotation: AnnotatedBug,
-    #[allow(dead_code)]
-    pub detection: DetectedBug,
+impl MatchCounts {
+    fn add(&mut self, other: MatchCounts) {
+        self.true_positives += other.true_positives;
+        self.false_positives += other.false_positives;
+        self.false_negatives += other.false_negatives;
+    }
+
+    fn recall(&self) -> f64 {
+        let expected = self.true_positives + self.false_negatives;
+        if expected == 0 { 0.0 } else { self.true_positives as f64 / expected as f64 }
+    }
+}
+
+/// The SmartBugs-curated dataset, or one of its category subfolders.
+fn dataset_dir(category: Option<&str>) -> PathBuf {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../datasets/solidity/smartbugs-curated");
+    category.map_or(root.clone(), |c| root.join(c))
+}
+
+/// Whether a Solidity compiler is installed, as the dataset tests need one.
+fn solc_available() -> bool {
+    Command::new("solc").arg("--version").output().is_ok_and(|o| o.status.success())
 }
 
 /// Matches detected bugs against ground truth annotations.
 ///
-/// A detection is considered a True Positive if it matches the exact line and
-/// category. In SmartBugs, the annotation is placed one line above the bug.
-fn match_file(
-    _file_path: &Path,
-    annotations: &[AnnotatedBug],
-    detections: &[DetectedBug],
-) -> MatchResult {
-    let mut result = MatchResult::default();
+/// A detection is a true positive if it has the annotated category and
+/// starts on the annotated bug line (the line after the annotation).
+fn match_file(annotations: &[AnnotatedBug], detections: &[Bug]) -> MatchCounts {
     let mut matched_detections = HashSet::new();
-    let mut matched_annotations = HashSet::new();
-
-    // Find true positives
-    for (ann_idx, ann) in annotations.iter().enumerate() {
-        for (det_idx, det) in detections.iter().enumerate() {
-            if matched_detections.contains(&det_idx) {
-                continue;
-            }
-
-            // Check if categories match and line numbers are close (exact or contiguous)
-            // Note: `bug_line` is the vulnerable code line (annotation line + 1).
-            let line_match = det.start_line == ann.bug_line;
-            let category_match = det.category == ann.category;
-
-            if line_match && category_match {
-                result
-                    .true_positives
-                    .push(MatchedBug { annotation: ann.clone(), detection: det.clone() });
-                matched_detections.insert(det_idx);
-                matched_annotations.insert(ann_idx);
-                break; // One annotation matched by one detection
-            }
+    for ann in annotations {
+        let matched = detections.iter().enumerate().find(|(idx, det)| {
+            !matched_detections.contains(idx)
+                && det.loc.start_line == ann.bug_line
+                && det.category == ann.category
+        });
+        if let Some((idx, _)) = matched {
+            matched_detections.insert(idx);
         }
     }
-
-    // Unmatched annotations are false negatives
-    for (ann_idx, ann) in annotations.iter().enumerate() {
-        if !matched_annotations.contains(&ann_idx) {
-            result.false_negatives.push(ann.clone());
-        }
+    let true_positives = matched_detections.len();
+    MatchCounts {
+        true_positives,
+        false_positives: detections.len() - true_positives,
+        false_negatives: annotations.len() - true_positives,
     }
-
-    // Unmatched detections are false positives
-    for (det_idx, det) in detections.iter().enumerate() {
-        if !matched_detections.contains(&det_idx) {
-            result.false_positives.push(det.clone());
-        }
-    }
-
-    result
 }
 
-/// Run analyze on a single .sol file and return DetectedBugs.
-fn run_analyze_on_file(file_path: &Path) -> Vec<DetectedBug> {
-    let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
+/// Compile and lower `file_path` as `verazt analyze` does (solc version
+/// picked from the pragma), then run all detectors on it. Fails if the file
+/// does not compile; panics if the analysis itself fails.
+fn run_analyze_on_file(file_path: &Path) -> Result<Vec<Bug>, String> {
+    let file = file_path.to_str().ok_or("non UTF-8 path")?;
+    let source_units = frontend::solidity::parsing::parse_input_file(file, None, &[], None)
+        .map_err(|e| format!("parse error: {e}"))?;
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units)
+        .map_err(|e| format!("lowering error: {e}"))?;
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
     let engine =
         PipelineEngine::new(PipelineConfig { parallel: false, ..PipelineConfig::default() });
-
     let result = engine.run(&mut context);
-
-    result
-        .bugs
-        .iter()
-        .map(|bug| DetectedBug {
-            name: bug.name.clone(),
-            category: bug.category,
-            start_line: bug.loc.start_line,
-            severity: bug.risk_level.as_str().to_string(),
-        })
-        .collect()
+    assert!(result.failures().is_empty(), "{}: {:?}", file_path.display(), result.failures());
+    Ok(result.bugs)
 }
 
-/// Test reentrancy detection on the reentrancy dataset subset.
+/// Analyze every annotated file and match its findings with `annotations`.
+/// Returns the match counts and the files that failed to compile, whose
+/// annotations are left out of the counts.
+fn benchmark(annotations: &[AnnotatedBug]) -> (MatchCounts, Vec<String>) {
+    let mut by_file = BTreeMap::<PathBuf, Vec<AnnotatedBug>>::new();
+    for ann in annotations {
+        by_file.entry(ann.file_path.clone()).or_default().push(ann.clone());
+    }
+
+    let mut counts = MatchCounts::default();
+    let mut uncompiled = Vec::new();
+    for (file_path, file_annotations) in &by_file {
+        match run_analyze_on_file(file_path) {
+            Ok(detections) => counts.add(match_file(file_annotations, &detections)),
+            Err(e) => uncompiled.push(format!("{}: {e}", file_path.display())),
+        }
+    }
+    (counts, uncompiled)
+}
+
+/// Reentrancy recall on the reentrancy dataset subset.
 #[test]
 fn test_reentrancy_detection_accuracy() {
-    let dataset_dir = Path::new("../../benchmarks/smartbugs-curated/dataset/reentrancy");
-    if !dataset_dir.exists() {
-        eprintln!("Skipping: dataset not found at {}", dataset_dir.display());
+    if !solc_available() {
+        eprintln!("Skipping: solc is not installed");
         return;
     }
 
-    let annotations = scan_dataset(dataset_dir);
-    assert!(!annotations.is_empty(), "Should find annotations in reentrancy dataset");
-
-    // Filter to reentrancy-only annotations
-    let reentrancy_annotations: Vec<_> = annotations
-        .iter()
+    let annotations: Vec<_> = scan_dataset(&dataset_dir(Some("reentrancy")))
+        .into_iter()
         .filter(|a| a.category == BugCategory::Reentrancy)
-        .cloned()
         .collect();
+    assert!(!annotations.is_empty(), "Should find REENTRANCY annotations");
 
-    assert!(!reentrancy_annotations.is_empty(), "Should find REENTRANCY annotations");
-
-    let mut total_tp = 0;
-    let mut total_fn = 0;
-    let mut total_fp = 0;
-
-    // Group annotations by file
-    let mut annotations_by_file = HashMap::<PathBuf, Vec<AnnotatedBug>>::new();
-    for ann in &reentrancy_annotations {
-        annotations_by_file
-            .entry(ann.file_path.clone())
-            .or_default()
-            .push(ann.clone());
-    }
-
-    for (file_path, file_annotations) in &annotations_by_file {
-        let detections = run_analyze_on_file(file_path);
-        let result = match_file(file_path, file_annotations, &detections);
-        total_tp += result.true_positives.len();
-        total_fn += result.false_negatives.len();
-        total_fp += result.false_positives.len();
-    }
-
-    println!("Reentrancy benchmark: TP={} FN={} FP={}", total_tp, total_fn, total_fp);
+    let (counts, uncompiled) = benchmark(&annotations);
+    assert!(uncompiled.is_empty(), "files failed to compile: {uncompiled:#?}");
+    println!("Reentrancy benchmark: {counts:?} recall={:.3}", counts.recall());
+    assert!(
+        counts.recall() >= REENTRANCY_RECALL_FLOOR,
+        "reentrancy recall {:.3} fell below {REENTRANCY_RECALL_FLOOR}: {counts:?}",
+        counts.recall()
+    );
 }
 
 /// Test annotation parsing on the entire dataset.
 #[test]
 fn test_dataset_annotation_parsing() {
-    let dataset_dir = Path::new("../../benchmarks/smartbugs-curated/dataset");
-    if !dataset_dir.exists() {
-        eprintln!("Skipping: dataset not found at {}", dataset_dir.display());
-        return;
-    }
-
-    let annotations = scan_dataset(dataset_dir);
+    let annotations = scan_dataset(&dataset_dir(None));
     assert!(!annotations.is_empty(), "Should find annotations in the full dataset");
 
-    // Verify we find annotations from different categories
     let categories: HashSet<_> = annotations.iter().map(|a| a.category).collect();
-
     assert!(
         categories.len() >= 3,
         "Should find annotations from at least 3 categories, found {:?}",
         categories
     );
-
-    println!("Parsed {} annotations across {} categories", annotations.len(), categories.len());
-    for cat in &categories {
-        let count = annotations.iter().filter(|a| a.category == *cat).count();
-        println!("  {}: {} annotations", cat, count);
-    }
 }
 
-/// Test full pipeline on all categories (lightweight: just verifies no panics).
+/// Recall over all categories of the dataset. Slow: run with `--ignored`.
 #[test]
+#[ignore]
 fn test_all_categories_detection() {
-    let dataset_dir = Path::new("../../benchmarks/smartbugs-curated/dataset");
-    if !dataset_dir.exists() {
-        eprintln!("Skipping: dataset not found at {}", dataset_dir.display());
+    if !solc_available() {
+        eprintln!("Skipping: solc is not installed");
         return;
     }
 
-    let annotations = scan_dataset(dataset_dir);
-
-    // Group annotations by file
-    let mut annotations_by_file = HashMap::<PathBuf, Vec<AnnotatedBug>>::new();
-    for ann in &annotations {
-        annotations_by_file
-            .entry(ann.file_path.clone())
-            .or_default()
-            .push(ann.clone());
-    }
-
-    let mut total_tp = 0;
-    let mut total_fn = 0;
-    let mut total_fp = 0;
-
-    // Run on a small sample (first 10 files with annotations) to keep test fast
-    let files: Vec<_> = annotations_by_file.keys().take(10).cloned().collect();
-    for file_path in &files {
-        let detections = run_analyze_on_file(file_path);
-        let file_annotations = annotations_by_file.get(file_path).unwrap();
-        let result = match_file(file_path, file_annotations, &detections);
-
-        total_tp += result.true_positives.len();
-        total_fn += result.false_negatives.len();
-        total_fp += result.false_positives.len();
-    }
-
-    let precision = if total_tp + total_fp > 0 {
-        total_tp as f64 / (total_tp + total_fp) as f64
-    } else {
-        0.0
-    };
-    let recall = if total_tp + total_fn > 0 {
-        total_tp as f64 / (total_tp + total_fn) as f64
-    } else {
-        0.0
-    };
-
-    println!(
-        "Full benchmark (sample): TP={} FN={} FP={} Precision={:.1}% Recall={:.1}%",
-        total_tp,
-        total_fn,
-        total_fp,
-        precision * 100.0,
-        recall * 100.0,
+    let (counts, uncompiled) = benchmark(&scan_dataset(&dataset_dir(None)));
+    println!("Full benchmark: {counts:?} recall={:.3}", counts.recall());
+    println!("Skipped {} files failing to compile: {uncompiled:#?}", uncompiled.len());
+    assert!(
+        counts.recall() >= OVERALL_RECALL_FLOOR,
+        "overall recall {:.3} fell below {OVERALL_RECALL_FLOOR}: {counts:?}",
+        counts.recall()
     );
 }
