@@ -7,7 +7,7 @@ pub mod icfg;
 pub mod interval;
 pub mod taint;
 
-pub use def_use::{DefUseArtifact, DefUsePass};
+pub use def_use::{DefUseArtifact, DefUsePass, UseSite};
 pub use dominance::{DominanceArtifact, DominancePass};
 pub use function_effects::{FunctionEffects, FunctionEffectsArtifact, FunctionEffectsPass};
 pub use icfg::{ICFGArtifact, ICFGPass};
