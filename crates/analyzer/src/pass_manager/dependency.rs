@@ -6,7 +6,7 @@
 //! ## Design note (Step 3.2 evaluation)
 //!
 //! Replacing this hand-rolled graph with `petgraph` was considered but
-//! rejected: the current implementation is ~170 lines, fully tested, and
+//! rejected: the current implementation is small, fully tested, and
 //! exposes exactly the API needed by the scheduler (topological sort,
 //! level computation, cycle detection).  `petgraph` would add wrapping
 //! overhead without meaningfully reducing code.  CFA algorithms that
@@ -17,18 +17,27 @@ use crate::passes::base::{PassError, PassResult};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
 
+// ========================================================================
+// Data Structures
+// ========================================================================
+
 /// Dependency graph for passes.
 ///
-/// This structure tracks dependencies between passes and provides
-/// topological sorting for execution order.
+/// Orders passes so that each runs after the passes it depends on. Pass
+/// names break ties, so the order is deterministic, and name the passes in
+/// errors.
 #[derive(Debug, Default)]
 pub struct DependencyGraph {
-    /// Edges: pass -> set of passes it depends on
-    dependencies: HashMap<TypeId, HashSet<TypeId>>,
+    /// Each pass, with the passes it depends on.
+    dependencies: HashMap<TypeId, Vec<TypeId>>,
 
-    /// All registered passes
-    passes: HashSet<TypeId>,
+    /// The name of each pass.
+    names: HashMap<TypeId, &'static str>,
 }
+
+// ========================================================================
+// DependencyGraph Implementations
+// ========================================================================
 
 impl DependencyGraph {
     /// Create a new empty dependency graph.
@@ -36,202 +45,173 @@ impl DependencyGraph {
         Self::default()
     }
 
-    /// Add a pass to the graph.
-    pub fn add_pass(&mut self, pass_id: TypeId) {
-        self.passes.insert(pass_id);
-        self.dependencies.entry(pass_id).or_default();
-    }
-
-    /// Add a dependency: `pass_id` depends on `dependency`.
-    pub fn add_dependency(&mut self, pass_id: TypeId, dependency: TypeId) {
-        self.add_pass(pass_id);
-        self.add_pass(dependency);
-
-        self.dependencies
-            .entry(pass_id)
-            .or_default()
-            .insert(dependency);
+    /// Add pass `pass_id` named `name`, which depends on `dependencies`.
+    pub fn add_pass(&mut self, pass_id: TypeId, name: &'static str, dependencies: Vec<TypeId>) {
+        self.names.insert(pass_id, name);
+        self.dependencies.insert(pass_id, dependencies);
     }
 
     /// Compute topological sort of all passes.
     ///
-    /// Returns passes in execution order (dependencies before dependents).
+    /// Returns passes in execution order (dependencies before dependents),
+    /// visiting independent passes in name order.
     pub fn topological_sort(&self) -> PassResult<Vec<TypeId>> {
         let mut result = Vec::new();
         let mut visited = HashSet::new();
-        let mut in_progress = HashSet::new();
+        let mut path = Vec::new();
 
-        for pass_id in &self.passes {
-            self.visit(*pass_id, &mut visited, &mut in_progress, &mut result)?;
+        for pass_id in self.sorted_by_name(self.names.keys().copied()) {
+            self.visit(pass_id, &mut visited, &mut path, &mut result)?;
         }
 
         Ok(result)
     }
 
+    /// Compute execution levels for parallel execution.
+    ///
+    /// Returns a vector of levels, each sorted by pass name, where the
+    /// passes of a level depend only on passes of earlier levels and can
+    /// therefore run in parallel.
+    pub fn compute_levels(&self) -> PassResult<Vec<Vec<TypeId>>> {
+        let mut levels: Vec<Vec<TypeId>> = Vec::new();
+        let mut pass_level: HashMap<TypeId, usize> = HashMap::new();
+
+        for pass_id in self.topological_sort()? {
+            let level = self.dependencies[&pass_id]
+                .iter()
+                .map(|dep| pass_level[dep] + 1)
+                .max()
+                .unwrap_or(0);
+            pass_level.insert(pass_id, level);
+            if levels.len() <= level {
+                levels.resize_with(level + 1, Vec::new);
+            }
+            levels[level].push(pass_id);
+        }
+
+        Ok(levels.into_iter().map(|level| self.sorted_by_name(level)).collect())
+    }
+
+    /// Depth-first visit of `pass_id`, appending it to `result` after its
+    /// dependencies. `path` holds the passes being visited, to report a
+    /// cycle through them.
     fn visit(
         &self,
         pass_id: TypeId,
         visited: &mut HashSet<TypeId>,
-        in_progress: &mut HashSet<TypeId>,
+        path: &mut Vec<TypeId>,
         result: &mut Vec<TypeId>,
     ) -> PassResult<()> {
         if visited.contains(&pass_id) {
             return Ok(());
         }
 
-        if in_progress.contains(&pass_id) {
-            return Err(PassError::CircularDependency(format!(
-                "Circular dependency detected involving pass '{:?}'",
-                pass_id
-            )));
+        if let Some(start) = path.iter().position(|&p| p == pass_id) {
+            let cycle: Vec<&str> =
+                path[start..].iter().chain([&pass_id]).map(|&p| self.name(p)).collect();
+            return Err(PassError::CircularDependency(cycle.join(" -> ")));
         }
 
-        in_progress.insert(pass_id);
-
-        if let Some(deps) = self.dependencies.get(&pass_id) {
-            for dep in deps {
-                if self.passes.contains(dep) {
-                    self.visit(*dep, visited, in_progress, result)?;
-                }
-            }
+        let dependencies = &self.dependencies[&pass_id];
+        if dependencies.iter().any(|dep| !self.names.contains_key(dep)) {
+            return Err(PassError::UnregisteredDependency(self.name(pass_id).to_string()));
         }
 
-        in_progress.remove(&pass_id);
+        path.push(pass_id);
+        for dep in self.sorted_by_name(dependencies.iter().copied()) {
+            self.visit(dep, visited, path, result)?;
+        }
+        path.pop();
+
         visited.insert(pass_id);
         result.push(pass_id);
 
         Ok(())
     }
 
-    /// Compute execution levels for parallel execution.
-    ///
-    /// Returns a vector of levels, where each level contains passes
-    /// that can be executed in parallel.
-    pub fn compute_levels(&self) -> PassResult<Vec<Vec<TypeId>>> {
-        let sorted = self.topological_sort()?;
-        let mut levels: Vec<Vec<TypeId>> = Vec::new();
-        let mut pass_level: HashMap<TypeId, usize> = HashMap::new();
-
-        for pass_id in sorted {
-            // Compute level based on dependencies
-            let level = self
-                .dependencies
-                .get(&pass_id)
-                .map(|deps| {
-                    deps.iter()
-                        .filter_map(|dep| pass_level.get(dep))
-                        .max()
-                        .map(|l| l + 1)
-                        .unwrap_or(0)
-                })
-                .unwrap_or(0);
-
-            pass_level.insert(pass_id, level);
-
-            // Ensure we have enough levels
-            while levels.len() <= level {
-                levels.push(Vec::new());
-            }
-
-            levels[level].push(pass_id);
-        }
-
-        Ok(levels)
+    /// The name of pass `pass_id`, which must be in the graph.
+    fn name(&self, pass_id: TypeId) -> &'static str {
+        self.names[&pass_id]
     }
 
-    /// Get the number of passes in the graph.
-    pub fn len(&self) -> usize {
-        self.passes.len()
-    }
-
-    /// Check if the graph is empty.
-    pub fn is_empty(&self) -> bool {
-        self.passes.is_empty()
-    }
-
-    /// Clear the graph.
-    pub fn clear(&mut self) {
-        self.dependencies.clear();
-        self.passes.clear();
+    /// `pass_ids`, which must be in the graph, sorted by pass name.
+    fn sorted_by_name(&self, pass_ids: impl IntoIterator<Item = TypeId>) -> Vec<TypeId> {
+        let mut sorted: Vec<TypeId> = pass_ids.into_iter().collect();
+        sorted.sort_by_key(|&p| self.name(p));
+        sorted
     }
 }
+
+// ========================================================================
+// Tests
+// ========================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     // Marker types to get distinct TypeIds for testing
-    struct PassA; // analogous to "Cfg"
-    struct PassB; // analogous to "IrCfg"
-    struct PassC; // analogous to "IrCallGraph"
-    struct PassD; // analogous to "DataFlow"
-    struct PassE; // analogous to "TaintAnalysis"
+    struct PassA;
+    struct PassB;
+    struct PassC;
+    struct PassD;
+    struct PassE;
 
-    #[test]
-    fn test_add_dependency() {
-        let mut graph = DependencyGraph::new();
-        let id_a = TypeId::of::<PassA>();
-        let id_b = TypeId::of::<PassB>();
-
-        graph.add_dependency(id_b, id_a);
-
-        assert!(graph.passes.contains(&id_b));
-        assert!(graph.passes.contains(&id_a));
+    fn id<T: 'static>() -> TypeId {
+        TypeId::of::<T>()
     }
 
     #[test]
     fn test_topological_sort() {
         let mut graph = DependencyGraph::new();
-        let id_a = TypeId::of::<PassA>();
-        let id_b = TypeId::of::<PassB>();
-        let id_c = TypeId::of::<PassC>();
-
-        graph.add_pass(id_a);
-        graph.add_dependency(id_b, id_a);
-        graph.add_dependency(id_c, id_a);
+        graph.add_pass(id::<PassC>(), "c", vec![id::<PassA>()]);
+        graph.add_pass(id::<PassB>(), "b", vec![id::<PassA>()]);
+        graph.add_pass(id::<PassA>(), "a", vec![]);
 
         let sorted = graph.topological_sort().unwrap();
 
-        let a_pos = sorted.iter().position(|&p| p == id_a).unwrap();
-        let b_pos = sorted.iter().position(|&p| p == id_b).unwrap();
-        let c_pos = sorted.iter().position(|&p| p == id_c).unwrap();
-
-        assert!(a_pos < b_pos);
-        assert!(a_pos < c_pos);
+        assert_eq!(sorted, [id::<PassA>(), id::<PassB>(), id::<PassC>()]);
     }
 
     #[test]
     fn test_compute_levels() {
         let mut graph = DependencyGraph::new();
-        let id_a = TypeId::of::<PassA>();
-        let id_b = TypeId::of::<PassB>();
-        let id_c = TypeId::of::<PassC>();
-        let id_d = TypeId::of::<PassD>();
-        let id_e = TypeId::of::<PassE>();
-
-        graph.add_pass(id_a);
-        graph.add_pass(id_d);
-        graph.add_dependency(id_b, id_a);
-        graph.add_dependency(id_c, id_a);
-        graph.add_dependency(id_e, id_c);
+        graph.add_pass(id::<PassE>(), "e", vec![id::<PassC>()]);
+        graph.add_pass(id::<PassD>(), "d", vec![]);
+        graph.add_pass(id::<PassC>(), "c", vec![id::<PassA>()]);
+        graph.add_pass(id::<PassB>(), "b", vec![id::<PassA>()]);
+        graph.add_pass(id::<PassA>(), "a", vec![]);
 
         let levels = graph.compute_levels().unwrap();
 
-        assert_eq!(levels.len(), 3);
-        assert!(levels[0].contains(&id_a));
-        assert!(levels[0].contains(&id_d));
+        assert_eq!(
+            levels,
+            [
+                vec![id::<PassA>(), id::<PassD>()],
+                vec![id::<PassB>(), id::<PassC>()],
+                vec![id::<PassE>()],
+            ]
+        );
     }
 
     #[test]
-    fn test_circular_dependency() {
+    fn test_circular_dependency_names_the_cycle() {
         let mut graph = DependencyGraph::new();
-        let id_a = TypeId::of::<PassA>();
-        let id_b = TypeId::of::<PassB>();
+        graph.add_pass(id::<PassA>(), "a", vec![id::<PassB>()]);
+        graph.add_pass(id::<PassB>(), "b", vec![id::<PassA>()]);
 
-        graph.add_dependency(id_a, id_b);
-        graph.add_dependency(id_b, id_a);
+        let err = graph.topological_sort().unwrap_err();
 
-        let result = graph.topological_sort();
-        assert!(result.is_err());
+        assert!(err.to_string().contains("a -> b -> a"), "{err}");
+    }
+
+    #[test]
+    fn test_unregistered_dependency_names_the_dependent() {
+        let mut graph = DependencyGraph::new();
+        graph.add_pass(id::<PassB>(), "b", vec![id::<PassA>()]);
+
+        let err = graph.topological_sort().unwrap_err();
+
+        assert!(matches!(&err, PassError::UnregisteredDependency(name) if name == "b"), "{err}");
     }
 }

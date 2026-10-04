@@ -1,163 +1,59 @@
 //! Pass Scheduler
 //!
-//! Pure function: takes registered passes, returns `ExecutionSchedule`.
-//! Must not mutate `AnalysisContext`.
-//!
-//! After step 1.8, BIR is always available (eagerly lowered), so the
-//! scheduler no longer tracks a special "IR generation point".
+//! Pure function: takes the registered passes, returns an
+//! `ExecutionSchedule`. Must not mutate `AnalysisContext`.
 
 use crate::pass_manager::dependency::DependencyGraph;
-use crate::passes::base::meta::PassRepresentation;
 use crate::passes::base::{Pass, PassResult};
 use std::any::TypeId;
-use std::collections::{HashMap, HashSet};
 
-/// Execution level containing passes grouped by representation.
-#[derive(Debug, Clone, Default)]
-pub struct ExecutionLevel {
-    /// SIR passes at this level.
-    pub sir_passes: Vec<TypeId>,
-
-    /// BIR passes at this level.
-    pub bir_passes: Vec<TypeId>,
-}
-
-impl ExecutionLevel {
-    /// Check if this level is empty.
-    pub fn is_empty(&self) -> bool {
-        self.sir_passes.is_empty() && self.bir_passes.is_empty()
-    }
-
-    /// Get total number of passes at this level.
-    pub fn len(&self) -> usize {
-        self.sir_passes.len() + self.bir_passes.len()
-    }
-
-    /// Get all passes at this level.
-    pub fn all_passes(&self) -> Vec<TypeId> {
-        let mut passes = Vec::with_capacity(self.len());
-        passes.extend(&self.sir_passes);
-        passes.extend(&self.bir_passes);
-        passes
-    }
-}
+// ========================================================================
+// Data Structures
+// ========================================================================
 
 /// Schedule of passes to execute.
 #[derive(Debug, Clone)]
 pub struct ExecutionSchedule {
-    /// Levels of passes to execute.
-    pub levels: Vec<ExecutionLevel>,
+    /// Levels of passes to execute, in order. The passes of a level depend
+    /// only on passes of earlier levels, and are sorted by name.
+    pub levels: Vec<Vec<TypeId>>,
 }
+
+// ========================================================================
+// ExecutionSchedule Implementations
+// ========================================================================
 
 impl ExecutionSchedule {
     /// Get total number of passes.
     pub fn total_passes(&self) -> usize {
-        self.levels.iter().map(|l| l.len()).sum()
-    }
-
-    /// Check if schedule is empty.
-    pub fn is_empty(&self) -> bool {
-        self.levels.is_empty() || self.levels.iter().all(|l| l.is_empty())
+        self.levels.iter().map(Vec::len).sum()
     }
 }
 
-/// Pass scheduler for computing execution order.
-pub struct PassScheduler {
-    /// Dependency graph.
-    dependency_graph: DependencyGraph,
+// ========================================================================
+// Scheduling
+// ========================================================================
 
-    /// Pass representations.
-    representations: HashMap<TypeId, PassRepresentation>,
-
-    /// Registered pass IDs.
-    registered_passes: HashSet<TypeId>,
+/// Compute the execution schedule of `passes`, which must include every
+/// pass they depend on.
+pub fn compute_schedule<'a, P: Pass + ?Sized + 'a>(
+    passes: impl IntoIterator<Item = &'a P>,
+) -> PassResult<ExecutionSchedule> {
+    let mut graph = DependencyGraph::new();
+    for pass in passes {
+        graph.add_pass(pass.id(), pass.name(), pass.dependencies());
+    }
+    Ok(ExecutionSchedule { levels: graph.compute_levels()? })
 }
 
-impl Default for PassScheduler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PassScheduler {
-    /// Create a new pass scheduler.
-    pub fn new() -> Self {
-        Self {
-            dependency_graph: DependencyGraph::new(),
-            representations: HashMap::new(),
-            registered_passes: HashSet::new(),
-        }
-    }
-
-    /// Register a pass with the scheduler.
-    pub fn register_pass(&mut self, pass: &dyn Pass) {
-        let pass_id = pass.id();
-
-        self.registered_passes.insert(pass_id);
-        self.representations.insert(pass_id, pass.representation());
-        self.dependency_graph.add_pass(pass_id);
-
-        for dep in pass.dependencies() {
-            self.dependency_graph.add_dependency(pass_id, dep);
-        }
-    }
-
-    /// Register multiple passes.
-    pub fn register_passes(&mut self, passes: &[&dyn Pass]) {
-        for pass in passes {
-            self.register_pass(*pass);
-        }
-    }
-
-    /// Compute the execution schedule.
-    pub fn compute_schedule(&self) -> PassResult<ExecutionSchedule> {
-        // Get base levels from dependency graph
-        let base_levels = self.dependency_graph.compute_levels()?;
-
-        // Reorganize levels by representation
-        let mut levels: Vec<ExecutionLevel> = Vec::new();
-
-        for pass_ids in base_levels.iter() {
-            let mut level = ExecutionLevel::default();
-
-            for &pass_id in pass_ids {
-                // Categorize by representation
-                match self.representations.get(&pass_id) {
-                    Some(PassRepresentation::Bir) => level.bir_passes.push(pass_id),
-                    Some(PassRepresentation::Sir) | None => level.sir_passes.push(pass_id),
-                }
-            }
-
-            if !level.is_empty() {
-                levels.push(level);
-            }
-        }
-
-        Ok(ExecutionSchedule { levels })
-    }
-
-    /// Get the dependency graph.
-    pub fn dependency_graph(&self) -> &DependencyGraph {
-        &self.dependency_graph
-    }
-
-    /// Get the number of registered passes.
-    pub fn pass_count(&self) -> usize {
-        self.registered_passes.len()
-    }
-
-    /// Clear all registered passes.
-    pub fn clear(&mut self) {
-        self.dependency_graph.clear();
-        self.representations.clear();
-        self.registered_passes.clear();
-    }
-}
+// ========================================================================
+// Tests
+// ========================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::passes::base::meta::PassLevel;
+    use crate::passes::base::meta::{PassLevel, PassRepresentation};
 
     // Each mock pass is its own type so it gets a unique TypeId.
 
@@ -192,7 +88,7 @@ mod tests {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Sir
+            PassRepresentation::Bir
         }
         fn dependencies(&self) -> Vec<TypeId> {
             vec![TypeId::of::<MockCfgPass>()]
@@ -211,7 +107,7 @@ mod tests {
             PassLevel::Contract
         }
         fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Sir
+            PassRepresentation::Bir
         }
         fn dependencies(&self) -> Vec<TypeId> {
             vec![TypeId::of::<MockCfgPass>()]
@@ -220,18 +116,16 @@ mod tests {
 
     #[test]
     fn test_schedule_computation() {
-        let mut scheduler = PassScheduler::new();
+        let passes: [&dyn Pass; 3] = [&MockIrCfgPass, &MockIrCallGraphPass, &MockCfgPass];
 
-        let cfg = MockCfgPass;
-        let ir_cfg = MockIrCfgPass;
-        let ir_cg = MockIrCallGraphPass;
+        let schedule = compute_schedule(passes).unwrap();
 
-        scheduler.register_pass(&cfg);
-        scheduler.register_pass(&ir_cfg);
-        scheduler.register_pass(&ir_cg);
-
-        let schedule = scheduler.compute_schedule().unwrap();
-
-        assert!(!schedule.is_empty());
+        assert_eq!(
+            schedule.levels,
+            [
+                vec![TypeId::of::<MockCfgPass>()],
+                vec![TypeId::of::<MockIrCallGraphPass>(), TypeId::of::<MockIrCfgPass>()],
+            ]
+        );
     }
 }

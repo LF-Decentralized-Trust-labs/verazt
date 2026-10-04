@@ -6,7 +6,7 @@
 
 use crate::context::AnalysisContext;
 use crate::pass_manager::executor::{ExecutorConfig, PassExecutor};
-use crate::pass_manager::scheduler::PassScheduler;
+use crate::pass_manager::scheduler::compute_schedule;
 use crate::passes::base::{AnalysisPass, PassExecutionInfo, PassResult};
 use std::any::TypeId;
 use std::collections::HashMap;
@@ -78,14 +78,9 @@ pub struct PassManager {
     /// Configuration.
     config: PassManagerConfig,
 
-    /// Registered analysis passes.
+    /// Registered analysis passes, the only copy: the scheduler and the
+    /// executor borrow them for each run.
     passes: HashMap<TypeId, Arc<dyn AnalysisPass>>,
-
-    /// Pass scheduler.
-    scheduler: PassScheduler,
-
-    /// Pass executor.
-    executor: PassExecutor,
 }
 
 impl Default for PassManager {
@@ -97,33 +92,12 @@ impl Default for PassManager {
 impl PassManager {
     /// Create a new pass manager with configuration.
     pub fn new(config: PassManagerConfig) -> Self {
-        let executor_config = ExecutorConfig {
-            parallel: config.enable_parallel,
-            max_workers: config.max_workers,
-            fail_fast: config.fail_fast,
-            timing: config.timing,
-        };
-
-        Self {
-            config,
-            passes: HashMap::new(),
-            scheduler: PassScheduler::new(),
-            executor: PassExecutor::new(executor_config),
-        }
+        Self { config, passes: HashMap::new() }
     }
 
     /// Register an analysis pass.
     pub fn register_analysis_pass(&mut self, pass: Box<dyn AnalysisPass>) {
-        let pass_arc: Arc<dyn AnalysisPass> = Arc::from(pass);
-
-        // Register with scheduler
-        self.scheduler.register_pass(pass_arc.as_ref());
-
-        // Register with executor
-        self.executor.register_pass(Arc::clone(&pass_arc));
-
-        // Store in our map
-        self.passes.insert(pass_arc.id(), pass_arc);
+        self.passes.insert(pass.id(), Arc::from(pass));
     }
 
     /// Register multiple passes.
@@ -138,7 +112,7 @@ impl PassManager {
         let start = Instant::now();
 
         // Compute execution schedule
-        let schedule = self.scheduler.compute_schedule()?;
+        let schedule = compute_schedule(self.passes.values().map(Arc::as_ref))?;
 
         if self.config.verbose {
             log::info!(
@@ -149,7 +123,13 @@ impl PassManager {
         }
 
         // Execute passes
-        let result = self.executor.execute(&schedule, context)?;
+        let executor_config = ExecutorConfig {
+            parallel: self.config.enable_parallel,
+            max_workers: self.config.max_workers,
+            fail_fast: self.config.fail_fast,
+            timing: self.config.timing,
+        };
+        let result = PassExecutor::new(executor_config, &self.passes).execute(&schedule, context)?;
 
         let success = result.is_success();
         let report = PassRunReport {
@@ -192,7 +172,6 @@ impl PassManager {
     /// Clear all registered passes.
     pub fn clear(&mut self) {
         self.passes.clear();
-        self.scheduler.clear();
     }
 }
 

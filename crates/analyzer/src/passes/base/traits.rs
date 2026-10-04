@@ -15,9 +15,9 @@ pub enum PassError {
     #[error("Pass \'{0}\' failed: {1}")]
     ExecutionFailed(String, String),
 
-    /// Dependency not satisfied.
-    #[error("Dependency not satisfied: pass \'{0}\' requires pass \'{1}\'")]
-    DependencyNotSatisfied(String, String),
+    /// A pass depends on a pass that is not registered.
+    #[error("Pass \'{0}\' depends on a pass that is not registered")]
+    UnregisteredDependency(String),
 
     /// Context missing required data.
     #[error("Context missing required data: {0}")]

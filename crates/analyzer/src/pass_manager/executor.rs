@@ -4,7 +4,7 @@
 //! Must not mutate the pass registry.
 
 use crate::context::AnalysisContext;
-use crate::pass_manager::scheduler::{ExecutionLevel, ExecutionSchedule};
+use crate::pass_manager::scheduler::ExecutionSchedule;
 use crate::passes::base::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
 use std::any::TypeId;
 use std::collections::HashMap;
@@ -66,30 +66,20 @@ impl ExecutionResult {
     }
 }
 
-/// Pass executor for running analysis passes.
-pub struct PassExecutor {
+/// Pass executor for running analysis passes, borrowing the passes of
+/// its owner.
+pub struct PassExecutor<'a> {
     /// Configuration.
     config: ExecutorConfig,
 
-    /// Registered passes.
-    passes: HashMap<TypeId, Arc<dyn AnalysisPass>>,
+    /// The passes to run, by pass type.
+    passes: &'a HashMap<TypeId, Arc<dyn AnalysisPass>>,
 }
 
-impl Default for PassExecutor {
-    fn default() -> Self {
-        Self::new(ExecutorConfig::default())
-    }
-}
-
-impl PassExecutor {
-    /// Create a new executor with configuration.
-    pub fn new(config: ExecutorConfig) -> Self {
-        Self { config, passes: HashMap::new() }
-    }
-
-    /// Register a pass.
-    pub fn register_pass(&mut self, pass: Arc<dyn AnalysisPass>) {
-        self.passes.insert(pass.id(), pass);
+impl<'a> PassExecutor<'a> {
+    /// Create an executor of `passes` with configuration.
+    pub fn new(config: ExecutorConfig, passes: &'a HashMap<TypeId, Arc<dyn AnalysisPass>>) -> Self {
+        Self { config, passes }
     }
 
     /// Execute all passes according to schedule.
@@ -116,14 +106,14 @@ impl PassExecutor {
                     failed += 1;
                     if let Some(ref error_msg) = result.error {
                         errors.push(PassError::ExecutionFailed(
-                            format!("{:?}", result.pass_id),
+                            result.name.clone(),
                             error_msg.clone(),
                         ));
                     }
 
                     if self.config.fail_fast {
                         return Err(PassError::ExecutionFailed(
-                            format!("{:?}", result.pass_id),
+                            result.name,
                             result.error.unwrap_or_else(|| "Unknown error".to_string()),
                         ));
                     }
@@ -144,25 +134,15 @@ impl PassExecutor {
     /// Execute a single level of passes.
     fn execute_level(
         &self,
-        level: &ExecutionLevel,
+        level: &[TypeId],
         context: &mut AnalysisContext,
     ) -> PassResult<Vec<PassExecutionInfo>> {
         let mut results = Vec::new();
-
-        // Execute SIR passes
-        for &pass_id in &level.sir_passes {
+        for &pass_id in level {
             if let Some(result) = self.execute_pass(pass_id, context)? {
                 results.push(result);
             }
         }
-
-        // Execute BIR passes (BIR is always available after eager lowering)
-        for &pass_id in &level.bir_passes {
-            if let Some(result) = self.execute_pass(pass_id, context)? {
-                results.push(result);
-            }
-        }
-
         Ok(results)
     }
 
@@ -178,15 +158,11 @@ impl PassExecutor {
             return Ok(None);
         }
 
-        let pass = self
-            .passes
-            .get(&pass_id)
-            .ok_or_else(|| PassError::PassNotFound(format!("{:?}", pass_id)))?;
-
+        let pass = &self.passes[&pass_id];
         let start = Instant::now();
         let name = pass.name().to_string();
 
-        log::info!("Running pass: {} ({:?})", name, pass_id);
+        log::info!("Running pass: {name}");
 
         match pass.run(context) {
             Ok(()) => {
@@ -207,11 +183,6 @@ impl PassExecutor {
                 error: Some(e.to_string()),
             })),
         }
-    }
-
-    /// Get the number of registered passes.
-    pub fn pass_count(&self) -> usize {
-        self.passes.len()
     }
 }
 
