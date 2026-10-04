@@ -4,7 +4,9 @@
 use crate::context::{AnalysisConfig, AnalysisContext};
 use crate::detectors::BugDetectionPass;
 use crate::passes::base::AnalysisPass;
-use crate::passes::bir::{DominancePass, FunctionEffectsPass};
+use crate::passes::bir::{
+    DominanceArtifact, DominancePass, FunctionEffectsArtifact, FunctionEffectsPass,
+};
 use bugs::bug::Bug;
 use common::loc::Loc;
 use num_traits::Zero;
@@ -136,7 +138,7 @@ pub(crate) fn detect_with(
     let contract = ContractDecl::new("C".to_string(), members, None);
     let module = Module::new("test", vec![Decl::Contract(contract)]);
     let mut context = AnalysisContext::new(vec![module], AnalysisConfig::default());
-    DominancePass.run(&mut context).unwrap();
-    FunctionEffectsPass.run(&mut context).unwrap();
+    context.store::<DominanceArtifact>(DominancePass.run(&context).unwrap());
+    context.store::<FunctionEffectsArtifact>(FunctionEffectsPass.run(&context).unwrap());
     detector.detect(&context).unwrap()
 }

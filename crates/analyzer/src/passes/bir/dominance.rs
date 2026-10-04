@@ -57,7 +57,12 @@ impl Pass for DominancePass {
 }
 
 impl AnalysisPass for DominancePass {
-    fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
+    type Artifact = DominanceArtifact;
+
+    fn run(
+        &self,
+        ctx: &AnalysisContext,
+    ) -> PassResult<HashMap<String, HashMap<FunctionId, DomTree>>> {
         let result = ctx
             .bir_units()
             .iter()
@@ -71,9 +76,7 @@ impl AnalysisPass for DominancePass {
             })
             .collect();
 
-        ctx.store::<DominanceArtifact>(result);
-        ctx.mark_pass_completed(self.id());
-        Ok(())
+        Ok(result)
     }
 }
 
@@ -107,10 +110,7 @@ mod tests {
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
         ctx.set_bir_units(vec![air_module]);
 
-        let pass = DominancePass;
-        pass.run(&mut ctx).unwrap();
-
-        let doms = ctx.get::<DominanceArtifact>().unwrap();
+        let doms = DominancePass.run(&ctx).unwrap();
         let dom = &doms["test"][&FunctionId("test".into())];
 
         assert!(dom.dominates(BlockId(0), BlockId(1)));

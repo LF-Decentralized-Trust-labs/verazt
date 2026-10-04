@@ -55,7 +55,9 @@ impl Pass for DefUsePass {
 }
 
 impl AnalysisPass for DefUsePass {
-    fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
+    type Artifact = DefUseArtifact;
+
+    fn run(&self, ctx: &AnalysisContext) -> PassResult<HashMap<OpId, HashSet<OpId>>> {
         let mut result: HashMap<OpId, HashSet<OpId>> = HashMap::new();
 
         for module in ctx.bir_units() {
@@ -86,9 +88,7 @@ impl AnalysisPass for DefUsePass {
             }
         }
 
-        ctx.store::<DefUseArtifact>(result);
-        ctx.mark_pass_completed(self.id());
-        Ok(())
+        Ok(result)
     }
 }
 
@@ -135,10 +135,7 @@ mod tests {
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
         ctx.set_bir_units(vec![air_module]);
 
-        let pass = DefUsePass;
-        pass.run(&mut ctx).unwrap();
-
-        let du = ctx.get::<DefUseArtifact>().unwrap();
+        let du = DefUsePass.run(&ctx).unwrap();
 
         // %0 is used by %2 (as lhs operand)
         assert!(du.get(&OpId(0)).unwrap().contains(&OpId(2)));

@@ -69,15 +69,17 @@ impl Pass for FunctionEffectsPass {
 }
 
 impl AnalysisPass for FunctionEffectsPass {
-    fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let effects = ctx
+    type Artifact = FunctionEffectsArtifact;
+
+    fn run(
+        &self,
+        ctx: &AnalysisContext,
+    ) -> PassResult<HashMap<String, HashMap<FunctionId, FunctionEffects>>> {
+        Ok(ctx
             .bir_units()
             .iter()
             .map(|module| (module.source_module_id.clone(), module_effects(module)))
-            .collect();
-        ctx.store::<FunctionEffectsArtifact>(effects);
-        ctx.mark_pass_completed(self.id());
-        Ok(())
+            .collect())
     }
 }
 

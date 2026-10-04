@@ -11,8 +11,11 @@ use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
 use crate::pass_manager::manager::{PassManager, PassManagerConfig};
 use crate::pass_manager::PassRegistry;
+use crate::pass_manager::executor::run_on_workers;
 use crate::passes::register_all_passes;
 use bugs::bug::Bug;
+use rayon::prelude::*;
+use std::any::TypeId;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
@@ -237,7 +240,7 @@ impl PipelineEngine {
     ) -> Result<(), String> {
         let required = self
             .passes
-            .instantiate_closure(enabled_detectors.iter().flat_map(|d| d.dependencies()))
+            .instantiate_closure(enabled_detectors.iter().flat_map(|d| required_by(*d)))
             .map_err(|e| e.to_string())?;
 
         if required.is_empty() {
@@ -314,18 +317,15 @@ impl PipelineEngine {
         (all_bugs, all_stats)
     }
 
-    /// Run detectors in parallel using rayon.
+    /// Run detectors in parallel using rayon, on `num_threads` threads.
     fn run_detectors_parallel(
         &self,
         detectors: &[&dyn BugDetectionPass],
         context: &AnalysisContext,
     ) -> (Vec<Bug>, Vec<DetectorStats>) {
-        use rayon::prelude::*;
-
-        let results: Vec<_> = detectors
-            .par_iter()
-            .map(|&d| run_single_detector(d, context))
-            .collect();
+        let results: Vec<_> = run_on_workers(self.config.num_threads, || {
+            detectors.par_iter().map(|&d| run_single_detector(d, context)).collect()
+        });
 
         let mut all_bugs = Vec::new();
         let mut all_stats = Vec::new();
@@ -365,6 +365,12 @@ impl PipelineEngine {
 fn is_listed(list: &[String], detector: &dyn BugDetectionPass) -> bool {
     let meta = detector.meta();
     list.iter().any(|d| d == meta.name || d == meta.id.as_str())
+}
+
+/// The passes `detector` depends on, each with the detector's name.
+fn required_by(detector: &dyn BugDetectionPass) -> impl Iterator<Item = (TypeId, &'static str)> {
+    let name = detector.name();
+    detector.dependencies().into_iter().map(move |id| (id, name))
 }
 
 /// Run a single detector and collect results.
@@ -501,7 +507,7 @@ mod tests {
         let engine = PipelineEngine::new(PipelineConfig::default());
         for detector in engine.registry().all() {
             assert!(
-                engine.passes.instantiate_closure(detector.dependencies()).is_ok(),
+                engine.passes.instantiate_closure(required_by(detector)).is_ok(),
                 "'{}' depends on a pass missing from the pass registry",
                 detector.name()
             );

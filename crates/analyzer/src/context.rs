@@ -54,6 +54,24 @@ pub trait ContextKey: 'static {
     const NAME: &'static str;
 }
 
+/// An artifact with its value type erased, stored under the `ContextKey`
+/// it was created for. Lets the executor collect the artifacts of passes
+/// of different types before storing them.
+pub struct ErasedArtifact {
+    /// `TypeId` of the `ContextKey` marker.
+    key: TypeId,
+
+    /// The artifact, a `ContextKey::Value` of that key.
+    value: Arc<dyn Any + Send + Sync>,
+}
+
+impl ErasedArtifact {
+    /// Erase artifact `value` of key `K`.
+    pub fn new<K: ContextKey>(value: K::Value) -> Self {
+        Self { key: TypeId::of::<K>(), value: Arc::new(value) }
+    }
+}
+
 /// Configuration for analysis.
 #[derive(Debug, Clone, Default)]
 pub struct AnalysisConfig {
@@ -233,7 +251,12 @@ impl AnalysisContext {
 
     /// Store a typed artifact using an `ContextKey` marker.
     pub fn store<K: ContextKey>(&mut self, value: K::Value) {
-        self.typed_data.insert(TypeId::of::<K>(), Arc::new(value));
+        self.store_erased(ErasedArtifact::new::<K>(value));
+    }
+
+    /// Store an erased artifact under the key it was created for.
+    pub fn store_erased(&mut self, artifact: ErasedArtifact) {
+        self.typed_data.insert(artifact.key, artifact.value);
     }
 
     /// Retrieve a typed artifact by key.
@@ -305,21 +328,6 @@ impl AnalysisContext {
     /// Update IR traversal count.
     pub fn record_ir_traversal(&mut self) {
         self.stats.ir_traversals += 1;
-    }
-}
-
-impl Clone for AnalysisContext {
-    fn clone(&self) -> Self {
-        Self {
-            sir_units: self.sir_units.clone(),
-            bir_units: self.bir_units.clone(),
-            input_language: self.input_language,
-            typed_data: self.typed_data.clone(),
-            completed_passes: self.completed_passes.clone(),
-            pass_order: self.pass_order.clone(),
-            config: self.config.clone(),
-            stats: self.stats.clone(),
-        }
     }
 }
 

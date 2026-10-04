@@ -61,7 +61,9 @@ impl Pass for TaintPass {
 }
 
 impl AnalysisPass for TaintPass {
-    fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
+    type Artifact = TaintArtifact;
+
+    fn run(&self, ctx: &AnalysisContext) -> PassResult<HashMap<OpId, HashSet<TaintLabel>>> {
         let mut taint_map: HashMap<OpId, HashSet<TaintLabel>> = HashMap::new();
 
         for module in ctx.bir_units() {
@@ -135,9 +137,7 @@ impl AnalysisPass for TaintPass {
             }
         }
 
-        ctx.store::<TaintArtifact>(taint_map);
-        ctx.mark_pass_completed(self.id());
-        Ok(())
+        Ok(taint_map)
     }
 }
 
@@ -199,13 +199,7 @@ mod tests {
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
         ctx.set_bir_units(vec![air_module]);
 
-        // Run ICFGPass first (dependency)
-        crate::passes::bir::icfg::ICFGPass.run(&mut ctx).unwrap();
-
-        let pass = TaintPass;
-        pass.run(&mut ctx).unwrap();
-
-        let taint = ctx.get::<TaintArtifact>().unwrap();
+        let taint = TaintPass.run(&ctx).unwrap();
         let labels = taint.get(&OpId(0)).unwrap();
         assert!(labels.contains(&TaintLabel::UserControlled));
     }

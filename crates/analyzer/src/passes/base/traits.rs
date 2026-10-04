@@ -2,7 +2,7 @@
 //!
 //! This module defines the core traits for passes in the analysis framework.
 
-use crate::context::AnalysisContext;
+use crate::context::{AnalysisContext, ContextKey, ErasedArtifact};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use std::any::TypeId;
 use std::fmt::{self, Display};
@@ -74,17 +74,31 @@ pub trait Pass: Send + Sync + 'static {
 
 /// Trait for analysis passes.
 ///
-/// Analysis passes collect information from the AST/IR and store
-/// results in the `AnalysisContext`. They are read-only with respect
-/// to the source representation.
+/// An analysis pass computes one artifact from the IR and from the
+/// artifacts of the passes it depends on. It only reads the context: the
+/// executor stores the returned artifact under `Self::Artifact`, so that
+/// the passes of one dependency level can run in parallel.
 pub trait AnalysisPass: Pass {
-    /// Run the pass and update the analysis context.
-    ///
-    /// This method should:
-    /// 1. Read from the AST/IR as needed
-    /// 2. Perform analysis
-    /// 3. Store results in the context
-    fn run(&self, context: &mut AnalysisContext) -> PassResult<()>;
+    /// The key under which the context stores the artifact of the pass.
+    type Artifact: ContextKey;
+
+    /// Compute the artifact of the pass from `context`, which holds the
+    /// artifacts of every pass this one depends on.
+    fn run(&self, context: &AnalysisContext) -> PassResult<<Self::Artifact as ContextKey>::Value>;
+}
+
+/// Object-safe form of [`AnalysisPass`], through which the pass manager
+/// holds and runs passes producing different artifact types. Implemented
+/// for every analysis pass.
+pub trait ErasedAnalysisPass: Pass {
+    /// Run the pass, returning its artifact for the executor to store.
+    fn run_erased(&self, context: &AnalysisContext) -> PassResult<ErasedArtifact>;
+}
+
+impl<P: AnalysisPass> ErasedAnalysisPass for P {
+    fn run_erased(&self, context: &AnalysisContext) -> PassResult<ErasedArtifact> {
+        self.run(context).map(ErasedArtifact::new::<P::Artifact>)
+    }
 }
 
 /// Metadata about a pass execution.

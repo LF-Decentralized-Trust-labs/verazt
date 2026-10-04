@@ -175,7 +175,9 @@ impl Pass for IntervalPass {
 }
 
 impl AnalysisPass for IntervalPass {
-    fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
+    type Artifact = IntervalArtifact;
+
+    fn run(&self, ctx: &AnalysisContext) -> PassResult<HashMap<OpId, Interval>> {
         let mut result: HashMap<OpId, Interval> = HashMap::new();
 
         for module in ctx.bir_units() {
@@ -258,9 +260,7 @@ impl AnalysisPass for IntervalPass {
             }
         }
 
-        ctx.store::<IntervalArtifact>(result);
-        ctx.mark_pass_completed(self.id());
-        Ok(())
+        Ok(result)
     }
 }
 

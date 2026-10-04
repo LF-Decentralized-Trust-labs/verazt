@@ -53,11 +53,10 @@ impl Pass for ICFGPass {
 }
 
 impl AnalysisPass for ICFGPass {
-    fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let icfgs: Vec<ICFG> = ctx.bir_units().iter().map(|module| module.icfg.clone()).collect();
-        ctx.store::<ICFGArtifact>(icfgs);
-        ctx.mark_pass_completed(self.id());
-        Ok(())
+    type Artifact = ICFGArtifact;
+
+    fn run(&self, ctx: &AnalysisContext) -> PassResult<Vec<ICFG>> {
+        Ok(ctx.bir_units().iter().map(|module| module.icfg.clone()).collect())
     }
 }
 
@@ -68,10 +67,8 @@ mod tests {
 
     #[test]
     fn test_icfg_pass_empty() {
-        let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
-        let pass = ICFGPass;
-        pass.run(&mut ctx).unwrap();
-        let icfgs = ctx.get::<ICFGArtifact>().unwrap();
+        let ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
+        let icfgs = ICFGPass.run(&ctx).unwrap();
         assert!(icfgs.is_empty());
     }
 }

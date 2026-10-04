@@ -7,9 +7,10 @@
 //!
 //! The analyzer uses a two-phase pipeline architecture:
 //!
-//! - `context`: Central storage for AST, IR, and analysis data
+//! - `context`: Central storage for SIR, BIR, and analysis artifacts
 //!   (`AnalysisContext`, `ContextKey`)
-//! - `pass_manager`: Orchestrates pass registration, scheduling, and execution
+//! - `pass_manager`: Orchestrates pass registration, scheduling, and
+//!   execution, running the passes of a dependency level in parallel
 //!   (`PassManager`)
 //! - `passes`: Concrete analysis passes organized by IR layer (`base/`,
 //!   `bir/`)

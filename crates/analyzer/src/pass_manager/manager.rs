@@ -1,13 +1,13 @@
 //! Pass Manager
 //!
-//! Owns the pass registry; entry point for callers; delegates to scheduler
-//! then executor; produces `PassRunReport`. Must not directly touch
-//! dependency resolution or execution timing.
+//! Owns the registered passes; entry point for callers; delegates to
+//! scheduler then executor; produces `PassRunReport`. Must not directly
+//! touch dependency resolution or execution timing.
 
 use crate::context::AnalysisContext;
 use crate::pass_manager::executor::{ExecutorConfig, PassExecutor};
 use crate::pass_manager::scheduler::compute_schedule;
-use crate::passes::base::{AnalysisPass, PassExecutionInfo, PassResult};
+use crate::passes::base::{ErasedAnalysisPass, PassExecutionInfo, PassResult};
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,10 +16,10 @@ use std::time::Instant;
 /// Configuration for the pass manager.
 #[derive(Debug, Clone)]
 pub struct PassManagerConfig {
-    /// Enable parallel execution.
+    /// Run the passes of a dependency level in parallel.
     pub enable_parallel: bool,
 
-    /// Maximum number of worker threads.
+    /// Number of worker threads for parallel execution (0 = one per CPU).
     pub max_workers: usize,
 
     /// Stop on first error.
@@ -73,14 +73,13 @@ pub struct PassRunReport {
 /// - Registering analysis passes
 /// - Computing execution order based on dependencies
 /// - Orchestrating pass execution (sequential or parallel)
-/// - Managing the analysis context
 pub struct PassManager {
     /// Configuration.
     config: PassManagerConfig,
 
     /// Registered analysis passes, the only copy: the scheduler and the
     /// executor borrow them for each run.
-    passes: HashMap<TypeId, Arc<dyn AnalysisPass>>,
+    passes: HashMap<TypeId, Arc<dyn ErasedAnalysisPass>>,
 }
 
 impl Default for PassManager {
@@ -96,12 +95,12 @@ impl PassManager {
     }
 
     /// Register an analysis pass.
-    pub fn register_analysis_pass(&mut self, pass: Box<dyn AnalysisPass>) {
+    pub fn register_analysis_pass(&mut self, pass: Box<dyn ErasedAnalysisPass>) {
         self.passes.insert(pass.id(), Arc::from(pass));
     }
 
     /// Register multiple passes.
-    pub fn register_passes(&mut self, passes: Vec<Box<dyn AnalysisPass>>) {
+    pub fn register_passes(&mut self, passes: Vec<Box<dyn ErasedAnalysisPass>>) {
         for pass in passes {
             self.register_analysis_pass(pass);
         }
@@ -136,7 +135,7 @@ impl PassManager {
             pass_info: result.pass_results,
             total_duration: start.elapsed(),
             passes_executed: result.successful,
-            passes_skipped: context.stats.passes_skipped,
+            passes_skipped: result.already_completed,
             success,
             errors: result.errors.iter().map(|e| e.to_string()).collect(),
         };
@@ -145,7 +144,7 @@ impl PassManager {
     }
 
     /// Get a registered pass.
-    pub fn get_pass(&self, pass_id: TypeId) -> Option<&Arc<dyn AnalysisPass>> {
+    pub fn get_pass(&self, pass_id: TypeId) -> Option<&Arc<dyn ErasedAnalysisPass>> {
         self.passes.get(&pass_id)
     }
 
@@ -175,96 +174,90 @@ impl PassManager {
     }
 }
 
+// ========================================================================
+// Tests
+// ========================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context::AnalysisConfig;
+    use crate::context::{AnalysisConfig, ContextKey};
     use crate::passes::base::meta::{PassLevel, PassRepresentation};
-    use crate::passes::base::traits::Pass;
+    use crate::passes::base::traits::{AnalysisPass, Pass, PassError};
+    use std::marker::PhantomData;
 
-    // Each mock pass is its own type so it gets a unique TypeId.
+    /// Artifact of mock pass `P`, recording that it ran.
+    struct Ran<P>(PhantomData<P>);
 
-    struct MockPassA; // independent pass
-    impl Pass for MockPassA {
-        fn name(&self) -> &'static str {
-            "MockPassA"
-        }
-        fn description(&self) -> &'static str {
-            "A mock pass"
-        }
-        fn level(&self) -> PassLevel {
-            PassLevel::Contract
-        }
-        fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Sir
-        }
-        fn dependencies(&self) -> Vec<TypeId> {
-            vec![]
-        }
+    impl<P: 'static> ContextKey for Ran<P> {
+        type Value = ();
+        const NAME: &'static str = "ran";
     }
-    impl AnalysisPass for MockPassA {
-        fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
-            context.mark_pass_completed(self.id());
+
+    /// Declare mock pass `$pass`, depending on `$deps` and running `$run`.
+    macro_rules! mock_pass {
+        ($pass:ident, [$($dep:ty),*], $run:expr) => {
+            #[derive(Debug, Default)]
+            struct $pass;
+
+            impl Pass for $pass {
+                fn name(&self) -> &'static str {
+                    stringify!($pass)
+                }
+                fn description(&self) -> &'static str {
+                    "A mock pass"
+                }
+                fn level(&self) -> PassLevel {
+                    PassLevel::Contract
+                }
+                fn representation(&self) -> PassRepresentation {
+                    PassRepresentation::Sir
+                }
+                fn dependencies(&self) -> Vec<TypeId> {
+                    vec![$(TypeId::of::<$dep>()),*]
+                }
+            }
+
+            impl AnalysisPass for $pass {
+                type Artifact = Ran<$pass>;
+
+                fn run(&self, context: &AnalysisContext) -> PassResult<()> {
+                    let run: fn(&AnalysisContext) -> PassResult<()> = $run;
+                    run(context)
+                }
+            }
+        };
+    }
+
+    /// Succeed if pass `P` ran before.
+    fn after<P: 'static>(context: &AnalysisContext) -> PassResult<()> {
+        if context.has::<Ran<P>>() {
             Ok(())
+        } else {
+            Err(PassError::ExecutionFailed("mock".to_string(), "dependency".to_string()))
         }
     }
 
-    struct MockPassB; // depends on MockPassA
-    impl Pass for MockPassB {
-        fn name(&self) -> &'static str {
-            "MockPassB"
-        }
-        fn description(&self) -> &'static str {
-            "A mock pass"
-        }
-        fn level(&self) -> PassLevel {
-            PassLevel::Contract
-        }
-        fn representation(&self) -> PassRepresentation {
-            PassRepresentation::Sir
-        }
-        fn dependencies(&self) -> Vec<TypeId> {
-            vec![TypeId::of::<MockPassA>()]
-        }
-    }
-    impl AnalysisPass for MockPassB {
-        fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
-            context.mark_pass_completed(self.id());
-            Ok(())
-        }
+    mock_pass!(MockPassA, [], |_| Ok(()));
+    mock_pass!(MockPassB, [MockPassA], after::<MockPassA>);
+
+    fn empty_context() -> AnalysisContext {
+        AnalysisContext::new(vec![], AnalysisConfig::default())
     }
 
     #[test]
-    fn test_pass_manager_creation() {
-        let manager = PassManager::new(PassManagerConfig::default());
-        assert_eq!(manager.pass_count(), 0);
-    }
+    fn test_run_passes_sees_artifacts_of_dependencies() {
+        for enable_parallel in [false, true] {
+            let config = PassManagerConfig { enable_parallel, max_workers: 2, ..Default::default() };
+            let mut manager = PassManager::new(config);
+            manager.register_passes(vec![Box::new(MockPassB), Box::new(MockPassA)]);
+            let mut context = empty_context();
 
-    #[test]
-    fn test_pass_registration() {
-        let mut manager = PassManager::new(PassManagerConfig::default());
+            let report = manager.run(&mut context).unwrap();
 
-        let pass = MockPassA;
-
-        manager.register_analysis_pass(Box::new(pass));
-        assert_eq!(manager.pass_count(), 1);
-        assert!(manager.has_pass(TypeId::of::<MockPassA>()));
-    }
-
-    #[test]
-    fn test_run_passes() {
-        let mut manager = PassManager::new(PassManagerConfig::default());
-
-        let pass1 = MockPassA;
-        let pass2 = MockPassB;
-
-        manager.register_analysis_pass(Box::new(pass1));
-        manager.register_analysis_pass(Box::new(pass2));
-
-        let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
-        let report = manager.run(&mut context).unwrap();
-
-        assert!(report.success);
-        assert_eq!(report.passes_executed, 2);
+            assert!(report.success, "{:?}", report.errors);
+            assert_eq!(report.passes_executed, 2);
+            assert!(context.has::<Ran<MockPassB>>());
+        }
     }
 }
