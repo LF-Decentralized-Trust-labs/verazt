@@ -2,6 +2,7 @@
 //!
 //! This is the main entry point for the Analyzer tool.
 
+use crate::config::{DEFAULT_CONFIG_TOML, available_threads};
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
@@ -58,9 +59,9 @@ pub struct Arguments {
     #[arg(long, visible_alias = "pip", default_value_t = false)]
     pub print_input_program: bool,
 
-    /// Output format: json, markdown, sarif, text
-    #[arg(long, short, default_value = "text")]
-    pub format: String,
+    /// Output format [default: text, or the configuration file's]
+    #[arg(long, short, value_enum)]
+    pub format: Option<OutputFormat>,
 
     /// Output file (default: stdout)
     #[arg(long, short)]
@@ -78,9 +79,10 @@ pub struct Arguments {
     #[arg(long)]
     pub disable: Option<String>,
 
-    /// Minimum severity to report: info, low, medium, high, critical
-    #[arg(long, default_value = "info")]
-    pub min_severity: String,
+    /// Minimum severity to report [default: info, or the configuration
+    /// file's]
+    #[arg(long, value_enum)]
+    pub min_severity: Option<SeverityFilter>,
 
     /// Automatically install the required compiler version if none is
     /// available. Skips the interactive prompt.
@@ -250,55 +252,7 @@ fn show_detector(id: &str) {
 }
 
 fn init_config(output: &str) {
-    let default_config = r#"# Verazt Configuration File
-
-[analysis]
-# Enable parallel analysis
-parallel = true
-# Maximum number of worker threads (0 = auto-detect)
-max_workers = 0
-
-[detectors]
-# Enable vulnerability detection
-vulnerabilities = true
-# Enable refactoring suggestions
-refactoring = true
-# Enable optimization hints
-optimization = true
-
-# Explicitly enable specific detectors (empty = all enabled)
-# enabled = ["reentrancy", "tx-origin"]
-
-# Explicitly disable specific detectors
-# disabled = []
-
-[output]
-# Output format: "text", "json", "markdown", "sarif"
-format = "text"
-# Minimum severity to report: "info", "low", "medium", "high", "critical"
-min_severity = "info"
-
-[ignore]
-# Patterns to ignore in files
-patterns = [
-    "// analyze-disable",
-    "// slither-disable",
-]
-
-# Files to ignore
-files = [
-    "test/**",
-    "node_modules/**",
-]
-
-# Directories to ignore
-directories = [
-    "lib",
-    "node_modules",
-]
-"#;
-
-    match fs::write(output, default_config) {
+    match fs::write(output, DEFAULT_CONFIG_TOML) {
         Ok(_) => {
             println!("Configuration file created: {}", output);
         }
@@ -322,9 +276,7 @@ fn run_analysis(args: Arguments) {
 
     // Apply CLI overrides
     if args.parallel {
-        config.num_threads = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1);
+        config.num_threads = available_threads();
     }
 
     if let Some(enable) = &args.enable {
@@ -335,20 +287,13 @@ fn run_analysis(args: Arguments) {
         config.detectors.disabled = disable.split(',').map(|s| s.trim().to_string()).collect();
     }
 
-    config.output_format = match args.format.as_str() {
-        "json" => OutputFormat::Json,
-        "markdown" | "md" => OutputFormat::Markdown,
-        "sarif" => OutputFormat::Sarif,
-        _ => OutputFormat::Text,
-    };
+    if let Some(format) = args.format {
+        config.output_format = format;
+    }
 
-    config.min_severity = match args.min_severity.as_str() {
-        "critical" => SeverityFilter::Critical,
-        "high" => SeverityFilter::High,
-        "medium" => SeverityFilter::Medium,
-        "low" => SeverityFilter::Low,
-        _ => SeverityFilter::Informational,
-    };
+    if let Some(min_severity) = args.min_severity {
+        config.min_severity = min_severity;
+    }
 
     // Parse input files
     let solc_ver = args.solc_version.as_deref();
@@ -475,8 +420,9 @@ fn run_analysis(args: Arguments) {
         );
     }
 
-    let result = engine.run(&mut context);
+    let mut result = engine.run(&mut context);
     let failures = result.failures();
+    result.bugs.retain(|bug| config.should_report_severity(&bug.risk_level));
 
     // Create report
     let lang_str = match input_language {
