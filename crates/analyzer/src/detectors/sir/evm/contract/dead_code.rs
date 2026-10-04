@@ -2,10 +2,27 @@
 //!
 //! Detects unreachable code by walking SIR function bodies.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::{ContractDecl, MemberDecl, Module, Stmt};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::CodeQuality,
+    bug_kind: BugKind::Refactoring,
+    confidence: ConfidenceLevel::High,
+    cwe_ids: &[561],
+    description: "Detects unreachable code after return/revert using SIR tree walking",
+    id: DetectorId::DeadCode,
+    name: "Dead Code",
+    recommendation: "Remove unreachable code and unused functions to improve code clarity \
+         and reduce gas costs during deployment.",
+    references: &["https://cwe.mitre.org/data/definitions/561.html"],
+    risk_level: RiskLevel::Low,
+    swc_ids: &[],
+    target: Target::Evm,
+};
 
 /// Scan detector for dead code (unreachable statements).
 #[derive(Debug, Default)]
@@ -29,19 +46,12 @@ impl DeadCodeDetector {
 
         for stmt in stmts {
             if found_terminator {
-                bugs.push(Bug::new(
-                    self.name(),
+                bugs.push(META.bug(
                     Some(&format!(
                         "Unreachable code in '{}.{}': statement after return/revert.",
                         contract_name, func_name,
                     )),
                     stmt.span().cloned().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                    self.bug_kind(),
-                    self.bug_category(),
-                    self.risk_level(),
-                    self.cwe_ids(),
-                    self.swc_ids(),
-                    Some(self.recommendation()),
                 ));
                 // Only report the first unreachable statement per block.
                 break;
@@ -89,53 +99,12 @@ impl DeadCodeDetector {
 }
 
 impl ScanDetector for DeadCodeDetector {
-    fn id(&self) -> &'static str {
-        "dead-code"
-    }
-
-    fn name(&self) -> &'static str {
-        "Dead Code"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects unreachable code after return/revert using SIR tree walking"
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Refactoring
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::CodeQuality
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Low
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::High
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Contract
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![561]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Remove unreachable code and unused functions to improve code clarity \
-         and reduce gas costs during deployment."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec!["https://cwe.mitre.org/data/definitions/561.html"]
     }
 
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
@@ -160,7 +129,7 @@ mod tests {
     #[test]
     fn test_dead_code_detector() {
         let detector = DeadCodeDetector::new();
-        assert_eq!(detector.id(), "dead-code");
-        assert_eq!(detector.risk_level(), RiskLevel::Low);
+        assert_eq!(detector.meta().id, DetectorId::DeadCode);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Low);
     }
 }

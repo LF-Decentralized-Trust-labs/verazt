@@ -3,6 +3,7 @@
 use crate::solidity::ast::yul as yast;
 use crate::solidity::ast::{DataLoc, Loc, Name};
 use crate::solidity::parsing::yul_parser;
+use crate::solidity::ast::utils::Visit;
 use crate::solidity::{ast::*, parsing::type_parser::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
@@ -47,6 +48,12 @@ pub struct JsonAst {
     pub json_data: String, // JSON content
     pub file_name: Option<String>,
     pub base_path: Option<String>, // Base path that is used to look for source tree.
+}
+
+/// Records whether a placeholder `_` occurs anywhere in the visited code.
+#[derive(Default)]
+struct PlaceholderFinder {
+    found: bool,
 }
 
 //------------------------------------------------------------------
@@ -657,10 +664,12 @@ impl AstParser {
             .filter(|v| !v.is_null())
             .and_then(|v| self.parse_block(v, false).ok());
         // For modifiers, ensure the body always contains a placeholder `_`
-        // statement. Old Solidity ASTs may have null/empty body blocks.
+        // statement, possibly nested (e.g. `if (c) _;`). Old Solidity ASTs
+        // may have null/empty body blocks.
         let body = body.map(|mut blk| {
-            let has_placeholder = blk.body.iter().any(|s| matches!(s, Stmt::Placeholder(_)));
-            if !has_placeholder {
+            let mut finder = PlaceholderFinder::default();
+            finder.visit_block(&blk);
+            if !finder.found {
                 blk.body.push(PlaceholderStmt::new(None, None).into());
             }
             blk
@@ -853,12 +862,15 @@ impl AstParser {
                     .collect::<Result<Vec<Expr>>>()
             })
             .unwrap_or(Ok(vec![]))?;
-        let kind = node
-            .get("kind")
-            .ok_or_else(|| error!("Modifier invocation kind not found: {node}"))?
-            .as_str()
-            .ok_or_else(|| error!("Modifier invocation kind invalid: {node}"))
-            .and_then(CallKind::new)?;
+        // Older solc versions do not emit `kind`; such nodes are modifier
+        // invocations.
+        let kind = match node.get("kind").filter(|v| !v.is_null()) {
+            Some(kind) => kind
+                .as_str()
+                .ok_or_else(|| error!("Modifier invocation kind invalid: {node}"))
+                .and_then(CallKind::new)?,
+            None => CallKind::ModifierInvoc,
+        };
         let arg_typs: Vec<Type> = args.iter().map(|arg| arg.typ()).collect();
         let typ: Type = FuncType::new(arg_typs, vec![], FuncVis::None, FuncMut::None).into();
         let loc = self.parse_source_location(node);
@@ -1019,8 +1031,10 @@ impl AstParser {
             .get("trueBody")
             .ok_or_else(|| error!("If statement: true body not found: {node}"))
             .map(|v| self.parse_stmt(v))??;
+        // Older solc versions emit `"falseBody": null` when there is no else.
         let false_br = node
             .get("falseBody")
+            .filter(|v| !v.is_null())
             .map(|v| self.parse_stmt(v))
             .transpose()?;
         let loc = self.parse_source_location(node);
@@ -1113,7 +1127,8 @@ impl AstParser {
     /// Parse a `return` statement.
     fn parse_return_stmt(&mut self, node: &Value) -> Result<Stmt> {
         let id = self.parse_id(node).ok();
-        let expr = match node.get("expression") {
+        // Older solc versions emit `"expression": null` for a bare `return;`.
+        let expr = match node.get("expression").filter(|v| !v.is_null()) {
             Some(v) => Some(self.parse_expr(v)?),
             None => None,
         };
@@ -2384,5 +2399,15 @@ impl AstParser {
             }
             _ => Ok(yast::YulType::Unkn),
         }
+    }
+}
+
+//------------------------------------------------------------------
+// Placeholder search
+//------------------------------------------------------------------
+
+impl Visit<'_> for PlaceholderFinder {
+    fn visit_place_holder_stmt(&mut self, _stmt: &PlaceholderStmt) {
+        self.found = true;
     }
 }

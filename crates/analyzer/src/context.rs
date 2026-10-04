@@ -123,10 +123,10 @@ pub struct AnalysisContext {
     // Source Representations
     // ========================================
     /// SIR modules.
-    pub ir_units: Option<Vec<scirs::sir::Module>>,
+    pub sir_units: Option<Vec<scirs::sir::Module>>,
 
     /// BIR modules (eagerly lowered from SIR).
-    pub air_units: Option<Vec<scirs::bir::Module>>,
+    pub bir_units: Option<Vec<scirs::bir::Module>>,
 
     /// The input source language.
     pub input_language: InputLanguage,
@@ -134,11 +134,7 @@ pub struct AnalysisContext {
     // ========================================
     // Analysis Artifacts (Dynamic Storage)
     // ========================================
-    /// Type-erased artifact storage (stringly-typed, deprecated).
-    /// Key: artifact name, Value: boxed artifact.
-    artifacts: HashMap<String, Arc<dyn Any + Send + Sync>>,
-
-    /// Type-safe artifact storage (step 2.2).
+    /// Type-safe artifact storage.
     /// Key: `TypeId` of the `ContextKey` marker, Value: boxed artifact.
     typed_data: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 
@@ -161,41 +157,45 @@ pub struct AnalysisContext {
     pub stats: AnalysisStats,
 }
 
+/// Lower a SIR module through CIR to BIR. A failure is logged and the module
+/// is skipped, so BIR detectors silently missing a module stays visible.
+fn lower_to_bir(module: &scirs::sir::Module) -> Option<scirs::bir::Module> {
+    let cir = scirs::sir::lower::lower_module(module)
+        .map_err(|e| log::warn!("SIR → CIR lowering failed for '{}': {e}", module.id))
+        .ok()?;
+    scirs::cir::lower::lower_module(&cir)
+        .map_err(|e| log::warn!("CIR → BIR lowering failed for '{}': {e}", module.id))
+        .ok()
+}
+
 impl AnalysisContext {
     /// Create a new analysis context from SIR modules.
     ///
     /// BIR modules are **eagerly** lowered from SIR so that all BIR
-    /// passes can run without an explicit `AIRGeneration` dependency.
+    /// passes can run without an explicit lowering pass.
     pub fn new(sir_modules: Vec<scirs::sir::Module>, config: AnalysisConfig) -> Self {
         let input_language = config.input_language;
 
         // Eager lowering: SIR → CIR → BIR
-        let air_units = if sir_modules.is_empty() {
+        let bir_units = if sir_modules.is_empty() {
             None
         } else {
             let start = std::time::Instant::now();
-            let bir = sir_modules
-                .iter()
-                .filter_map(|m| {
-                    let cir = scirs::sir::lower::lower_module(m).ok()?;
-                    scirs::cir::lower::lower_module(&cir).ok()
-                })
-                .collect::<Vec<_>>();
+            let bir = sir_modules.iter().filter_map(lower_to_bir).collect::<Vec<_>>();
             let _elapsed = start.elapsed();
             if bir.is_empty() { None } else { Some(bir) }
         };
 
-        let ir_units = if sir_modules.is_empty() {
+        let sir_units = if sir_modules.is_empty() {
             None
         } else {
             Some(sir_modules)
         };
 
         Self {
-            ir_units,
-            air_units,
+            sir_units,
+            bir_units,
             input_language,
-            artifacts: HashMap::new(),
             typed_data: HashMap::new(),
             completed_passes: HashSet::new(),
             pass_order: Vec::new(),
@@ -205,33 +205,27 @@ impl AnalysisContext {
     }
 
     // ========================================
-    // IR Management
+    // SIR Management
     // ========================================
 
-    /// Check if IR is available.
-    pub fn has_ir(&self) -> bool {
-        self.ir_units.is_some()
+    /// Check if SIR is available.
+    pub fn has_sir(&self) -> bool {
+        self.sir_units.is_some()
     }
 
-    /// Get IR units (panics if not available).
-    pub fn ir_units(&self) -> &Vec<scirs::sir::Module> {
-        self.ir_units.as_ref().expect("IR not generated")
+    /// Get SIR units (panics if not available).
+    pub fn sir_units(&self) -> &Vec<scirs::sir::Module> {
+        self.sir_units.as_ref().expect("SIR not available")
     }
 
-    /// Set IR units and eagerly lower to BIR.
-    pub fn set_ir_units(&mut self, ir_units: Vec<scirs::sir::Module>) {
+    /// Set SIR units and eagerly lower to BIR.
+    pub fn set_sir_units(&mut self, sir_units: Vec<scirs::sir::Module>) {
         // Eagerly lower SIR → CIR → BIR
-        let bir = ir_units
-            .iter()
-            .filter_map(|m| {
-                let cir = scirs::sir::lower::lower_module(m).ok()?;
-                scirs::cir::lower::lower_module(&cir).ok()
-            })
-            .collect::<Vec<_>>();
+        let bir = sir_units.iter().filter_map(lower_to_bir).collect::<Vec<_>>();
         if !bir.is_empty() {
-            self.air_units = Some(bir);
+            self.bir_units = Some(bir);
         }
-        self.ir_units = Some(ir_units);
+        self.sir_units = Some(sir_units);
     }
 
     // ========================================
@@ -239,58 +233,22 @@ impl AnalysisContext {
     // ========================================
 
     /// Check if BIR is available.
-    pub fn has_air(&self) -> bool {
-        self.air_units.is_some()
+    pub fn has_bir(&self) -> bool {
+        self.bir_units.is_some()
     }
 
     /// Get BIR units. Returns an empty slice if BIR is not available.
-    pub fn air_units(&self) -> &[scirs::bir::Module] {
-        self.air_units.as_deref().unwrap_or(&[])
+    pub fn bir_units(&self) -> &[scirs::bir::Module] {
+        self.bir_units.as_deref().unwrap_or(&[])
     }
 
     /// Set BIR units directly (escape hatch).
-    pub fn set_air_units(&mut self, units: Vec<scirs::bir::Module>) {
-        self.air_units = Some(units);
+    pub fn set_bir_units(&mut self, units: Vec<scirs::bir::Module>) {
+        self.bir_units = Some(units);
     }
 
     // ========================================
-    // Artifact Storage (stringly-typed — deprecated)
-    // ========================================
-
-    /// Store an artifact in the context (stringly-typed).
-    #[deprecated(note = "Use `store::<K>()` with an `ContextKey` marker type")]
-    pub fn store_artifact<T: Any + Send + Sync>(&mut self, name: &str, artifact: T) {
-        self.artifacts.insert(name.to_string(), Arc::new(artifact));
-    }
-
-    /// Get an artifact from the context (stringly-typed).
-    #[deprecated(note = "Use `get::<K>()` with an `ContextKey` marker type")]
-    pub fn get_artifact<T: Any + Send + Sync>(&self, name: &str) -> Option<&T> {
-        self.artifacts.get(name).and_then(|a| a.downcast_ref::<T>())
-    }
-
-    /// Get an artifact as Arc (for sharing) (stringly-typed).
-    #[deprecated(note = "Use `get_arc::<K>()` with an `ContextKey` marker type")]
-    pub fn get_artifact_arc<T: Any + Send + Sync>(&self, name: &str) -> Option<Arc<T>> {
-        self.artifacts
-            .get(name)
-            .and_then(|a| Arc::clone(a).downcast::<T>().ok())
-    }
-
-    /// Check if an artifact exists (stringly-typed).
-    #[deprecated(note = "Use `has::<K>()` with an `ContextKey` marker type")]
-    pub fn has_artifact(&self, name: &str) -> bool {
-        self.artifacts.contains_key(name)
-    }
-
-    /// Remove an artifact (stringly-typed).
-    #[deprecated(note = "Use `remove::<K>()` with an `ContextKey` marker type")]
-    pub fn remove_artifact(&mut self, name: &str) -> bool {
-        self.artifacts.remove(name).is_some()
-    }
-
-    // ========================================
-    // Typed Artifact Storage (Step 2.2)
+    // Artifact Storage
     // ========================================
 
     /// Store a typed artifact using an `ContextKey` marker.
@@ -373,10 +331,9 @@ impl AnalysisContext {
 impl Clone for AnalysisContext {
     fn clone(&self) -> Self {
         Self {
-            ir_units: self.ir_units.clone(),
-            air_units: self.air_units.clone(),
+            sir_units: self.sir_units.clone(),
+            bir_units: self.bir_units.clone(),
             input_language: self.input_language,
-            artifacts: self.artifacts.clone(),
             typed_data: self.typed_data.clone(),
             completed_passes: self.completed_passes.clone(),
             pass_order: self.pass_order.clone(),
@@ -389,19 +346,6 @@ impl Clone for AnalysisContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_artifact_storage() {
-        let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
-
-        // Store a simple artifact
-        context.store_artifact("test", 42i32);
-
-        assert!(context.has_artifact("test"));
-        assert_eq!(context.get_artifact::<i32>("test"), Some(&42));
-        assert_eq!(context.get_artifact::<String>("test"), None); // Wrong type
-    }
 
     #[test]
     fn test_typed_artifact_storage() {

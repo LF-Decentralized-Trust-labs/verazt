@@ -1,7 +1,7 @@
 //! CFG and ICFG data structures for BIR.
 
 use crate::bir::ops::{Op, OpId, OpRef, SsaName};
-use crate::sir::Type;
+use crate::sir::{Attr, Loc, Type};
 use std::fmt::{self, Display};
 
 // ═══════════════════════════════════════════════════════════════════
@@ -19,6 +19,13 @@ pub struct FunctionId(pub String);
 /// A unique identifier for an ICFG node.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ICFGNodeId(pub usize);
+
+impl FunctionId {
+    /// The contract part of a `Contract.function` id, if it has one.
+    pub fn contract(&self) -> Option<&str> {
+        self.0.split_once('.').map(|(contract, _)| contract)
+    }
+}
 
 impl Display for BlockId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -311,13 +318,27 @@ impl Display for ICFG {
 #[derive(Debug, Clone)]
 pub struct Function {
     pub id: FunctionId,
+    /// Source attributes of the function (visibility, guards, ...).
+    pub attrs: Vec<Attr>,
     pub blocks: Vec<BasicBlock>,
     pub is_public: bool,
+    /// Source location of the function declaration.
+    pub span: Option<Loc>,
 }
 
 impl Function {
     pub fn new(id: FunctionId, is_public: bool) -> Self {
-        Function { id, blocks: Vec::new(), is_public }
+        Function { id, attrs: Vec::new(), blocks: Vec::new(), is_public, span: None }
+    }
+
+    pub fn with_attrs(mut self, attrs: Vec<Attr>) -> Self {
+        self.attrs = attrs;
+        self
+    }
+
+    pub fn with_span(mut self, span: Option<Loc>) -> Self {
+        self.span = span;
+        self
     }
 }
 

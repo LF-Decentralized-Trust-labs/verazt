@@ -1,12 +1,16 @@
-//! `verazt scan` — fast syntactic security checks
+//! `verazt scan` — quick security scan with plain-text or JSON output
+//!
+//! Runs the same detector pipeline as `verazt analyze`, without its report
+//! formatting and configuration file.
 
-use crate::detectors::sir::DetectionLevel;
-use crate::detectors::sir::engine::{ScanConfig, ScanEngine};
-use crate::detectors::sir::registry::{ScanRegistry, register_all_detectors};
+use crate::config::InputLanguage;
+use crate::context::{AnalysisConfig, AnalysisContext};
+use crate::detectors::{DetectorRegistry, register_all_detectors};
+use crate::pipeline::{PipelineConfig, PipelineEngine};
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(about = "Run fast syntactic security scan checks")]
+#[command(about = "Run a quick security scan")]
 pub struct Args {
     /// Input smart contract files
     pub input_files: Vec<String>,
@@ -39,7 +43,7 @@ pub struct Args {
     #[arg(long)]
     pub parallel: bool,
 
-    /// List available scan detectors
+    /// List available detectors
     #[arg(long)]
     pub list_detectors: bool,
 }
@@ -61,19 +65,6 @@ where
         std::process::exit(1);
     }
 
-    // Detect language from extension
-    let _language = args.language.as_deref().unwrap_or_else(|| {
-        if let Some(first) = args.input_files.first() {
-            if first.ends_with(".vy") {
-                "vyper"
-            } else {
-                "solidity"
-            }
-        } else {
-            "solidity"
-        }
-    });
-
     // Parse and lower to SIR
     let mut all_modules = Vec::new();
     for input_file in &args.input_files {
@@ -86,43 +77,43 @@ where
         }
     }
 
-    // Create registry and filter
-    let mut registry = ScanRegistry::new();
-    register_all_detectors(&mut registry);
+    let input_language = if is_vyper(&args, &args.input_files[0]) {
+        InputLanguage::Vyper
+    } else {
+        InputLanguage::Solidity
+    };
+    let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
+    let mut context = AnalysisContext::new(all_modules, analysis_config);
 
-    let mut detectors = registry.into_detectors();
-
-    // Filter by enable/disable
-    if let Some(ref enable_str) = args.enable {
-        let enabled: Vec<&str> = enable_str.split(',').map(|s| s.trim()).collect();
-        detectors.retain(|d| enabled.contains(&d.id()));
-    }
-    if let Some(ref disable_str) = args.disable {
-        let disabled: Vec<&str> = disable_str.split(',').map(|s| s.trim()).collect();
-        detectors.retain(|d| !disabled.contains(&d.id()));
-    }
-
-    let engine = ScanEngine::new(ScanConfig::default(), detectors);
-    let report = engine.run(&all_modules);
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: args.parallel,
+        enabled: split_ids(args.enable.as_deref()),
+        disabled: split_ids(args.disable.as_deref()),
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+    let detectors_run = result.detector_stats.len();
 
     // Output
     match args.format.as_str() {
         "json" => {
-            let json = serde_json::to_string_pretty(&report.bugs).unwrap_or_default();
+            let json = serde_json::to_string_pretty(&result.bugs).unwrap_or_default();
             println!("{}", json);
         }
         _ => {
-            if report.bugs.is_empty() {
-                println!("No issues found ({} detectors run in {:.2?}).",
-                    report.detectors_run, report.duration);
+            if result.bugs.is_empty() {
+                println!(
+                    "No issues found ({} detectors run in {:.2?}).",
+                    detectors_run, result.total_duration
+                );
             } else {
                 println!(
                     "Found {} issue(s) ({} detectors run in {:.2?}):\n",
-                    report.bugs.len(),
-                    report.detectors_run,
-                    report.duration
+                    result.bugs.len(),
+                    detectors_run,
+                    result.total_duration
                 );
-                for bug in &report.bugs {
+                for bug in &result.bugs {
                     println!("{}", bug.format_with_snippet());
                 }
             }
@@ -130,14 +121,21 @@ where
     }
 }
 
+/// Split a comma-separated detector list (`--enable` / `--disable`).
+fn split_ids(list: Option<&str>) -> Vec<String> {
+    list.map(|s| s.split(',').map(|id| id.trim().to_string()).collect())
+        .unwrap_or_default()
+}
+
+fn is_vyper(args: &Args, input_file: &str) -> bool {
+    args.language.as_deref() == Some("vyper") || input_file.ends_with(".vy")
+}
+
 fn parse_and_lower(
     input_file: &str,
     args: &Args,
 ) -> Result<Vec<scirs::sir::Module>, String> {
-    let is_vyper = args.language.as_deref() == Some("vyper")
-        || input_file.ends_with(".vy");
-
-    if is_vyper {
+    if is_vyper(args, input_file) {
         // Vyper path
         let vyper_ver = args.solc_version.as_deref();
         let module = frontend::vyper::compile_file(input_file, vyper_ver)
@@ -160,38 +158,21 @@ fn parse_and_lower(
 }
 
 fn print_detectors() {
-    let mut registry = ScanRegistry::new();
+    let mut registry = DetectorRegistry::new();
     register_all_detectors(&mut registry);
+    let mut detectors: Vec<_> = registry.all().collect();
+    detectors.sort_by_key(|d| d.meta().id.as_str());
 
-    println!("Scan Detectors — EVM ({}):", registry.len());
+    println!("Detectors ({}):", detectors.len());
     println!("=====================================\n");
-
-    // Group by level
-    let module_dets: Vec<_> = registry.all().iter()
-        .filter(|d| d.level() == DetectionLevel::Module)
-        .collect();
-    let contract_dets: Vec<_> = registry.all().iter()
-        .filter(|d| d.level() == DetectionLevel::Contract)
-        .collect();
-    let function_dets: Vec<_> = registry.all().iter()
-        .filter(|d| d.level() == DetectionLevel::Function)
-        .collect();
-
-    println!("MODULE ({}):", module_dets.len());
-    for d in &module_dets {
-        println!("  {:<25} {:<30} {:?}   {:?}",
-            d.id(), d.name(), d.bug_kind(), d.risk_level());
-    }
-
-    println!("\nCONTRACT ({}):", contract_dets.len());
-    for d in &contract_dets {
-        println!("  {:<25} {:<30} {:?}   {:?}",
-            d.id(), d.name(), d.bug_kind(), d.risk_level());
-    }
-
-    println!("\nFUNCTION ({}):", function_dets.len());
-    for d in &function_dets {
-        println!("  {:<25} {:<30} {:?}   {:?}",
-            d.id(), d.name(), d.bug_kind(), d.risk_level());
+    for d in detectors {
+        let meta = d.meta();
+        println!(
+            "  {:<25} {:<30} {:?}   {:?}",
+            meta.id.as_str(),
+            meta.name,
+            meta.bug_kind,
+            meta.risk_level
+        );
     }
 }

@@ -23,9 +23,9 @@ pub enum PassError {
     #[error("Context missing required data: {0}")]
     MissingData(String),
 
-    /// IR not available but required.
-    #[error("IR not available: pass \'{0}\' requires IR generation")]
-    IrNotAvailable(String),
+    /// SIR not available but required.
+    #[error("SIR not available: pass \'{0}\' requires SIR")]
+    SirNotAvailable(String),
 
     /// Circular dependency detected.
     #[error("Circular dependency detected: {0}")]

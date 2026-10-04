@@ -26,6 +26,13 @@ pub struct DetectedBug {
 }
 
 /// Represents a matched true positive.
+/// Which detectors to run, by detector ID (empty `enabled` = all).
+#[derive(Debug, Clone, Default)]
+pub struct DetectorFilter {
+    pub enabled: Vec<String>,
+    pub disabled: Vec<String>,
+}
+
 #[derive(Debug)]
 pub struct MatchedBug {
     pub annotation: AnnotatedBug,
@@ -173,7 +180,11 @@ pub fn match_file(
 /// Compile and analyze a single `.sol` file, returning detected bugs.
 ///
 /// Returns an empty vec and logs a warning if compilation fails.
-pub fn run_analyze_on_file(file_path: &Path, solc_version: &str) -> (bool, Vec<DetectedBug>) {
+pub fn run_analyze_on_file(
+    file_path: &Path,
+    solc_version: &str,
+    filter: &DetectorFilter,
+) -> (bool, Vec<DetectedBug>) {
     let file_str = match file_path.to_str() {
         Some(s) => s,
         None => {
@@ -210,8 +221,12 @@ pub fn run_analyze_on_file(file_path: &Path, solc_version: &str) -> (bool, Vec<D
     let mut context = AnalysisContext::new(sir_modules, config);
 
     // Step 4: Run pipeline
-    let engine =
-        PipelineEngine::new(PipelineConfig { parallel: false, ..PipelineConfig::default() });
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: filter.enabled.clone(),
+        disabled: filter.disabled.clone(),
+        ..PipelineConfig::default()
+    });
 
     let result = engine.run(&mut context);
 
@@ -237,9 +252,9 @@ pub fn run_analyze_on_file(file_path: &Path, solc_version: &str) -> (bool, Vec<D
 }
 
 /// Evaluate a single file: parse annotations, run analyzer, match results.
-pub fn evaluate_file(file_path: &Path, solc_version: &str) -> FileResult {
+pub fn evaluate_file(file_path: &Path, solc_version: &str, filter: &DetectorFilter) -> FileResult {
     let annotations = parse_annotations(file_path);
-    let (compiled, detections) = run_analyze_on_file(file_path, solc_version);
+    let (compiled, detections) = run_analyze_on_file(file_path, solc_version, filter);
     let match_result = match_file(file_path, &annotations, &detections);
 
     FileResult {
@@ -268,6 +283,7 @@ pub fn evaluate_dataset(
     sol_files: &[PathBuf],
     solc_version: &str,
     datasets_root: &Path,
+    filter: &DetectorFilter,
 ) -> DatasetResult {
     let mut file_results = Vec::new();
     let mut compiled_files = 0usize;
@@ -284,7 +300,7 @@ pub fn evaluate_dataset(
         } else {
             common::utils::print_header("Test Case");
         }
-        let result = evaluate_file(file_path, solc_version);
+        let result = evaluate_file(file_path, solc_version, filter);
 
         if result.compiled {
             compiled_files += 1;

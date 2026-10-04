@@ -29,6 +29,7 @@ impl ContextKey for DefUseArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Def-use analysis pass.
+#[derive(Debug, Default)]
 pub struct DefUsePass;
 
 impl Pass for DefUsePass {
@@ -45,7 +46,7 @@ impl Pass for DefUsePass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Air
+        PassRepresentation::Bir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -57,7 +58,7 @@ impl AnalysisPass for DefUsePass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut result: HashMap<OpId, HashSet<OpId>> = HashMap::new();
 
-        for module in ctx.air_units() {
+        for module in ctx.bir_units() {
             for func in &module.functions {
                 // Ensure every definition (block parameter or op) has an
                 // entry (possibly empty)
@@ -136,7 +137,7 @@ mod tests {
         air_module.functions.push(func);
 
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
-        ctx.set_air_units(vec![air_module]);
+        ctx.set_bir_units(vec![air_module]);
 
         let pass = DefUsePass;
         pass.run(&mut ctx).unwrap();

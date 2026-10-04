@@ -26,7 +26,7 @@ fn run_vyper_pipeline(vyper_file: &str) -> Option<analyzer::PipelineResult> {
         AnalysisConfig { input_language: InputLanguage::Vyper, ..AnalysisConfig::default() };
 
     let mut context = AnalysisContext::new(vec![], config);
-    context.set_ir_units(vec![module]);
+    context.set_sir_units(vec![module]);
 
     let engine = PipelineEngine::new(PipelineConfig::default());
     Some(engine.run(&mut context))

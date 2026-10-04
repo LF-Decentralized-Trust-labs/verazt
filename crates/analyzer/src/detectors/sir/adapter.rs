@@ -4,10 +4,9 @@
 //! `verazt analyze` pipeline without duplicating code.
 
 use crate::context::AnalysisContext;
-use crate::detectors::base::id::DetectorId;
-use crate::detectors::base::traits::{ConfidenceLevel, DetectorResult};
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector};
-use crate::detectors::BugDetectionPass;
+use crate::detectors::base::traits::DetectorResult;
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{BugDetectionPass, DetectorMeta};
 use crate::passes::base::Pass;
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use bugs::bug::Bug;
@@ -26,11 +25,11 @@ impl ScanDetectorAdapter {
 
 impl Pass for ScanDetectorAdapter {
     fn name(&self) -> &'static str {
-        self.detector.name()
+        self.detector.meta().name
     }
 
     fn description(&self) -> &'static str {
-        self.detector.description()
+        self.detector.meta().description
     }
 
     fn level(&self) -> PassLevel {
@@ -42,7 +41,7 @@ impl Pass for ScanDetectorAdapter {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
+        PassRepresentation::Sir
     }
 
     fn dependencies(&self) -> Vec<std::any::TypeId> {
@@ -51,15 +50,15 @@ impl Pass for ScanDetectorAdapter {
 }
 
 impl BugDetectionPass for ScanDetectorAdapter {
-    fn detector_id(&self) -> DetectorId {
-        DetectorId::from_str(self.detector.id())
+    fn meta(&self) -> &'static DetectorMeta {
+        self.detector.meta()
     }
 
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
-        if !context.has_ir() {
+        if !context.has_sir() {
             return Ok(vec![]);
         }
-        let modules = context.ir_units();
+        let modules = context.sir_units();
         let mut bugs = Vec::new();
 
         match self.detector.level() {
@@ -96,41 +95,5 @@ impl BugDetectionPass for ScanDetectorAdapter {
         }
 
         Ok(bugs)
-    }
-
-    fn bug_kind(&self) -> bugs::bug::BugKind {
-        self.detector.bug_kind()
-    }
-
-    fn bug_category(&self) -> bugs::bug::BugCategory {
-        self.detector.bug_category()
-    }
-
-    fn risk_level(&self) -> bugs::bug::RiskLevel {
-        self.detector.risk_level()
-    }
-
-    fn confidence(&self) -> ConfidenceLevel {
-        match self.detector.confidence() {
-            Confidence::Low => ConfidenceLevel::Low,
-            Confidence::Medium => ConfidenceLevel::Medium,
-            Confidence::High => ConfidenceLevel::High,
-        }
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        self.detector.cwe_ids()
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        self.detector.swc_ids()
-    }
-
-    fn recommendation(&self) -> &'static str {
-        self.detector.recommendation()
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        self.detector.references()
     }
 }

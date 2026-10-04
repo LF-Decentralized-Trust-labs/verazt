@@ -3,13 +3,35 @@
 //! Detects potential reentrancy vulnerabilities by finding storage writes
 //! after external calls.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::ContractDecl;
 use scirs::sir::dialect::{EvmCallExt, EvmFunctionExt};
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{CallExpr, FunctionDecl, Module, Stmt};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::Reentrancy,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[841],
+    description: "Detects potential reentrancy vulnerabilities using SIR tree walking. \
+         Finds state modifications after external calls.",
+    id: DetectorId::Reentrancy,
+    name: "Reentrancy",
+    recommendation: "Follow the Checks-Effects-Interactions pattern: perform all state changes \
+         before making external calls. Consider using a reentrancy guard \
+         (e.g., OpenZeppelin's ReentrancyGuard).",
+    references: &[
+        "https://swcregistry.io/docs/SWC-107",
+        "https://consensys.github.io/smart-contract-best-practices/attacks/reentrancy/",
+    ],
+    risk_level: RiskLevel::Critical,
+    swc_ids: &[107],
+    target: Target::Evm,
+};
 
 /// Scan detector for reentrancy vulnerabilities.
 #[derive(Debug, Default)]
@@ -35,20 +57,13 @@ impl ReentrancyDetector {
             }
 
             if *seen_ext_call && self.stmt_has_storage_write(stmt, storage_vars) {
-                bugs.push(Bug::new(
-                    self.name(),
+                bugs.push(META.bug(
                     Some(&format!(
                         "Potential reentrancy in '{}.{}': state modification \
                          after external call.",
                         contract_name, func_name,
                     )),
                     stmt.span().cloned().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                    self.bug_kind(),
-                    self.bug_category(),
-                    self.risk_level(),
-                    self.cwe_ids(),
-                    self.swc_ids(),
-                    Some(self.recommendation()),
                 ));
                 return;
             }
@@ -142,62 +157,12 @@ impl ReentrancyDetector {
 }
 
 impl ScanDetector for ReentrancyDetector {
-    fn id(&self) -> &'static str {
-        "reentrancy"
-    }
-
-    fn name(&self) -> &'static str {
-        "Reentrancy"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects potential reentrancy vulnerabilities using SIR tree walking. \
-         Finds state modifications after external calls."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::Reentrancy
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Critical
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![841]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![107]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Follow the Checks-Effects-Interactions pattern: perform all state changes \
-         before making external calls. Consider using a reentrancy guard \
-         (e.g., OpenZeppelin's ReentrancyGuard)."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-107",
-            "https://consensys.github.io/smart-contract-best-practices/attacks/reentrancy/",
-        ]
     }
 
     fn check_function(
@@ -240,7 +205,7 @@ mod tests {
     #[test]
     fn test_reentrancy_detector() {
         let detector = ReentrancyDetector::new();
-        assert_eq!(detector.id(), "reentrancy");
-        assert_eq!(detector.risk_level(), RiskLevel::Critical);
+        assert_eq!(detector.meta().id, DetectorId::Reentrancy);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Critical);
     }
 }

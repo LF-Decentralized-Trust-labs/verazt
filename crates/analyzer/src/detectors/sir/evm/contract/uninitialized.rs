@@ -2,11 +2,28 @@
 //!
 //! Detects uninitialized storage variables of mapping/array type.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::EvmStorageExt;
 use scirs::sir::{ContractDecl, MemberDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::Other,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[824],
+    description: "Detects uninitialized storage variables using SIR tree walking",
+    id: DetectorId::UninitializedStorage,
+    name: "Uninitialized Storage",
+    recommendation: "Initialize all storage variables explicitly. For local variables with storage \
+         location, assign a reference to a state variable before use.",
+    references: &["https://swcregistry.io/docs/SWC-109"],
+    risk_level: RiskLevel::High,
+    swc_ids: &[109],
+    target: Target::Evm,
+};
 
 /// Scan detector for uninitialized storage variables.
 #[derive(Debug, Default)]
@@ -19,57 +36,12 @@ impl UninitializedDetector {
 }
 
 impl ScanDetector for UninitializedDetector {
-    fn id(&self) -> &'static str {
-        "uninitialized-storage"
-    }
-
-    fn name(&self) -> &'static str {
-        "Uninitialized Storage"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects uninitialized storage variables using SIR tree walking"
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::Other
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Contract
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![824]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![109]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Initialize all storage variables explicitly. For local variables with storage \
-         location, assign a reference to a state variable before use."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec!["https://swcregistry.io/docs/SWC-109"]
     }
 
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
@@ -85,20 +57,13 @@ impl ScanDetector for UninitializedDetector {
                 let is_complex_type = ty_str.contains("mapping") || ty_str.contains("[]");
 
                 if is_complex_type && storage.init.is_none() {
-                    bugs.push(Bug::new(
-                        self.name(),
+                    bugs.push(META.bug(
                         Some(&format!(
                             "State variable '{}' in contract '{}' is not \
                              initialized. Consider initializing it explicitly.",
                             storage.name, contract.name,
                         )),
                         storage.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.bug_kind(),
-                        self.bug_category(),
-                        self.risk_level(),
-                        self.cwe_ids(),
-                        self.swc_ids(),
-                        Some(self.recommendation()),
                     ));
                 }
             }
@@ -115,7 +80,7 @@ mod tests {
     #[test]
     fn test_uninitialized_detector() {
         let detector = UninitializedDetector::new();
-        assert_eq!(detector.id(), "uninitialized-storage");
-        assert_eq!(detector.risk_level(), RiskLevel::High);
+        assert_eq!(detector.meta().id, DetectorId::UninitializedStorage);
+        assert_eq!(detector.meta().risk_level, RiskLevel::High);
     }
 }

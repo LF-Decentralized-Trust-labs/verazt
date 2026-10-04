@@ -123,15 +123,54 @@ fn inline_modifier_body(
     func_body: &[sir::Stmt],
     subst: &HashMap<String, sir::Expr>,
 ) -> Vec<sir::Stmt> {
+    let substituted: Vec<sir::Stmt> = modifier_body
+        .iter()
+        .map(|stmt| if is_placeholder(stmt) { stmt.clone() } else { subst_stmt(stmt, subst) })
+        .collect();
+    fill_placeholders(substituted, func_body)
+}
+
+/// Replace placeholders in `stmts`, at any nesting depth (e.g.
+/// `if (owner == msg.sender) _;`), with `func_body`.
+fn fill_placeholders(stmts: Vec<sir::Stmt>, func_body: &[sir::Stmt]) -> Vec<sir::Stmt> {
     let mut result = Vec::new();
-    for stmt in modifier_body {
-        if is_placeholder(stmt) {
+    for stmt in stmts {
+        if is_placeholder(&stmt) {
             result.extend(func_body.iter().cloned());
         } else {
-            result.push(subst_stmt(stmt, subst));
+            result.push(fill_nested_placeholders(stmt, func_body));
         }
     }
     result
+}
+
+fn fill_nested_placeholders(stmt: sir::Stmt, func_body: &[sir::Stmt]) -> sir::Stmt {
+    match stmt {
+        sir::Stmt::If(mut s) => {
+            s.then_body = fill_placeholders(s.then_body, func_body);
+            s.else_body = s.else_body.map(|body| fill_placeholders(body, func_body));
+            sir::Stmt::If(s)
+        }
+        sir::Stmt::While(mut s) => {
+            s.body = fill_placeholders(s.body, func_body);
+            sir::Stmt::While(s)
+        }
+        sir::Stmt::For(mut s) => {
+            s.body = fill_placeholders(s.body, func_body);
+            sir::Stmt::For(s)
+        }
+        sir::Stmt::Block(stmts) => sir::Stmt::Block(fill_placeholders(stmts, func_body)),
+        stmt @ (sir::Stmt::LocalVar(_)
+        | sir::Stmt::Assign(_)
+        | sir::Stmt::AugAssign(_)
+        | sir::Stmt::Expr(_)
+        | sir::Stmt::Return(_)
+        | sir::Stmt::Revert(_)
+        | sir::Stmt::Assert(_)
+        | sir::Stmt::Break
+        | sir::Stmt::Continue
+        | sir::Stmt::Dialect(_)) => stmt,
+    }
 }
 
 fn is_placeholder(stmt: &sir::Stmt) -> bool {

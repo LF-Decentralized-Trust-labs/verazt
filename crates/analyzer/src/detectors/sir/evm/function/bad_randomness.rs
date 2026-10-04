@@ -4,13 +4,34 @@
 //! block.number, block.difficulty, block.coinbase, block.gaslimit) as
 //! sources of randomness.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::exprs::{BinOp, Expr};
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{BinOpExpr, ContractDecl, DialectExpr, FunctionDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::BadRandomness,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[330],
+    description: "Detects use of on-chain attributes as sources of randomness.",
+    id: DetectorId::BadRandomness,
+    name: "Bad Randomness",
+    recommendation: "Do not use on-chain data (blockhash, block.timestamp, block.number, \
+         block.difficulty) as a source of randomness. Use Chainlink VRF or \
+         a commit-reveal scheme instead.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-120",
+        "https://docs.chain.link/vrf/v2/introduction",
+    ],
+    risk_level: RiskLevel::High,
+    swc_ids: &[120],
+    target: Target::Evm,
+};
 
 /// Scan detector for bad randomness.
 #[derive(Debug, Default)]
@@ -128,61 +149,12 @@ fn collect_randomness_sources(expr: &Expr, sources: &mut Vec<&'static str>) {
 }
 
 impl ScanDetector for BadRandomnessDetector {
-    fn id(&self) -> &'static str {
-        "bad-randomness"
-    }
-
-    fn name(&self) -> &'static str {
-        "Bad Randomness"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects use of on-chain attributes as sources of randomness."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::BadRandomness
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![330]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![120]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Do not use on-chain data (blockhash, block.timestamp, block.number, \
-         block.difficulty) as a source of randomness. Use Chainlink VRF or \
-         a commit-reveal scheme instead."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-120",
-            "https://docs.chain.link/vrf/v2/introduction",
-        ]
     }
 
     fn check_function(
@@ -194,7 +166,6 @@ impl ScanDetector for BadRandomnessDetector {
         let mut bugs = Vec::new();
 
         struct Visitor<'b> {
-            detector: &'b BadRandomnessDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
@@ -205,8 +176,7 @@ impl ScanDetector for BadRandomnessDetector {
                 if let DialectExpr::Evm(evm) = d {
                     if let Some(_source_name) = randomness_source_name(evm) {
                         if matches!(evm, EvmExpr::Blockhash(_)) {
-                            self.bugs.push(Bug::new(
-                                self.detector.name(),
+                            self.bugs.push(META.bug(
                                 Some(&format!(
                                     "Weak randomness source: 'blockhash' used in '{}.{}'. \
                                      blockhash is predictable and should not be used \
@@ -214,12 +184,6 @@ impl ScanDetector for BadRandomnessDetector {
                                     self.contract_name, self.func_name
                                 )),
                                 randomness_source_loc(evm),
-                                self.detector.bug_kind(),
-                                self.detector.bug_category(),
-                                self.detector.risk_level(),
-                                self.detector.cwe_ids(),
-                                self.detector.swc_ids(),
-                                Some(self.detector.recommendation()),
                             ));
                         }
                     }
@@ -236,8 +200,7 @@ impl ScanDetector for BadRandomnessDetector {
                             let mut sources = Vec::new();
                             collect_randomness_sources(arg, &mut sources);
                             let span = call.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0));
-                            self.bugs.push(Bug::new(
-                                self.detector.name(),
+                            self.bugs.push(META.bug(
                                 Some(&format!(
                                     "Weak randomness: {} used as input to hash \
                                      function in '{}.{}'. On-chain data is \
@@ -247,12 +210,6 @@ impl ScanDetector for BadRandomnessDetector {
                                     self.func_name
                                 )),
                                 span,
-                                self.detector.bug_kind(),
-                                self.detector.bug_category(),
-                                self.detector.risk_level(),
-                                self.detector.cwe_ids(),
-                                self.detector.swc_ids(),
-                                Some(self.detector.recommendation()),
                             ));
                         }
                     }
@@ -263,8 +220,7 @@ impl ScanDetector for BadRandomnessDetector {
                         if contains_randomness_source(&k.expr) {
                             let mut sources = Vec::new();
                             collect_randomness_sources(&k.expr, &mut sources);
-                            self.bugs.push(Bug::new(
-                                self.detector.name(),
+                            self.bugs.push(META.bug(
                                 Some(&format!(
                                     "Weak randomness: {} used as input to keccak256 \
                                      in '{}.{}'. On-chain data is predictable by miners.",
@@ -273,12 +229,6 @@ impl ScanDetector for BadRandomnessDetector {
                                     self.func_name
                                 )),
                                 k.loc.clone(),
-                                self.detector.bug_kind(),
-                                self.detector.bug_category(),
-                                self.detector.risk_level(),
-                                self.detector.cwe_ids(),
-                                self.detector.swc_ids(),
-                                Some(self.detector.recommendation()),
                             ));
                         }
                     }
@@ -286,8 +236,7 @@ impl ScanDetector for BadRandomnessDetector {
                         if contains_randomness_source(&s.expr) {
                             let mut sources = Vec::new();
                             collect_randomness_sources(&s.expr, &mut sources);
-                            self.bugs.push(Bug::new(
-                                self.detector.name(),
+                            self.bugs.push(META.bug(
                                 Some(&format!(
                                     "Weak randomness: {} used as input to sha256 \
                                      in '{}.{}'. On-chain data is predictable by miners.",
@@ -296,12 +245,6 @@ impl ScanDetector for BadRandomnessDetector {
                                     self.func_name
                                 )),
                                 s.loc.clone(),
-                                self.detector.bug_kind(),
-                                self.detector.bug_category(),
-                                self.detector.risk_level(),
-                                self.detector.cwe_ids(),
-                                self.detector.swc_ids(),
-                                Some(self.detector.recommendation()),
                             ));
                         }
                     }
@@ -315,8 +258,7 @@ impl ScanDetector for BadRandomnessDetector {
                 if expr.op == BinOp::Mod && contains_randomness_source(&expr.lhs) {
                     let mut sources = Vec::new();
                     collect_randomness_sources(&expr.lhs, &mut sources);
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Weak randomness: {} used with modulo operator in \
                              '{}.{}'. On-chain data is predictable by miners.",
@@ -325,12 +267,6 @@ impl ScanDetector for BadRandomnessDetector {
                             self.func_name
                         )),
                         expr.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_binop_expr(self, expr);
@@ -338,7 +274,6 @@ impl ScanDetector for BadRandomnessDetector {
         }
 
         let mut visitor = Visitor {
-            detector: self,
             bugs: &mut bugs,
             contract_name: contract.name.clone(),
             func_name: func.name.clone(),
@@ -356,7 +291,7 @@ mod tests {
     #[test]
     fn test_bad_randomness_detector() {
         let detector = BadRandomnessDetector::new();
-        assert_eq!(detector.id(), "bad-randomness");
-        assert_eq!(detector.risk_level(), RiskLevel::High);
+        assert_eq!(detector.meta().id, DetectorId::BadRandomness);
+        assert_eq!(detector.meta().risk_level,RiskLevel::High);
     }
 }

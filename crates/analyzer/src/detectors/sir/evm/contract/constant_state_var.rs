@@ -3,11 +3,30 @@
 //! Detects state variables that could be declared constant or immutable
 //! by checking if they are initialized but never modified.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::EvmStorageExt;
 use scirs::sir::{ContractDecl, MemberDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::CodeQuality,
+    bug_kind: BugKind::Optimization,
+    confidence: ConfidenceLevel::High,
+    cwe_ids: &[],
+    description: "Detects state variables that could be constant/immutable",
+    id: DetectorId::ConstantStateVar,
+    name: "Constant State Variable",
+    recommendation: "Use 'constant' for compile-time constants and 'immutable' for values \
+         set once in the constructor. This saves gas by not using storage.",
+    references: &[
+        "https://docs.soliditylang.org/en/latest/contracts.html#constant-and-immutable-state-variables",
+    ],
+    risk_level: RiskLevel::Low,
+    swc_ids: &[],
+    target: Target::Evm,
+};
 
 /// Scan detector for state variables that could be constant.
 #[derive(Debug, Default)]
@@ -20,55 +39,12 @@ impl ConstantStateVarDetector {
 }
 
 impl ScanDetector for ConstantStateVarDetector {
-    fn id(&self) -> &'static str {
-        "constant-state-var"
-    }
-
-    fn name(&self) -> &'static str {
-        "Constant State Variable"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects state variables that could be constant/immutable"
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Optimization
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::CodeQuality
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Low
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::High
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Contract
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Use 'constant' for compile-time constants and 'immutable' for values \
-         set once in the constructor. This saves gas by not using storage."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://docs.soliditylang.org/en/latest/contracts.html#constant-and-immutable-state-variables",
-        ]
     }
 
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
@@ -103,8 +79,7 @@ impl ScanDetector for ConstantStateVarDetector {
 
                 // If not in any function's write set → effectively constant
                 if !all_written.contains(&storage.name) {
-                    bugs.push(Bug::new(
-                        self.name(),
+                    bugs.push(META.bug(
                         Some(&format!(
                             "State variable '{}' in '{}' is never modified after \
                              initialization. Consider declaring it as 'constant' \
@@ -112,12 +87,6 @@ impl ScanDetector for ConstantStateVarDetector {
                             storage.name, contract.name,
                         )),
                         storage.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.bug_kind(),
-                        self.bug_category(),
-                        self.risk_level(),
-                        self.cwe_ids(),
-                        self.swc_ids(),
-                        Some(self.recommendation()),
                     ));
                 }
             }
@@ -134,7 +103,7 @@ mod tests {
     #[test]
     fn test_constant_state_var_detector() {
         let detector = ConstantStateVarDetector::new();
-        assert_eq!(detector.id(), "constant-state-var");
-        assert_eq!(detector.risk_level(), RiskLevel::Low);
+        assert_eq!(detector.meta().id, DetectorId::ConstantStateVar);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Low);
     }
 }

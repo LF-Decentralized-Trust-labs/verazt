@@ -3,12 +3,30 @@
 //! Detects unlocked compiler versions by inspecting the `#sir.pragma_solidity`
 //! attribute on SIR modules.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::AttrValue;
 use scirs::sir::Module;
 use scirs::sir::attrs::sir_attrs;
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::CodeQuality,
+    bug_kind: BugKind::Refactoring,
+    confidence: ConfidenceLevel::High,
+    cwe_ids: &[],
+    description: "Detects unlocked compiler versions from SIR module attrs.",
+    id: DetectorId::FloatingPragma,
+    name: "Floating Pragma",
+    recommendation: "Lock the pragma to a specific compiler version (e.g., \
+         `pragma solidity 0.8.20;` instead of `^0.8.20`). This ensures \
+         the contract is tested and deployed with the same compiler version.",
+    references: &["https://swcregistry.io/docs/SWC-103"],
+    risk_level: RiskLevel::Low,
+    swc_ids: &[103],
+    target: Target::Evm,
+};
 
 /// Scan detector for floating pragma.
 #[derive(Debug, Default)]
@@ -26,58 +44,12 @@ impl FloatingPragmaDetector {
 }
 
 impl ScanDetector for FloatingPragmaDetector {
-    fn id(&self) -> &'static str {
-        "floating-pragma"
-    }
-
-    fn name(&self) -> &'static str {
-        "Floating Pragma"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects unlocked compiler versions from SIR module attrs."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Refactoring
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::CodeQuality
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Low
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::High
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Module
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![103]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Lock the pragma to a specific compiler version (e.g., \
-         `pragma solidity 0.8.20;` instead of `^0.8.20`). This ensures \
-         the contract is tested and deployed with the same compiler version."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec!["https://swcregistry.io/docs/SWC-103"]
     }
 
     fn check_module(&self, module: &Module) -> Vec<Bug> {
@@ -88,16 +60,9 @@ impl ScanDetector for FloatingPragmaDetector {
                 if let AttrValue::String(version) = &attr.value {
                     if Self::is_floating(version) {
                         let loc = attr.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0));
-                        bugs.push(Bug::new(
-                            self.name(),
+                        bugs.push(META.bug(
                             Some(&format!("Floating pragma version '{}'.", version)),
                             loc,
-                            self.bug_kind(),
-                            self.bug_category(),
-                            self.risk_level(),
-                            self.cwe_ids(),
-                            self.swc_ids(),
-                            Some(self.recommendation()),
                         ));
                     }
                 }
@@ -115,9 +80,9 @@ mod tests {
     #[test]
     fn test_floating_pragma_detector() {
         let detector = FloatingPragmaDetector::new();
-        assert_eq!(detector.id(), "floating-pragma");
-        assert_eq!(detector.swc_ids(), vec![103]);
-        assert_eq!(detector.risk_level(), RiskLevel::Low);
+        assert_eq!(detector.meta().id, DetectorId::FloatingPragma);
+        assert_eq!(detector.meta().swc_ids, &[103]);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Low);
     }
 
     #[test]

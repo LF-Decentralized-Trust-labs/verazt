@@ -818,9 +818,16 @@ fn lower_expr_named(
             let operand = lower_expr(builder, block, &unop.operand);
             OpKind::UnOp { op: unop.op, operand }
         }
-        // Unresolved callee (builtin, library, or type constructor).
+        // Unresolved callee (builtin, library, or type constructor). A
+        // callee that is itself an expression is evaluated too, so effects
+        // inside it (e.g. a nested call) are not lost.
         CanonExpr::FunctionCall(call) => {
-            let operands = lower_exprs(builder, block, &call.args);
+            let callee = match &*call.callee {
+                CanonExpr::Var(_) => None,
+                callee => Some(lower_expr(builder, block, callee)),
+            };
+            let args = lower_exprs(builder, block, &call.args);
+            let operands = callee.into_iter().chain(args).collect();
             OpKind::Opaque { description: call.callee.to_string(), operands }
         }
         CanonExpr::TypeCast(cast) => {

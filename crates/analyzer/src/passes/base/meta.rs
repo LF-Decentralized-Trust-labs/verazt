@@ -108,52 +108,23 @@ impl From<u8> for PassLevel {
 // PassRepresentation
 // =========================================================================
 
-/// The representation a pass operates on.
-///
-/// Passes can work on AST (high-level source structure), IR (low-level
-/// normalized form), or both (hybrid passes).
+/// The IR a pass operates on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PassRepresentation {
-    /// Operates on AST only
-    Ast,
+    /// SSA-form basic-block IR (lowered from SIR through CIR).
+    Bir,
 
-    /// Operates on IR only (requires IR generation)
-    Ir,
-
-    /// Operates on BIR (requires BIR generation)
-    Air,
-
-    /// Operates on both AST and IR
-    Hybrid,
+    /// Structured source-level IR (tree form).
+    Sir,
 }
 
 impl PassRepresentation {
     /// Get the string representation.
     pub fn as_str(&self) -> &'static str {
         match self {
-            PassRepresentation::Ast => "AST",
-            PassRepresentation::Ir => "IR",
-            PassRepresentation::Air => "BIR",
-            PassRepresentation::Hybrid => "Hybrid",
+            PassRepresentation::Bir => "BIR",
+            PassRepresentation::Sir => "SIR",
         }
-    }
-
-    /// Check if this representation requires IR.
-    pub fn requires_ir(&self) -> bool {
-        matches!(
-            self,
-            PassRepresentation::Ir | PassRepresentation::Air | PassRepresentation::Hybrid
-        )
-    }
-
-    /// Check if this representation requires BIR.
-    pub fn requires_air(&self) -> bool {
-        matches!(self, PassRepresentation::Air)
-    }
-
-    /// Check if this representation uses AST.
-    pub fn uses_ast(&self) -> bool {
-        matches!(self, PassRepresentation::Ast | PassRepresentation::Hybrid)
     }
 }
 
@@ -179,30 +150,5 @@ mod tests {
     fn test_level_display() {
         assert_eq!(PassLevel::Function.to_string(), "function");
         assert_eq!(PassLevel::Variable.to_string(), "variable");
-    }
-
-    // PassRepresentation tests
-    #[test]
-    fn test_requires_ir() {
-        assert!(!PassRepresentation::Ast.requires_ir());
-        assert!(PassRepresentation::Ir.requires_ir());
-        assert!(PassRepresentation::Air.requires_ir());
-        assert!(PassRepresentation::Hybrid.requires_ir());
-    }
-
-    #[test]
-    fn test_requires_air() {
-        assert!(!PassRepresentation::Ast.requires_air());
-        assert!(!PassRepresentation::Ir.requires_air());
-        assert!(PassRepresentation::Air.requires_air());
-        assert!(!PassRepresentation::Hybrid.requires_air());
-    }
-
-    #[test]
-    fn test_uses_ast() {
-        assert!(PassRepresentation::Ast.uses_ast());
-        assert!(!PassRepresentation::Ir.uses_ast());
-        assert!(!PassRepresentation::Air.uses_ast());
-        assert!(PassRepresentation::Hybrid.uses_ast());
     }
 }

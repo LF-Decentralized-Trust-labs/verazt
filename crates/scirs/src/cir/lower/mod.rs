@@ -57,7 +57,9 @@ pub fn lower_module(cir: &CanonModule) -> Result<Module, LowerError> {
                     // Step 2: SSA numbering
                     ssa::rename_to_ssa(&mut blocks);
 
-                    let mut bir_func = Function::new(func_id, is_public(func_decl));
+                    let mut bir_func = Function::new(func_id, is_public(func_decl))
+                        .with_attrs(func_decl.attrs.clone())
+                        .with_span(func_decl.span.clone());
                     bir_func.blocks = blocks;
                     bir_module.functions.push(bir_func);
                 }

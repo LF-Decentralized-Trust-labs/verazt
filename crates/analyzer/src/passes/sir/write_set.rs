@@ -33,6 +33,7 @@ impl ContextKey for WriteSetArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Write-set analysis pass.
+#[derive(Debug, Default)]
 pub struct WriteSetPass;
 
 impl Pass for WriteSetPass {
@@ -49,7 +50,7 @@ impl Pass for WriteSetPass {
     }
 
     fn representation(&self) -> PassRepresentation {
-        PassRepresentation::Ir
+        PassRepresentation::Sir
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
@@ -61,7 +62,7 @@ impl AnalysisPass for WriteSetPass {
     fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
         let mut result: HashMap<(String, String), HashSet<String>> = HashMap::new();
 
-        if let Some(modules) = &ctx.ir_units {
+        if let Some(modules) = &ctx.sir_units {
             for module in modules {
                 for decl in &module.decls {
                     if let Decl::Contract(contract) = decl {

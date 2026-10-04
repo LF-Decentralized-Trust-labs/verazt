@@ -1,4 +1,4 @@
-//! Analyzer - AST-based Smart Contract Security Analyzer CLI
+//! Analyzer - Smart Contract Security Analyzer CLI
 //!
 //! This is the main entry point for the Analyzer tool.
 
@@ -19,7 +19,7 @@ use std::fs;
     author,
     version = crate_version!(),
     term_width = 80,
-    about = "Analyzer - AST-based Smart Contract Security Analyzer",
+    about = "Analyzer - Smart Contract Security Analyzer",
     long_about = None
 )]
 pub struct Arguments {
@@ -176,12 +176,13 @@ fn list_detectors() {
     println!("{}", "-".repeat(85));
 
     for detector in sorted_detectors {
+        let meta = detector.meta();
         println!(
             "{:<25} {:<35} {:<10} {:<10}",
-            detector.detector_id().as_str(),
-            detector.name(),
-            detector.risk_level().as_str(),
-            format!("{:?}", detector.confidence()).to_lowercase(),
+            meta.id.as_str(),
+            meta.name,
+            meta.risk_level.as_str(),
+            format!("{:?}", meta.confidence).to_lowercase(),
         );
     }
 
@@ -194,19 +195,20 @@ fn show_detector(id: &str) {
 
     match registry.get(id) {
         Some(detector) => {
-            println!("Detector: {}", detector.name());
-            println!("ID: {}", detector.detector_id().as_str());
-            println!("Severity: {}", detector.risk_level());
-            println!("Confidence: {:?}", detector.confidence());
+            let meta = detector.meta();
+            println!("Detector: {}", meta.name);
+            println!("ID: {}", meta.id.as_str());
+            println!("Severity: {}", meta.risk_level);
+            println!("Confidence: {:?}", meta.confidence);
             println!();
             println!("Description:");
-            println!("  {}", detector.description());
+            println!("  {}", meta.description);
             println!();
             println!("Recommendation:");
-            println!("  {}", detector.recommendation());
+            println!("  {}", meta.recommendation);
             println!();
 
-            let swc_ids = detector.swc_ids();
+            let swc_ids = meta.swc_ids;
             if !swc_ids.is_empty() {
                 println!(
                     "SWC IDs: {}",
@@ -218,7 +220,7 @@ fn show_detector(id: &str) {
                 );
             }
 
-            let cwe_ids = detector.cwe_ids();
+            let cwe_ids = meta.cwe_ids;
             if !cwe_ids.is_empty() {
                 println!(
                     "CWE IDs: {}",
@@ -230,7 +232,7 @@ fn show_detector(id: &str) {
                 );
             }
 
-            let refs = detector.references();
+            let refs = meta.references;
             if !refs.is_empty() {
                 println!();
                 println!("References:");
@@ -357,7 +359,7 @@ fn run_analysis(args: Arguments) {
     // Detect input language
     let input_language = detect_language(&args.input_files, args.language.as_deref());
 
-    let mut ir_units: Vec<scirs::sir::Module> = Vec::new();
+    let mut sir_units: Vec<scirs::sir::Module> = Vec::new();
     let mut files_analyzed: Vec<String> = Vec::new();
 
     for file in &args.input_files {
@@ -408,7 +410,7 @@ fn run_analysis(args: Arguments) {
                 // Lower AST to SIR
                 match frontend::solidity::lowering::lower_source_units(&source_units) {
                     Ok(modules) => {
-                        ir_units.extend(modules);
+                        sir_units.extend(modules);
                     }
                     Err(err) => {
                         eprintln!("Error lowering {}: {}", file, err);
@@ -418,13 +420,13 @@ fn run_analysis(args: Arguments) {
             }
             InputLanguage::Vyper => match frontend::vyper::compile_file(file, vyper_ver) {
                 Ok(module) => {
-                    ir_units.push(module);
+                    sir_units.push(module);
                 }
                 Err(err) => {
                     // Try auto-install recovery
                     match try_install_and_compile_vyper(file, vyper_ver, args.install_compiler) {
                         Some(module) => {
-                            ir_units.push(module);
+                            sir_units.push(module);
                         }
                         None => {
                             eprintln!("Error compiling {}: {}", file, err);
@@ -452,7 +454,7 @@ fn run_analysis(args: Arguments) {
 
     // Create analysis context
     let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
-    let mut context = AnalysisContext::new(ir_units, analysis_config);
+    let mut context = AnalysisContext::new(sir_units, analysis_config);
 
     // Create and run the pipeline
     let engine = PipelineEngine::new(PipelineConfig {

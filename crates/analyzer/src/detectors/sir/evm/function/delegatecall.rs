@@ -2,12 +2,31 @@
 //!
 //! Detects dangerous usage of delegatecall.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, DialectExpr, FieldAccessExpr, FunctionDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::AccessControl,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[],
+    description: "Detects potentially dangerous delegatecall usage on SIR.",
+    id: DetectorId::Delegatecall,
+    name: "Dangerous Delegatecall",
+    recommendation: "Never delegatecall to user-supplied or untrusted addresses. If using \
+         upgradeable proxies, use battle-tested patterns (OpenZeppelin \
+         TransparentProxy or UUPS). Ensure storage layouts are identical \
+         between proxy and implementation contracts.",
+    references: &["https://swcregistry.io/docs/SWC-112"],
+    risk_level: RiskLevel::High,
+    swc_ids: &[112],
+    target: Target::Evm,
+};
 
 /// Scan detector for delegatecall usage.
 #[derive(Debug, Default)]
@@ -20,59 +39,12 @@ impl DelegatecallDetector {
 }
 
 impl ScanDetector for DelegatecallDetector {
-    fn id(&self) -> &'static str {
-        "delegatecall"
-    }
-
-    fn name(&self) -> &'static str {
-        "Dangerous Delegatecall"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects potentially dangerous delegatecall usage on SIR."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::AccessControl
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![112]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Never delegatecall to user-supplied or untrusted addresses. If using \
-         upgradeable proxies, use battle-tested patterns (OpenZeppelin \
-         TransparentProxy or UUPS). Ensure storage layouts are identical \
-         between proxy and implementation contracts."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec!["https://swcregistry.io/docs/SWC-112"]
     }
 
     fn check_function(
@@ -84,7 +56,6 @@ impl ScanDetector for DelegatecallDetector {
         let mut bugs = Vec::new();
 
         struct Visitor<'b> {
-            detector: &'b DelegatecallDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
@@ -93,8 +64,7 @@ impl ScanDetector for DelegatecallDetector {
         impl<'a, 'b> Visit<'a> for Visitor<'b> {
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
                 if let DialectExpr::Evm(EvmExpr::Delegatecall(e)) = d {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Usage of delegatecall in '{}.{}'. \
                              Delegatecall to an untrusted address can lead \
@@ -102,20 +72,13 @@ impl ScanDetector for DelegatecallDetector {
                             self.contract_name, self.func_name
                         )),
                         e.loc.clone(),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
             }
 
             fn visit_field_access_expr(&mut self, fa: &'a FieldAccessExpr) {
                 if fa.field == "delegatecall" {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Usage of delegatecall in '{}.{}'. \
                              Delegatecall to an untrusted address can lead \
@@ -123,12 +86,6 @@ impl ScanDetector for DelegatecallDetector {
                             self.contract_name, self.func_name
                         )),
                         fa.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_field_access_expr(self, fa);
@@ -136,7 +93,6 @@ impl ScanDetector for DelegatecallDetector {
         }
 
         let mut visitor = Visitor {
-            detector: self,
             bugs: &mut bugs,
             contract_name: contract.name.clone(),
             func_name: func.name.clone(),
@@ -154,7 +110,7 @@ mod tests {
     #[test]
     fn test_delegatecall_detector() {
         let detector = DelegatecallDetector::new();
-        assert_eq!(detector.id(), "delegatecall");
-        assert_eq!(detector.risk_level(), RiskLevel::High);
+        assert_eq!(detector.meta().id, DetectorId::Delegatecall);
+        assert_eq!(detector.meta().risk_level,RiskLevel::High);
     }
 }

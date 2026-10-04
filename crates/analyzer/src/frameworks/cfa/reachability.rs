@@ -20,7 +20,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 /// The set of blocks reachable from a given starting block.
 #[derive(Debug, Clone)]
 pub struct ReachabilitySet {
-    /// Blocks reachable from the start (inclusive).
+    /// Blocks reachable from the start (inclusive, unless built strictly).
     reachable: HashSet<BlockId>,
     /// The start block.
     start: BlockId,
@@ -30,15 +30,31 @@ impl ReachabilitySet {
     /// Compute all blocks reachable from `start` in `func`'s CFG using BFS.
     pub fn forward(func: &Function, start: BlockId) -> Self {
         let succ_map = build_successor_map(func);
-        let reachable = bfs(&succ_map, start);
+        let reachable = bfs(&succ_map, [start]);
         ReachabilitySet { reachable, start }
     }
 
     /// Compute all blocks that can *reach* `target` by backwards traversal.
     pub fn backward(func: &Function, target: BlockId) -> Self {
         let pred_map = build_predecessor_map(func);
-        let reachable = bfs(&pred_map, target);
+        let reachable = bfs(&pred_map, [target]);
         ReachabilitySet { reachable, start: target }
+    }
+
+    /// Blocks reachable from `start` along one or more CFG edges. `start`
+    /// itself is included only when it lies on a cycle.
+    pub fn forward_strict(func: &Function, start: BlockId) -> Self {
+        let succ_map = build_successor_map(func);
+        let seeds = succ_map.get(&start).cloned().unwrap_or_default();
+        ReachabilitySet { reachable: bfs(&succ_map, seeds), start }
+    }
+
+    /// Blocks that reach `target` along one or more CFG edges. `target`
+    /// itself is included only when it lies on a cycle.
+    pub fn backward_strict(func: &Function, target: BlockId) -> Self {
+        let pred_map = build_predecessor_map(func);
+        let seeds = pred_map.get(&target).cloned().unwrap_or_default();
+        ReachabilitySet { reachable: bfs(&pred_map, seeds), start: target }
     }
 
     /// Check if `block` is reachable from the start.
@@ -56,7 +72,7 @@ impl ReachabilitySet {
         self.reachable.len()
     }
 
-    /// Check if the set is empty (never happens — start is always reachable).
+    /// Check if the set is empty (only possible for a strict set).
     pub fn is_empty(&self) -> bool {
         self.reachable.is_empty()
     }
@@ -153,11 +169,18 @@ fn build_predecessor_map(func: &Function) -> HashMap<BlockId, Vec<BlockId>> {
     preds
 }
 
-fn bfs(adj: &HashMap<BlockId, Vec<BlockId>>, start: BlockId) -> HashSet<BlockId> {
+/// Blocks reachable from `seeds` (inclusive) along `adj` edges.
+fn bfs(
+    adj: &HashMap<BlockId, Vec<BlockId>>,
+    seeds: impl IntoIterator<Item = BlockId>,
+) -> HashSet<BlockId> {
     let mut visited = HashSet::new();
     let mut queue = VecDeque::new();
-    visited.insert(start);
-    queue.push_back(start);
+    for seed in seeds {
+        if visited.insert(seed) {
+            queue.push_back(seed);
+        }
+    }
 
     while let Some(block) = queue.pop_front() {
         if let Some(neighbors) = adj.get(&block) {
@@ -245,6 +268,45 @@ mod tests {
 
         assert!(can_reach_backward(&func, BlockId(3), BlockId(0)));
         assert!(!can_reach_backward(&func, BlockId(0), BlockId(3)));
+    }
+
+    /// Loop CFG: bb0 → bb1 → {bb1, bb2} (bb1 branches back to itself).
+    fn loop_function() -> Function {
+        let mut func = Function::new(FunctionId("loop".into()), true);
+
+        let mut bb0 = BasicBlock::new(BlockId(0));
+        bb0.term = Terminator::jump(BlockId(1));
+        let mut bb1 = BasicBlock::new(BlockId(1));
+        bb1.term = Terminator::branch(OpRef(OpId(0)), BlockId(1), BlockId(2));
+        let mut bb2 = BasicBlock::new(BlockId(2));
+        bb2.term = Terminator::TxnExit { reverted: false };
+
+        func.blocks = vec![bb0, bb1, bb2];
+        func
+    }
+
+    #[test]
+    fn test_strict_reachability_excludes_start_off_cycle() {
+        let func = diamond_function();
+        let after = ReachabilitySet::forward_strict(&func, BlockId(1));
+        assert!(!after.contains(BlockId(1)));
+        assert!(after.contains(BlockId(3)));
+
+        let before = ReachabilitySet::backward_strict(&func, BlockId(1));
+        assert!(!before.contains(BlockId(1)));
+        assert!(before.contains(BlockId(0)));
+    }
+
+    #[test]
+    fn test_strict_reachability_includes_start_on_cycle() {
+        let func = loop_function();
+        let after = ReachabilitySet::forward_strict(&func, BlockId(1));
+        assert!(after.contains(BlockId(1)));
+        assert!(!after.contains(BlockId(0)));
+
+        let before = ReachabilitySet::backward_strict(&func, BlockId(1));
+        assert!(before.contains(BlockId(1)));
+        assert!(!before.contains(BlockId(2)));
     }
 
     #[test]

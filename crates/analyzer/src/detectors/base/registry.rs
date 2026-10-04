@@ -28,12 +28,11 @@ impl DetectorRegistry {
 
     /// Register a detector.
     pub fn register(&mut self, detector: Box<dyn BugDetectionPass>) {
-        let name = detector.name().to_string();
-        let detector_id_str = detector.detector_id().as_str().to_string();
+        let meta = detector.meta();
         let idx = self.detectors.len();
         self.detectors.push(detector);
-        self.by_id.insert(name.clone(), idx);
-        self.by_id.insert(detector_id_str, idx);
+        self.by_id.insert(meta.name.to_string(), idx);
+        self.by_id.insert(meta.id.as_str().to_string(), idx);
     }
 
     /// Get a detector by name or ID.
@@ -106,6 +105,10 @@ pub fn register_all_detectors(registry: &mut DetectorRegistry) {
     for detector in scan_registry.into_detectors() {
         registry.register(Box::new(ScanDetectorAdapter::new(detector)));
     }
+
+    // BIR dataflow detectors
+    registry.register(Box::new(crate::detectors::bir::CrossFunctionReentrancyDetector));
+    registry.register(Box::new(crate::detectors::bir::ReentrancyFlowDetector));
 }
 
 #[cfg(test)]

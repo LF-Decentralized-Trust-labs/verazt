@@ -2,12 +2,34 @@
 //!
 //! Detects public functions that modify state without access control guards.
 
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::ContractDecl;
 use scirs::sir::dialect::EvmFunctionExt;
 use scirs::sir::{MemberDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::AccessControl,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[284],
+    description: "Detects public functions that modify state without access control",
+    id: DetectorId::MissingAccessControl,
+    name: "Missing Access Control",
+    recommendation: "Add access control modifiers (e.g., `onlyOwner` or OpenZeppelin's \
+         `AccessControl` with role-based checks) to functions that modify \
+         sensitive state. Use `Ownable2Step` for ownership to prevent \
+         accidental transfers.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-105",
+        "https://swcregistry.io/docs/SWC-106",
+    ],
+    risk_level: RiskLevel::High,
+    swc_ids: &[105, 106],
+    target: Target::Evm,
+};
 
 /// Scan detector for missing access control on public state-modifying functions.
 #[derive(Debug, Default)]
@@ -20,62 +42,12 @@ impl MissingAccessControlDetector {
 }
 
 impl ScanDetector for MissingAccessControlDetector {
-    fn id(&self) -> &'static str {
-        "missing-access-control"
-    }
-
-    fn name(&self) -> &'static str {
-        "Missing Access Control"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects public functions that modify state without access control"
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::AccessControl
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Contract
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![284]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![105, 106]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Add access control modifiers (e.g., `onlyOwner` or OpenZeppelin's \
-         `AccessControl` with role-based checks) to functions that modify \
-         sensitive state. Use `Ownable2Step` for ownership to prevent \
-         accidental transfers."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-105",
-            "https://swcregistry.io/docs/SWC-106",
-        ]
     }
 
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
@@ -116,20 +88,13 @@ impl ScanDetector for MissingAccessControlDetector {
                 });
 
                 if has_writes_structural {
-                    bugs.push(Bug::new(
-                        self.name(),
+                    bugs.push(META.bug(
                         Some(&format!(
                             "Function '{}' in '{}' performs state \
                              modifications without access control.",
                             func.name, contract.name,
                         )),
                         func.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.bug_kind(),
-                        self.bug_category(),
-                        self.risk_level(),
-                        self.cwe_ids(),
-                        self.swc_ids(),
-                        Some(self.recommendation()),
                     ));
                 }
             }
@@ -146,7 +111,7 @@ mod tests {
     #[test]
     fn test_missing_access_control_detector() {
         let detector = MissingAccessControlDetector::new();
-        assert_eq!(detector.id(), "missing-access-control");
-        assert_eq!(detector.risk_level(), RiskLevel::High);
+        assert_eq!(detector.meta().id, DetectorId::MissingAccessControl);
+        assert_eq!(detector.meta().risk_level, RiskLevel::High);
     }
 }

@@ -157,7 +157,7 @@ impl PassExecutor {
         }
 
         // Execute BIR passes (BIR is always available after eager lowering)
-        for &pass_id in &level.air_passes {
+        for &pass_id in &level.bir_passes {
             if let Some(result) = self.execute_pass(pass_id, context)? {
                 results.push(result);
             }
