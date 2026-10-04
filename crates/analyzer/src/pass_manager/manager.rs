@@ -5,13 +5,12 @@
 //! touch dependency resolution or execution timing.
 
 use crate::context::AnalysisContext;
-use crate::pass_manager::executor::{ExecutorConfig, PassExecutor};
+use crate::pass_manager::executor::{ExecutorConfig, PassExecutor, PassRunReport};
 use crate::pass_manager::scheduler::compute_schedule;
-use crate::passes::base::{ErasedAnalysisPass, PassExecutionInfo, PassResult};
+use crate::passes::base::{ErasedAnalysisPass, PassResult};
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 
 /// Configuration for the pass manager.
 #[derive(Debug, Clone)]
@@ -22,7 +21,8 @@ pub struct PassManagerConfig {
     /// Number of worker threads for parallel execution (0 = one per CPU).
     pub max_workers: usize,
 
-    /// Stop on first error.
+    /// Stop at the first failing pass, instead of skipping only the passes
+    /// depending on it.
     pub fail_fast: bool,
 
     /// Enable verbose logging.
@@ -37,34 +37,11 @@ impl Default for PassManagerConfig {
         Self {
             enable_parallel: true,
             max_workers: 0, // auto-detect
-            fail_fast: true,
+            fail_fast: false,
             verbose: false,
             timing: true,
         }
     }
-}
-
-/// The outcome of one `PassManager::run`, distinct from the bug report
-/// `output::AnalysisReport`.
-#[derive(Debug)]
-pub struct PassRunReport {
-    /// Pass execution information.
-    pub pass_info: Vec<PassExecutionInfo>,
-
-    /// Total analysis duration.
-    pub total_duration: std::time::Duration,
-
-    /// Number of passes executed.
-    pub passes_executed: usize,
-
-    /// Number of passes skipped (already completed).
-    pub passes_skipped: usize,
-
-    /// Whether analysis succeeded.
-    pub success: bool,
-
-    /// Error messages.
-    pub errors: Vec<String>,
 }
 
 /// The main pass manager.
@@ -107,9 +84,10 @@ impl PassManager {
     }
 
     /// Run all registered passes on the context.
+    ///
+    /// A failing pass makes the run skip the passes depending on it, unless
+    /// `fail_fast` is set: then the run stops with its error.
     pub fn run(&mut self, context: &mut AnalysisContext) -> PassResult<PassRunReport> {
-        let start = Instant::now();
-
         // Compute execution schedule
         let schedule = compute_schedule(self.passes.values().map(Arc::as_ref))?;
 
@@ -128,19 +106,7 @@ impl PassManager {
             fail_fast: self.config.fail_fast,
             timing: self.config.timing,
         };
-        let result = PassExecutor::new(executor_config, &self.passes).execute(&schedule, context)?;
-
-        let success = result.is_success();
-        let report = PassRunReport {
-            pass_info: result.pass_results,
-            total_duration: start.elapsed(),
-            passes_executed: result.successful,
-            passes_skipped: result.already_completed,
-            success,
-            errors: result.errors.iter().map(|e| e.to_string()).collect(),
-        };
-
-        Ok(report)
+        PassExecutor::new(executor_config, &self.passes).execute(&schedule, context)
     }
 
     /// Get a registered pass.
@@ -255,9 +221,62 @@ mod tests {
 
             let report = manager.run(&mut context).unwrap();
 
-            assert!(report.success, "{:?}", report.errors);
-            assert_eq!(report.passes_executed, 2);
+            assert!(report.is_success(), "{report:?}");
+            assert_eq!(report.passes_executed(), 2);
             assert!(context.has::<Ran<MockPassB>>());
         }
+    }
+
+    mock_pass!(MockFailing, [], |_| Err(PassError::ExecutionFailed(
+        "MockFailing".to_string(),
+        "boom".to_string()
+    )));
+    mock_pass!(MockDependent, [MockFailing], |_| Ok(()));
+    mock_pass!(MockTransitive, [MockDependent, MockPassA], |_| Ok(()));
+
+    #[test]
+    fn test_failing_pass_skips_only_its_dependents() {
+        let mut manager = PassManager::default();
+        manager.register_passes(vec![
+            Box::new(MockFailing),
+            Box::new(MockDependent),
+            Box::new(MockTransitive),
+            Box::new(MockPassA),
+            Box::new(MockPassB),
+        ]);
+        let mut context = empty_context();
+
+        let report = manager.run(&mut context).unwrap();
+
+        let failed: Vec<&str> = report.failed().map(|info| info.name.as_str()).collect();
+        assert_eq!(failed, ["MockFailing"]);
+        assert_eq!(report.skipped, ["MockDependent", "MockTransitive"]);
+        assert!(context.has::<Ran<MockPassA>>());
+        assert!(context.has::<Ran<MockPassB>>());
+        assert!(!context.has::<Ran<MockDependent>>());
+    }
+
+    #[test]
+    fn test_fail_fast_stops_with_the_failing_pass() {
+        let config = PassManagerConfig { fail_fast: true, ..Default::default() };
+        let mut manager = PassManager::new(config);
+        manager.register_passes(vec![Box::new(MockFailing), Box::new(MockDependent)]);
+
+        let err = manager.run(&mut empty_context()).unwrap_err();
+
+        assert!(err.to_string().contains("MockFailing"), "{err}");
+    }
+
+    #[test]
+    fn test_run_does_not_rerun_completed_passes() {
+        let mut manager = PassManager::default();
+        manager.register_passes(vec![Box::new(MockPassA), Box::new(MockPassB)]);
+        let mut context = empty_context();
+        manager.run(&mut context).unwrap();
+
+        let report = manager.run(&mut context).unwrap();
+
+        assert!(report.pass_info.is_empty());
+        assert_eq!(report.already_completed, 2);
     }
 }

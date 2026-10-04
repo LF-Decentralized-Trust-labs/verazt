@@ -10,8 +10,9 @@ use crate::context::AnalysisContext;
 use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
 use crate::pass_manager::manager::{PassManager, PassManagerConfig};
-use crate::pass_manager::PassRegistry;
 use crate::pass_manager::executor::run_on_workers;
+use crate::pass_manager::{PassRegistry, PassRunReport};
+use crate::passes::base::{PassExecutionInfo, PassResult};
 use crate::passes::register_all_passes;
 use bugs::bug::Bug;
 use rayon::prelude::*;
@@ -63,9 +64,14 @@ pub struct PipelineResult {
     pub bugs: Vec<Bug>,
     /// Per-detector statistics.
     pub detector_stats: Vec<DetectorStats>,
-    /// Why the analysis phase failed, if it did. Detectors depending on the
-    /// missing analyses then fail too.
+    /// Why the analysis phase could not run, if it could not. Detectors
+    /// depending on the missing analyses then fail too.
     pub analysis_error: Option<String>,
+    /// Analysis passes that failed. Detectors depending on them fail too.
+    pub failed_passes: Vec<PassExecutionInfo>,
+    /// Names of the analysis passes skipped because a pass they depend on
+    /// failed.
+    pub skipped_passes: Vec<String>,
     /// Analysis phase duration.
     pub analysis_duration: Duration,
     /// Detection phase duration.
@@ -85,10 +91,21 @@ impl PipelineResult {
         !self.bugs.is_empty()
     }
 
-    /// One message per failure of the run: the analysis phase error, then
-    /// each failed detector. Empty when every phase succeeded, so the
-    /// reported bugs are complete.
+    /// One message per failure of the run: the analysis phase error, each
+    /// failed or skipped analysis pass, then each failed detector. Empty
+    /// when every phase succeeded, so the reported bugs are complete.
     pub fn failures(&self) -> Vec<String> {
+        let pass_failures = self.failed_passes.iter().map(|info| {
+            format!(
+                "analysis pass '{}' failed: {}",
+                info.name,
+                info.error.as_deref().unwrap_or("unknown error")
+            )
+        });
+        let skipped_passes = self
+            .skipped_passes
+            .iter()
+            .map(|name| format!("analysis pass '{name}' skipped: a pass it depends on failed"));
         let detector_failures = self.detector_stats.iter().filter(|s| !s.success).map(|s| {
             format!(
                 "detector '{}' failed: {}",
@@ -96,7 +113,13 @@ impl PipelineResult {
                 s.error.as_deref().unwrap_or("unknown error")
             )
         });
-        self.analysis_error.iter().cloned().chain(detector_failures).collect()
+        self.analysis_error
+            .iter()
+            .cloned()
+            .chain(pass_failures)
+            .chain(skipped_passes)
+            .chain(detector_failures)
+            .collect()
     }
 }
 
@@ -161,13 +184,15 @@ impl PipelineEngine {
 
         // Step 2: Phase 1 - Analysis passes the detectors depend on
         let analysis_start = Instant::now();
-        let analysis_error = self
-            .run_analysis_phase(&enabled_detectors, context)
-            .map_err(|e| format!("analysis phase failed: {e}"))
-            .err();
-        if let Some(e) = &analysis_error {
-            log::error!("{e}");
-        }
+        let (analysis_error, analysis_report) =
+            match self.run_analysis_phase(&enabled_detectors, context) {
+                Ok(report) => (None, report),
+                Err(e) => {
+                    let error = format!("analysis phase failed: {e}");
+                    log::error!("{error}");
+                    (Some(error), PassRunReport::default())
+                }
+            };
         let analysis_duration = analysis_start.elapsed();
 
         // Step 3: Phase 2 - Detection (parallel)
@@ -182,6 +207,8 @@ impl PipelineEngine {
             bugs,
             detector_stats,
             analysis_error,
+            failed_passes: analysis_report.failed().cloned().collect(),
+            skipped_passes: analysis_report.skipped,
             analysis_duration,
             detection_duration,
             total_duration: start.elapsed(),
@@ -232,20 +259,20 @@ impl PipelineEngine {
     ///
     /// Only passes actually needed by the enabled detectors are scheduled.
     /// Passes are executed in dependency-level order, with passes at the
-    /// same level running in parallel.
+    /// same level running in parallel. A failing pass skips the passes
+    /// depending on it; the others still run.
     fn run_analysis_phase(
         &self,
         enabled_detectors: &[&dyn BugDetectionPass],
         context: &mut AnalysisContext,
-    ) -> Result<(), String> {
+    ) -> PassResult<PassRunReport> {
         let required = self
             .passes
-            .instantiate_closure(enabled_detectors.iter().flat_map(|d| required_by(*d)))
-            .map_err(|e| e.to_string())?;
+            .instantiate_closure(enabled_detectors.iter().flat_map(|d| required_by(*d)))?;
 
         if required.is_empty() {
             log::debug!("No analysis passes required by enabled detectors");
-            return Ok(());
+            return Ok(PassRunReport::default());
         }
 
         log::info!("Analysis phase: {} passes required", required.len());
@@ -254,27 +281,18 @@ impl PipelineEngine {
         let mut pass_manager = PassManager::new(PassManagerConfig {
             enable_parallel: self.config.parallel,
             max_workers: self.config.num_threads,
-            fail_fast: true,
-            verbose: false,
-            timing: true,
+            ..PassManagerConfig::default()
         });
-
-        for pass in required {
-            pass_manager.register_analysis_pass(pass);
-        }
+        pass_manager.register_passes(required);
 
         // The PassManager handles dependency resolution and parallel execution
-        match pass_manager.run(context) {
-            Ok(report) => {
-                log::info!(
-                    "Analysis phase completed: {} passes in {:?}",
-                    report.passes_executed,
-                    report.total_duration
-                );
-                Ok(())
-            }
-            Err(e) => Err(e.to_string()),
-        }
+        let report = pass_manager.run(context)?;
+        log::info!(
+            "Analysis phase completed: {} passes in {:?}",
+            report.passes_executed(),
+            report.total_duration
+        );
+        Ok(report)
     }
 
     // ========================================================================
@@ -593,8 +611,17 @@ mod tests {
             error: Some("Missing required analysis: x".to_string()),
             ..Default::default()
         };
+        let failed_pass = PassExecutionInfo {
+            pass_id: TypeId::of::<u8>(),
+            name: "taint".to_string(),
+            duration: Duration::ZERO,
+            success: false,
+            error: Some("bad".to_string()),
+        };
         let result = PipelineResult {
             analysis_error: Some("analysis phase failed: boom".to_string()),
+            failed_passes: vec![failed_pass],
+            skipped_passes: vec!["interval".to_string()],
             detector_stats: vec![ok, failed],
             ..Default::default()
         };
@@ -602,6 +629,8 @@ mod tests {
             result.failures(),
             [
                 "analysis phase failed: boom",
+                "analysis pass 'taint' failed: bad",
+                "analysis pass 'interval' skipped: a pass it depends on failed",
                 "detector 'broken' failed: Missing required analysis: x"
             ]
         );

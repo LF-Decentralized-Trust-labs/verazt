@@ -23,7 +23,7 @@ pub mod registry;
 pub mod scheduler;
 
 pub use dependency::DependencyGraph;
-pub use executor::{ExecutionResult, ExecutorConfig, PassExecutor};
-pub use manager::{PassManager, PassManagerConfig, PassRunReport};
+pub use executor::{ExecutorConfig, PassExecutor, PassRunReport};
+pub use manager::{PassManager, PassManagerConfig};
 pub use registry::PassRegistry;
 pub use scheduler::{ExecutionSchedule, compute_schedule};

@@ -4,6 +4,9 @@
 //! following an `ExecutionSchedule`, level by level. Passes only read the
 //! context and return their artifacts, so the passes of one level run in
 //! parallel; their artifacts are stored once the whole level is done.
+//!
+//! A failing pass only stops the passes depending on it, directly or
+//! transitively: they are skipped, and every other pass still runs.
 
 use crate::context::{AnalysisContext, ErasedArtifact};
 use crate::pass_manager::scheduler::ExecutionSchedule;
@@ -11,7 +14,7 @@ use crate::passes::base::{ErasedAnalysisPass, PassError, PassExecutionInfo, Pass
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
 use std::any::TypeId;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -28,30 +31,27 @@ pub struct ExecutorConfig {
     /// Number of worker threads for parallel execution (0 = one per CPU).
     pub max_workers: usize,
 
-    /// Stop on first error.
+    /// Stop at the first failing pass, instead of skipping only the passes
+    /// depending on it.
     pub fail_fast: bool,
 
     /// Enable detailed timing.
     pub timing: bool,
 }
 
-/// Result of executing a schedule.
-#[derive(Debug)]
-pub struct ExecutionResult {
+/// The outcome of running the passes of a schedule, distinct from the bug
+/// report `output::AnalysisReport`.
+#[derive(Debug, Default)]
+pub struct PassRunReport {
     /// Number of passes not run because an earlier run completed them.
     pub already_completed: usize,
 
-    /// Errors encountered.
-    pub errors: Vec<PassError>,
+    /// Execution information of each pass run, in schedule order.
+    pub pass_info: Vec<PassExecutionInfo>,
 
-    /// Number of failed passes.
-    pub failed: usize,
-
-    /// Individual pass execution results.
-    pub pass_results: Vec<PassExecutionInfo>,
-
-    /// Number of successful passes.
-    pub successful: usize,
+    /// Names of the passes not run because a pass they depend on,
+    /// directly or transitively, failed.
+    pub skipped: Vec<String>,
 
     /// Total execution time.
     pub total_duration: Duration,
@@ -73,18 +73,28 @@ pub struct PassExecutor<'a> {
 
 impl Default for ExecutorConfig {
     fn default() -> Self {
-        Self { parallel: true, max_workers: 0, fail_fast: true, timing: true }
+        Self { parallel: true, max_workers: 0, fail_fast: false, timing: true }
     }
 }
 
 // ========================================================================
-// ExecutionResult Implementations
+// PassRunReport Implementations
 // ========================================================================
 
-impl ExecutionResult {
-    /// Check if all passes succeeded.
+impl PassRunReport {
+    /// Check if every scheduled pass completed.
     pub fn is_success(&self) -> bool {
-        self.failed == 0
+        self.skipped.is_empty() && self.pass_info.iter().all(|info| info.success)
+    }
+
+    /// The passes that ran and failed.
+    pub fn failed(&self) -> impl Iterator<Item = &PassExecutionInfo> {
+        self.pass_info.iter().filter(|info| !info.success)
+    }
+
+    /// Number of passes that ran and succeeded.
+    pub fn passes_executed(&self) -> usize {
+        self.pass_info.iter().filter(|info| info.success).count()
     }
 }
 
@@ -107,7 +117,7 @@ impl<'a> PassExecutor<'a> {
         &self,
         schedule: &ExecutionSchedule,
         context: &mut AnalysisContext,
-    ) -> PassResult<ExecutionResult> {
+    ) -> PassResult<PassRunReport> {
         if self.config.parallel {
             run_on_workers(self.config.max_workers, || self.execute_levels(schedule, context))
         } else {
@@ -120,48 +130,49 @@ impl<'a> PassExecutor<'a> {
         &self,
         schedule: &ExecutionSchedule,
         context: &mut AnalysisContext,
-    ) -> PassResult<ExecutionResult> {
+    ) -> PassResult<PassRunReport> {
         let start = Instant::now();
-        let mut result = ExecutionResult {
-            already_completed: 0,
-            errors: Vec::new(),
-            failed: 0,
-            pass_results: Vec::new(),
-            successful: 0,
-            total_duration: Duration::ZERO,
-        };
+        let mut report = PassRunReport::default();
+        // Passes that failed or were skipped, whose dependents are skipped.
+        let mut incomplete: HashSet<TypeId> = HashSet::new();
 
         for (level_idx, level) in schedule.levels.iter().enumerate() {
             log::debug!("Executing level {} ({} passes)", level_idx, level.len());
 
-            let pending: Vec<&dyn ErasedAnalysisPass> = level
-                .iter()
-                .filter(|&&id| !context.is_pass_completed(id))
-                .map(|id| self.passes[id].as_ref())
-                .collect();
-            result.already_completed += level.len() - pending.len();
+            let mut runnable: Vec<&dyn ErasedAnalysisPass> = Vec::new();
+            for &pass_id in level {
+                let pass = self.passes[&pass_id].as_ref();
+                if context.is_pass_completed(pass_id) {
+                    report.already_completed += 1;
+                } else if pass.dependencies().iter().any(|dep| incomplete.contains(dep)) {
+                    log::warn!("Skipping pass '{}': a pass it depends on failed", pass.name());
+                    incomplete.insert(pass_id);
+                    report.skipped.push(pass.name().to_string());
+                } else {
+                    runnable.push(pass);
+                }
+            }
 
-            for (info, artifact) in self.run_passes(&pending, context) {
+            for (info, artifact) in self.run_passes(&runnable, context) {
                 match artifact {
                     Ok(artifact) => {
                         context.store_erased(artifact);
                         context.mark_pass_completed(info.pass_id);
-                        result.successful += 1;
+                    }
+                    Err(e) if self.config.fail_fast => {
+                        return Err(PassError::ExecutionFailed(info.name, e.to_string()));
                     }
                     Err(e) => {
-                        result.failed += 1;
-                        if self.config.fail_fast {
-                            return Err(e);
-                        }
-                        result.errors.push(e);
+                        log::error!("Pass '{}' failed: {e}", info.name);
+                        incomplete.insert(info.pass_id);
                     }
                 }
-                result.pass_results.push(info);
+                report.pass_info.push(info);
             }
         }
 
-        result.total_duration = start.elapsed();
-        Ok(result)
+        report.total_duration = start.elapsed();
+        Ok(report)
     }
 
     /// Run `passes` on `context`, in parallel if configured, returning
