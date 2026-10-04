@@ -148,7 +148,7 @@ impl PipelineEngine {
         let (bugs, detector_stats) = self.run_detection_phase(&enabled_detectors, context);
         let detection_duration = detection_start.elapsed();
 
-        // Deduplicate bugs across tiers
+        // Order bugs deterministically and drop repeated findings
         let bugs = Self::deduplicate_bugs(bugs);
 
         PipelineResult {
@@ -304,28 +304,25 @@ impl PipelineEngine {
         (all_bugs, all_stats)
     }
 
-    /// Deduplicate bugs across tiers.
+    /// Sort bugs by file, line, column and detector, then drop repeated
+    /// reports of one detector at one location (e.g. the same function
+    /// reached through several modules).
     ///
-    /// When both a lower-tier (AST) and higher-tier (SIR/BIR) detector
-    /// produce findings at the same source location for the same category,
-    /// keep only the higher-tier finding to avoid noise.
+    /// Findings of different detectors are all kept, and so are findings
+    /// without a known location: they cannot be told apart by location.
     fn deduplicate_bugs(mut bugs: Vec<Bug>) -> Vec<Bug> {
-        if bugs.len() <= 1 {
-            return bugs;
-        }
-
-        // Stable sort by location + category so duplicates are adjacent
-        bugs.sort_by(|a, b| {
-            let loc_cmp = format!("{:?}{:?}", a.loc, a.category)
-                .cmp(&format!("{:?}{:?}", b.loc, b.category));
-            loc_cmp
+        bugs.sort_by_cached_key(|b| {
+            let loc = &b.loc;
+            (
+                loc.file.clone(),
+                loc.start_line,
+                loc.start_col,
+                loc.end_line,
+                loc.end_col,
+                b.detector_id.clone(),
+            )
         });
-
-        bugs.dedup_by(|a, b| {
-            // Same location and category → keep one (b survives in dedup_by)
-            format!("{:?}", a.loc) == format!("{:?}", b.loc) && a.category == b.category
-        });
-
+        bugs.dedup_by(|a, b| a.loc.is_valid() && a.loc == b.loc && a.detector_id == b.detector_id);
         bugs
     }
 }
@@ -372,6 +369,7 @@ mod tests {
     use super::*;
     use crate::context::{AnalysisConfig, InputLanguage};
     use crate::passes::bir::FunctionEffectsArtifact;
+    use common::loc::Loc;
 
     #[test]
     fn test_pipeline_config_default() {
@@ -482,6 +480,43 @@ mod tests {
         let mut context = AnalysisContext::new(vec![], config);
         let result = engine.run(&mut context);
         assert!(result.detector_stats.is_empty());
+    }
+
+    fn bug_of(id: &str, loc: Loc) -> Bug {
+        let engine = PipelineEngine::new(PipelineConfig::default());
+        engine.registry().get(id).expect("built-in detector").meta().bug(None, loc)
+    }
+
+    #[test]
+    fn test_deduplicate_bugs_keeps_distinct_detectors_at_same_loc() {
+        let loc = Loc::new(4, 1, 4, 9);
+        let bugs = vec![
+            bug_of("tx-origin", loc.clone()),
+            bug_of("reentrancy", loc.clone()),
+            bug_of("tx-origin", loc),
+        ];
+        let ids: Vec<_> = PipelineEngine::deduplicate_bugs(bugs)
+            .into_iter()
+            .map(|b| b.detector_id)
+            .collect();
+        assert_eq!(ids, ["reentrancy", "tx-origin"]);
+    }
+
+    #[test]
+    fn test_deduplicate_bugs_keeps_findings_without_loc() {
+        let bugs = vec![bug_of("tx-origin", Loc::default()), bug_of("tx-origin", Loc::default())];
+        assert_eq!(PipelineEngine::deduplicate_bugs(bugs).len(), 2);
+    }
+
+    #[test]
+    fn test_deduplicate_bugs_orders_by_line() {
+        let bugs =
+            vec![bug_of("tx-origin", Loc::new(9, 1, 9, 2)), bug_of("tx-origin", Loc::new(2, 1, 2, 2))];
+        let lines: Vec<_> = PipelineEngine::deduplicate_bugs(bugs)
+            .into_iter()
+            .map(|b| b.loc.start_line)
+            .collect();
+        assert_eq!(lines, [2, 9]);
     }
 
     #[test]
