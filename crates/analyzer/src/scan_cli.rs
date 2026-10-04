@@ -119,6 +119,15 @@ where
             }
         }
     }
+
+    // The bugs printed above are incomplete if any phase failed
+    let failures = result.failures();
+    for failure in &failures {
+        eprintln!("Error: {failure}");
+    }
+    if !failures.is_empty() {
+        std::process::exit(1);
+    }
 }
 
 /// Split a comma-separated detector list (`--enable` / `--disable`).

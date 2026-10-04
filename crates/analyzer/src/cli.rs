@@ -476,6 +476,7 @@ fn run_analysis(args: Arguments) {
     }
 
     let result = engine.run(&mut context);
+    let failures = result.failures();
 
     // Create report
     let lang_str = match input_language {
@@ -523,8 +524,13 @@ fn run_analysis(args: Arguments) {
         }
     }
 
-    // Exit with error code if high severity issues found
-    if report.has_high_severity() {
+    for failure in &failures {
+        eprintln!("Error: {failure}");
+    }
+
+    // Exit with error code if the analysis was incomplete or high severity
+    // issues were found
+    if !failures.is_empty() || report.has_high_severity() {
         std::process::exit(1);
     }
 }

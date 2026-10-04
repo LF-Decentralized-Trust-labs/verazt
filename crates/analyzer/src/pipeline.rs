@@ -60,6 +60,9 @@ pub struct PipelineResult {
     pub bugs: Vec<Bug>,
     /// Per-detector statistics.
     pub detector_stats: Vec<DetectorStats>,
+    /// Why the analysis phase failed, if it did. Detectors depending on the
+    /// missing analyses then fail too.
+    pub analysis_error: Option<String>,
     /// Analysis phase duration.
     pub analysis_duration: Duration,
     /// Detection phase duration.
@@ -77,6 +80,20 @@ impl PipelineResult {
     /// Check if any bugs were found.
     pub fn has_bugs(&self) -> bool {
         !self.bugs.is_empty()
+    }
+
+    /// One message per failure of the run: the analysis phase error, then
+    /// each failed detector. Empty when every phase succeeded, so the
+    /// reported bugs are complete.
+    pub fn failures(&self) -> Vec<String> {
+        let detector_failures = self.detector_stats.iter().filter(|s| !s.success).map(|s| {
+            format!(
+                "detector '{}' failed: {}",
+                s.name,
+                s.error.as_deref().unwrap_or("unknown error")
+            )
+        });
+        self.analysis_error.iter().cloned().chain(detector_failures).collect()
     }
 }
 
@@ -138,8 +155,12 @@ impl PipelineEngine {
 
         // Step 2: Phase 1 - Analysis passes the detectors depend on
         let analysis_start = Instant::now();
-        if let Err(e) = self.run_analysis_phase(&enabled_detectors, context) {
-            log::error!("Analysis phase failed: {}", e);
+        let analysis_error = self
+            .run_analysis_phase(&enabled_detectors, context)
+            .map_err(|e| format!("analysis phase failed: {e}"))
+            .err();
+        if let Some(e) = &analysis_error {
+            log::error!("{e}");
         }
         let analysis_duration = analysis_start.elapsed();
 
@@ -154,6 +175,7 @@ impl PipelineEngine {
         PipelineResult {
             bugs,
             detector_stats,
+            analysis_error,
             analysis_duration,
             detection_duration,
             total_duration: start.elapsed(),
@@ -236,7 +258,7 @@ impl PipelineEngine {
                 );
                 Ok(())
             }
-            Err(e) => Err(format!("Analysis phase failed: {}", e)),
+            Err(e) => Err(e.to_string()),
         }
     }
 
@@ -524,5 +546,28 @@ mod tests {
         let result = PipelineResult::default();
         assert_eq!(result.total_bugs(), 0);
         assert!(!result.has_bugs());
+        assert!(result.failures().is_empty());
+    }
+
+    #[test]
+    fn test_pipeline_result_failures_report_analysis_and_detectors() {
+        let ok = DetectorStats { name: "ok".to_string(), success: true, ..Default::default() };
+        let failed = DetectorStats {
+            name: "broken".to_string(),
+            error: Some("Missing required analysis: x".to_string()),
+            ..Default::default()
+        };
+        let result = PipelineResult {
+            analysis_error: Some("analysis phase failed: boom".to_string()),
+            detector_stats: vec![ok, failed],
+            ..Default::default()
+        };
+        assert_eq!(
+            result.failures(),
+            [
+                "analysis phase failed: boom",
+                "detector 'broken' failed: Missing required analysis: x"
+            ]
+        );
     }
 }
