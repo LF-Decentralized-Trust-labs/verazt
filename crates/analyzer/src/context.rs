@@ -1,8 +1,9 @@
 //! Analysis Context
 //!
 //! This module provides the central storage for analysis artifacts,
-//! supporting SIR and BIR representations. AST (frontend) types have
-//! been removed — all input is via SIR `Module`.
+//! supporting SIR and BIR representations. All input is via SIR `Module`.
+//! Passes only read the context, which is `Sync`, so they and the
+//! detectors can share it across threads.
 
 /// The input source language.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -18,7 +19,6 @@ pub enum InputLanguage {
 use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Duration;
 
 // ========================================
 // Typed Artifact Key Trait (Step 2.2)
@@ -72,58 +72,21 @@ impl ErasedArtifact {
     }
 }
 
-/// Configuration for analysis.
+/// Configuration for analysis. Parallelism is configured on the pipeline
+/// (`PipelineConfig`), which runs the passes and detectors.
 #[derive(Debug, Clone, Default)]
 pub struct AnalysisConfig {
-    /// Enable parallel execution.
-    pub enable_parallel: bool,
-
-    /// Maximum number of worker threads.
-    pub max_workers: usize,
-
     /// The input source language.
     pub input_language: InputLanguage,
-}
-
-impl AnalysisConfig {
-    /// Create a new default configuration.
-    pub fn new() -> Self {
-        Self {
-            enable_parallel: true,
-            max_workers: 0, // 0 = auto-detect
-            input_language: InputLanguage::default(),
-        }
-    }
-
-    /// Create configuration with parallel execution enabled.
-    pub fn parallel() -> Self {
-        Self { enable_parallel: true, ..Self::new() }
-    }
-}
-
-/// Statistics about analysis execution.
-#[derive(Debug, Clone, Default)]
-pub struct AnalysisStats {
-    /// Number of IR traversals.
-    pub ir_traversals: usize,
-
-    /// Time spent on IR analysis.
-    pub ir_analysis_time: Duration,
-
-    /// Total passes executed.
-    pub passes_executed: usize,
-
-    /// Passes that were skipped (already completed).
-    pub passes_skipped: usize,
 }
 
 /// The central analysis context holding all data.
 ///
 /// This context stores:
 /// - SIR modules (always available when provided)
-/// - BIR modules (eagerly lowered from SIR — step 1.8)
+/// - BIR modules (eagerly lowered from SIR)
 /// - Analysis artifacts from all passes
-/// - Execution statistics
+/// - The passes completed so far
 #[derive(Debug)]
 pub struct AnalysisContext {
     // ========================================
@@ -155,13 +118,10 @@ pub struct AnalysisContext {
     pass_order: Vec<TypeId>,
 
     // ========================================
-    // Configuration and Stats
+    // Configuration
     // ========================================
     /// Analysis configuration.
     pub config: AnalysisConfig,
-
-    /// Execution statistics.
-    pub stats: AnalysisStats,
 }
 
 /// Lower a SIR module through CIR to BIR. A failure is logged and the module
@@ -189,7 +149,6 @@ impl AnalysisContext {
             completed_passes: HashSet::new(),
             pass_order: Vec::new(),
             config,
-            stats: AnalysisStats::default(),
         };
         context.set_sir_units(sir_modules);
         context
@@ -291,7 +250,6 @@ impl AnalysisContext {
     pub fn mark_pass_completed(&mut self, pass_id: TypeId) {
         if self.completed_passes.insert(pass_id) {
             self.pass_order.push(pass_id);
-            self.stats.passes_executed += 1;
         }
     }
 
@@ -314,20 +272,6 @@ impl AnalysisContext {
     pub fn reset_passes(&mut self) {
         self.completed_passes.clear();
         self.pass_order.clear();
-    }
-
-    // ========================================
-    // Convenience Methods
-    // ========================================
-
-    /// Get execution statistics.
-    pub fn stats(&self) -> &AnalysisStats {
-        &self.stats
-    }
-
-    /// Update IR traversal count.
-    pub fn record_ir_traversal(&mut self) {
-        self.stats.ir_traversals += 1;
     }
 }
 

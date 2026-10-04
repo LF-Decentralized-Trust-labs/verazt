@@ -4,12 +4,12 @@
 //! the metadata types. It does *not* contain execution machinery
 //! (see `pass_manager` for that).
 //!
-//! Pass identity uses `std::any::TypeId` — no hand-maintained enum.
+//! Pass identity uses `std::any::TypeId`, not a hand-maintained enum.
 
 pub mod meta;
 pub mod traits;
 
-// Re-exports for convenience — users can write `use crate::passes::base::Pass;`
+// Re-exports for convenience: users can write `use crate::passes::base::Pass;`
 pub use meta::{PassLevel, PassRepresentation};
 pub use traits::{
     AnalysisPass, ErasedAnalysisPass, Pass, PassError, PassExecutionInfo, PassResult,

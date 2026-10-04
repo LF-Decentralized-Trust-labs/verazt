@@ -11,33 +11,17 @@ use thiserror::Error;
 /// Error type for pass execution.
 #[derive(Debug, Error)]
 pub enum PassError {
+    /// Circular dependency detected, through the named passes.
+    #[error("Circular dependency detected: {0}")]
+    CircularDependency(String),
+
     /// Pass execution failed.
     #[error("Pass \'{0}\' failed: {1}")]
     ExecutionFailed(String, String),
 
-    /// A pass depends on a pass that is not registered.
-    #[error("Pass \'{0}\' depends on a pass that is not registered")]
+    /// A pass or detector depends on a pass that is not registered.
+    #[error("\'{0}\' depends on a pass that is not registered")]
     UnregisteredDependency(String),
-
-    /// Context missing required data.
-    #[error("Context missing required data: {0}")]
-    MissingData(String),
-
-    /// SIR not available but required.
-    #[error("SIR not available: pass \'{0}\' requires SIR")]
-    SirNotAvailable(String),
-
-    /// Circular dependency detected.
-    #[error("Circular dependency detected: {0}")]
-    CircularDependency(String),
-
-    /// Pass not found.
-    #[error("Pass not found: {0}")]
-    PassNotFound(String),
-
-    /// Invalid configuration.
-    #[error("Invalid configuration: {0}")]
-    InvalidConfiguration(String),
 }
 
 /// Result type for pass operations.
@@ -48,7 +32,7 @@ pub type PassResult<T> = Result<T, PassError>;
 /// This trait defines the common interface for both analysis passes
 /// and bug detection passes. All passes must be thread-safe (`Send + Sync`).
 ///
-/// Pass identity is based on `std::any::TypeId` — each concrete type
+/// Pass identity is based on `std::any::TypeId`: each concrete type
 /// gets a compiler-guaranteed unique ID with zero maintenance overhead.
 pub trait Pass: Send + Sync + 'static {
     /// Get the unique identifier for this pass.

@@ -549,8 +549,7 @@ mod tests {
     fn test_run_skips_detectors_of_other_platforms() {
         let engine =
             PipelineEngine::new(PipelineConfig { parallel: false, ..PipelineConfig::default() });
-        let config =
-            AnalysisConfig { input_language: InputLanguage::MoveSui, ..AnalysisConfig::default() };
+        let config = AnalysisConfig { input_language: InputLanguage::MoveSui };
         let mut context = AnalysisContext::new(vec![], config);
         let result = engine.run(&mut context);
         assert!(result.detector_stats.is_empty());

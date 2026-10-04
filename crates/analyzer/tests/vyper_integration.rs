@@ -27,8 +27,7 @@ fn run_vyper_pipeline(name: &str) -> Option<analyzer::PipelineResult> {
     let module = frontend::vyper::compile_file(file, None)
         .unwrap_or_else(|e| panic!("compiling {file} failed: {e}"));
 
-    let config =
-        AnalysisConfig { input_language: InputLanguage::Vyper, ..AnalysisConfig::default() };
+    let config = AnalysisConfig { input_language: InputLanguage::Vyper };
     let mut context = AnalysisContext::new(vec![module], config);
 
     let engine = PipelineEngine::new(PipelineConfig::default());
@@ -41,8 +40,7 @@ fn run_vyper_pipeline(name: &str) -> Option<analyzer::PipelineResult> {
 /// Vyper context (no source units, no IR).
 #[test]
 fn test_vyper_empty_context() {
-    let config =
-        AnalysisConfig { input_language: InputLanguage::Vyper, ..AnalysisConfig::default() };
+    let config = AnalysisConfig { input_language: InputLanguage::Vyper };
 
     let mut context = AnalysisContext::new(vec![], config);
     let engine = PipelineEngine::new(PipelineConfig::default());
@@ -55,8 +53,7 @@ fn test_vyper_empty_context() {
 /// Verify that GREP (AST-level) detectors are filtered out for Vyper.
 #[test]
 fn test_vyper_grep_detectors_skipped() {
-    let config =
-        AnalysisConfig { input_language: InputLanguage::Vyper, ..AnalysisConfig::default() };
+    let config = AnalysisConfig { input_language: InputLanguage::Vyper };
 
     let mut context = AnalysisContext::new(vec![], config);
     let engine = PipelineEngine::new(PipelineConfig::default());

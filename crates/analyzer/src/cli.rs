@@ -398,7 +398,7 @@ fn run_analysis(args: Arguments) {
     }
 
     // Create analysis context
-    let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
+    let analysis_config = AnalysisConfig { input_language };
     let mut context = AnalysisContext::new(sir_units, analysis_config);
 
     // Create and run the pipeline

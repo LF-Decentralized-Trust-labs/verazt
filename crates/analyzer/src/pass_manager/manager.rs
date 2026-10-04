@@ -27,9 +27,6 @@ pub struct PassManagerConfig {
 
     /// Enable verbose logging.
     pub verbose: bool,
-
-    /// Enable timing information.
-    pub timing: bool,
 }
 
 impl Default for PassManagerConfig {
@@ -39,7 +36,6 @@ impl Default for PassManagerConfig {
             max_workers: 0, // auto-detect
             fail_fast: false,
             verbose: false,
-            timing: true,
         }
     }
 }
@@ -104,7 +100,6 @@ impl PassManager {
             parallel: self.config.enable_parallel,
             max_workers: self.config.max_workers,
             fail_fast: self.config.fail_fast,
-            timing: self.config.timing,
         };
         PassExecutor::new(executor_config, &self.passes).execute(&schedule, context)
     }

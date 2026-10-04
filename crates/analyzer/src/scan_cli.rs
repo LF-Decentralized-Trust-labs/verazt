@@ -82,7 +82,7 @@ where
     } else {
         InputLanguage::Solidity
     };
-    let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
+    let analysis_config = AnalysisConfig { input_language };
     let mut context = AnalysisContext::new(all_modules, analysis_config);
 
     let engine = PipelineEngine::new(PipelineConfig {

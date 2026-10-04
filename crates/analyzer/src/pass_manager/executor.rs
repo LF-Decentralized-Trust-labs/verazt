@@ -34,9 +34,6 @@ pub struct ExecutorConfig {
     /// Stop at the first failing pass, instead of skipping only the passes
     /// depending on it.
     pub fail_fast: bool,
-
-    /// Enable detailed timing.
-    pub timing: bool,
 }
 
 /// The outcome of running the passes of a schedule, distinct from the bug
@@ -73,7 +70,7 @@ pub struct PassExecutor<'a> {
 
 impl Default for ExecutorConfig {
     fn default() -> Self {
-        Self { parallel: true, max_workers: 0, fail_fast: false, timing: true }
+        Self { parallel: true, max_workers: 0, fail_fast: false }
     }
 }
 
