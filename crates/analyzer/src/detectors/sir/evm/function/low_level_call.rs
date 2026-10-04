@@ -2,13 +2,32 @@
 //!
 //! Detects usage of low-level calls (`.call`, `.delegatecall`, `.staticcall`).
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, DialectExpr, FieldAccessExpr, FunctionDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::UncheckedLowLevelCalls,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[],
+    description: "Detects usage of low-level EVM calls on SIR.",
+    id: DetectorId::LowLevelCall,
+    name: "Low-Level Calls",
+    recommendation: "Avoid low-level `.call()`, `.delegatecall()`, and `.staticcall()` \
+         where possible. Use Solidity interfaces or OpenZeppelin's `Address` \
+         library for safer external calls. Always check the return value.",
+    references: &[
+        "https://docs.soliditylang.org/en/latest/units-and-global-variables.html#members-of-address-types",
+    ],
+    risk_level: RiskLevel::Medium,
+    swc_ids: &[],
+    target: Target::Evm,
+};
 
 /// Scan detector for low-level calls.
 #[derive(Debug, Default)]
@@ -21,60 +40,12 @@ impl LowLevelCallDetector {
 }
 
 impl ScanDetector for LowLevelCallDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::LowLevelCall
-    }
-
-    fn name(&self) -> &'static str {
-        "Low-Level Calls"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects usage of low-level EVM calls on SIR."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::UncheckedLowLevelCalls
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Medium
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Avoid low-level `.call()`, `.delegatecall()`, and `.staticcall()` \
-         where possible. Use Solidity interfaces or OpenZeppelin's `Address` \
-         library for safer external calls. Always check the return value."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://docs.soliditylang.org/en/latest/units-and-global-variables.html#members-of-address-types",
-        ]
     }
 
     fn check_function(
@@ -86,7 +57,6 @@ impl ScanDetector for LowLevelCallDetector {
         let mut bugs = Vec::new();
 
         struct Visitor<'b> {
-            detector: &'b LowLevelCallDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
@@ -104,20 +74,13 @@ impl ScanDetector for LowLevelCallDetector {
                     _ => None,
                 };
                 if let Some((kind, loc)) = call_info {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Low-level '{}' detected in '{}.{}'. \
                              Consider using higher-level function calls.",
                             kind, self.contract_name, self.func_name
                         )),
                         loc,
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
             }
@@ -125,20 +88,13 @@ impl ScanDetector for LowLevelCallDetector {
             fn visit_field_access_expr(&mut self, fa: &'a FieldAccessExpr) {
                 let field = fa.field.as_str();
                 if matches!(field, "call" | "staticcall") {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Low-level '{}' detected in '{}.{}'. \
                              Consider using higher-level function calls.",
                             field, self.contract_name, self.func_name
                         )),
                         fa.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_field_access_expr(self, fa);
@@ -146,7 +102,6 @@ impl ScanDetector for LowLevelCallDetector {
         }
 
         let mut visitor = Visitor {
-            detector: self,
             bugs: &mut bugs,
             contract_name: contract.name.clone(),
             func_name: func.name.clone(),
@@ -164,7 +119,7 @@ mod tests {
     #[test]
     fn test_low_level_call_detector() {
         let detector = LowLevelCallDetector::new();
-        assert_eq!(detector.id(), DetectorId::LowLevelCall);
-        assert_eq!(detector.risk_level(), RiskLevel::Medium);
+        assert_eq!(detector.meta().id, DetectorId::LowLevelCall);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Medium);
     }
 }

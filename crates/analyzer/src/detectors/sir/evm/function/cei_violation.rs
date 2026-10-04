@@ -3,14 +3,34 @@
 //! Detects violations of the Checks-Effects-Interactions pattern
 //! by walking SIR function bodies.
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::ContractDecl;
 use scirs::sir::dialect::{EvmCallExt, EvmFunctionExt};
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{CallExpr, FunctionDecl, Module, Stmt};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::Reentrancy,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[841],
+    description: "Detects violations of the Checks-Effects-Interactions pattern using SIR tree walking",
+    id: DetectorId::CeiViolation,
+    name: "CEI Pattern Violation",
+    recommendation: "Follow the Checks-Effects-Interactions pattern: perform all checks first, \
+         then make state changes, and finally interact with external contracts. \
+         Consider using OpenZeppelin's ReentrancyGuard.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-107",
+        "https://fravoll.github.io/solidity-patterns/checks_effects_interactions.html",
+    ],
+    risk_level: RiskLevel::High,
+    swc_ids: &[107],
+    target: Target::Evm,
+};
 
 /// Scan detector for CEI pattern violations.
 #[derive(Debug, Default)]
@@ -36,8 +56,7 @@ impl CeiViolationDetector {
             }
 
             if *seen_ext_call && self.stmt_has_storage_write(stmt, storage_vars) {
-                bugs.push(Bug::new(
-                    self.name(),
+                bugs.push(META.bug(
                     Some(&format!(
                         "CEI violation in '{}.{}': state update occurs after \
                          an external call. This violates the \
@@ -45,12 +64,6 @@ impl CeiViolationDetector {
                         contract_name, func_name,
                     )),
                     stmt.span().cloned().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                    self.bug_kind(),
-                    self.bug_category(),
-                    self.risk_level(),
-                    self.cwe_ids(),
-                    self.swc_ids(),
-                    Some(self.recommendation()),
                 ));
                 return;
             }
@@ -144,61 +157,12 @@ impl CeiViolationDetector {
 }
 
 impl ScanDetector for CeiViolationDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::CeiViolation
-    }
-
-    fn name(&self) -> &'static str {
-        "CEI Pattern Violation"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects violations of the Checks-Effects-Interactions pattern using SIR tree walking"
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::Reentrancy
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![841]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![107]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Follow the Checks-Effects-Interactions pattern: perform all checks first, \
-         then make state changes, and finally interact with external contracts. \
-         Consider using OpenZeppelin's ReentrancyGuard."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-107",
-            "https://fravoll.github.io/solidity-patterns/checks_effects_interactions.html",
-        ]
     }
 
     fn check_function(
@@ -241,7 +205,7 @@ mod tests {
     #[test]
     fn test_cei_violation_detector() {
         let detector = CeiViolationDetector::new();
-        assert_eq!(detector.id(), DetectorId::CeiViolation);
-        assert_eq!(detector.risk_level(), RiskLevel::High);
+        assert_eq!(detector.meta().id, DetectorId::CeiViolation);
+        assert_eq!(detector.meta().risk_level,RiskLevel::High);
     }
 }

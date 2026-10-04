@@ -161,17 +161,18 @@ fn print_detectors() {
     let mut registry = DetectorRegistry::new();
     register_all_detectors(&mut registry);
     let mut detectors: Vec<_> = registry.all().collect();
-    detectors.sort_by_key(|d| d.detector_id().as_str());
+    detectors.sort_by_key(|d| d.meta().id.as_str());
 
     println!("Detectors ({}):", detectors.len());
     println!("=====================================\n");
     for d in detectors {
+        let meta = d.meta();
         println!(
             "  {:<25} {:<30} {:?}   {:?}",
-            d.detector_id().as_str(),
-            d.name(),
-            d.bug_kind(),
-            d.risk_level()
+            meta.id.as_str(),
+            meta.name,
+            meta.bug_kind,
+            meta.risk_level
         );
     }
 }

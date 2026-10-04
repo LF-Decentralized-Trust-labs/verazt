@@ -5,8 +5,8 @@
 //! 2. `require(addr.send(...))` pattern (SWC-113)
 //! 3. Unbounded loops over dynamic storage arrays (SWC-128)
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::EvmCallExt;
@@ -14,6 +14,28 @@ use scirs::sir::exprs::Expr;
 use scirs::sir::stmts::Stmt;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{AssertStmt, ContractDecl, ForStmt, FunctionDecl, Module, WhileStmt};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::DenialOfService,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[400],
+    description: "Detects patterns that can lead to denial of service: external calls \
+         in loops, require(send) patterns, and unbounded loops.",
+    id: DetectorId::DenialOfService,
+    name: "Denial of Service",
+    recommendation: "Avoid external calls inside loops. Use the pull-over-push pattern: \
+         let recipients withdraw funds themselves instead of pushing in a loop. \
+         Bound loop iterations to a known safe limit.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-113",
+        "https://swcregistry.io/docs/SWC-128",
+        "https://consensys.github.io/smart-contract-best-practices/attacks/denial-of-service/",
+    ],
+    risk_level: RiskLevel::High,
+    swc_ids: &[113, 128],
+    target: Target::Evm,
+};
 
 /// Scan detector for denial of service vulnerabilities.
 #[derive(Debug, Default)]
@@ -105,63 +127,12 @@ fn contains_length_access(expr: &Expr) -> bool {
 }
 
 impl ScanDetector for DenialOfServiceDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::DenialOfService
-    }
-
-    fn name(&self) -> &'static str {
-        "Denial of Service"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects patterns that can lead to denial of service: external calls \
-         in loops, require(send) patterns, and unbounded loops."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::DenialOfService
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![400]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![113, 128]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Avoid external calls inside loops. Use the pull-over-push pattern: \
-         let recipients withdraw funds themselves instead of pushing in a loop. \
-         Bound loop iterations to a known safe limit."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-113",
-            "https://swcregistry.io/docs/SWC-128",
-            "https://consensys.github.io/smart-contract-best-practices/attacks/denial-of-service/",
-        ]
     }
 
     fn check_function(
@@ -173,7 +144,6 @@ impl ScanDetector for DenialOfServiceDetector {
         let mut bugs = Vec::new();
 
         struct Visitor<'b> {
-            detector: &'b DenialOfServiceDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
@@ -185,26 +155,18 @@ impl ScanDetector for DenialOfServiceDetector {
                 let was_in_loop = self.in_loop;
 
                 if stmts_contain_external_call(&stmt.body) {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "External call inside loop in '{}.{}'. A single \
                              failed call can revert the entire transaction.",
                             self.contract_name, self.func_name
                         )),
                         stmt.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
 
                 if is_unbounded_loop_cond(&stmt.cond) {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Unbounded loop in '{}.{}': loop bound depends on \
                              dynamic array length, which could exceed the block \
@@ -212,12 +174,6 @@ impl ScanDetector for DenialOfServiceDetector {
                             self.contract_name, self.func_name
                         )),
                         stmt.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
 
@@ -230,20 +186,13 @@ impl ScanDetector for DenialOfServiceDetector {
                 let was_in_loop = self.in_loop;
 
                 if stmts_contain_external_call(&stmt.body) {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "External call inside loop in '{}.{}'. A single \
                              failed call can revert the entire transaction.",
                             self.contract_name, self.func_name
                         )),
                         stmt.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
 
@@ -254,8 +203,7 @@ impl ScanDetector for DenialOfServiceDetector {
 
             fn visit_assert_stmt(&mut self, stmt: &'a AssertStmt) {
                 if is_require_send_pattern(stmt) {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "require(send/transfer) in '{}.{}': a single \
                              failed send reverts the entire transaction, \
@@ -263,12 +211,6 @@ impl ScanDetector for DenialOfServiceDetector {
                             self.contract_name, self.func_name
                         )),
                         stmt.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_assert_stmt(self, stmt);
@@ -276,7 +218,6 @@ impl ScanDetector for DenialOfServiceDetector {
         }
 
         let mut visitor = Visitor {
-            detector: self,
             bugs: &mut bugs,
             contract_name: contract.name.clone(),
             func_name: func.name.clone(),
@@ -295,7 +236,7 @@ mod tests {
     #[test]
     fn test_denial_of_service_detector() {
         let detector = DenialOfServiceDetector::new();
-        assert_eq!(detector.id(), DetectorId::DenialOfService);
-        assert_eq!(detector.risk_level(), RiskLevel::High);
+        assert_eq!(detector.meta().id, DetectorId::DenialOfService);
+        assert_eq!(detector.meta().risk_level,RiskLevel::High);
     }
 }

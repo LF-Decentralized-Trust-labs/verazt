@@ -32,6 +32,7 @@ pub enum DetectorId {
     Visibility,
 
     // ── BIR dataflow detectors ──────────────────────────────────
+    CrossFunctionReentrancy,
     ReentrancyFlow,
 }
 
@@ -44,6 +45,7 @@ impl DetectorId {
             Self::CeiViolation => "cei-violation",
             Self::CentralizationRisk => "centralization-risk",
             Self::ConstantStateVar => "constant-state-var",
+            Self::CrossFunctionReentrancy => "reentrancy-cross-function",
             Self::DeadCode => "dead-code",
             Self::Delegatecall => "delegatecall",
             Self::DenialOfService => "denial-of-service",

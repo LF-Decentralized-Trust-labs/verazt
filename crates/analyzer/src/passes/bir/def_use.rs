@@ -29,6 +29,7 @@ impl ContextKey for DefUseArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Def-use analysis pass.
+#[derive(Debug, Default)]
 pub struct DefUsePass;
 
 impl Pass for DefUsePass {

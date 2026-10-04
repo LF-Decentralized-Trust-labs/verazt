@@ -149,6 +149,7 @@ impl ContextKey for IntervalArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Interval analysis pass.
+#[derive(Debug, Default)]
 pub struct IntervalPass;
 
 impl Pass for IntervalPass {

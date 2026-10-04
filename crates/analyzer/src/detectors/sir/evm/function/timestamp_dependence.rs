@@ -2,12 +2,29 @@
 //!
 //! Detects usage of `block.timestamp` which can be manipulated by miners.
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::utils::visit::Visit;
 use scirs::sir::{ContractDecl, DialectExpr, FunctionDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::TimeManipulation,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[829],
+    description: "Detects dangerous reliance on block.timestamp via SIR.",
+    id: DetectorId::TimestampDependence,
+    name: "Timestamp Dependence",
+    recommendation: "Avoid using `block.timestamp` for critical logic. Miners/validators \
+         can manipulate it by ~15 seconds. For time-sensitive logic, use \
+         block numbers or an oracle. Never use it as a source of randomness.",
+    references: &["https://swcregistry.io/docs/SWC-116"],
+    risk_level: RiskLevel::Low,
+    swc_ids: &[116],
+    target: Target::Evm,
+};
 
 /// Scan detector for timestamp dependence.
 #[derive(Debug, Default)]
@@ -20,58 +37,12 @@ impl TimestampDependenceDetector {
 }
 
 impl ScanDetector for TimestampDependenceDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::TimestampDependence
-    }
-
-    fn name(&self) -> &'static str {
-        "Timestamp Dependence"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects dangerous reliance on block.timestamp via SIR."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::TimeManipulation
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Low
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![829]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![116]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Avoid using `block.timestamp` for critical logic. Miners/validators \
-         can manipulate it by ~15 seconds. For time-sensitive logic, use \
-         block numbers or an oracle. Never use it as a source of randomness."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec!["https://swcregistry.io/docs/SWC-116"]
     }
 
     fn check_function(
@@ -83,7 +54,6 @@ impl ScanDetector for TimestampDependenceDetector {
         let mut bugs = Vec::new();
 
         struct Visitor<'b> {
-            detector: &'b TimestampDependenceDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
@@ -92,8 +62,7 @@ impl ScanDetector for TimestampDependenceDetector {
         impl<'a, 'b> Visit<'a> for Visitor<'b> {
             fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
                 if let DialectExpr::Evm(EvmExpr::Timestamp(e)) = d {
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Usage of block.timestamp in '{}.{}'. \
                              Miners can manipulate this value within \
@@ -101,19 +70,12 @@ impl ScanDetector for TimestampDependenceDetector {
                             self.contract_name, self.func_name
                         )),
                         e.loc.clone(),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
             }
         }
 
         let mut visitor = Visitor {
-            detector: self,
             bugs: &mut bugs,
             contract_name: contract.name.clone(),
             func_name: func.name.clone(),
@@ -131,7 +93,7 @@ mod tests {
     #[test]
     fn test_timestamp_dependence_detector() {
         let detector = TimestampDependenceDetector::new();
-        assert_eq!(detector.id(), DetectorId::TimestampDependence);
-        assert_eq!(detector.risk_level(), RiskLevel::Low);
+        assert_eq!(detector.meta().id, DetectorId::TimestampDependence);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Low);
     }
 }

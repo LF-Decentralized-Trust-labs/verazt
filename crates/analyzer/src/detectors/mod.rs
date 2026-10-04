@@ -11,6 +11,6 @@ pub mod sir;
 
 // Re-export base infrastructure for convenience
 pub use base::{
-    BugDetectionPass, ConfidenceLevel, DetectorError, DetectorId, DetectorRegistry,
-    DetectorResult, create_bug, create_bug_with_details, register_all_detectors,
+    BugDetectionPass, ConfidenceLevel, DetectorError, DetectorId, DetectorMeta, DetectorRegistry,
+    DetectorResult, Target, register_all_detectors,
 };

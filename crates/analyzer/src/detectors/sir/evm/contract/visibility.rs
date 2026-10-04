@@ -2,12 +2,33 @@
 //!
 //! Detects missing visibility specifiers on function declarations.
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::attrs::sir_attrs;
 use scirs::sir::{ContractDecl, MemberDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::AccessControl,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::High,
+    cwe_ids: &[710],
+    description: "Detects missing function visibility specifiers on SIR.",
+    id: DetectorId::Visibility,
+    name: "Visibility Issues",
+    recommendation: "Explicitly set visibility (`public`, `external`, `internal`, or \
+         `private`) for every function and state variable. In Solidity <0.5.0, \
+         functions default to `public`, which may unintentionally expose \
+         internal logic.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-100",
+        "https://swcregistry.io/docs/SWC-108",
+    ],
+    risk_level: RiskLevel::Medium,
+    swc_ids: &[100, 108],
+    target: Target::Evm,
+};
 
 /// Scan detector for missing function visibility specifiers.
 #[derive(Debug, Default)]
@@ -20,62 +41,12 @@ impl VisibilityDetector {
 }
 
 impl ScanDetector for VisibilityDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::Visibility
-    }
-
-    fn name(&self) -> &'static str {
-        "Visibility Issues"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects missing function visibility specifiers on SIR."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::AccessControl
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Medium
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::High
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Contract
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![710]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![100, 108]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Explicitly set visibility (`public`, `external`, `internal`, or \
-         `private`) for every function and state variable. In Solidity <0.5.0, \
-         functions default to `public`, which may unintentionally expose \
-         internal logic."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-100",
-            "https://swcregistry.io/docs/SWC-108",
-        ]
     }
 
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
@@ -97,8 +68,7 @@ impl ScanDetector for VisibilityDetector {
                     .any(|a| a.namespace == "sir" && a.key == sir_attrs::VISIBILITY);
 
                 if !has_visibility {
-                    bugs.push(Bug::new(
-                        self.name(),
+                    bugs.push(META.bug(
                         Some(&format!(
                             "Function '{}' in contract '{}' has no explicit \
                              visibility specifier. Consider adding 'public', \
@@ -106,12 +76,6 @@ impl ScanDetector for VisibilityDetector {
                             func.name, contract.name,
                         )),
                         func.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.bug_kind(),
-                        self.bug_category(),
-                        self.risk_level(),
-                        self.cwe_ids(),
-                        self.swc_ids(),
-                        Some(self.recommendation()),
                     ));
                 }
             }
@@ -128,7 +92,7 @@ mod tests {
     #[test]
     fn test_visibility_detector() {
         let detector = VisibilityDetector::new();
-        assert_eq!(detector.id(), DetectorId::Visibility);
-        assert_eq!(detector.risk_level(), RiskLevel::Medium);
+        assert_eq!(detector.meta().id, DetectorId::Visibility);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Medium);
     }
 }

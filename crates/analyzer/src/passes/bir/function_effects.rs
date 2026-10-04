@@ -1,7 +1,8 @@
 //! Function Effects Pass
 //!
-//! Closes each BIR function's summary (may re-enter, state written) over
-//! the module's static call graph, so callers inherit their callees' effects.
+//! Closes each BIR function's effects (may re-enter, state read and
+//! written) over the module's static call graph, so callers inherit their
+//! callees' effects.
 
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
@@ -31,6 +32,8 @@ impl ContextKey for FunctionEffectsArtifact {
 pub struct FunctionEffects {
     /// Whether the function may make an external call that can re-enter.
     pub may_reenter: bool,
+    /// State locations (e.g. `@balances`) the function may read.
+    pub reads: BTreeSet<String>,
     /// State locations (e.g. `@balances`) the function may write.
     pub writes: BTreeSet<String>,
 }
@@ -40,6 +43,7 @@ pub struct FunctionEffects {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Function effects analysis pass.
+#[derive(Debug, Default)]
 pub struct FunctionEffectsPass;
 
 impl Pass for FunctionEffectsPass {
@@ -82,27 +86,44 @@ impl AnalysisPass for FunctionEffectsPass {
 }
 
 /// The transitive effects of every function in `module`: each function's
-/// own summary, joined with its callees' effects until a fixpoint.
+/// own summary and state reads, joined with its callees' effects until a
+/// fixpoint.
 fn module_effects(module: &Module) -> HashMap<FunctionId, FunctionEffects> {
     let mut effects: HashMap<FunctionId, FunctionEffects> = module
         .summaries
         .iter()
         .map(|summary| {
             let writes = summary.modifies.iter().map(|r| r.base.clone()).collect();
-            let own = FunctionEffects { may_reenter: !summary.reentrancy_safe, writes };
+            let own = FunctionEffects {
+                may_reenter: !summary.reentrancy_safe,
+                reads: BTreeSet::new(),
+                writes,
+            };
             (summary.func_id.clone(), own)
         })
         .collect();
+    for func in &module.functions {
+        let reads = func
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .filter_map(|op| op.kind.storage_access())
+            .filter(|access| !access.is_write)
+            .map(|access| access.resource.to_string());
+        effects.entry(func.id.clone()).or_default().reads.extend(reads);
+    }
+    let size = |e: &FunctionEffects| (e.may_reenter, e.reads.len(), e.writes.len());
     let mut changed = true;
     while changed {
         changed = false;
         for (caller, callee) in &module.call_graph.static_edges {
             let Some(callee_effects) = effects.get(callee).cloned() else { continue };
             let caller_effects = effects.entry(caller.clone()).or_default();
-            let before = (caller_effects.may_reenter, caller_effects.writes.len());
+            let before = size(caller_effects);
             caller_effects.may_reenter |= callee_effects.may_reenter;
+            caller_effects.reads.extend(callee_effects.reads);
             caller_effects.writes.extend(callee_effects.writes);
-            changed |= before != (caller_effects.may_reenter, caller_effects.writes.len());
+            changed |= before != size(caller_effects);
         }
     }
     effects
@@ -115,7 +136,9 @@ fn module_effects(module: &Module) -> HashMap<FunctionId, FunctionEffects> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scirs::bir::cfg::{BasicBlock, BlockId, Function};
     use scirs::bir::interfaces::StorageRef;
+    use scirs::bir::ops::{LoadOp, Op, OpId, OpKind, Resource};
     use scirs::bir::summary::FunctionSummary;
 
     fn id(name: &str) -> FunctionId {
@@ -144,6 +167,23 @@ mod tests {
         let effects = module_effects(&module);
         assert!(effects[&id("a")].may_reenter);
         assert!(effects[&id("a")].writes.contains("@x"));
+    }
+
+    #[test]
+    fn test_reads_propagate_to_callers() {
+        // a → b, where only b loads @x.
+        let load = LoadOp { resource: Resource::StateVar("x".to_string()), keys: vec![] };
+        let mut block = BasicBlock::new(BlockId(0));
+        block.ops.push(Op::new(OpId(0), OpKind::Load(load)));
+        let mut b = Function::new(id("b"), false);
+        b.blocks.push(block);
+        let mut module = Module::new("m".to_string());
+        module.functions = vec![Function::new(id("a"), true), b];
+        module.call_graph.add_static_edge(id("a"), id("b"));
+
+        let effects = module_effects(&module);
+        assert!(effects[&id("a")].reads.contains("@x"));
+        assert!(effects[&id("a")].writes.is_empty());
     }
 
     #[test]

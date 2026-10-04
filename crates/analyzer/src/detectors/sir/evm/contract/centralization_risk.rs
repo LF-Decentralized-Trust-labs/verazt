@@ -3,11 +3,29 @@
 //! Detects centralization risks by identifying privileged functions that
 //! have write sets covering security-sensitive storage variables.
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::{ContractDecl, MemberDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::AccessControl,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[250],
+    description: "Detects contracts with centralized control mechanisms",
+    id: DetectorId::CentralizationRisk,
+    name: "Centralization Risk",
+    recommendation: "Consider implementing timelocks, multi-sig requirements, or DAO-style \
+         governance for privileged operations. Document the trust assumptions clearly.",
+    references: &[
+        "https://consensys.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/",
+    ],
+    risk_level: RiskLevel::Medium,
+    swc_ids: &[],
+    target: Target::Evm,
+};
 
 /// Risky function name patterns indicating privileged operations.
 const RISKY_FUNCTION_PATTERNS: &[&str] = &[
@@ -47,59 +65,12 @@ impl CentralizationRiskDetector {
 }
 
 impl ScanDetector for CentralizationRiskDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::CentralizationRisk
-    }
-
-    fn name(&self) -> &'static str {
-        "Centralization Risk"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects contracts with centralized control mechanisms"
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::AccessControl
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Medium
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Contract
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![250]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Consider implementing timelocks, multi-sig requirements, or DAO-style \
-         governance for privileged operations. Document the trust assumptions clearly."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://consensys.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/",
-        ]
     }
 
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
@@ -136,8 +107,7 @@ impl ScanDetector for CentralizationRiskDetector {
         // Only report if there are multiple privileged functions
         if privileged_count >= 3 {
             for (fname, fspan) in &privileged_funcs {
-                bugs.push(Bug::new(
-                    self.name(),
+                bugs.push(META.bug(
                     Some(&format!(
                         "Privileged function '{}' in '{}' may pose \
                          centralization risk. Consider implementing \
@@ -145,12 +115,6 @@ impl ScanDetector for CentralizationRiskDetector {
                         fname, contract.name
                     )),
                     fspan.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                    self.bug_kind(),
-                    self.bug_category(),
-                    self.risk_level(),
-                    self.cwe_ids(),
-                    self.swc_ids(),
-                    Some(self.recommendation()),
                 ));
             }
         }
@@ -166,7 +130,7 @@ mod tests {
     #[test]
     fn test_centralization_risk_detector() {
         let detector = CentralizationRiskDetector::new();
-        assert_eq!(detector.id(), DetectorId::CentralizationRisk);
-        assert_eq!(detector.risk_level(), RiskLevel::Medium);
+        assert_eq!(detector.meta().id, DetectorId::CentralizationRisk);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Medium);
     }
 }

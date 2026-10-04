@@ -55,7 +55,9 @@ pub use crate::passes::base::{AnalysisPass, Pass};
 
 // Re-export from detectors framework
 pub use detectors::base::registry::{DetectorRegistry, register_all_detectors};
-pub use detectors::{BugDetectionPass, ConfidenceLevel, DetectorId, DetectorResult, create_bug};
+pub use detectors::{
+    BugDetectionPass, ConfidenceLevel, DetectorId, DetectorMeta, DetectorResult, Target,
+};
 pub use pipeline::{PipelineConfig, PipelineEngine, PipelineResult};
 
 // Re-export output types

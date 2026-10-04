@@ -20,6 +20,13 @@ pub struct FunctionId(pub String);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ICFGNodeId(pub usize);
 
+impl FunctionId {
+    /// The contract part of a `Contract.function` id, if it has one.
+    pub fn contract(&self) -> Option<&str> {
+        self.0.split_once('.').map(|(contract, _)| contract)
+    }
+}
+
 impl Display for BlockId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "%bb{}", self.0)

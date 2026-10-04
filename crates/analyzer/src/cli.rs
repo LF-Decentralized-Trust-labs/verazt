@@ -176,12 +176,13 @@ fn list_detectors() {
     println!("{}", "-".repeat(85));
 
     for detector in sorted_detectors {
+        let meta = detector.meta();
         println!(
             "{:<25} {:<35} {:<10} {:<10}",
-            detector.detector_id().as_str(),
-            detector.name(),
-            detector.risk_level().as_str(),
-            format!("{:?}", detector.confidence()).to_lowercase(),
+            meta.id.as_str(),
+            meta.name,
+            meta.risk_level.as_str(),
+            format!("{:?}", meta.confidence).to_lowercase(),
         );
     }
 
@@ -194,19 +195,20 @@ fn show_detector(id: &str) {
 
     match registry.get(id) {
         Some(detector) => {
-            println!("Detector: {}", detector.name());
-            println!("ID: {}", detector.detector_id().as_str());
-            println!("Severity: {}", detector.risk_level());
-            println!("Confidence: {:?}", detector.confidence());
+            let meta = detector.meta();
+            println!("Detector: {}", meta.name);
+            println!("ID: {}", meta.id.as_str());
+            println!("Severity: {}", meta.risk_level);
+            println!("Confidence: {:?}", meta.confidence);
             println!();
             println!("Description:");
-            println!("  {}", detector.description());
+            println!("  {}", meta.description);
             println!();
             println!("Recommendation:");
-            println!("  {}", detector.recommendation());
+            println!("  {}", meta.recommendation);
             println!();
 
-            let swc_ids = detector.swc_ids();
+            let swc_ids = meta.swc_ids;
             if !swc_ids.is_empty() {
                 println!(
                     "SWC IDs: {}",
@@ -218,7 +220,7 @@ fn show_detector(id: &str) {
                 );
             }
 
-            let cwe_ids = detector.cwe_ids();
+            let cwe_ids = meta.cwe_ids;
             if !cwe_ids.is_empty() {
                 println!(
                     "CWE IDs: {}",
@@ -230,7 +232,7 @@ fn show_detector(id: &str) {
                 );
             }
 
-            let refs = detector.references();
+            let refs = meta.references;
             if !refs.is_empty() {
                 println!();
                 println!("References:");

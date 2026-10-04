@@ -31,6 +31,7 @@ impl ContextKey for DominanceArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Dominance analysis pass.
+#[derive(Debug, Default)]
 pub struct DominancePass;
 
 impl Pass for DominancePass {

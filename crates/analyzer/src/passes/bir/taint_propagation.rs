@@ -22,6 +22,7 @@ impl ContextKey for TaintMapArtifact {
 }
 
 /// Taint propagation analysis pass.
+#[derive(Debug, Default)]
 pub struct TaintPropagationPass;
 
 impl Pass for TaintPropagationPass {

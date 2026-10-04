@@ -3,14 +3,34 @@
 //! Detects arithmetic operations with wrapping semantics (Solidity <0.8
 //! without SafeMath) by walking `BinOpExpr` and `AugAssignStmt` nodes.
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::exprs::{BinOp, Expr, OverflowSemantics};
 use scirs::sir::lits::{Lit, Num};
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{AugAssignStmt, BinOpExpr, ContractDecl, FunctionDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::Arithmetic,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[190, 191],
+    description: "Detects arithmetic operations with wrapping overflow semantics (Solidity <0.8).",
+    id: DetectorId::ArithmeticOverflow,
+    name: "Integer Overflow/Underflow",
+    recommendation: "Use Solidity ≥0.8.0 which has built-in overflow checks, or use \
+         OpenZeppelin's SafeMath library for earlier versions. Avoid \
+         unchecked arithmetic blocks unless overflow is intentional.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-101",
+        "https://docs.soliditylang.org/en/latest/080-breaking-changes.html",
+    ],
+    risk_level: RiskLevel::High,
+    swc_ids: &[101],
+    target: Target::Evm,
+};
 
 /// Scan detector for integer overflow/underflow.
 #[derive(Debug, Default)]
@@ -45,61 +65,12 @@ fn is_arithmetic_op(op: BinOp) -> bool {
 }
 
 impl ScanDetector for ArithmeticOverflowDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::ArithmeticOverflow
-    }
-
-    fn name(&self) -> &'static str {
-        "Integer Overflow/Underflow"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects arithmetic operations with wrapping overflow semantics (Solidity <0.8)."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::Arithmetic
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::High
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![190, 191]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![101]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Use Solidity ≥0.8.0 which has built-in overflow checks, or use \
-         OpenZeppelin's SafeMath library for earlier versions. Avoid \
-         unchecked arithmetic blocks unless overflow is intentional."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-101",
-            "https://docs.soliditylang.org/en/latest/080-breaking-changes.html",
-        ]
     }
 
     fn check_function(
@@ -111,7 +82,6 @@ impl ScanDetector for ArithmeticOverflowDetector {
         let mut bugs = Vec::new();
 
         struct Visitor<'b> {
-            detector: &'b ArithmeticOverflowDetector,
             bugs: &'b mut Vec<Bug>,
             contract_name: String,
             func_name: String,
@@ -141,20 +111,13 @@ impl ScanDetector for ArithmeticOverflowDetector {
                         BinOp::Pow => "exponentiation",
                         _ => "arithmetic",
                     };
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Potential integer overflow/underflow: unchecked {} in \
                              '{}.{}'. Solidity <0.8 uses wrapping arithmetic.",
                             op_str, self.contract_name, self.func_name
                         )),
                         expr.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_binop_expr(self, expr);
@@ -169,20 +132,13 @@ impl ScanDetector for ArithmeticOverflowDetector {
                         BinOp::Pow => "**=",
                         _ => "op=",
                     };
-                    self.bugs.push(Bug::new(
-                        self.detector.name(),
+                    self.bugs.push(META.bug(
                         Some(&format!(
                             "Potential integer overflow/underflow: unchecked '{}' \
                              in '{}.{}'.",
                             op_str, self.contract_name, self.func_name
                         )),
                         stmt.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        self.detector.bug_kind(),
-                        self.detector.bug_category(),
-                        self.detector.risk_level(),
-                        self.detector.cwe_ids(),
-                        self.detector.swc_ids(),
-                        Some(self.detector.recommendation()),
                     ));
                 }
                 visit::default::visit_aug_assign_stmt(self, stmt);
@@ -190,7 +146,6 @@ impl ScanDetector for ArithmeticOverflowDetector {
         }
 
         let mut visitor = Visitor {
-            detector: self,
             bugs: &mut bugs,
             contract_name: contract.name.clone(),
             func_name: func.name.clone(),
@@ -208,7 +163,7 @@ mod tests {
     #[test]
     fn test_arithmetic_overflow_detector() {
         let detector = ArithmeticOverflowDetector::new();
-        assert_eq!(detector.id(), DetectorId::ArithmeticOverflow);
-        assert_eq!(detector.risk_level(), RiskLevel::High);
+        assert_eq!(detector.meta().id, DetectorId::ArithmeticOverflow);
+        assert_eq!(detector.meta().risk_level,RiskLevel::High);
     }
 }

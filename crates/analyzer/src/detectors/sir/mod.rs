@@ -22,5 +22,5 @@ pub mod evm;
 pub mod registry;
 
 pub use adapter::ScanDetectorAdapter;
-pub use detector::{Confidence, DetectionLevel, ScanDetector, Target};
+pub use detector::{DetectionLevel, ScanDetector};
 pub use registry::ScanRegistry;

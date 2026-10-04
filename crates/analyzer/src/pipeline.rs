@@ -10,10 +10,9 @@ use crate::context::AnalysisContext;
 use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
 use crate::pass_manager::manager::{PassManager, PassManagerConfig};
-use crate::passes::base::AnalysisPass;
-use crate::passes::bir::{DominancePass, FunctionEffectsPass, TaintPropagationPass};
+use crate::pass_manager::PassRegistry;
+use crate::passes::register_all_passes;
 use bugs::bug::Bug;
-use std::any::TypeId;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
@@ -91,6 +90,8 @@ impl PipelineResult {
 pub struct PipelineEngine {
     /// Detector registry.
     registry: DetectorRegistry,
+    /// Analysis passes available to satisfy detector dependencies.
+    passes: PassRegistry,
     /// Pipeline configuration.
     config: PipelineConfig,
 }
@@ -100,12 +101,15 @@ impl PipelineEngine {
     pub fn new(config: PipelineConfig) -> Self {
         let mut registry = DetectorRegistry::new();
         register_all_detectors(&mut registry);
-        Self { registry, config }
+        Self::with_registry(registry, config)
     }
 
-    /// Create a pipeline engine with an empty registry (for testing).
+    /// Create a pipeline engine running the detectors of `registry`, with
+    /// all built-in analysis passes available.
     pub fn with_registry(registry: DetectorRegistry, config: PipelineConfig) -> Self {
-        Self { registry, config }
+        let mut passes = PassRegistry::new();
+        register_all_passes(&mut passes);
+        Self { registry, passes, config }
     }
 
     /// Get a reference to the detector registry.
@@ -118,12 +122,19 @@ impl PipelineEngine {
         &mut self.registry
     }
 
+    /// Get a mutable reference to the pass registry, to make custom passes
+    /// available to custom detectors.
+    pub fn passes_mut(&mut self) -> &mut PassRegistry {
+        &mut self.passes
+    }
+
     /// Run the full pipeline: analysis phase then detection phase.
     pub fn run(&self, context: &mut AnalysisContext) -> PipelineResult {
         let start = Instant::now();
 
         // Step 1: Resolve which detectors to run
-        let enabled_detectors = self.resolve_detectors();
+        let enabled_detectors: Vec<&dyn BugDetectionPass> =
+            self.resolve_detectors().into_iter().filter(|d| d.is_enabled(context)).collect();
 
         // Step 2: Phase 1 - Analysis passes the detectors depend on
         let analysis_start = Instant::now();
@@ -160,7 +171,7 @@ impl PipelineEngine {
         selected
             .into_iter()
             .filter(|d| {
-                !superseded.contains(&d.detector_id()) || is_listed(&self.config.enabled, *d)
+                !superseded.contains(&d.meta().id) || is_listed(&self.config.enabled, *d)
             })
             .collect()
     }
@@ -190,24 +201,10 @@ impl PipelineEngine {
         enabled_detectors: &[&dyn BugDetectionPass],
         context: &mut AnalysisContext,
     ) -> Result<(), String> {
-        // Collect required passes from detector dependencies, then close
-        // over the passes' own dependencies.
-        let mut pending: Vec<TypeId> =
-            enabled_detectors.iter().flat_map(|d| d.dependencies()).collect();
-        let mut required: Vec<Box<dyn AnalysisPass>> = Vec::new();
-        let mut seen: HashSet<TypeId> = HashSet::new();
-        while let Some(pass_id) = pending.pop() {
-            if !seen.insert(pass_id) {
-                continue;
-            }
-            match create_analysis_pass(pass_id) {
-                Some(pass) => {
-                    pending.extend(pass.dependencies());
-                    required.push(pass);
-                }
-                None => return Err(format!("no analysis pass registered for {pass_id:?}")),
-            }
-        }
+        let required = self
+            .passes
+            .instantiate_closure(enabled_detectors.iter().flat_map(|d| d.dependencies()))
+            .map_err(|e| e.to_string())?;
 
         if required.is_empty() {
             log::debug!("No analysis passes required by enabled detectors");
@@ -335,9 +332,8 @@ impl PipelineEngine {
 
 /// Returns `true` if `list` names the detector by its name or ID.
 fn is_listed(list: &[String], detector: &dyn BugDetectionPass) -> bool {
-    let name = detector.name();
-    let id = detector.detector_id().as_str();
-    list.iter().any(|d| d == name || d == id)
+    let meta = detector.meta();
+    list.iter().any(|d| d == meta.name || d == meta.id.as_str())
 }
 
 /// Run a single detector and collect results.
@@ -371,25 +367,10 @@ fn run_single_detector(
     }
 }
 
-/// Create an analysis pass instance from a TypeId.
-///
-/// This factory function maps TypeIds to their concrete implementations.
-fn create_analysis_pass(pass_id: TypeId) -> Option<Box<dyn AnalysisPass>> {
-    if pass_id == TypeId::of::<DominancePass>() {
-        Some(Box::new(DominancePass))
-    } else if pass_id == TypeId::of::<FunctionEffectsPass>() {
-        Some(Box::new(FunctionEffectsPass))
-    } else if pass_id == TypeId::of::<TaintPropagationPass>() {
-        Some(Box::new(TaintPropagationPass))
-    } else {
-        None
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context::AnalysisConfig;
+    use crate::context::{AnalysisConfig, InputLanguage};
     use crate::passes::bir::FunctionEffectsArtifact;
 
     #[test]
@@ -432,7 +413,7 @@ mod tests {
 
     fn resolved_ids(config: PipelineConfig) -> Vec<DetectorId> {
         let engine = PipelineEngine::new(config);
-        engine.resolve_detectors().iter().map(|d| d.detector_id()).collect()
+        engine.resolve_detectors().iter().map(|d| d.meta().id).collect()
     }
 
     fn ids(names: &[&str]) -> Vec<String> {
@@ -471,13 +452,11 @@ mod tests {
     fn test_every_detector_dependency_has_a_pass() {
         let engine = PipelineEngine::new(PipelineConfig::default());
         for detector in engine.registry().all() {
-            for dep in detector.dependencies() {
-                assert!(
-                    create_analysis_pass(dep).is_some(),
-                    "'{}' depends on a pass missing from create_analysis_pass",
-                    detector.name()
-                );
-            }
+            assert!(
+                engine.passes.instantiate_closure(detector.dependencies()).is_ok(),
+                "'{}' depends on a pass missing from the pass registry",
+                detector.name()
+            );
         }
     }
 
@@ -492,6 +471,17 @@ mod tests {
         context.set_bir_units(vec![scirs::bir::Module::new("m".to_string())]);
         engine.run(&mut context);
         assert!(context.has::<FunctionEffectsArtifact>());
+    }
+
+    #[test]
+    fn test_run_skips_detectors_of_other_platforms() {
+        let engine =
+            PipelineEngine::new(PipelineConfig { parallel: false, ..PipelineConfig::default() });
+        let config =
+            AnalysisConfig { input_language: InputLanguage::MoveSui, ..AnalysisConfig::default() };
+        let mut context = AnalysisContext::new(vec![], config);
+        let result = engine.run(&mut context);
+        assert!(result.detector_stats.is_empty());
     }
 
     #[test]

@@ -33,6 +33,7 @@ impl ContextKey for WriteSetArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Write-set analysis pass.
+#[derive(Debug, Default)]
 pub struct WriteSetPass;
 
 impl Pass for WriteSetPass {

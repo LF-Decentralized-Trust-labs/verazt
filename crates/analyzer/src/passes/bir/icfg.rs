@@ -27,6 +27,7 @@ impl ContextKey for ICFGArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// ICFG construction pass.
+#[derive(Debug, Default)]
 pub struct ICFGPass;
 
 impl Pass for ICFGPass {

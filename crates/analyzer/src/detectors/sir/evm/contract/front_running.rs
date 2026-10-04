@@ -6,14 +6,36 @@
 //! 2. State-dependent ETH transfers where another public function can modify
 //!    the state variable
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::EvmFunctionExt;
 use scirs::sir::exprs::Expr;
 use scirs::sir::stmts::Stmt;
 use scirs::sir::{ContractDecl, FunctionDecl, MemberDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::FrontRunning,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Medium,
+    cwe_ids: &[362],
+    description: "Detects patterns vulnerable to transaction order dependence \
+         (front-running).",
+    id: DetectorId::FrontRunning,
+    name: "Front Running",
+    recommendation: "For ERC-20 approve: use increaseAllowance/decreaseAllowance \
+         instead of approve, or require the current allowance to be zero \
+         before setting a new value. For state-dependent transfers: use a \
+         commit-reveal scheme or mutex to prevent front-running.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-114",
+        "https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729",
+    ],
+    risk_level: RiskLevel::Medium,
+    swc_ids: &[114],
+    target: Target::Evm,
+};
 
 /// Scan detector for front-running vulnerabilities.
 #[derive(Debug, Default)]
@@ -243,63 +265,12 @@ struct FuncInfo {
 }
 
 impl ScanDetector for FrontRunningDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::FrontRunning
-    }
-
-    fn name(&self) -> &'static str {
-        "Front Running"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects patterns vulnerable to transaction order dependence \
-         (front-running)."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::FrontRunning
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Medium
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Medium
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Contract
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![362]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![114]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "For ERC-20 approve: use increaseAllowance/decreaseAllowance \
-         instead of approve, or require the current allowance to be zero \
-         before setting a new value. For state-dependent transfers: use a \
-         commit-reveal scheme or mutex to prevent front-running."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-114",
-            "https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729",
-        ]
     }
 
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
@@ -338,8 +309,7 @@ impl ScanDetector for FrontRunningDetector {
                 if is_approve_function(func) {
                     if let Some(body) = &func.body {
                         if has_direct_allowance_set(body) && !has_allowance_check(body) {
-                            bugs.push(Bug::new(
-                                self.name(),
+                            bugs.push(META.bug(
                                 Some(&format!(
                                     "ERC-20 approve race condition in '{}.approve': \
                                      allowance is set directly without checking the \
@@ -348,12 +318,6 @@ impl ScanDetector for FrontRunningDetector {
                                     contract.name
                                 )),
                                 func.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                                self.bug_kind(),
-                                self.bug_category(),
-                                self.risk_level(),
-                                self.cwe_ids(),
-                                self.swc_ids(),
-                                Some(self.recommendation()),
                             ));
                         }
                     }
@@ -367,8 +331,7 @@ impl ScanDetector for FrontRunningDetector {
                 for dep_var in &func_info.transfer_deps {
                     for other in &public_functions {
                         if other.name != func_info.name && other.writes.contains(dep_var) {
-                            bugs.push(Bug::new(
-                                self.name(),
+                            bugs.push(META.bug(
                                 Some(&format!(
                                     "Transaction order dependence in \
                                      '{}.{}': ETH transfer amount \
@@ -383,12 +346,6 @@ impl ScanDetector for FrontRunningDetector {
                                     .span
                                     .clone()
                                     .unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                                self.bug_kind(),
-                                self.bug_category(),
-                                self.risk_level(),
-                                self.cwe_ids(),
-                                self.swc_ids(),
-                                Some(self.recommendation()),
                             ));
                             break;
                         }
@@ -408,10 +365,10 @@ mod tests {
     #[test]
     fn test_front_running_detector() {
         let detector = FrontRunningDetector::new();
-        assert_eq!(detector.id(), DetectorId::FrontRunning);
-        assert_eq!(detector.swc_ids(), vec![114]);
-        assert_eq!(detector.cwe_ids(), vec![362]);
-        assert_eq!(detector.risk_level(), RiskLevel::Medium);
-        assert_eq!(detector.bug_category(), BugCategory::FrontRunning);
+        assert_eq!(detector.meta().id, DetectorId::FrontRunning);
+        assert_eq!(detector.meta().swc_ids, &[114]);
+        assert_eq!(detector.meta().cwe_ids, &[362]);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Medium);
+        assert_eq!(detector.meta().bug_category, BugCategory::FrontRunning);
     }
 }

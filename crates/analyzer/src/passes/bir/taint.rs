@@ -34,6 +34,7 @@ impl ContextKey for TaintArtifact {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Extended taint analysis pass.
+#[derive(Debug, Default)]
 pub struct TaintPass;
 
 impl Pass for TaintPass {

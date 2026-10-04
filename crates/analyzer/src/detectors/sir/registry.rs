@@ -1,4 +1,5 @@
-use crate::detectors::sir::detector::{ScanDetector, Target};
+use crate::detectors::Target;
+use crate::detectors::sir::detector::ScanDetector;
 
 /// Registry for scan detectors.
 pub struct ScanRegistry {
@@ -24,7 +25,7 @@ impl ScanRegistry {
     pub fn for_target(&self, target: Target) -> Vec<&dyn ScanDetector> {
         self.detectors
             .iter()
-            .filter(|d| d.target() == target)
+            .filter(|d| d.meta().target == target)
             .map(|d| d.as_ref())
             .collect()
     }

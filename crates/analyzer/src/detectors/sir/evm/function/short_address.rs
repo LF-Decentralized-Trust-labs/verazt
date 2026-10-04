@@ -3,8 +3,8 @@
 //! Detects ERC-20 `transfer` and `transferFrom` functions that don't
 //! validate `msg.data.length`.
 
-use crate::detectors::DetectorId;
-use crate::detectors::sir::detector::{Confidence, DetectionLevel, ScanDetector, Target};
+use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
+use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::EvmFunctionExt;
@@ -12,6 +12,26 @@ use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::exprs::Expr;
 use scirs::sir::stmts::Stmt;
 use scirs::sir::{ContractDecl, DialectExpr, FunctionDecl, Module};
+
+const META: DetectorMeta = DetectorMeta {
+    bug_category: BugCategory::ShortAddresses,
+    bug_kind: BugKind::Vulnerability,
+    confidence: ConfidenceLevel::Low,
+    cwe_ids: &[20],
+    description: "Detects ERC-20 transfer/transferFrom without msg.data.length check.",
+    id: DetectorId::ShortAddress,
+    name: "Short Address Attack",
+    recommendation: "Add a check for msg.data.length in transfer/transferFrom functions, \
+         e.g., `require(msg.data.length >= 68)`. Better yet, upgrade to \
+         Solidity ≥0.5.0 which validates calldata length automatically.",
+    references: &[
+        "https://swcregistry.io/docs/SWC-130",
+        "https://blog.golemproject.net/how-to-find-10m-by-just-reading-blockchain/",
+    ],
+    risk_level: RiskLevel::Low,
+    swc_ids: &[130],
+    target: Target::Evm,
+};
 
 /// Scan detector for the short address attack.
 #[derive(Debug, Default)]
@@ -83,61 +103,12 @@ fn expr_references_msg_data(expr: &Expr) -> bool {
 }
 
 impl ScanDetector for ShortAddressDetector {
-    fn id(&self) -> DetectorId {
-        DetectorId::ShortAddress
-    }
-
-    fn name(&self) -> &'static str {
-        "Short Address Attack"
-    }
-
-    fn description(&self) -> &'static str {
-        "Detects ERC-20 transfer/transferFrom without msg.data.length check."
-    }
-
-    fn bug_kind(&self) -> BugKind {
-        BugKind::Vulnerability
-    }
-
-    fn bug_category(&self) -> BugCategory {
-        BugCategory::ShortAddresses
-    }
-
-    fn risk_level(&self) -> RiskLevel {
-        RiskLevel::Low
-    }
-
-    fn confidence(&self) -> Confidence {
-        Confidence::Low
-    }
-
-    fn target(&self) -> Target {
-        Target::Evm
+    fn meta(&self) -> &'static DetectorMeta {
+        &META
     }
 
     fn level(&self) -> DetectionLevel {
         DetectionLevel::Function
-    }
-
-    fn cwe_ids(&self) -> Vec<usize> {
-        vec![20]
-    }
-
-    fn swc_ids(&self) -> Vec<usize> {
-        vec![130]
-    }
-
-    fn recommendation(&self) -> &'static str {
-        "Add a check for msg.data.length in transfer/transferFrom functions, \
-         e.g., `require(msg.data.length >= 68)`. Better yet, upgrade to \
-         Solidity ≥0.5.0 which validates calldata length automatically."
-    }
-
-    fn references(&self) -> Vec<&'static str> {
-        vec![
-            "https://swcregistry.io/docs/SWC-130",
-            "https://blog.golemproject.net/how-to-find-10m-by-just-reading-blockchain/",
-        ]
     }
 
     fn check_function(
@@ -154,8 +125,7 @@ impl ScanDetector for ShortAddressDetector {
 
         if let Some(body) = &func.body {
             if !references_msg_data(body) {
-                bugs.push(Bug::new(
-                    self.name(),
+                bugs.push(META.bug(
                     Some(&format!(
                         "ERC-20 '{}' in '{}' does not validate \
                          msg.data.length. This may be vulnerable \
@@ -164,12 +134,6 @@ impl ScanDetector for ShortAddressDetector {
                         func.name, contract.name
                     )),
                     func.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                    self.bug_kind(),
-                    self.bug_category(),
-                    self.risk_level(),
-                    self.cwe_ids(),
-                    self.swc_ids(),
-                    Some(self.recommendation()),
                 ));
             }
         }
@@ -185,7 +149,7 @@ mod tests {
     #[test]
     fn test_short_address_detector() {
         let detector = ShortAddressDetector::new();
-        assert_eq!(detector.id(), DetectorId::ShortAddress);
-        assert_eq!(detector.risk_level(), RiskLevel::Low);
+        assert_eq!(detector.meta().id, DetectorId::ShortAddress);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Low);
     }
 }
