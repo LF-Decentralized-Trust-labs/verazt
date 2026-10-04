@@ -544,7 +544,13 @@ fn format_text_output(report: &AnalysisReport) -> String {
         output.push_str(&format_header("Detected Bugs"));
 
         for (i, bug) in report.bugs.iter().enumerate() {
-            output.push_str(&format!("🐛 Issue {}: {} ({})\n\n", i + 1, bug.name, bug.category));
+            output.push_str(&format!(
+                "🐛 Issue {}: {} ({}) [{}]\n\n",
+                i + 1,
+                bug.name,
+                bug.category,
+                bug.detector_id
+            ));
 
             let snippet_file = bug.loc.file.as_deref().unwrap_or("");
             let display_file =
