@@ -11,8 +11,8 @@
 //!   (`AnalysisContext`, `ContextKey`)
 //! - `pass_manager`: Orchestrates pass registration, scheduling, and execution
 //!   (`PassManager`)
-//! - `passes`: Concrete analysis passes organized by IR layer (`base/`, `sir/`,
-//!   `bir/`, `vir/`)
+//! - `passes`: Concrete analysis passes organized by IR layer (`base/`,
+//!   `bir/`)
 //! - `frameworks`: Reusable analysis infrastructure (`dfa/`, `cfa/`,
 //!   `datalog/`)
 //! - `pipeline`: Two-phase orchestrator (analysis → detection;
