@@ -6,5 +6,5 @@
 pub mod lattice;
 pub mod op_solver;
 
-pub use lattice::{FlatLattice, Lattice, MapLattice, PowerSetLattice, ProductLattice};
+pub use lattice::{Lattice, PowerSetLattice};
 pub use op_solver::{Direction, OpFacts};
