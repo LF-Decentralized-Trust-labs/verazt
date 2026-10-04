@@ -97,10 +97,10 @@ impl BugDetectionPass for ReentrancyFlowDetector {
         Ok(bugs)
     }
 
-    /// The syntactic SIR detectors flag the same write-after-call pattern
+    /// The syntactic SIR detector flags the same write-after-call pattern
     /// with less precision.
     fn supersedes(&self) -> Vec<DetectorId> {
-        vec![DetectorId::CeiViolation, DetectorId::Reentrancy]
+        vec![DetectorId::Reentrancy]
     }
 }
 

@@ -2,7 +2,6 @@
 
 pub mod arithmetic_overflow;
 pub mod bad_randomness;
-pub mod cei_violation;
 pub mod delegatecall;
 pub mod denial_of_service;
 pub mod deprecated_features;
@@ -16,7 +15,6 @@ pub mod unchecked_call;
 
 pub use arithmetic_overflow::ArithmeticOverflowDetector;
 pub use bad_randomness::BadRandomnessDetector;
-pub use cei_violation::CeiViolationDetector;
 pub use delegatecall::DelegatecallDetector;
 pub use denial_of_service::DenialOfServiceDetector;
 pub use deprecated_features::DeprecatedFeaturesDetector;

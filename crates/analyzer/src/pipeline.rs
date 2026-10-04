@@ -464,7 +464,6 @@ mod tests {
         let resolved = resolved_ids_in(PipelineConfig::default(), &context);
         assert!(resolved.contains(&DetectorId::ReentrancyFlow));
         assert!(resolved.contains(&DetectorId::Reentrancy));
-        assert!(resolved.contains(&DetectorId::CeiViolation));
     }
 
     fn ids(names: &[&str]) -> Vec<String> {
@@ -476,7 +475,6 @@ mod tests {
         let resolved = resolved_ids(PipelineConfig::default());
         assert!(resolved.contains(&DetectorId::ReentrancyFlow));
         assert!(!resolved.contains(&DetectorId::Reentrancy));
-        assert!(!resolved.contains(&DetectorId::CeiViolation));
     }
 
     #[test]
@@ -496,7 +494,6 @@ mod tests {
             PipelineConfig { disabled: ids(&["reentrancy-flow"]), ..PipelineConfig::default() };
         let resolved = resolved_ids(config);
         assert!(resolved.contains(&DetectorId::Reentrancy));
-        assert!(resolved.contains(&DetectorId::CeiViolation));
     }
 
     #[test]
