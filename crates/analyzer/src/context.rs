@@ -63,14 +63,8 @@ pub struct AnalysisConfig {
     /// Maximum number of worker threads.
     pub max_workers: usize,
 
-    /// Enable verbose logging.
-    pub verbose: bool,
-
     /// The input source language.
     pub input_language: InputLanguage,
-
-    /// Additional configuration options.
-    pub options: HashMap<String, String>,
 }
 
 impl AnalysisConfig {
@@ -79,9 +73,7 @@ impl AnalysisConfig {
         Self {
             enable_parallel: true,
             max_workers: 0, // 0 = auto-detect
-            verbose: false,
             input_language: InputLanguage::default(),
-            options: HashMap::new(),
         }
     }
 
@@ -99,9 +91,6 @@ pub struct AnalysisStats {
 
     /// Time spent on IR analysis.
     pub ir_analysis_time: Duration,
-
-    /// Time spent on BIR lowering.
-    pub air_lowering_time: Duration,
 
     /// Total passes executed.
     pub passes_executed: usize,

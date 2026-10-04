@@ -136,20 +136,6 @@ impl PassScheduler {
         Ok(ExecutionSchedule { levels })
     }
 
-    /// Get passes that can be executed given current completion state.
-    pub fn get_ready_passes(&self, completed: &HashSet<TypeId>) -> Vec<TypeId> {
-        self.registered_passes
-            .iter()
-            .filter(|&pass_id| {
-                !completed.contains(pass_id)
-                    && self
-                        .dependency_graph
-                        .dependencies_satisfied(pass_id, completed)
-            })
-            .copied()
-            .collect()
-    }
-
     /// Get the dependency graph.
     pub fn dependency_graph(&self) -> &DependencyGraph {
         &self.dependency_graph

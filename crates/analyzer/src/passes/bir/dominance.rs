@@ -75,10 +75,6 @@ impl AnalysisPass for DominancePass {
         ctx.mark_pass_completed(self.id());
         Ok(())
     }
-
-    fn is_completed(&self, ctx: &AnalysisContext) -> bool {
-        ctx.is_pass_completed(self.id())
-    }
 }
 
 #[cfg(test)]

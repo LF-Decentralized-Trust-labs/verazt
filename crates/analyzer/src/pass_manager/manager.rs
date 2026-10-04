@@ -1,13 +1,13 @@
 //! Pass Manager
 //!
 //! Owns the pass registry; entry point for callers; delegates to scheduler
-//! then executor; produces `AnalysisReport`. Must not directly touch
+//! then executor; produces `PassRunReport`. Must not directly touch
 //! dependency resolution or execution timing.
 
 use crate::context::AnalysisContext;
 use crate::pass_manager::executor::{ExecutorConfig, PassExecutor};
 use crate::pass_manager::scheduler::PassScheduler;
-use crate::passes::base::{AnalysisPass, PassError, PassExecutionInfo, PassResult};
+use crate::passes::base::{AnalysisPass, PassExecutionInfo, PassResult};
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -44,9 +44,10 @@ impl Default for PassManagerConfig {
     }
 }
 
-/// Analysis report containing execution results.
+/// The outcome of one `PassManager::run`, distinct from the bug report
+/// `output::AnalysisReport`.
 #[derive(Debug)]
-pub struct AnalysisReport {
+pub struct PassRunReport {
     /// Pass execution information.
     pub pass_info: Vec<PassExecutionInfo>,
 
@@ -64,33 +65,6 @@ pub struct AnalysisReport {
 
     /// Error messages.
     pub errors: Vec<String>,
-}
-
-impl AnalysisReport {
-    /// Create a successful report.
-    pub fn success(pass_info: Vec<PassExecutionInfo>, duration: std::time::Duration) -> Self {
-        let passes_executed = pass_info.len();
-        Self {
-            pass_info,
-            total_duration: duration,
-            passes_executed,
-            passes_skipped: 0,
-            success: true,
-            errors: vec![],
-        }
-    }
-
-    /// Create a failed report.
-    pub fn failure(errors: Vec<String>, duration: std::time::Duration) -> Self {
-        Self {
-            pass_info: vec![],
-            total_duration: duration,
-            passes_executed: 0,
-            passes_skipped: 0,
-            success: false,
-            errors,
-        }
-    }
 }
 
 /// The main pass manager.
@@ -160,7 +134,7 @@ impl PassManager {
     }
 
     /// Run all registered passes on the context.
-    pub fn run(&mut self, context: &mut AnalysisContext) -> PassResult<AnalysisReport> {
+    pub fn run(&mut self, context: &mut AnalysisContext) -> PassResult<PassRunReport> {
         let start = Instant::now();
 
         // Compute execution schedule
@@ -178,7 +152,7 @@ impl PassManager {
         let result = self.executor.execute(&schedule, context)?;
 
         let success = result.is_success();
-        let report = AnalysisReport {
+        let report = PassRunReport {
             pass_info: result.pass_results,
             total_duration: start.elapsed(),
             passes_executed: result.successful,
@@ -188,34 +162,6 @@ impl PassManager {
         };
 
         Ok(report)
-    }
-
-    /// Run a specific pass and its dependencies.
-    pub fn run_pass(&mut self, pass_id: TypeId, context: &mut AnalysisContext) -> PassResult<()> {
-        // Get the pass
-        let pass = self
-            .passes
-            .get(&pass_id)
-            .ok_or_else(|| PassError::PassNotFound(format!("{:?}", pass_id)))?;
-
-        // Check if already completed
-        if context.is_pass_completed(pass_id) {
-            return Ok(());
-        }
-
-        // Run dependencies first
-        for dep in pass.dependencies() {
-            if !context.is_pass_completed(dep) {
-                self.run_pass(dep, context)?;
-            }
-        }
-
-        // Run the pass
-        let pass = Arc::clone(self.passes.get(&pass_id).unwrap());
-        pass.run(context)?;
-        context.mark_pass_completed(pass_id);
-
-        Ok(())
     }
 
     /// Get a registered pass.
@@ -282,9 +228,6 @@ mod tests {
             context.mark_pass_completed(self.id());
             Ok(())
         }
-        fn is_completed(&self, context: &AnalysisContext) -> bool {
-            context.is_pass_completed(self.id())
-        }
     }
 
     struct MockPassB; // depends on MockPassA
@@ -309,9 +252,6 @@ mod tests {
         fn run(&self, context: &mut AnalysisContext) -> PassResult<()> {
             context.mark_pass_completed(self.id());
             Ok(())
-        }
-        fn is_completed(&self, context: &AnalysisContext) -> bool {
-            context.is_pass_completed(self.id())
         }
     }
 

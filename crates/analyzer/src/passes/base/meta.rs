@@ -71,36 +71,11 @@ impl PassLevel {
             PassLevel::Variable => "Variable tracking analysis",
         }
     }
-
-    /// Check if this level is coarser than another.
-    pub fn is_coarser_than(&self, other: &PassLevel) -> bool {
-        (*self as u8) < (*other as u8)
-    }
-
-    /// Check if this level is finer than another.
-    pub fn is_finer_than(&self, other: &PassLevel) -> bool {
-        (*self as u8) > (*other as u8)
-    }
 }
 
 impl Display for PassLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
-    }
-}
-
-impl From<u8> for PassLevel {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => PassLevel::Program,
-            1 => PassLevel::Contract,
-            2 => PassLevel::Function,
-            3 => PassLevel::Block,
-            4 => PassLevel::Statement,
-            5 => PassLevel::Expression,
-            6 => PassLevel::Variable,
-            _ => PassLevel::Program,
-        }
     }
 }
 
@@ -137,14 +112,6 @@ impl Display for PassRepresentation {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // PassLevel tests
-    #[test]
-    fn test_level_ordering() {
-        assert!(PassLevel::Program.is_coarser_than(&PassLevel::Contract));
-        assert!(PassLevel::Function.is_coarser_than(&PassLevel::Block));
-        assert!(PassLevel::Variable.is_finer_than(&PassLevel::Expression));
-    }
 
     #[test]
     fn test_level_display() {

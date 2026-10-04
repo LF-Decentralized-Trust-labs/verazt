@@ -139,10 +139,6 @@ impl AnalysisPass for TaintPass {
         ctx.mark_pass_completed(self.id());
         Ok(())
     }
-
-    fn is_completed(&self, ctx: &AnalysisContext) -> bool {
-        ctx.is_pass_completed(self.id())
-    }
 }
 
 /// Returns `true` if the op's result is computed from its operands, so it

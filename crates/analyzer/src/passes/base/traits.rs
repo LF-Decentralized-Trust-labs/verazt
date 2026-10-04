@@ -70,17 +70,6 @@ pub trait Pass: Send + Sync + 'static {
 
     /// Get the list of passes that must run before this one.
     fn dependencies(&self) -> Vec<TypeId>;
-
-    /// Get the list of passes that this pass invalidates (for future
-    /// transformation passes).
-    fn invalidates(&self) -> Vec<TypeId> {
-        vec![]
-    }
-
-    /// Check if this pass is enabled by default.
-    fn enabled_by_default(&self) -> bool {
-        true
-    }
 }
 
 /// Trait for analysis passes.
@@ -96,9 +85,6 @@ pub trait AnalysisPass: Pass {
     /// 2. Perform analysis
     /// 3. Store results in the context
     fn run(&self, context: &mut AnalysisContext) -> PassResult<()>;
-
-    /// Check if this pass has already been run on the given context.
-    fn is_completed(&self, context: &AnalysisContext) -> bool;
 }
 
 /// Metadata about a pass execution.

@@ -6,7 +6,7 @@
 //! ## Responsibility boundaries
 //!
 //! - **`manager`** — owns the pass registry; entry point for callers; delegates
-//!   to scheduler then executor; produces `AnalysisReport`.
+//!   to scheduler then executor; produces `PassRunReport`.
 //! - **`scheduler`** — pure function: takes registered passes, returns
 //!   `ExecutionSchedule`; must not mutate `AnalysisContext`.
 //! - **`executor`** — takes `ExecutionSchedule` + `AnalysisContext`; drives
@@ -22,6 +22,6 @@ pub mod scheduler;
 
 pub use dependency::DependencyGraph;
 pub use executor::{ExecutionResult, ExecutorConfig, PassExecutor};
-pub use manager::{AnalysisReport, PassManager, PassManagerConfig};
+pub use manager::{PassManager, PassManagerConfig, PassRunReport};
 pub use registry::PassRegistry;
 pub use scheduler::{ExecutionLevel, ExecutionSchedule, PassScheduler};

@@ -26,9 +26,6 @@ pub struct DependencyGraph {
     /// Edges: pass -> set of passes it depends on
     dependencies: HashMap<TypeId, HashSet<TypeId>>,
 
-    /// Reverse edges: pass -> set of passes that depend on it
-    dependents: HashMap<TypeId, HashSet<TypeId>>,
-
     /// All registered passes
     passes: HashSet<TypeId>,
 }
@@ -43,7 +40,6 @@ impl DependencyGraph {
     pub fn add_pass(&mut self, pass_id: TypeId) {
         self.passes.insert(pass_id);
         self.dependencies.entry(pass_id).or_default();
-        self.dependents.entry(pass_id).or_default();
     }
 
     /// Add a dependency: `pass_id` depends on `dependency`.
@@ -55,35 +51,6 @@ impl DependencyGraph {
             .entry(pass_id)
             .or_default()
             .insert(dependency);
-
-        self.dependents
-            .entry(dependency)
-            .or_default()
-            .insert(pass_id);
-    }
-
-    /// Get dependencies of a pass.
-    pub fn get_dependencies(&self, pass_id: &TypeId) -> Vec<TypeId> {
-        self.dependencies
-            .get(pass_id)
-            .map(|deps| deps.iter().cloned().collect())
-            .unwrap_or_default()
-    }
-
-    /// Get dependents of a pass (passes that depend on it).
-    pub fn get_dependents(&self, pass_id: &TypeId) -> Vec<TypeId> {
-        self.dependents
-            .get(pass_id)
-            .map(|deps| deps.iter().cloned().collect())
-            .unwrap_or_default()
-    }
-
-    /// Check if all dependencies of a pass are satisfied.
-    pub fn dependencies_satisfied(&self, pass_id: &TypeId, completed: &HashSet<TypeId>) -> bool {
-        self.dependencies
-            .get(pass_id)
-            .map(|deps| deps.iter().all(|dep| completed.contains(dep)))
-            .unwrap_or(true)
     }
 
     /// Compute topological sort of all passes.
@@ -185,7 +152,6 @@ impl DependencyGraph {
     /// Clear the graph.
     pub fn clear(&mut self) {
         self.dependencies.clear();
-        self.dependents.clear();
         self.passes.clear();
     }
 }

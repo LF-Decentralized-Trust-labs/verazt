@@ -79,10 +79,6 @@ impl AnalysisPass for FunctionEffectsPass {
         ctx.mark_pass_completed(self.id());
         Ok(())
     }
-
-    fn is_completed(&self, ctx: &AnalysisContext) -> bool {
-        ctx.is_pass_completed(self.id())
-    }
 }
 
 /// The transitive effects of every function in `module`: each function's
