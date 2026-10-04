@@ -2,7 +2,6 @@
 //! queryable at any op.
 
 use super::lattice::Lattice;
-use super::solver::Direction;
 use crate::frameworks::bir::{FunctionView, OpPos};
 use scirs::bir::ops::Op;
 use std::collections::VecDeque;
@@ -11,6 +10,15 @@ use std::ops::Range;
 // ═══════════════════════════════════════════════════════════════════
 // Data Structures
 // ═══════════════════════════════════════════════════════════════════
+
+/// The direction in which facts flow through a function.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Direction {
+    /// Against control flow, from the exits towards the entry.
+    Backward,
+    /// With control flow, from the entry towards the exits.
+    Forward,
+}
 
 /// The fixpoint of a dataflow problem over one function.
 ///
