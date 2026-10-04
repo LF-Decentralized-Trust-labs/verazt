@@ -11,5 +11,5 @@ pub use def_use::{DefUseArtifact, DefUsePass};
 pub use dominance::{DominanceArtifact, DominancePass};
 pub use function_effects::{FunctionEffects, FunctionEffectsArtifact, FunctionEffectsPass};
 pub use icfg::{ICFGArtifact, ICFGPass};
-pub use interval::{Interval, IntervalArtifact, IntervalPass};
+pub use interval::{FunctionIntervals, Interval, IntervalArtifact, IntervalPass};
 pub use taint::{TaintArtifact, TaintPass};
