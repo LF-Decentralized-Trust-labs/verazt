@@ -16,5 +16,4 @@ pub fn register_all_passes(registry: &mut PassRegistry) {
     registry.register::<bir::ICFGPass>();
     registry.register::<bir::IntervalPass>();
     registry.register::<bir::TaintPass>();
-    registry.register::<bir::TaintPropagationPass>();
 }

@@ -1,7 +1,8 @@
 //! Extended Taint Analysis Pass
 //!
-//! Builds on the existing `TaintPropagationPass` but stores the result
-//! as a typed `TaintArtifact` (set of taint labels per `OpId`).
+//! Propagates taint seeds along the module's taint-graph edges and SSA
+//! operands to a fixpoint and stores the result as a typed `TaintArtifact` (set of taint
+//! labels per `OpId`).
 //!
 //! Extended sources: TxOrigin, Timestamp, MsgValue, ExternalCallReturn.
 //! Extended sinks:  branch conditions, storage writes, arithmetic operands.

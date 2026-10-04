@@ -6,7 +6,6 @@ pub mod function_effects;
 pub mod icfg;
 pub mod interval;
 pub mod taint;
-pub mod taint_propagation;
 
 pub use def_use::{DefUseArtifact, DefUsePass};
 pub use dominance::{DominanceArtifact, DominancePass};
@@ -14,4 +13,3 @@ pub use function_effects::{FunctionEffects, FunctionEffectsArtifact, FunctionEff
 pub use icfg::{ICFGArtifact, ICFGPass};
 pub use interval::{Interval, IntervalArtifact, IntervalPass};
 pub use taint::{TaintArtifact, TaintPass};
-pub use taint_propagation::TaintPropagationPass;
