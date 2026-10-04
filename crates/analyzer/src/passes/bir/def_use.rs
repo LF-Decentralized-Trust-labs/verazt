@@ -6,6 +6,7 @@
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
+use scirs::bir::cfg::{Function, FunctionId};
 use scirs::bir::ops::{OpId, OpRef};
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
@@ -16,11 +17,12 @@ use std::collections::{HashMap, HashSet};
 
 /// Artifact key for def-use analysis.
 ///
-/// Maps `OpId` → set of `OpId`s that use this op's result.
+/// Maps BIR module id → function → `OpId` → set of `OpId`s that use this
+/// op's result. `OpId`s are only unique within a function.
 pub struct DefUseArtifact;
 
 impl ContextKey for DefUseArtifact {
-    type Value = HashMap<OpId, HashSet<OpId>>;
+    type Value = HashMap<String, HashMap<FunctionId, HashMap<OpId, HashSet<OpId>>>>;
     const NAME: &'static str = "def_use";
 }
 
@@ -57,39 +59,54 @@ impl Pass for DefUsePass {
 impl AnalysisPass for DefUsePass {
     type Artifact = DefUseArtifact;
 
-    fn run(&self, ctx: &AnalysisContext) -> PassResult<HashMap<OpId, HashSet<OpId>>> {
-        let mut result: HashMap<OpId, HashSet<OpId>> = HashMap::new();
-
-        for module in ctx.bir_units() {
-            for func in &module.functions {
-                // Ensure every definition (block parameter or op) has an
-                // entry (possibly empty)
-                for block in &func.blocks {
-                    for param in &block.params {
-                        result.entry(param.id).or_default();
-                    }
-                    for op in &block.ops {
-                        result.entry(op.id).or_default();
-                    }
-                }
-                // Collect uses
-                for block in &func.blocks {
-                    for op in &block.ops {
-                        for OpRef(def_id) in op.kind.operands() {
-                            result.entry(def_id).or_default().insert(op.id);
-                        }
-                    }
-                    // Terminator operands (conditions and block arguments)
-                    // have no op id; just make sure their definitions appear
-                    for OpRef(def_id) in block.term.operands() {
-                        result.entry(def_id).or_default();
-                    }
-                }
-            }
-        }
+    fn run(
+        &self,
+        ctx: &AnalysisContext,
+    ) -> PassResult<HashMap<String, HashMap<FunctionId, HashMap<OpId, HashSet<OpId>>>>> {
+        let result = ctx
+            .bir_units()
+            .iter()
+            .map(|module| {
+                let funcs = module
+                    .functions
+                    .iter()
+                    .map(|func| (func.id.clone(), function_def_use(func)))
+                    .collect();
+                (module.source_module_id.clone(), funcs)
+            })
+            .collect();
 
         Ok(result)
     }
+}
+
+/// The users of every SSA value of `func`.
+fn function_def_use(func: &Function) -> HashMap<OpId, HashSet<OpId>> {
+    let mut result: HashMap<OpId, HashSet<OpId>> = HashMap::new();
+    // Ensure every definition (block parameter or op) has an entry
+    // (possibly empty)
+    for block in &func.blocks {
+        for param in &block.params {
+            result.entry(param.id).or_default();
+        }
+        for op in &block.ops {
+            result.entry(op.id).or_default();
+        }
+    }
+    // Collect uses
+    for block in &func.blocks {
+        for op in &block.ops {
+            for OpRef(def_id) in op.kind.operands() {
+                result.entry(def_id).or_default().insert(op.id);
+            }
+        }
+        // Terminator operands (conditions and block arguments) have no op
+        // id; just make sure their definitions appear
+        for OpRef(def_id) in block.term.operands() {
+            result.entry(def_id).or_default();
+        }
+    }
+    result
 }
 
 #[cfg(test)]
@@ -135,7 +152,8 @@ mod tests {
         let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
         ctx.set_bir_units(vec![air_module]);
 
-        let du = DefUsePass.run(&ctx).unwrap();
+        let all = DefUsePass.run(&ctx).unwrap();
+        let du = &all["test"][&FunctionId("test".into())];
 
         // %0 is used by %2 (as lhs operand)
         assert!(du.get(&OpId(0)).unwrap().contains(&OpId(2)));

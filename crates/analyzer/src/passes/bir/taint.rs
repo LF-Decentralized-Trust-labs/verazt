@@ -1,8 +1,8 @@
 //! Extended Taint Analysis Pass
 //!
-//! Propagates taint seeds along the module's taint-graph edges and SSA
-//! operands to a fixpoint and stores the result as a typed `TaintArtifact` (set of taint
-//! labels per `OpId`).
+//! Propagates the taint sources of each function along SSA operands to a
+//! fixpoint and stores the result as a typed `TaintArtifact` (set of taint
+//! labels per `OpId`, keyed by module and function).
 //!
 //! Extended sources: TxOrigin, Timestamp, MsgValue, ExternalCallReturn.
 //! Extended sinks:  branch conditions, storage writes, arithmetic operands.
@@ -11,6 +11,7 @@ use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
 use crate::passes::bir::icfg::ICFGPass;
+use scirs::bir::cfg::{Function, FunctionId};
 use scirs::bir::interfaces::TaintLabel;
 use scirs::bir::ops::{DialectOp, EvmOp, OpId, OpKind};
 use std::any::TypeId;
@@ -22,11 +23,12 @@ use std::collections::{HashMap, HashSet};
 
 /// Artifact key for extended taint analysis.
 ///
-/// Maps `OpId` → set of `TaintLabel` that reach this op.
+/// Maps BIR module id → function → `OpId` → set of `TaintLabel` that reach
+/// this op. `OpId`s are only unique within a function.
 pub struct TaintArtifact;
 
 impl ContextKey for TaintArtifact {
-    type Value = HashMap<OpId, HashSet<TaintLabel>>;
+    type Value = HashMap<String, HashMap<FunctionId, HashMap<OpId, HashSet<TaintLabel>>>>;
     const NAME: &'static str = "taint";
 }
 
@@ -63,82 +65,61 @@ impl Pass for TaintPass {
 impl AnalysisPass for TaintPass {
     type Artifact = TaintArtifact;
 
-    fn run(&self, ctx: &AnalysisContext) -> PassResult<HashMap<OpId, HashSet<TaintLabel>>> {
-        let mut taint_map: HashMap<OpId, HashSet<TaintLabel>> = HashMap::new();
+    fn run(
+        &self,
+        ctx: &AnalysisContext,
+    ) -> PassResult<HashMap<String, HashMap<FunctionId, HashMap<OpId, HashSet<TaintLabel>>>>> {
+        let result = ctx
+            .bir_units()
+            .iter()
+            .map(|module| {
+                let funcs = module
+                    .functions
+                    .iter()
+                    .map(|func| (func.id.clone(), function_taint(func)))
+                    .collect();
+                (module.source_module_id.clone(), funcs)
+            })
+            .collect();
 
-        for module in ctx.bir_units() {
-            // Phase 1: Seed taint sources from taint graph and ops
-            for seed in &module.taint_graph.seeds {
-                taint_map.entry(seed.op).or_default().insert(seed.label);
-            }
+        Ok(result)
+    }
+}
 
-            // Also seed from taint-source ops in functions
-            for func in &module.functions {
-                for block in &func.blocks {
-                    for op in &block.ops {
-                        if let Some(label) = op.kind.taint_source() {
-                            taint_map.entry(op.id).or_default().insert(label);
-                        }
-                    }
+/// The taint labels reaching every SSA value of `func`: its taint-source
+/// ops propagated along SSA operands and block arguments to a fixpoint.
+fn function_taint(func: &Function) -> HashMap<OpId, HashSet<TaintLabel>> {
+    let mut taint_map: HashMap<OpId, HashSet<TaintLabel>> = HashMap::new();
+    for op in func.blocks.iter().flat_map(|block| &block.ops) {
+        if let Some(label) = op.kind.taint_source() {
+            taint_map.entry(op.id).or_default().insert(label);
+        }
+    }
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for block in &func.blocks {
+            // Values computed from operands carry their labels
+            for op in &block.ops {
+                if propagates_taint(&op.kind) {
+                    let sources: Vec<OpId> = op.kind.operands().iter().map(|r| r.0).collect();
+                    changed |= merge_labels(&mut taint_map, &sources, op.id);
                 }
             }
 
-            // Phase 2: Propagate through taint graph edges (fixed-point)
-            let mut changed = true;
-            let mut iteration = 0;
-            const MAX_ITERATIONS: usize = 100;
-
-            while changed && iteration < MAX_ITERATIONS {
-                changed = false;
-                iteration += 1;
-
-                for &(src, dst) in &module.taint_graph.propagation {
-                    if let Some(src_labels) = taint_map.get(&src).cloned() {
-                        let entry = taint_map.entry(dst).or_default();
-                        for label in src_labels {
-                            if entry.insert(label) {
-                                changed = true;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Phase 3: Also propagate through SSA def-use within functions
-            changed = true;
-            iteration = 0;
-            while changed && iteration < MAX_ITERATIONS {
-                changed = false;
-                iteration += 1;
-
-                for func in &module.functions {
-                    for block in &func.blocks {
-                        // Values computed from operands carry their labels
-                        for op in &block.ops {
-                            if propagates_taint(&op.kind) {
-                                let sources: Vec<OpId> =
-                                    op.kind.operands().iter().map(|r| r.0).collect();
-                                changed |= merge_labels(&mut taint_map, &sources, op.id);
-                            }
-                        }
-
-                        // Block parameters receive the labels of their arguments
-                        for call in block.term.block_calls() {
-                            let Some(target) = func.blocks.iter().find(|b| b.id == call.block)
-                            else {
-                                continue;
-                            };
-                            for (param, arg) in target.params.iter().zip(&call.args) {
-                                changed |= merge_labels(&mut taint_map, &[arg.0], param.id);
-                            }
-                        }
-                    }
+            // Block parameters receive the labels of their arguments
+            for call in block.term.block_calls() {
+                let Some(target) = func.blocks.iter().find(|b| b.id == call.block) else {
+                    continue;
+                };
+                for (param, arg) in target.params.iter().zip(&call.args) {
+                    changed |= merge_labels(&mut taint_map, &[arg.0], param.id);
                 }
             }
         }
-
-        Ok(taint_map)
     }
+    taint_map
 }
 
 /// Returns `true` if the op's result is computed from its operands, so it
@@ -177,8 +158,8 @@ mod tests {
     use super::*;
     use crate::context::AnalysisConfig;
     use scirs::bir::cfg::{BasicBlock, BlockId, Function, FunctionId, Terminator};
-    use scirs::bir::ops::{EnvVar, Op, OpId, OpKind, SsaName};
-    use scirs::sir::Type;
+    use scirs::bir::ops::{EnvVar, Op, OpId, OpKind, OpRef, SsaName};
+    use scirs::sir::{BoolLit, Lit, Type, UnOp};
 
     #[test]
     fn test_taint_pass_seed_propagation() {
@@ -200,7 +181,37 @@ mod tests {
         ctx.set_bir_units(vec![air_module]);
 
         let taint = TaintPass.run(&ctx).unwrap();
-        let labels = taint.get(&OpId(0)).unwrap();
+        let labels = taint["test"][&FunctionId("test".into())].get(&OpId(0)).unwrap();
         assert!(labels.contains(&TaintLabel::UserControlled));
+    }
+
+    #[test]
+    fn test_taint_does_not_leak_between_functions() {
+        // f: %0 = env Caller. g: %0 = const, %1 = unop not %0.
+        let mut f = Function::new(FunctionId("f".into()), true);
+        let mut f_entry = BasicBlock::new(BlockId(0));
+        f_entry.ops = vec![Op::new(OpId(0), OpKind::Env(EnvVar::Caller))];
+        f_entry.term = Terminator::TxnExit { reverted: false };
+        f.blocks = vec![f_entry];
+
+        let mut g = Function::new(FunctionId("g".into()), true);
+        let mut g_entry = BasicBlock::new(BlockId(0));
+        let not = OpKind::UnOp { op: UnOp::Not, operand: OpRef(OpId(0)) };
+        g_entry.ops = vec![
+            Op::new(OpId(0), OpKind::Const(Lit::Bool(BoolLit::new(true, None)))),
+            Op::new(OpId(1), not),
+        ];
+        g_entry.term = Terminator::TxnExit { reverted: false };
+        g.blocks = vec![g_entry];
+
+        let mut module = scirs::bir::Module::new("m".into());
+        module.functions = vec![f, g];
+        let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
+        ctx.set_bir_units(vec![module]);
+
+        let taint = TaintPass.run(&ctx).unwrap();
+        let g_taint = &taint["m"][&FunctionId("g".into())];
+        assert!(!g_taint.contains_key(&OpId(0)) && !g_taint.contains_key(&OpId(1)));
+        assert!(taint["m"][&FunctionId("f".into())].contains_key(&OpId(0)));
     }
 }

@@ -7,7 +7,7 @@
 use crate::context::{AnalysisContext, ContextKey};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::{AnalysisPass, Pass, PassResult};
-use scirs::bir::cfg::BlockId;
+use scirs::bir::cfg::{BlockId, Function, FunctionId};
 use scirs::bir::ops::{OpId, OpKind, OpRef};
 use scirs::sir::{BinOp, Lit};
 use std::any::TypeId;
@@ -136,11 +136,12 @@ impl Interval {
 
 /// Artifact key for interval analysis.
 ///
-/// Maps `OpId` → `Interval` at the definition point.
+/// Maps BIR module id → function → `OpId` → `Interval` at the definition
+/// point. `OpId`s are only unique within a function.
 pub struct IntervalArtifact;
 
 impl ContextKey for IntervalArtifact {
-    type Value = HashMap<OpId, Interval>;
+    type Value = HashMap<String, HashMap<FunctionId, HashMap<OpId, Interval>>>;
     const NAME: &'static str = "interval";
 }
 
@@ -177,91 +178,107 @@ impl Pass for IntervalPass {
 impl AnalysisPass for IntervalPass {
     type Artifact = IntervalArtifact;
 
-    fn run(&self, ctx: &AnalysisContext) -> PassResult<HashMap<OpId, Interval>> {
-        let mut result: HashMap<OpId, Interval> = HashMap::new();
-
-        for module in ctx.bir_units() {
-            for func in &module.functions {
-                if func.blocks.is_empty() {
-                    continue;
-                }
-
-                // Identify back edges (targets of branches that jump
-                // backwards — simplified: blocks whose id is ≤ source).
-                let back_edge_targets: HashSet<BlockId> = func
-                    .blocks
+    fn run(
+        &self,
+        ctx: &AnalysisContext,
+    ) -> PassResult<HashMap<String, HashMap<FunctionId, HashMap<OpId, Interval>>>> {
+        let result = ctx
+            .bir_units()
+            .iter()
+            .map(|module| {
+                let funcs = module
+                    .functions
                     .iter()
-                    .flat_map(|b| b.term.successors().into_iter().filter(move |s| s.0 <= b.id.0))
+                    .map(|func| (func.id.clone(), function_intervals(func)))
                     .collect();
-
-                // Worklist-based iteration
-                let mut worklist: VecDeque<BlockId> = VecDeque::new();
-                worklist.push_back(func.blocks[0].id);
-                let mut visited: HashSet<BlockId> = HashSet::new();
-
-                let mut iteration = 0;
-                const MAX_ITER: usize = 200;
-
-                while let Some(bid) = worklist.pop_front() {
-                    if iteration > MAX_ITER {
-                        break;
-                    }
-                    iteration += 1;
-                    visited.insert(bid);
-
-                    let block = match func.blocks.iter().find(|b| b.id == bid) {
-                        Some(b) => b,
-                        None => continue,
-                    };
-
-                    let is_loop_header = back_edge_targets.contains(&bid);
-
-                    for op in &block.ops {
-                        let interval = eval_op(&op.kind, &result);
-                        let final_interval = if is_loop_header {
-                            // Widen at loop headers
-                            match result.get(&op.id) {
-                                Some(old) => old.widen(&interval),
-                                None => interval,
-                            }
-                        } else {
-                            match result.get(&op.id) {
-                                Some(old) => old.join(&interval),
-                                None => interval,
-                            }
-                        };
-                        result.insert(op.id, final_interval);
-                    }
-
-                    // Bind successor block parameters to the incoming arguments
-                    for call in block.term.block_calls() {
-                        let Some(target) = func.blocks.iter().find(|b| b.id == call.block) else {
-                            continue;
-                        };
-                        let widen = back_edge_targets.contains(&call.block);
-                        for (param, OpRef(arg)) in target.params.iter().zip(&call.args) {
-                            let incoming = result.get(arg).cloned().unwrap_or(Interval::Top);
-                            let bound = match result.get(&param.id) {
-                                Some(old) if widen => old.widen(&incoming),
-                                Some(old) => old.join(&incoming),
-                                None => incoming,
-                            };
-                            result.insert(param.id, bound);
-                        }
-                    }
-
-                    // Add successors to worklist
-                    for s in block.term.successors() {
-                        if !visited.contains(&s) || back_edge_targets.contains(&s) {
-                            worklist.push_back(s);
-                        }
-                    }
-                }
-            }
-        }
+                (module.source_module_id.clone(), funcs)
+            })
+            .collect();
 
         Ok(result)
     }
+}
+
+/// The interval of every SSA value of `func`.
+fn function_intervals(func: &Function) -> HashMap<OpId, Interval> {
+    let mut result: HashMap<OpId, Interval> = HashMap::new();
+    if func.blocks.is_empty() {
+        return result;
+    }
+
+    // Identify back edges (targets of branches that jump
+    // backwards: simplified, blocks whose id is <= source).
+    let back_edge_targets: HashSet<BlockId> = func
+        .blocks
+        .iter()
+        .flat_map(|b| b.term.successors().into_iter().filter(move |s| s.0 <= b.id.0))
+        .collect();
+
+    // Worklist-based iteration
+    let mut worklist: VecDeque<BlockId> = VecDeque::new();
+    worklist.push_back(func.blocks[0].id);
+    let mut visited: HashSet<BlockId> = HashSet::new();
+
+    let mut iteration = 0;
+    const MAX_ITER: usize = 200;
+
+    while let Some(bid) = worklist.pop_front() {
+        if iteration > MAX_ITER {
+            break;
+        }
+        iteration += 1;
+        visited.insert(bid);
+
+        let block = match func.blocks.iter().find(|b| b.id == bid) {
+            Some(b) => b,
+            None => continue,
+        };
+
+        let is_loop_header = back_edge_targets.contains(&bid);
+
+        for op in &block.ops {
+            let interval = eval_op(&op.kind, &result);
+            let final_interval = if is_loop_header {
+                // Widen at loop headers
+                match result.get(&op.id) {
+                    Some(old) => old.widen(&interval),
+                    None => interval,
+                }
+            } else {
+                match result.get(&op.id) {
+                    Some(old) => old.join(&interval),
+                    None => interval,
+                }
+            };
+            result.insert(op.id, final_interval);
+        }
+
+        // Bind successor block parameters to the incoming arguments
+        for call in block.term.block_calls() {
+            let Some(target) = func.blocks.iter().find(|b| b.id == call.block) else {
+                continue;
+            };
+            let widen = back_edge_targets.contains(&call.block);
+            for (param, OpRef(arg)) in target.params.iter().zip(&call.args) {
+                let incoming = result.get(arg).cloned().unwrap_or(Interval::Top);
+                let bound = match result.get(&param.id) {
+                    Some(old) if widen => old.widen(&incoming),
+                    Some(old) => old.join(&incoming),
+                    None => incoming,
+                };
+                result.insert(param.id, bound);
+            }
+        }
+
+        // Add successors to worklist
+        for s in block.term.successors() {
+            if !visited.contains(&s) || back_edge_targets.contains(&s) {
+                worklist.push_back(s);
+            }
+        }
+    }
+
+    result
 }
 
 /// Evaluate the interval for a single Op.
@@ -311,6 +328,16 @@ fn lit_to_i128(lit: &Lit) -> Option<i128> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::AnalysisConfig;
+    use scirs::bir::cfg::{BasicBlock, Terminator};
+    use scirs::bir::ops::Op;
+    use scirs::sir::{IntNum, Num, NumLit, Type};
+
+    /// `%id = const value`.
+    fn constant(id: usize, value: i64) -> Op {
+        let num = Num::Int(IntNum::new(value.into(), Type::I256));
+        Op::new(OpId(id), OpKind::Const(Lit::Num(NumLit::new(num, None))))
+    }
 
     #[test]
     fn test_interval_arithmetic() {
@@ -355,5 +382,26 @@ mod tests {
         let widened = old.widen(&new);
         // hi extended → push to i128::MAX
         assert_eq!(widened, Interval::Range { lo: 0, hi: i128::MAX });
+    }
+
+    #[test]
+    fn test_intervals_do_not_leak_between_functions() {
+        // `f` and `g` both define `%0`, as constants 1 and 2.
+        let mut module = scirs::bir::Module::new("m".into());
+        for (name, value) in [("f", 1), ("g", 2)] {
+            let mut func = Function::new(FunctionId(name.into()), true);
+            let mut block = BasicBlock::new(BlockId(0));
+            block.ops = vec![constant(0, value)];
+            block.term = Terminator::TxnExit { reverted: false };
+            func.blocks = vec![block];
+            module.functions.push(func);
+        }
+        let mut ctx = AnalysisContext::new(vec![], AnalysisConfig::default());
+        ctx.set_bir_units(vec![module]);
+
+        let intervals = IntervalPass.run(&ctx).unwrap();
+        let of = |name: &str| intervals["m"][&FunctionId(name.into())][&OpId(0)].clone();
+        assert_eq!(of("f"), Interval::Range { lo: 1, hi: 1 });
+        assert_eq!(of("g"), Interval::Range { lo: 2, hi: 2 });
     }
 }
