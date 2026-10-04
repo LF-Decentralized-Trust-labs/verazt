@@ -174,34 +174,18 @@ impl AnalysisContext {
     /// BIR modules are **eagerly** lowered from SIR so that all BIR
     /// passes can run without an explicit lowering pass.
     pub fn new(sir_modules: Vec<scirs::sir::Module>, config: AnalysisConfig) -> Self {
-        let input_language = config.input_language;
-
-        // Eager lowering: SIR → CIR → BIR
-        let bir_units = if sir_modules.is_empty() {
-            None
-        } else {
-            let start = std::time::Instant::now();
-            let bir = sir_modules.iter().filter_map(lower_to_bir).collect::<Vec<_>>();
-            let _elapsed = start.elapsed();
-            if bir.is_empty() { None } else { Some(bir) }
-        };
-
-        let sir_units = if sir_modules.is_empty() {
-            None
-        } else {
-            Some(sir_modules)
-        };
-
-        Self {
-            sir_units,
-            bir_units,
-            input_language,
+        let mut context = Self {
+            sir_units: None,
+            bir_units: None,
+            input_language: config.input_language,
             typed_data: HashMap::new(),
             completed_passes: HashSet::new(),
             pass_order: Vec::new(),
             config,
             stats: AnalysisStats::default(),
-        }
+        };
+        context.set_sir_units(sir_modules);
+        context
     }
 
     // ========================================
@@ -218,14 +202,14 @@ impl AnalysisContext {
         self.sir_units.as_ref().expect("SIR not available")
     }
 
-    /// Set SIR units and eagerly lower to BIR.
+    /// Replace the SIR units, eagerly lowering them to BIR. Artifacts and
+    /// pass completions computed from the previous units are discarded.
     pub fn set_sir_units(&mut self, sir_units: Vec<scirs::sir::Module>) {
-        // Eagerly lower SIR → CIR → BIR
         let bir = sir_units.iter().filter_map(lower_to_bir).collect::<Vec<_>>();
-        if !bir.is_empty() {
-            self.bir_units = Some(bir);
-        }
-        self.sir_units = Some(sir_units);
+        self.bir_units = (!bir.is_empty()).then_some(bir);
+        self.sir_units = (!sir_units.is_empty()).then_some(sir_units);
+        self.typed_data.clear();
+        self.reset_passes();
     }
 
     // ========================================
@@ -375,6 +359,27 @@ mod tests {
         // Remove
         assert!(context.remove::<TestKey>());
         assert!(!context.has::<TestKey>());
+    }
+
+    #[test]
+    fn test_set_sir_units_discards_previous_results() {
+        struct TestKey;
+        impl ContextKey for TestKey {
+            type Value = i32;
+            const NAME: &'static str = "test";
+        }
+
+        let mut context = AnalysisContext::new(vec![], AnalysisConfig::default());
+        context.set_bir_units(vec![scirs::bir::Module::new("old".to_string())]);
+        context.store::<TestKey>(42);
+        context.mark_pass_completed(TypeId::of::<u8>());
+
+        context.set_sir_units(vec![]);
+
+        assert!(!context.has_bir());
+        assert!(!context.has::<TestKey>());
+        assert!(!context.is_pass_completed(TypeId::of::<u8>()));
+        assert!(context.completed_passes().is_empty());
     }
 
     #[test]
