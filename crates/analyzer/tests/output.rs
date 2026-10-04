@@ -72,8 +72,9 @@ fn report_with_findings() -> AnalysisReport {
     let mut registry = DetectorRegistry::new();
     register_all_detectors(&mut registry);
     let meta_of = |id: &str| registry.get(id).expect("built-in detector").meta();
+    let loc = Loc::new(3, 5, 3, 20).with_file("a.sol".to_string());
     let bugs = vec![
-        meta_of("tx-origin").bug(Some("uses tx.origin"), Loc::new(3, 5, 3, 20).with_file("a.sol".to_string())),
+        meta_of("tx-origin").bug(Some("uses tx.origin"), loc),
         meta_of("floating-pragma").bug(None, Loc::default()),
     ];
     AnalysisReport::new(bugs, vec!["a.sol".to_string()], Duration::from_millis(1))

@@ -61,7 +61,8 @@ pub trait BugDetectionPass: Pass {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>>;
 
     /// Detectors whose findings this one subsumes. When both would run, the
-    /// pipeline drops the superseded ones unless they are explicitly enabled.
+    /// pipeline drops the superseded ones unless they are explicitly enabled
+    /// or some SIR module could not be lowered to BIR.
     fn supersedes(&self) -> Vec<DetectorId> {
         vec![]
     }

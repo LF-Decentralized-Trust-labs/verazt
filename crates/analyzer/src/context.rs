@@ -226,6 +226,13 @@ impl AnalysisContext {
         self.bir_units.as_deref().unwrap_or(&[])
     }
 
+    /// Whether every SIR module was lowered to BIR, so that BIR detectors
+    /// see all the code SIR detectors see. Lowering maps each SIR module to
+    /// at most one BIR module, so equal counts mean none failed.
+    pub fn bir_covers_sir(&self) -> bool {
+        self.sir_units.as_ref().is_none_or(|sir| sir.len() == self.bir_units().len())
+    }
+
     /// Set BIR units directly (escape hatch).
     pub fn set_bir_units(&mut self, units: Vec<scirs::bir::Module>) {
         self.bir_units = Some(units);

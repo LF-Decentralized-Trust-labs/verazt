@@ -150,8 +150,11 @@ impl PipelineEngine {
         let start = Instant::now();
 
         // Step 1: Resolve which detectors to run
-        let enabled_detectors: Vec<&dyn BugDetectionPass> =
-            self.resolve_detectors().into_iter().filter(|d| d.is_enabled(context)).collect();
+        let enabled_detectors: Vec<&dyn BugDetectionPass> = self
+            .resolve_detectors(context)
+            .into_iter()
+            .filter(|d| d.is_enabled(context))
+            .collect();
 
         // Step 2: Phase 1 - Analysis passes the detectors depend on
         let analysis_start = Instant::now();
@@ -182,14 +185,23 @@ impl PipelineEngine {
         }
     }
 
-    /// Resolve which detectors should run based on config. A detector
-    /// superseded by another selected one is dropped unless explicitly
-    /// enabled.
-    fn resolve_detectors(&self) -> Vec<&dyn BugDetectionPass> {
+    /// Resolve which detectors should run on `context` based on config. A
+    /// detector superseded by another selected one is dropped unless
+    /// explicitly enabled.
+    ///
+    /// Superseding detectors work on BIR, so superseding only applies when
+    /// every SIR module of `context` was lowered to BIR: otherwise the
+    /// superseded SIR detectors are the only ones covering some modules,
+    /// and all are kept.
+    fn resolve_detectors(&self, context: &AnalysisContext) -> Vec<&dyn BugDetectionPass> {
         let selected: Vec<&dyn BugDetectionPass> =
             self.registry.all().filter(|d| self.is_detector_enabled(*d)).collect();
-        let superseded: HashSet<DetectorId> =
-            selected.iter().flat_map(|d| d.supersedes()).collect();
+        let superseded: HashSet<DetectorId> = if context.bir_covers_sir() {
+            selected.iter().flat_map(|d| d.supersedes()).collect()
+        } else {
+            log::warn!("BIR lowering failed for some modules: keeping superseded SIR detectors");
+            HashSet::new()
+        };
         selected
             .into_iter()
             .filter(|d| {
@@ -417,7 +429,7 @@ mod tests {
     #[test]
     fn test_resolve_detectors_all() {
         let engine = PipelineEngine::new(PipelineConfig::default());
-        let detectors = engine.resolve_detectors();
+        let detectors = engine.resolve_detectors(&empty_context());
         assert!(!detectors.is_empty());
     }
 
@@ -427,13 +439,32 @@ mod tests {
             enabled: vec!["tx-origin".to_string()],
             ..PipelineConfig::default()
         });
-        let detectors = engine.resolve_detectors();
+        let detectors = engine.resolve_detectors(&empty_context());
         assert_eq!(detectors.len(), 1);
     }
 
-    fn resolved_ids(config: PipelineConfig) -> Vec<DetectorId> {
+    fn empty_context() -> AnalysisContext {
+        AnalysisContext::new(vec![], AnalysisConfig::default())
+    }
+
+    fn resolved_ids_in(config: PipelineConfig, context: &AnalysisContext) -> Vec<DetectorId> {
         let engine = PipelineEngine::new(config);
-        engine.resolve_detectors().iter().map(|d| d.meta().id).collect()
+        engine.resolve_detectors(context).iter().map(|d| d.meta().id).collect()
+    }
+
+    fn resolved_ids(config: PipelineConfig) -> Vec<DetectorId> {
+        resolved_ids_in(config, &empty_context())
+    }
+
+    #[test]
+    fn test_resolve_detectors_keeps_superseded_when_bir_is_partial() {
+        let mut context = empty_context();
+        // A SIR module whose BIR lowering failed: no BIR unit for it.
+        context.sir_units = Some(vec![scirs::sir::Module::new("m", vec![])]);
+        let resolved = resolved_ids_in(PipelineConfig::default(), &context);
+        assert!(resolved.contains(&DetectorId::ReentrancyFlow));
+        assert!(resolved.contains(&DetectorId::Reentrancy));
+        assert!(resolved.contains(&DetectorId::CeiViolation));
     }
 
     fn ids(names: &[&str]) -> Vec<String> {
@@ -532,8 +563,10 @@ mod tests {
 
     #[test]
     fn test_deduplicate_bugs_orders_by_line() {
-        let bugs =
-            vec![bug_of("tx-origin", Loc::new(9, 1, 9, 2)), bug_of("tx-origin", Loc::new(2, 1, 2, 2))];
+        let bugs = vec![
+            bug_of("tx-origin", Loc::new(9, 1, 9, 2)),
+            bug_of("tx-origin", Loc::new(2, 1, 2, 2)),
+        ];
         let lines: Vec<_> = PipelineEngine::deduplicate_bugs(bugs)
             .into_iter()
             .map(|b| b.loc.start_line)
