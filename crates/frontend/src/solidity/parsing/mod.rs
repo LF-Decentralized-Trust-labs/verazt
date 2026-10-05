@@ -11,7 +11,7 @@ use crate::solidity::{
         check_range_constraint, check_version_constraint, find_compatible_solc_versions,
         find_pragma_solidity_versions, normalize_version_constraint,
     },
-    ast::{self, SourceUnit, utils::export},
+    ast::{self, SourceUnit},
 };
 use common::{error::Result, fail};
 use node_semver::Version;
@@ -122,7 +122,7 @@ pub fn parse_input_file(
 ) -> Result<Vec<ast::SourceUnit>> {
     let input_file_path = Path::new(input_file);
     let rel_input_file = common::utils::format_relative_path(input_file_path);
-    println!("\nCompiling input file: {rel_input_file}");
+    debug!("Compiling input file: {rel_input_file}");
     if !input_file_path.exists() {
         fail!("Input file does not exist: {}", input_file);
     }
@@ -229,12 +229,6 @@ pub fn parse_input_file(
 
         match std::str::from_utf8(&output.stdout) {
             Ok(json_data) => {
-                let (output_dir, file_stem) = export::prepare_logging_directory(input_file)?;
-                let output_file_path = output_dir.join(format!("{file_stem}.sol.json"));
-                let rel_output = common::utils::format_relative_path(&output_file_path);
-                println!("\nExport JSON output to: {rel_output}");
-                let mut file = File::create(output_file_path)?;
-                file.write_all(json_data.as_bytes())?;
                 let json_ast = JsonAst::new(json_data, Some(input_file), base_path);
                 let mut parser = AstParser::new(&json_ast, Some(solc_ver));
                 match parser.parse_solidity_json() {
