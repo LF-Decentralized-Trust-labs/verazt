@@ -288,3 +288,25 @@ pub fn parse_solidity_source_code_list(
     // Return result.
     Ok(output_sunits)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parse_solidity_source_code;
+    use crate::solidity::lowering::{lower_source_units, utils::configure_unit_test_env};
+
+    #[test]
+    fn test_fractional_literal_with_unit_lowers_to_its_value() {
+        let _ = configure_unit_test_env();
+        let source = "pragma solidity ^0.4.24;
+contract Prices {
+    uint price = 0.1 ether;
+    uint delay = 2.5 minutes;
+}";
+        let source_units = parse_solidity_source_code(source, "0.4.26").unwrap();
+        let modules = lower_source_units(&source_units).unwrap();
+        let sir = modules.iter().map(|m| m.to_string()).collect::<String>();
+
+        assert!(sir.contains("price = 100000000000000000;"), "{sir}");
+        assert!(sir.contains("delay = 150;"), "{sir}");
+    }
+}

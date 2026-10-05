@@ -1750,17 +1750,26 @@ impl AstParser {
 
             Type::Int(_) => {
                 let value_node = value_node?;
-                let value = match self.parse_int_lit(value_node) {
-                    Ok(num) => IntNum::new(num, typ).into(),
-                    Err(_) => {
-                        let hex = self.parse_string_lit(value_node)?;
-                        HexNum::new(hex, typ).into()
-                    }
-                };
-                let unit = node
+                let mut unit = node
                     .get("subdenomination")
                     .and_then(|v| v.as_str())
                     .map(NumUnit::new);
+                let value = match self.parse_int_lit(value_node) {
+                    Ok(num) => IntNum::new(num, typ).into(),
+                    // A fractional or exponent literal with an integer value
+                    // (`0.1 ether`, `1e18`): solc records the value, with any
+                    // unit applied, in the type string `int_const <value>`.
+                    Err(_) => match self.parse_int_const_type(node) {
+                        Some(num) => {
+                            unit = None;
+                            IntNum::new(num, typ).into()
+                        }
+                        None => {
+                            let hex = self.parse_string_lit(value_node)?;
+                            HexNum::new(hex, typ).into()
+                        }
+                    },
+                };
                 Ok(NumLit::new(value, unit, loc).into())
             }
 
@@ -1840,6 +1849,17 @@ impl AstParser {
             Some(s) => s.parse::<BigInt>().map_err(|err| error!("{}", err)),
             None => fail!("Failed to parse integer literal: {node}"),
         }
+    }
+
+    /// The value of an integer constant literal from its type string,
+    /// `int_const <value>`, which solc prints in full up to 78 digits.
+    fn parse_int_const_type(&self, node: &Value) -> Option<BigInt> {
+        node.get("typeDescriptions")?
+            .get("typeString")?
+            .as_str()?
+            .strip_prefix("int_const ")?
+            .parse()
+            .ok()
     }
 
     /// Parse a rational literal to a fixed-point number.
