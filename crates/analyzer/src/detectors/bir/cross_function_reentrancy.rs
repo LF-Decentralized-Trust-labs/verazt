@@ -6,6 +6,7 @@
 //! the calling function alone does not help unless the re-entered function
 //! shares it.
 
+use super::reentrancy;
 use super::reentrant_sites::{
     has_guard_attr, ModuleFacts, ReentrantSite, REENTRANCY_RECOMMENDATION, REENTRANCY_REFERENCES,
 };
@@ -114,6 +115,12 @@ impl CrossFunctionReentrancyDetector {
         let view = FunctionView::new(func);
         let mut bugs = Vec::new();
         for site in facts.reentrant_sites(&view) {
+            // Re-entering `func` itself already makes the call a reentrancy,
+            // which reentrancy-flow reports with the same fix: leave the site
+            // to it rather than report it twice.
+            if !reentrancy::stale_state(func, &view, &site, facts).is_empty() {
+                continue;
+            }
             let written: Vec<StateAccess> = site
                 .after
                 .iter()
@@ -220,6 +227,16 @@ mod tests {
         assert_eq!(bugs.len(), 1);
         let description = bugs[0].description.as_deref().unwrap();
         assert!(description.contains("'C.transfer' (@balances)"));
+    }
+
+    #[test]
+    fn test_leaves_same_function_reentrancy_to_reentrancy_flow() {
+        // `withdraw` reads the balance before the call and writes it after,
+        // so reentrancy-flow reports the call; `transfer` reading it too adds
+        // nothing to that finding.
+        let withdraw =
+            function("withdraw", true, vec![read_balance(), call_out(), write_balance()]);
+        assert!(detect(vec![withdraw, transfer()]).is_empty());
     }
 
     #[test]

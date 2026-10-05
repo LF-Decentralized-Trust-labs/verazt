@@ -14,7 +14,8 @@
 //! after it).
 
 use super::reentrant_sites::{
-    has_guard_attr, ModuleFacts, REENTRANCY_RECOMMENDATION, REENTRANCY_REFERENCES,
+    has_guard_attr, ModuleFacts, ReentrantSite, REENTRANCY_RECOMMENDATION,
+    REENTRANCY_REFERENCES,
 };
 use crate::context::AnalysisContext;
 use crate::detectors::base::traits::DetectorResult;
@@ -90,7 +91,7 @@ impl BugDetectionPass for ReentrancyFlowDetector {
     fn detect(&self, context: &AnalysisContext) -> DetectorResult<Vec<Bug>> {
         let mut bugs = Vec::new();
         for (module, facts) in ModuleFacts::collect(context)? {
-            for func in module.functions.iter().filter(|f| f.is_public && !has_guard_attr(f)) {
+            for func in module.functions.iter().filter(|f| f.is_public) {
                 bugs.extend(self.check_function(func, &facts));
             }
         }
@@ -115,21 +116,7 @@ impl ReentrancyFlowDetector {
         let view = FunctionView::new(func);
         let mut bugs = Vec::new();
         for site in facts.reentrant_sites(&view) {
-            if site.guard_flag.is_some() {
-                continue;
-            }
-            let written: Vec<StateAccess> = site
-                .after
-                .iter()
-                .flat_map(|pos| facts.state_written_by(&view, view.op(*pos)))
-                .collect();
-            let read: Vec<StateAccess> =
-                site.before.iter().filter_map(|pos| StateAccess::read_by(&view, view.op(*pos))).collect();
-            let stale: BTreeSet<&str> = written
-                .iter()
-                .filter(|w| read.iter().any(|r| w.may_alias(r)))
-                .map(|w| w.location.as_str())
-                .collect();
+            let stale = stale_state(func, &view, &site, facts);
             if stale.is_empty() {
                 continue;
             }
@@ -140,8 +127,35 @@ impl ReentrancyFlowDetector {
     }
 }
 
-fn describe(func: &Function, stale: &BTreeSet<&str>) -> String {
-    let names = stale.iter().copied().collect::<Vec<_>>().join(", ");
+/// The state locations that `func` reads before the re-entrant call `site`
+/// and may write after it, unless a guard covers the call: the locations
+/// that re-entering `func` itself can act on. Empty when this detector does
+/// not report `site`.
+pub(super) fn stale_state(
+    func: &Function,
+    view: &FunctionView,
+    site: &ReentrantSite,
+    facts: &ModuleFacts,
+) -> BTreeSet<String> {
+    if has_guard_attr(func) || site.guard_flag.is_some() {
+        return BTreeSet::new();
+    }
+    let written: Vec<StateAccess> = site
+        .after
+        .iter()
+        .flat_map(|pos| facts.state_written_by(view, view.op(*pos)))
+        .collect();
+    let read: Vec<StateAccess> =
+        site.before.iter().filter_map(|pos| StateAccess::read_by(view, view.op(*pos))).collect();
+    written
+        .iter()
+        .filter(|w| read.iter().any(|r| w.may_alias(r)))
+        .map(|w| w.location.clone())
+        .collect()
+}
+
+fn describe(func: &Function, stale: &BTreeSet<String>) -> String {
+    let names = stale.iter().cloned().collect::<Vec<_>>().join(", ");
     format!(
         "Potential reentrancy in '{}': state ({names}) is read before an external call \
          that may re-enter, and written after it.",
