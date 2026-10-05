@@ -269,3 +269,32 @@ contract Registrar {
     let lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
     assert_eq!(lines, vec![5]);
 }
+
+/// Test that denial-of-service reports a required payment to another
+/// account and a loop growing a storage array, and not a required payment
+/// to the caller or a loop over a parameter making unchecked calls.
+#[test]
+fn test_denial_of_service_reports_blocking_payments_and_growing_loops() {
+    let source = "pragma solidity ^0.4.24;
+contract Auction {
+    address leader; uint bid; address[] players;
+    function outbid() public payable { require(leader.send(bid)); leader = msg.sender; bid = msg.value; }
+    function refund() public { require(msg.sender.send(1)); }
+    function join(uint n) public { for (uint i = 0; i < n; i++) { players.push(msg.sender); } }
+    function pay(address[] tos) public { for (uint i = 0; i < tos.length; i++) { tos[i].call.value(1)(); } }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["denial-of-service".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![4, 6]);
+}
