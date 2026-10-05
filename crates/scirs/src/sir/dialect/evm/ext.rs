@@ -54,14 +54,31 @@ pub trait EvmCallExt {
     fn is_evm_external_call(&self) -> bool;
 }
 
+/// Returns true if `callee` is an external call member (`addr.call`,
+/// `addr.send`, ...), possibly configured with a value or gas before
+/// Solidity 0.6: `addr.call.value(v)` or `addr.call.gas(g).value(v)`.
+fn is_external_call_member(callee: &Expr) -> bool {
+    match callee {
+        Expr::FieldAccess(fa) => matches!(
+            fa.field.as_str(),
+            "call" | "delegatecall" | "staticcall" | "transfer" | "send"
+        ),
+        // `addr.call.value(v)` is itself a call of the `value` member.
+        Expr::FunctionCall(call) => match &*call.callee {
+            Expr::FieldAccess(fa) if matches!(fa.field.as_str(), "value" | "gas") => {
+                is_external_call_member(&fa.base)
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
 impl EvmCallExt for CallExpr {
     fn is_evm_external_call(&self) -> bool {
         // Check for FieldAccess-based external calls (e.g. addr.call(...))
-        if let Expr::FieldAccess(fa) = &*self.callee {
-            let field = fa.field.as_str();
-            if matches!(field, "call" | "delegatecall" | "staticcall" | "transfer" | "send") {
-                return true;
-            }
+        if is_external_call_member(&self.callee) {
+            return true;
         }
         // Check for dialect expression-based calls
         if let Expr::Dialect(DialectExpr::Evm(evm)) = &*self.callee {

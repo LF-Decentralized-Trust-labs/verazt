@@ -214,3 +214,30 @@ contract Lottery {
     lines.dedup();
     assert_eq!(lines, vec![3, 4]);
 }
+
+/// Test that unchecked-call reports discarded results of `call.value(...)`
+/// and `send`, and not checked calls or `transfer`, which reverts.
+#[test]
+fn test_unchecked_call_reports_discarded_call_results() {
+    let source = "pragma solidity ^0.4.24;
+contract Payer {
+    function a(address t) public { t.call.value(1)(\"\"); }
+    function b(address t) public { t.send(1); }
+    function c(address t) public { require(t.call.value(1)(\"\")); }
+    function d(address t) public { t.transfer(1); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["unchecked-call".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![3, 4]);
+}
