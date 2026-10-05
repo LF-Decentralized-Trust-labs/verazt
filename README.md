@@ -92,13 +92,13 @@ The file selects the detectors, the output format, the minimum severity, and the
 | `uninitialized-storage` | Uninitialized storage | High |
 | `centralization-risk` | Centralization risk | Medium |
 | `front-running` | Front running | Medium |
-| `low-level-call` | Low-level calls | Medium |
 | `unchecked-call` | Unchecked call return values | Medium |
 | `visibility` | Visibility issues | Medium |
 | `constant-state-var` | State variables that could be `constant` | Low |
 | `dead-code` | Dead code | Low |
 | `deprecated` | Deprecated features | Low |
 | `floating-pragma` | Floating pragma | Low |
+| `low-level-call` | Low-level calls, checked or not | Low |
 | `shadowing` | Variable shadowing | Low |
 | `short-address` | Short address attack | Low |
 | `timestamp-dependence` | Timestamp dependence | Low |

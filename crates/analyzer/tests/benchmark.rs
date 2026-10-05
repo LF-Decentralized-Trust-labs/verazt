@@ -16,8 +16,9 @@ use bugs::datasets::smartbugs::{AnnotatedBug, scan_dataset};
 const REENTRANCY_RECALL_FLOOR: f64 = 0.95;
 
 /// Minimum recall on the whole dataset, over the files that compile.
-/// Measured at 142/185 (76.8%).
-const OVERALL_RECALL_FLOOR: f64 = 0.76;
+/// Measured at 138/185 (74.6%), since low-level-call, which reports every
+/// low-level call, no longer counts towards unchecked calls.
+const OVERALL_RECALL_FLOOR: f64 = 0.74;
 
 /// Matching outcome counts.
 #[derive(Debug, Default)]
