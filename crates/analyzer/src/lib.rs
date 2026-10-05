@@ -25,9 +25,8 @@
 //!   - `bir/`: BIR dataflow detectors
 //! - `output`: Report formatting (JSON, SARIF, Markdown)
 
-// CLI entry modules (`verazt analyze` and `verazt scan`)
+// CLI entry module (`verazt analyze`)
 pub mod cli;
-pub mod scan_cli;
 
 // Flattened analysis modules (formerly under analysis/)
 pub mod context;

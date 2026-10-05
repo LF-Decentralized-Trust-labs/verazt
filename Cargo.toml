@@ -8,7 +8,6 @@ members = [
   "crates/frontend",
   "crates/scirs",
   "crates/verazt",
-  "crates/verifier",
 ]
 exclude = [
   "examples",
@@ -26,7 +25,6 @@ bugs = { path = "crates/bugs" }
 cli = { path = "crates/cli" }
 scirs = { path = "crates/scirs" }
 frontend = { path = "crates/frontend" }
-verifier = { path = "crates/verifier" }
 
 backtrace = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
