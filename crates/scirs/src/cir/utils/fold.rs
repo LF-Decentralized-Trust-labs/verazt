@@ -225,7 +225,9 @@ pub mod default {
         folder: &mut F,
         stmt: &'a CanonStoreStmt,
     ) -> T {
-        let exprs = resource_exprs(&stmt.resource).chain(&stmt.keys).chain(&stmt.value);
+        let exprs = resource_exprs(&stmt.resource)
+            .chain(&stmt.keys)
+            .chain(&stmt.value);
         fold_expr_refs(folder, exprs.collect())
     }
 
@@ -246,7 +248,9 @@ pub mod default {
                 result
             }
             CanonDialectStmt::Move(CanonMoveStmt::Abort(s)) => folder.fold_expr(&s.code),
-            CanonDialectStmt::Move(CanonMoveStmt::SpecBlock(s)) => fold_exprs(folder, &s.assertions),
+            CanonDialectStmt::Move(CanonMoveStmt::SpecBlock(s)) => {
+                fold_exprs(folder, &s.assertions)
+            }
         }
     }
 
@@ -392,7 +396,12 @@ pub mod default {
         folder: &mut F,
         expr: &'a CanonExternalCallExpr,
     ) -> T {
-        let exprs = expr.address.as_deref().into_iter().chain(&expr.args).chain(expr.value.as_deref());
+        let exprs = expr
+            .address
+            .as_deref()
+            .into_iter()
+            .chain(&expr.args)
+            .chain(expr.value.as_deref());
         fold_expr_refs(folder, exprs.collect())
     }
 

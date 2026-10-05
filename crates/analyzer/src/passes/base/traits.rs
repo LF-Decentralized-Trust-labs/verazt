@@ -2,7 +2,7 @@
 //!
 //! This module defines the core traits for passes in the analysis framework.
 
-use crate::context::AnalysisContext;
+use crate::context::{AnalysisContext, ContextKey, ErasedArtifact};
 use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use std::any::TypeId;
 use std::fmt::{self, Display};
@@ -11,33 +11,17 @@ use thiserror::Error;
 /// Error type for pass execution.
 #[derive(Debug, Error)]
 pub enum PassError {
+    /// Circular dependency detected, through the named passes.
+    #[error("Circular dependency detected: {0}")]
+    CircularDependency(String),
+
     /// Pass execution failed.
     #[error("Pass \'{0}\' failed: {1}")]
     ExecutionFailed(String, String),
 
-    /// Dependency not satisfied.
-    #[error("Dependency not satisfied: pass \'{0}\' requires pass \'{1}\'")]
-    DependencyNotSatisfied(String, String),
-
-    /// Context missing required data.
-    #[error("Context missing required data: {0}")]
-    MissingData(String),
-
-    /// SIR not available but required.
-    #[error("SIR not available: pass \'{0}\' requires SIR")]
-    SirNotAvailable(String),
-
-    /// Circular dependency detected.
-    #[error("Circular dependency detected: {0}")]
-    CircularDependency(String),
-
-    /// Pass not found.
-    #[error("Pass not found: {0}")]
-    PassNotFound(String),
-
-    /// Invalid configuration.
-    #[error("Invalid configuration: {0}")]
-    InvalidConfiguration(String),
+    /// A pass or detector depends on a pass that is not registered.
+    #[error("\'{0}\' depends on a pass that is not registered")]
+    UnregisteredDependency(String),
 }
 
 /// Result type for pass operations.
@@ -48,7 +32,7 @@ pub type PassResult<T> = Result<T, PassError>;
 /// This trait defines the common interface for both analysis passes
 /// and bug detection passes. All passes must be thread-safe (`Send + Sync`).
 ///
-/// Pass identity is based on `std::any::TypeId` — each concrete type
+/// Pass identity is based on `std::any::TypeId`: each concrete type
 /// gets a compiler-guaranteed unique ID with zero maintenance overhead.
 pub trait Pass: Send + Sync + 'static {
     /// Get the unique identifier for this pass.
@@ -70,35 +54,35 @@ pub trait Pass: Send + Sync + 'static {
 
     /// Get the list of passes that must run before this one.
     fn dependencies(&self) -> Vec<TypeId>;
-
-    /// Get the list of passes that this pass invalidates (for future
-    /// transformation passes).
-    fn invalidates(&self) -> Vec<TypeId> {
-        vec![]
-    }
-
-    /// Check if this pass is enabled by default.
-    fn enabled_by_default(&self) -> bool {
-        true
-    }
 }
 
 /// Trait for analysis passes.
 ///
-/// Analysis passes collect information from the AST/IR and store
-/// results in the `AnalysisContext`. They are read-only with respect
-/// to the source representation.
+/// An analysis pass computes one artifact from the IR and from the
+/// artifacts of the passes it depends on. It only reads the context: the
+/// executor stores the returned artifact under `Self::Artifact`, so that
+/// the passes of one dependency level can run in parallel.
 pub trait AnalysisPass: Pass {
-    /// Run the pass and update the analysis context.
-    ///
-    /// This method should:
-    /// 1. Read from the AST/IR as needed
-    /// 2. Perform analysis
-    /// 3. Store results in the context
-    fn run(&self, context: &mut AnalysisContext) -> PassResult<()>;
+    /// The key under which the context stores the artifact of the pass.
+    type Artifact: ContextKey;
 
-    /// Check if this pass has already been run on the given context.
-    fn is_completed(&self, context: &AnalysisContext) -> bool;
+    /// Compute the artifact of the pass from `context`, which holds the
+    /// artifacts of every pass this one depends on.
+    fn run(&self, context: &AnalysisContext) -> PassResult<<Self::Artifact as ContextKey>::Value>;
+}
+
+/// Object-safe form of [`AnalysisPass`], through which the pass manager
+/// holds and runs passes producing different artifact types. Implemented
+/// for every analysis pass.
+pub trait ErasedAnalysisPass: Pass {
+    /// Run the pass, returning its artifact for the executor to store.
+    fn run_erased(&self, context: &AnalysisContext) -> PassResult<ErasedArtifact>;
+}
+
+impl<P: AnalysisPass> ErasedAnalysisPass for P {
+    fn run_erased(&self, context: &AnalysisContext) -> PassResult<ErasedArtifact> {
+        self.run(context).map(ErasedArtifact::new::<P::Artifact>)
+    }
 }
 
 /// Metadata about a pass execution.

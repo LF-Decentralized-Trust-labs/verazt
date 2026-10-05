@@ -16,8 +16,8 @@ use crate::sir::exprs::{CallExpr, Expr};
 
 /// Extension trait for EVM-dialect queries on [`FunctionDecl`].
 pub trait EvmFunctionExt {
-    /// Returns `true` if the function has public visibility
-    /// (`#sir.visibility = "public"`).
+    /// Returns `true` if other accounts can call the function: its
+    /// visibility is `public` or `external` (`#sir.visibility`).
     fn is_public(&self) -> bool;
 
     /// Returns `true` if the function has a reentrancy guard
@@ -30,7 +30,7 @@ impl EvmFunctionExt for FunctionDecl {
         self.attrs.iter().any(|a| {
             a.namespace == "sir"
                 && a.key == sir_attrs::VISIBILITY
-                && matches!(&a.value, AttrValue::String(s) if s == "public")
+                && matches!(&a.value, AttrValue::String(s) if s == "public" || s == "external")
         })
     }
 
@@ -54,14 +54,31 @@ pub trait EvmCallExt {
     fn is_evm_external_call(&self) -> bool;
 }
 
+/// Returns true if `callee` is an external call member (`addr.call`,
+/// `addr.send`, ...), possibly configured with a value or gas before
+/// Solidity 0.6: `addr.call.value(v)` or `addr.call.gas(g).value(v)`.
+fn is_external_call_member(callee: &Expr) -> bool {
+    match callee {
+        Expr::FieldAccess(fa) => matches!(
+            fa.field.as_str(),
+            "call" | "delegatecall" | "staticcall" | "transfer" | "send"
+        ),
+        // `addr.call.value(v)` is itself a call of the `value` member.
+        Expr::FunctionCall(call) => match &*call.callee {
+            Expr::FieldAccess(fa) if matches!(fa.field.as_str(), "value" | "gas") => {
+                is_external_call_member(&fa.base)
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
 impl EvmCallExt for CallExpr {
     fn is_evm_external_call(&self) -> bool {
         // Check for FieldAccess-based external calls (e.g. addr.call(...))
-        if let Expr::FieldAccess(fa) = &*self.callee {
-            let field = fa.field.as_str();
-            if matches!(field, "call" | "delegatecall" | "staticcall" | "transfer" | "send") {
-                return true;
-            }
+        if is_external_call_member(&self.callee) {
+            return true;
         }
         // Check for dialect expression-based calls
         if let Expr::Dialect(DialectExpr::Evm(evm)) = &*self.callee {
@@ -74,6 +91,47 @@ impl EvmCallExt for CallExpr {
             }
         }
         false
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EvmExprExt — queries on Expr
+// ═══════════════════════════════════════════════════════════════════
+
+/// Extension trait for EVM-dialect queries on [`Expr`].
+pub trait EvmExprExt {
+    /// Returns `true` if the expression is an EVM external call, in either
+    /// lowered form: a call that [`EvmCallExt::is_evm_external_call`], or a
+    /// `send`, `transfer`, low-level call or `delegatecall` dialect
+    /// expression.
+    fn is_evm_external_call(&self) -> bool;
+
+    /// Returns `true` if the expression is the caller, `msg.sender` or
+    /// `tx.origin`, possibly cast.
+    fn is_evm_caller(&self) -> bool;
+}
+
+impl EvmExprExt for Expr {
+    fn is_evm_caller(&self) -> bool {
+        match self {
+            Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender(_) | EvmExpr::TxOrigin(_))) => true,
+            Expr::TypeCast(e) => e.expr.is_evm_caller(),
+            _ => false,
+        }
+    }
+
+    fn is_evm_external_call(&self) -> bool {
+        match self {
+            Expr::FunctionCall(call) => call.is_evm_external_call(),
+            Expr::Dialect(DialectExpr::Evm(
+                EvmExpr::Send(_)
+                | EvmExpr::Transfer(_)
+                | EvmExpr::LowLevelCall(_)
+                | EvmExpr::RawCall(_)
+                | EvmExpr::Delegatecall(_),
+            )) => true,
+            _ => false,
+        }
     }
 }
 

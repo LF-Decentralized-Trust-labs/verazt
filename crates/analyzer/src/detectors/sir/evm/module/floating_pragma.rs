@@ -60,10 +60,12 @@ impl ScanDetector for FloatingPragmaDetector {
                 if let AttrValue::String(version) = &attr.value {
                     if Self::is_floating(version) {
                         let loc = attr.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0));
-                        bugs.push(META.bug(
-                            Some(&format!("Floating pragma version '{}'.", version)),
-                            loc,
-                        ));
+                        bugs.push(
+                            META.bug(
+                                Some(&format!("Floating pragma version '{}'.", version)),
+                                loc,
+                            ),
+                        );
                     }
                 }
             }

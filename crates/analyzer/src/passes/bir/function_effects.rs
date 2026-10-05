@@ -69,19 +69,17 @@ impl Pass for FunctionEffectsPass {
 }
 
 impl AnalysisPass for FunctionEffectsPass {
-    fn run(&self, ctx: &mut AnalysisContext) -> PassResult<()> {
-        let effects = ctx
+    type Artifact = FunctionEffectsArtifact;
+
+    fn run(
+        &self,
+        ctx: &AnalysisContext,
+    ) -> PassResult<HashMap<String, HashMap<FunctionId, FunctionEffects>>> {
+        Ok(ctx
             .bir_units()
             .iter()
             .map(|module| (module.source_module_id.clone(), module_effects(module)))
-            .collect();
-        ctx.store::<FunctionEffectsArtifact>(effects);
-        ctx.mark_pass_completed(self.id());
-        Ok(())
-    }
-
-    fn is_completed(&self, ctx: &AnalysisContext) -> bool {
-        ctx.is_pass_completed(self.id())
+            .collect())
     }
 }
 
@@ -110,14 +108,20 @@ fn module_effects(module: &Module) -> HashMap<FunctionId, FunctionEffects> {
             .filter_map(|op| op.kind.storage_access())
             .filter(|access| !access.is_write)
             .map(|access| access.resource.to_string());
-        effects.entry(func.id.clone()).or_default().reads.extend(reads);
+        effects
+            .entry(func.id.clone())
+            .or_default()
+            .reads
+            .extend(reads);
     }
     let size = |e: &FunctionEffects| (e.may_reenter, e.reads.len(), e.writes.len());
     let mut changed = true;
     while changed {
         changed = false;
         for (caller, callee) in &module.call_graph.static_edges {
-            let Some(callee_effects) = effects.get(callee).cloned() else { continue };
+            let Some(callee_effects) = effects.get(callee).cloned() else {
+                continue;
+            };
             let caller_effects = effects.entry(caller.clone()).or_default();
             let before = size(caller_effects);
             caller_effects.may_reenter |= callee_effects.may_reenter;
@@ -148,8 +152,10 @@ mod tests {
     fn summary(name: &str, reenters: bool, writes: &[&str]) -> FunctionSummary {
         let mut summary = FunctionSummary::new(id(name));
         summary.reentrancy_safe = !reenters;
-        summary.modifies =
-            writes.iter().map(|w| StorageRef { base: w.to_string(), index_count: 0 }).collect();
+        summary.modifies = writes
+            .iter()
+            .map(|w| StorageRef { base: w.to_string(), index_count: 0 })
+            .collect();
         summary
     }
 
@@ -158,8 +164,11 @@ mod tests {
         // a → b → c, where only c writes state and makes a re-entrant call.
         // The edges are listed callee-first so one sweep is not enough.
         let mut module = Module::new("m".to_string());
-        module.summaries =
-            vec![summary("a", false, &[]), summary("b", false, &[]), summary("c", true, &["@x"])];
+        module.summaries = vec![
+            summary("a", false, &[]),
+            summary("b", false, &[]),
+            summary("c", true, &["@x"]),
+        ];
         module.call_graph.add_static_edge(id("a"), id("b"));
         module.call_graph.add_static_edge(id("b"), id("c"));
         module.call_graph.static_edges.reverse();

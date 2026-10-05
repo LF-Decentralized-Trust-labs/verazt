@@ -11,7 +11,6 @@ pub enum DetectorId {
     // ── SIR structural detectors ────────────────────────────────
     ArithmeticOverflow,
     BadRandomness,
-    CeiViolation,
     CentralizationRisk,
     ConstantStateVar,
     DeadCode,
@@ -42,7 +41,6 @@ impl DetectorId {
         match self {
             Self::ArithmeticOverflow => "arithmetic-overflow",
             Self::BadRandomness => "bad-randomness",
-            Self::CeiViolation => "cei-violation",
             Self::CentralizationRisk => "centralization-risk",
             Self::ConstantStateVar => "constant-state-var",
             Self::CrossFunctionReentrancy => "reentrancy-cross-function",

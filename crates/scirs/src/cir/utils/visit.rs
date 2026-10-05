@@ -223,7 +223,9 @@ pub mod default {
         stmt: &'a CanonDialectStmt,
     ) {
         match stmt {
-            CanonDialectStmt::Evm(CanonEvmStmt::Selfdestruct(s)) => visitor.visit_expr(&s.recipient),
+            CanonDialectStmt::Evm(CanonEvmStmt::Selfdestruct(s)) => {
+                visitor.visit_expr(&s.recipient)
+            }
             CanonDialectStmt::Evm(CanonEvmStmt::TryCatch(s)) => {
                 visitor.visit_expr(&s.guarded);
                 visitor.visit_stmts(&s.body);

@@ -113,7 +113,9 @@ pub trait Visit<'a> {
     }
 
     // ── Dialect ─────────────────────────────────────
-    fn visit_dialect_expr(&mut self, _expr: &'a DialectExpr) {}
+    fn visit_dialect_expr(&mut self, expr: &'a DialectExpr) {
+        default::visit_dialect_expr(self, expr)
+    }
     fn visit_dialect_stmt(&mut self, _stmt: &'a DialectStmt) {}
     fn visit_dialect_member_decl(&mut self, _decl: &'a DialectMemberDecl) {}
     fn visit_dialect_type(&mut self, _ty: &'a DialectType) {}
@@ -333,6 +335,16 @@ pub mod default {
     }
 
     pub fn visit_var_expr<'a, T: Visit<'a> + ?Sized>(_visitor: &mut T, _var: &'a VarExpr) {}
+
+    /// Visits the subexpressions of an EVM dialect expression. Other dialect
+    /// expressions are not walked.
+    pub fn visit_dialect_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a DialectExpr) {
+        if let DialectExpr::Evm(evm) = expr {
+            for operand in evm.operands() {
+                visitor.visit_expr(operand);
+            }
+        }
+    }
 
     pub fn visit_binop_expr<'a, T: Visit<'a> + ?Sized>(visitor: &mut T, expr: &'a BinOpExpr) {
         visitor.visit_expr(&expr.lhs);

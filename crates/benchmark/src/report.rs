@@ -31,8 +31,37 @@ pub fn print_report(result: &DatasetResult, verbose: bool) {
     for cat in &categories {
         let stats = &result.per_category[cat];
         println!(
-            "- {} ({} files, {} expected)  TP: {}  FP: {}  FN: {}",
-            cat, stats.file_count, stats.expected, stats.tp, stats.fp, stats.r#fn,
+            "- {} ({} files, {} expected)  TP: {}  FP: {}  FP*: {}  FN: {}  \
+             Recall: {}  Precision: {}  Precision*: {}",
+            cat,
+            stats.file_count,
+            stats.expected,
+            stats.tp,
+            stats.fp,
+            stats.fp_annotated,
+            stats.r#fn,
+            percent(stats.tp, stats.expected),
+            percent(stats.tp, stats.tp + stats.fp),
+            percent(stats.tp, stats.tp + stats.fp_annotated),
+        );
+    }
+
+    // Per-detector results
+    print_subheader("Per-Detector Results");
+
+    println!(
+        "{:<26} {:>5} {:>5} {:>5} {:>10} {:>11}",
+        "Detector", "TP", "FP", "FP*", "Precision", "Precision*"
+    );
+    for (id, stats) in &result.per_detector {
+        println!(
+            "{:<26} {:>5} {:>5} {:>5} {:>10} {:>11}",
+            id,
+            stats.tp,
+            stats.fp,
+            stats.fp_annotated,
+            percent(stats.tp, stats.tp + stats.fp),
+            percent(stats.tp, stats.tp + stats.fp_annotated),
         );
     }
 
@@ -41,10 +70,30 @@ pub fn print_report(result: &DatasetResult, verbose: bool) {
 
     println!("  Total Expected:  {}", result.total_expected);
     println!("  True Positives:  {}", result.total_tp);
-    println!("  False Positives: {}", result.total_fp);
+    println!("  False Positives: {} ({} FP*)", result.total_fp, result.total_fp_annotated);
     println!("  False Negatives: {}", result.total_fn);
+    println!("  Recall:          {}", percent(result.total_tp, result.total_expected));
+    println!(
+        "  Precision:       {} ({} Precision*)",
+        percent(result.total_tp, result.total_tp + result.total_fp),
+        percent(result.total_tp, result.total_tp + result.total_fp_annotated),
+    );
 
-    println!("  False Negatives: {}", result.total_fn);
+    println!();
+    println!(
+        "FP* counts only the false positives in files annotated with the finding's \
+         category. Datasets annotate only the bugs of a file's main category, so \
+         Precision is a lower bound and Precision* a closer estimate."
+    );
+}
+
+/// `part / whole` as a percentage, or `-` when `whole` is zero.
+fn percent(part: usize, whole: usize) -> String {
+    if whole == 0 {
+        "-".to_string()
+    } else {
+        format!("{:.1}%", 100.0 * part as f64 / whole as f64)
+    }
 }
 
 /// Print details for a single file.

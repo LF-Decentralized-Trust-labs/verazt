@@ -52,8 +52,8 @@ fn flatten_member(member: &sir::MemberDecl) -> Result<sir::MemberDecl, CirLowerE
                 }
                 None => (vec![], None),
             };
-            // pre-stmts in storage init are unusual; just drop them (no body to insert
-            // into).
+            // pre-stmts in storage init are unusual; just drop them (no body to
+            // insert into).
             let _ = pre;
             Ok(sir::MemberDecl::Storage(sir::StorageDecl { init, ..s.clone() }))
         }
@@ -355,7 +355,8 @@ fn lift_to_atom(expr: &sir::Expr, pre: &mut Vec<sir::Stmt>, counter: &mut usize)
         let tmp_name = format!("__tmp_{counter}");
         let ty = e.typ();
         let span = e.span().cloned();
-        let decl = sir::LocalVarDecl { name: tmp_name.clone(), ty: ty.clone() };
+        let decl =
+            sir::LocalVarDecl { name: tmp_name.clone(), ty: ty.clone(), is_storage_ref: false };
         pre.push(sir::Stmt::LocalVar(sir::LocalVarStmt {
             vars: vec![Some(decl)],
             init: Some(e),

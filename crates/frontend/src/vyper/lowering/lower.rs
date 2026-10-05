@@ -187,8 +187,8 @@ impl Lowerer {
     }
 
     fn lower_interface_def(&mut self, _iface: &ast::InterfaceDef) -> Result<MemberDecl> {
-        // Interfaces become type references; we don't lower them as full contracts
-        // for now, just skip or add a placeholder.
+        // Interfaces become type references; we don't lower them as full
+        // contracts for now, just skip or add a placeholder.
         // TODO: more detailed interface lowering
         Ok(MemberDecl::TypeAlias(scirs::sir::TypeAlias {
             name: _iface.name.clone(),
@@ -311,7 +311,7 @@ impl Lowerer {
                     None => None,
                 };
                 Ok(Some(Stmt::LocalVar(LocalVarStmt {
-                    vars: vec![Some(LocalVarDecl { name, ty })],
+                    vars: vec![Some(LocalVarDecl { name, ty, is_storage_ref: false })],
                     init,
                     span: loc_to_span(s.loc.as_ref()),
                 })))
@@ -416,6 +416,7 @@ impl Lowerer {
                     vars: vec![Some(LocalVarDecl {
                         name: target_name.clone(),
                         ty: Type::I256,
+                        is_storage_ref: false,
                     })],
                     init: Some(start_val),
                     span: None,
@@ -461,6 +462,7 @@ impl Lowerer {
                     vars: vec![Some(LocalVarDecl {
                         name: idx_name.clone(),
                         ty: Type::I256,
+                        is_storage_ref: false,
                     })],
                     init: Some(Expr::Lit(Lit::Num(NumLit {
                         value: Num::Int(IntNum { value: 0.into(), typ: Type::I256 }),
@@ -798,6 +800,9 @@ impl Lowerer {
     }
 
     fn lower_attribute(&mut self, attr: &ast::AttributeExpr) -> Result<Expr> {
+        // Source location of the EVM dialect expressions built below.
+        let loc = loc_to_span(attr.loc.as_ref()).unwrap_or_default();
+
         // Detect special built-in attributes
         match attr.value.as_ref() {
             ast::Expr::Ident(id) => {
@@ -806,7 +811,7 @@ impl Lowerer {
                         // self.x → storage access (lower to Var)
                         if attr.attr == "balance" {
                             return Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::SelfBalance(
-                                EvmSelfBalance { loc: Default::default() },
+                                EvmSelfBalance { loc: loc.clone() },
                             ))));
                         }
                         Ok(Expr::Var(VarExpr {
@@ -818,10 +823,10 @@ impl Lowerer {
                     "msg" => {
                         match attr.attr.as_str() {
                             "sender" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender(
-                                EvmMsgSender { loc: Default::default() },
+                                EvmMsgSender { loc: loc.clone() },
                             )))),
                             "value" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgValue(
-                                EvmMsgValue { loc: Default::default() },
+                                EvmMsgValue { loc: loc.clone() },
                             )))),
                             _ => Ok(Expr::FieldAccess(FieldAccessExpr {
                                 base: Box::new(Expr::Var(VarExpr {
@@ -838,10 +843,10 @@ impl Lowerer {
                     "block" => {
                         match attr.attr.as_str() {
                             "timestamp" => Ok(Expr::Dialect(DialectExpr::Evm(
-                                EvmExpr::Timestamp(EvmTimestamp { loc: Default::default() }),
+                                EvmExpr::Timestamp(EvmTimestamp { loc: loc.clone() }),
                             ))),
                             "number" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::BlockNumber(
-                                EvmBlockNumber { loc: Default::default() },
+                                EvmBlockNumber { loc: loc.clone() },
                             )))),
                             _ => Ok(Expr::FieldAccess(FieldAccessExpr {
                                 base: Box::new(Expr::Var(VarExpr {

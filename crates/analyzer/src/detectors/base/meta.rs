@@ -54,6 +54,7 @@ impl DetectorMeta {
     pub fn bug(&self, description: Option<&str>, loc: Loc) -> Bug {
         Bug::new(
             self.name,
+            self.id.as_str(),
             description,
             loc,
             self.bug_kind.clone(),

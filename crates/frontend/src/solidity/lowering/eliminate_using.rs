@@ -123,8 +123,8 @@ impl Map<'_> for UsingEliminator {
                 // let lib_name = lib_func.clone();
                 // let args: Vec<Expr> = match nexpr.args.clone() {
                 //     CallArgs::Unnamed(args) => args.to_vec(),
-                //     CallArgs::Named(args) => args.iter().map(|x| x.value.clone()).collect(),
-                // };
+                //     CallArgs::Named(args) => args.iter().map(|x|
+                // x.value.clone()).collect(), };
                 // let nargs = vec![base_expr.clone()];
                 // FIXME: update new expr
                 return nexpr;

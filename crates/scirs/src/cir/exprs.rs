@@ -6,8 +6,8 @@
 //! - `FunctionCall` args must be atoms (Var or Lit) — no nested calls.
 //! - Chain semantics are explicit: contract state reads are `Load`, resolved
 //!   calls are `InternalCall` / `ExternalCall`, environment reads are `Env`,
-//!   and the remaining chain-specific forms are typed `Dialect` expressions.
-//!   A `Var` always names a local variable or a non-value symbol.
+//!   and the remaining chain-specific forms are typed `Dialect` expressions. A
+//!   `Var` always names a local variable or a non-value symbol.
 
 use crate::cir::dialect::CanonDialectExpr;
 use crate::semantics::{EnvVar, ExternalKind};
@@ -304,5 +304,9 @@ impl Display for CanonResource {
 }
 
 fn join(exprs: &[CanonExpr]) -> String {
-    exprs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
+    exprs
+        .iter()
+        .map(|e| e.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }

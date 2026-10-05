@@ -1,32 +1,27 @@
-//! Analyzer - Smart Contract Security Analyzer CLI
-//!
-//! This is the main entry point for the Analyzer tool.
+//! Analyzer CLI: the analysis options and the detector and configuration
+//! commands exposed by the `verazt` binary.
 
+use crate::config::{DEFAULT_CONFIG_TOML, available_threads};
 use crate::{
     AnalysisConfig, AnalysisContext, AnalysisReport, Config, DetectorRegistry, InputLanguage,
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
     PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
 };
-use clap::{Parser, Subcommand, crate_version};
 use common::error;
 use frontend::solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parsing::parse_input_file,
 };
+use std::env::consts::EXE_SUFFIX;
+use std::ffi::OsStr;
 use std::fs;
 
-#[derive(Parser, Debug)]
-#[command(
-    author,
-    version = crate_version!(),
-    term_width = 80,
-    about = "Analyzer - Smart Contract Security Analyzer",
-    long_about = None
-)]
-pub struct Arguments {
-    #[command(subcommand)]
-    pub command: Option<Command>,
+/// Default output path of `verazt init-config`.
+pub const DEFAULT_CONFIG_FILE: &str = "verazt.toml";
 
-    /// Input Solidity files to be compiled.
+/// Options of an analysis run.
+#[derive(clap::Args, Debug)]
+pub struct Args {
+    /// Input smart contract files (.sol or .vy).
     pub input_files: Vec<String>,
 
     /// The root directory of the source tree, if specified.
@@ -58,9 +53,9 @@ pub struct Arguments {
     #[arg(long, visible_alias = "pip", default_value_t = false)]
     pub print_input_program: bool,
 
-    /// Output format: json, markdown, sarif, text
-    #[arg(long, short, default_value = "text")]
-    pub format: String,
+    /// Output format [default: text, or the configuration file's]
+    #[arg(long, short, value_enum)]
+    pub format: Option<OutputFormat>,
 
     /// Output file (default: stdout)
     #[arg(long, short)]
@@ -78,9 +73,10 @@ pub struct Arguments {
     #[arg(long)]
     pub disable: Option<String>,
 
-    /// Minimum severity to report: info, low, medium, high, critical
-    #[arg(long, default_value = "info")]
-    pub min_severity: String,
+    /// Minimum severity to report [default: info, or the configuration
+    /// file's]
+    #[arg(long, value_enum)]
+    pub min_severity: Option<SeverityFilter>,
 
     /// Automatically install the required compiler version if none is
     /// available. Skips the interactive prompt.
@@ -90,79 +86,22 @@ pub struct Arguments {
     /// Enable parallel analysis
     #[arg(long, default_value_t = false)]
     pub parallel: bool,
-
-    /// Verbosity
-    #[command(flatten)]
-    pub verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::ErrorLevel>,
 }
 
-#[derive(Subcommand, Debug, Clone)]
-pub enum Command {
-    /// Analyze smart contracts for vulnerabilities
-    Analyze {
-        /// Input files to analyze
-        files: Vec<String>,
-    },
-    /// List available detectors
-    ListDetectors,
-    /// Show detector information
-    ShowDetector {
-        /// Detector ID
-        id: String,
-    },
-    /// Generate a default configuration file
-    InitConfig {
-        /// Output file
-        #[arg(default_value = "verazt.toml")]
-        output: String,
-    },
-}
-
-/// Entry point function
-pub fn run<I, T>(args_iter: I)
-where
-    I: IntoIterator<Item = T>,
-    T: Into<std::ffi::OsString> + Clone,
-{
+/// Analyze the input files and report the detected bugs.
+pub fn run(args: Args) {
     env_logger::try_init().ok();
     error::config();
 
-    // Parse command line arguments
-    let mut args = Arguments::parse_from(args_iter);
-
-    // Handle subcommands
-    if let Some(command) = args.command.clone() {
-        match command {
-            Command::ListDetectors => {
-                list_detectors();
-                return;
-            }
-            Command::ShowDetector { id } => {
-                show_detector(&id);
-                return;
-            }
-            Command::InitConfig { output } => {
-                init_config(&output);
-                return;
-            }
-            Command::Analyze { files } => {
-                args.input_files = files;
-                run_analysis(args);
-                return;
-            }
-        }
-    }
-
-    // Default: run analysis on input files
-    if !args.input_files.is_empty() {
-        run_analysis(args);
-    } else {
+    if args.input_files.is_empty() {
         eprintln!("No input files specified. Use --help for usage information.");
         std::process::exit(1);
     }
+    run_analysis(args);
 }
 
-fn list_detectors() {
+/// Print a table of all registered detectors.
+pub fn list_detectors() {
     let mut registry = DetectorRegistry::new();
     register_all_detectors(&mut registry);
     println!("Available Detectors ({}):", registry.len());
@@ -186,10 +125,11 @@ fn list_detectors() {
         );
     }
 
-    println!("\nUse 'verazt analyze show-detector <id>' for detailed information.");
+    println!("\nUse 'verazt show-detector <id>' for detailed information.");
 }
 
-fn show_detector(id: &str) {
+/// Print the metadata of the detector with the given ID.
+pub fn show_detector(id: &str) {
     let mut registry = DetectorRegistry::new();
     register_all_detectors(&mut registry);
 
@@ -243,62 +183,15 @@ fn show_detector(id: &str) {
         }
         None => {
             eprintln!("Detector '{}' not found.", id);
-            eprintln!("Use 'verazt analyze list-detectors' to see available detectors.");
+            eprintln!("Use 'verazt list-detectors' to see available detectors.");
             std::process::exit(1);
         }
     }
 }
 
-fn init_config(output: &str) {
-    let default_config = r#"# Verazt Configuration File
-
-[analysis]
-# Enable parallel analysis
-parallel = true
-# Maximum number of worker threads (0 = auto-detect)
-max_workers = 0
-
-[detectors]
-# Enable vulnerability detection
-vulnerabilities = true
-# Enable refactoring suggestions
-refactoring = true
-# Enable optimization hints
-optimization = true
-
-# Explicitly enable specific detectors (empty = all enabled)
-# enabled = ["reentrancy", "tx-origin"]
-
-# Explicitly disable specific detectors
-# disabled = []
-
-[output]
-# Output format: "text", "json", "markdown", "sarif"
-format = "text"
-# Minimum severity to report: "info", "low", "medium", "high", "critical"
-min_severity = "info"
-
-[ignore]
-# Patterns to ignore in files
-patterns = [
-    "// analyze-disable",
-    "// slither-disable",
-]
-
-# Files to ignore
-files = [
-    "test/**",
-    "node_modules/**",
-]
-
-# Directories to ignore
-directories = [
-    "lib",
-    "node_modules",
-]
-"#;
-
-    match fs::write(output, default_config) {
+/// Write the default configuration file to `output`.
+pub fn init_config(output: &str) {
+    match fs::write(output, DEFAULT_CONFIG_TOML) {
         Ok(_) => {
             println!("Configuration file created: {}", output);
         }
@@ -309,7 +202,7 @@ directories = [
     }
 }
 
-fn run_analysis(args: Arguments) {
+fn run_analysis(args: Args) {
     // Load configuration
     let mut config = if let Some(config_path) = &args.config {
         Config::from_file(std::path::Path::new(config_path)).unwrap_or_else(|e| {
@@ -322,9 +215,7 @@ fn run_analysis(args: Arguments) {
 
     // Apply CLI overrides
     if args.parallel {
-        config.num_threads = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1);
+        config.num_threads = available_threads();
     }
 
     if let Some(enable) = &args.enable {
@@ -335,20 +226,13 @@ fn run_analysis(args: Arguments) {
         config.detectors.disabled = disable.split(',').map(|s| s.trim().to_string()).collect();
     }
 
-    config.output_format = match args.format.as_str() {
-        "json" => OutputFormat::Json,
-        "markdown" | "md" => OutputFormat::Markdown,
-        "sarif" => OutputFormat::Sarif,
-        _ => OutputFormat::Text,
-    };
+    if let Some(format) = args.format {
+        config.output_format = format;
+    }
 
-    config.min_severity = match args.min_severity.as_str() {
-        "critical" => SeverityFilter::Critical,
-        "high" => SeverityFilter::High,
-        "medium" => SeverityFilter::Medium,
-        "low" => SeverityFilter::Low,
-        _ => SeverityFilter::Informational,
-    };
+    if let Some(min_severity) = args.min_severity {
+        config.min_severity = min_severity;
+    }
 
     // Parse input files
     let solc_ver = args.solc_version.as_deref();
@@ -453,7 +337,7 @@ fn run_analysis(args: Arguments) {
     }
 
     // Create analysis context
-    let analysis_config = AnalysisConfig { input_language, ..AnalysisConfig::default() };
+    let analysis_config = AnalysisConfig { input_language };
     let mut context = AnalysisContext::new(sir_units, analysis_config);
 
     // Create and run the pipeline
@@ -475,7 +359,11 @@ fn run_analysis(args: Arguments) {
         );
     }
 
-    let result = engine.run(&mut context);
+    let mut result = engine.run(&mut context);
+    let failures = result.failures();
+    result
+        .bugs
+        .retain(|bug| config.should_report_severity(&bug.risk_level));
 
     // Create report
     let lang_str = match input_language {
@@ -523,8 +411,13 @@ fn run_analysis(args: Arguments) {
         }
     }
 
-    // Exit with error code if high severity issues found
-    if report.has_high_severity() {
+    for failure in &failures {
+        eprintln!("Error: {failure}");
+    }
+
+    // Exit with error code if the analysis was incomplete or high severity
+    // issues were found
+    if !failures.is_empty() || report.has_high_severity() {
         std::process::exit(1);
     }
 }
@@ -544,7 +437,13 @@ fn format_text_output(report: &AnalysisReport) -> String {
         output.push_str(&format_header("Detected Bugs"));
 
         for (i, bug) in report.bugs.iter().enumerate() {
-            output.push_str(&format!("🐛 Issue {}: {} ({})\n\n", i + 1, bug.name, bug.category));
+            output.push_str(&format!(
+                "🐛 Issue {}: {} ({}) [{}]\n\n",
+                i + 1,
+                bug.name,
+                bug.category,
+                bug.detector_id
+            ));
 
             let snippet_file = bug.loc.file.as_deref().unwrap_or("");
             let display_file =
@@ -652,13 +551,19 @@ fn prompt_yes_no(msg: &str) -> bool {
     matches!(input.trim(), "y" | "Y")
 }
 
-/// Returns true if `tool` is found in PATH (tries `tool --version`).
+/// Returns true if `tool` is found in PATH.
+///
+/// Looks the executable up instead of running `tool --version`, which
+/// `solc-select` rejects with a non-zero exit status.
 fn is_tool_installed(tool: &str) -> bool {
-    std::process::Command::new(tool)
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    std::env::var_os("PATH").is_some_and(|path| is_in_path(tool, &path))
+}
+
+/// Returns true if an executable named `tool` exists in a directory of the
+/// PATH-formatted list `path`.
+fn is_in_path(tool: &str, path: &OsStr) -> bool {
+    let exe_name = format!("{tool}{EXE_SUFFIX}");
+    std::env::split_paths(path).any(|dir| dir.join(&exe_name).is_file())
 }
 
 /// Install a pip package via `pip3` or `pip`, whichever is available.
@@ -711,8 +616,10 @@ fn try_install_and_compile_vyper(
     vyper_ver: Option<&str>,
     auto: bool,
 ) -> Option<scirs::sir::Module> {
-    // Step 0: Ensure vyper-select itself is present.
-    if !ensure_select_installed("vyper-select", "vyper-select", auto) {
+    // Step 0: Ensure vyper-select itself is present. It is not published on
+    // PyPI, so unlike solc-select it cannot be installed with pip.
+    if !is_tool_installed("vyper-select") {
+        eprintln!("'vyper-select' is not installed. Install it and add it to PATH.");
         return None;
     }
 
@@ -781,4 +688,21 @@ fn try_install_and_compile_solidity(
     eprintln!("solc {best} installed successfully.");
 
     parse_input_file(file, base_path, include_paths, solc_ver).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_in_path_finds_tool_without_running_it() {
+        // An empty file cannot run, so only a lookup can find it, as it must
+        // find `solc-select`, which fails on `--version`.
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(format!("fake-select{EXE_SUFFIX}")), "").unwrap();
+        let path = std::env::join_paths([dir.path()]).unwrap();
+
+        assert!(is_in_path("fake-select", &path));
+        assert!(!is_in_path("missing-select", &path));
+    }
 }

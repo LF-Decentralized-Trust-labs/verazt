@@ -10,6 +10,8 @@ use std::fmt::{self, Display};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bug {
     pub name: String,
+    /// Stable ID of the detector that reported this bug (e.g. `tx-origin`).
+    pub detector_id: String,
     pub description: Option<String>,
     pub loc: Loc,
     pub kind: BugKind,
@@ -133,6 +135,7 @@ impl Display for BugCategory {
 impl Bug {
     pub fn new(
         name: &str,
+        detector_id: &str,
         description: Option<&str>,
         loc: Loc,
         kind: BugKind,
@@ -144,6 +147,7 @@ impl Bug {
     ) -> Self {
         Bug {
             name: name.to_string(),
+            detector_id: detector_id.to_string(),
             description: description.map(|s| s.to_string()),
             loc,
             kind,
@@ -215,6 +219,7 @@ impl Bug {
 impl Display for Bug {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Bug: {}", self.name)?;
+        writeln!(f, "Detector: {}", self.detector_id)?;
         if let Some(ref desc) = self.description {
             writeln!(f, "Description: {}", desc)?;
         } else {
@@ -356,6 +361,7 @@ mod tests {
     fn test_bug_serde() {
         let bug = Bug::new(
             "Test Bug",
+            "test-detector",
             Some("A test bug"),
             Loc::new(1, 1, 1, 10),
             BugKind::Vulnerability,
@@ -368,6 +374,7 @@ mod tests {
         let json = serde_json::to_string(&bug).unwrap();
         let parsed: Bug = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.name, "Test Bug");
+        assert_eq!(parsed.detector_id, "test-detector");
         assert_eq!(parsed.category, BugCategory::Reentrancy);
         assert_eq!(parsed.risk_level, RiskLevel::High);
     }

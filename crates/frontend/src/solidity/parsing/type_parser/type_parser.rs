@@ -484,7 +484,8 @@ impl TypeParser {
             Rule::struct_name => {
                 let mut p_inners = p.clone().into_inner();
                 let mut scope = None;
-                // Parse contract scope name, e.g., `Contract.StructName`, if existing.
+                // Parse contract scope name, e.g., `Contract.StructName`, if
+                // existing.
                 if p_inners.len() > 1 {
                     scope = match p_inners.next() {
                         Some(p_scope) => match p_scope.clone().into_inner().next() {
@@ -529,7 +530,8 @@ impl TypeParser {
             Rule::enum_name => {
                 let mut p_inners = p.clone().into_inner();
                 let mut scope: Option<Name> = None;
-                // Parse contract scope name, e.g., `Contract.EnumName`, if existing.
+                // Parse contract scope name, e.g., `Contract.EnumName`, if
+                // existing.
                 if p_inners.len() > 1 {
                     scope = match p_inners.next() {
                         Some(p_scope) => match p_scope.clone().into_inner().next() {

@@ -2,7 +2,6 @@
 //! queryable at any op.
 
 use super::lattice::Lattice;
-use super::solver::Direction;
 use crate::frameworks::bir::{FunctionView, OpPos};
 use scirs::bir::ops::Op;
 use std::collections::VecDeque;
@@ -11,6 +10,15 @@ use std::ops::Range;
 // ═══════════════════════════════════════════════════════════════════
 // Data Structures
 // ═══════════════════════════════════════════════════════════════════
+
+/// The direction in which facts flow through a function.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Direction {
+    /// Against control flow, from the exits towards the entry.
+    Backward,
+    /// With control flow, from the entry towards the exits.
+    Forward,
+}
 
 /// The fixpoint of a dataflow problem over one function.
 ///
@@ -35,7 +43,10 @@ where
     T: Fn(OpPos, &Op, &mut L),
 {
     /// Solve the problem defined by `transfer` over the function of `view`,
-    /// starting from bottom at the function boundary.
+    /// starting from bottom at the function boundary. Only blocks on a path
+    /// from the boundary are solved: those reachable from the entry for a
+    /// forward analysis, those reaching an exit for a backward one. The
+    /// others keep bottom, so dead code adds no facts to live code.
     pub fn solve(view: &'v FunctionView<'f>, direction: Direction, transfer: T) -> Self {
         let count = view.func().blocks.len();
         let succs: Vec<Vec<usize>> = (0..count).map(|block| view.successors(block)).collect();
@@ -51,14 +62,20 @@ where
         };
         let mut facts = OpFacts { block_in: vec![L::bottom(); count], direction, transfer, view };
         let mut block_out = vec![L::bottom(); count];
-        let mut worklist: VecDeque<usize> = match direction {
-            Direction::Forward => (0..count).collect(),
-            Direction::Backward => (0..count).rev().collect(),
+        let (live, order): (Vec<bool>, Vec<usize>) = match direction {
+            Direction::Forward => (reachable_from(0..count.min(1), &succs), (0..count).collect()),
+            Direction::Backward => {
+                let exits = (0..count).filter(|block| succs[*block].is_empty());
+                (reachable_from(exits, &preds), (0..count).rev().collect())
+            }
         };
-        let mut queued = vec![true; count];
+        let mut worklist: VecDeque<usize> = order.into_iter().filter(|b| live[*b]).collect();
+        let mut queued = live;
         while let Some(block) = worklist.pop_front() {
             queued[block] = false;
-            let input = inputs[block].iter().fold(L::bottom(), |acc, b| acc.join(&block_out[*b]));
+            let input = inputs[block]
+                .iter()
+                .fold(L::bottom(), |acc, b| acc.join(&block_out[*b]));
             let output = facts.transfer_ops(block, input.clone(), facts.all_ops(block));
             facts.block_in[block] = input;
             if output != block_out[block] {
@@ -103,6 +120,20 @@ where
     }
 }
 
+/// Which blocks are reachable from `roots` along `edges` (the targets of
+/// each block index).
+fn reachable_from(roots: impl IntoIterator<Item = usize>, edges: &[Vec<usize>]) -> Vec<bool> {
+    let mut seen = vec![false; edges.len()];
+    let mut stack: Vec<usize> = roots.into_iter().collect();
+    while let Some(block) = stack.pop() {
+        if !seen[block] {
+            seen[block] = true;
+            stack.extend(&edges[block]);
+        }
+    }
+    seen
+}
+
 // ========================================================================
 // Tests
 // ========================================================================
@@ -123,14 +154,18 @@ mod tests {
 
     /// `bb0 -> bb1 <-> bb2, bb1 -> bb3`: bb1 heads a loop with body bb2.
     fn looping_function() -> Function {
-        let mut func = Function::new(FunctionId("C.f".to_string()), true);
         let cond = OpRef(OpId(0));
-        let terms = [
+        function_with(vec![
             Terminator::jump(BlockId(1)),
             Terminator::branch(cond, BlockId(2), BlockId(3)),
             Terminator::jump(BlockId(1)),
             Terminator::TxnExit { reverted: false },
-        ];
+        ])
+    }
+
+    /// A function with two constants per block and the given terminators.
+    fn function_with(terms: Vec<Terminator>) -> Function {
+        let mut func = Function::new(FunctionId("C.f".to_string()), true);
         for (i, term) in terms.into_iter().enumerate() {
             let mut block = BasicBlock::new(BlockId(i));
             block.ops = vec![constant(2 * i), constant(2 * i + 1)];
@@ -172,5 +207,34 @@ mod tests {
         assert!(at_exit.contains(&pos(3, 1)));
         let at_entry = after.at(pos(0, 0));
         assert!(at_entry.contains(&pos(2, 0)) && !at_entry.contains(&pos(0, 0)));
+    }
+
+    #[test]
+    fn test_unreachable_block_adds_no_forward_facts() {
+        // bb0 -> bb2 and dead bb1 -> bb2.
+        let func = function_with(vec![
+            Terminator::jump(BlockId(2)),
+            Terminator::jump(BlockId(2)),
+            Terminator::TxnExit { reverted: false },
+        ]);
+        let view = FunctionView::new(&func);
+        let at_join = OpFacts::solve(&view, Direction::Forward, record).at(pos(2, 0));
+        assert!(at_join.contains(&pos(0, 1)));
+        assert!(!at_join.contains(&pos(1, 0)));
+    }
+
+    #[test]
+    fn test_block_never_exiting_adds_no_backward_facts() {
+        // bb0 branches to the exit bb1 or to bb2, which loops forever.
+        let cond = OpRef(OpId(0));
+        let func = function_with(vec![
+            Terminator::branch(cond, BlockId(1), BlockId(2)),
+            Terminator::TxnExit { reverted: false },
+            Terminator::jump(BlockId(2)),
+        ]);
+        let view = FunctionView::new(&func);
+        let at_entry = OpFacts::solve(&view, Direction::Backward, record).at(pos(0, 0));
+        assert!(at_entry.contains(&pos(1, 0)));
+        assert!(!at_entry.contains(&pos(2, 0)));
     }
 }

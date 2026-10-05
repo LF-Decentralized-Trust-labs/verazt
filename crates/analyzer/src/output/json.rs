@@ -1,6 +1,7 @@
 //! JSON output formatter.
 
-use crate::output::formatter::{AnalysisReport, OutputFormatter};
+use crate::detectors::DetectorMeta;
+use crate::output::formatter::{AnalysisReport, OutputFormatter, builtin_detector_metas};
 use bugs::bug::Bug;
 use serde::{Deserialize, Serialize};
 
@@ -77,15 +78,17 @@ pub struct JsonSummary {
 /// Individual finding.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonFinding {
+    /// ID of the detector that reported the finding.
     pub id: String,
     pub title: String,
     pub description: String,
     pub severity: String,
     pub category: String,
     pub location: JsonLocation,
-    pub swc_id: Option<String>,
-    pub cwe_id: Option<String>,
-    pub confidence: String,
+    pub swc_ids: Vec<String>,
+    pub cwe_ids: Vec<String>,
+    /// Confidence of the reporting detector, `None` if it is not built in.
+    pub confidence: Option<String>,
 }
 
 /// Location information.
@@ -114,15 +117,28 @@ impl From<&AnalysisReport> for JsonReport {
                 low: report.stats.bugs_by_severity.low,
                 info: report.stats.bugs_by_severity.info,
             },
-            findings: report.bugs.iter().map(JsonFinding::from).collect(),
+            findings: {
+                let metas = builtin_detector_metas();
+                report
+                    .bugs
+                    .iter()
+                    .map(|bug| JsonFinding::new(bug, &metas))
+                    .collect()
+            },
         }
     }
 }
 
-impl From<&Bug> for JsonFinding {
-    fn from(bug: &Bug) -> Self {
+impl JsonFinding {
+    /// The finding for `bug`, taking its confidence from the metadata of
+    /// the detector that reported it, among `metas`.
+    fn new(bug: &Bug, metas: &[&DetectorMeta]) -> Self {
+        let confidence = metas
+            .iter()
+            .find(|m| m.id.as_str() == bug.detector_id)
+            .map(|m| m.confidence.to_string().to_lowercase());
         Self {
-            id: bug.kind.as_str().to_lowercase().replace(' ', "-"),
+            id: bug.detector_id.clone(),
             title: bug.name.clone(),
             description: bug.description.clone().unwrap_or_default(),
             severity: bug.risk_level.as_str().to_string(),
@@ -134,9 +150,9 @@ impl From<&Bug> for JsonFinding {
                 start_column: Some(bug.loc.start_col),
                 end_column: Some(bug.loc.end_col),
             },
-            swc_id: bug.swc_ids.first().map(|id| format!("SWC-{}", id)),
-            cwe_id: bug.cwe_ids.first().map(|id| format!("CWE-{}", id)),
-            confidence: "high".to_string(), // Default confidence
+            swc_ids: bug.swc_ids.iter().map(|id| format!("SWC-{}", id)).collect(),
+            cwe_ids: bug.cwe_ids.iter().map(|id| format!("CWE-{}", id)).collect(),
+            confidence,
         }
     }
 }

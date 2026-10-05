@@ -380,7 +380,8 @@ impl Normalize<'_, Vec<VarDecl>> for ExprFlattener {
         for stmt in block.body.iter() {
             let (nvdecls, nstmt) = self.normalize_stmt(vec![], stmt);
             for mut vdecl in nvdecls.into_iter() {
-                // Lift initial value of [`VarDecl`] to the RHS of the [`VarDeclStmt`].
+                // Lift initial value of [`VarDecl`] to the RHS of the
+                // [`VarDeclStmt`].
                 let value = vdecl.value.clone();
                 let loc = vdecl.loc.clone();
                 vdecl.value = None;

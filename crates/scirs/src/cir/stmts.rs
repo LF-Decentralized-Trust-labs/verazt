@@ -202,7 +202,11 @@ impl Display for CanonStmt {
 
 impl Display for CanonStoreStmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let verb = if self.value.is_some() { "store" } else { "delete" };
+        let verb = if self.value.is_some() {
+            "store"
+        } else {
+            "delete"
+        };
         write!(f, "{verb} {}", self.resource)?;
         for key in &self.keys {
             write!(f, "[{key}]")?;

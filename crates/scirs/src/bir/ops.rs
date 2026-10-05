@@ -162,7 +162,10 @@ pub enum OpKind {
 
     /// A construct not yet lowered to a typed op. Operands are kept so
     /// that def-use and taint still flow through it.
-    Opaque { description: String, operands: Vec<OpRef> },
+    Opaque {
+        description: String,
+        operands: Vec<OpRef>,
+    },
 }
 
 impl Display for OpKind {
@@ -454,7 +457,10 @@ impl Display for AnchorOp {
 // ═══════════════════════════════════════════════════════════════════
 
 fn join_refs(refs: &[OpRef]) -> String {
-    refs.iter().map(|r| r.to_string()).collect::<Vec<_>>().join(", ")
+    refs.iter()
+        .map(|r| r.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn write_keys(f: &mut fmt::Formatter<'_>, keys: &[OpRef]) -> fmt::Result {

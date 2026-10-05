@@ -141,7 +141,9 @@ pub mod default {
             OpKind::Emit(emit) => folder.fold_emit_op(emit),
             OpKind::Dialect(dialect) => folder.fold_dialect_op(dialect),
             OpKind::Symbol { .. } => T::default(),
-            OpKind::Opaque { description, operands } => folder.fold_opaque_op(description, operands),
+            OpKind::Opaque { description, operands } => {
+                folder.fold_opaque_op(description, operands)
+            }
         }
     }
 

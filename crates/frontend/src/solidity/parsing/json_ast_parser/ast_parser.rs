@@ -1,9 +1,9 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
+use crate::solidity::ast::utils::Visit;
 use crate::solidity::ast::yul as yast;
 use crate::solidity::ast::{DataLoc, Loc, Name};
 use crate::solidity::parsing::yul_parser;
-use crate::solidity::ast::utils::Visit;
 use crate::solidity::{ast::*, parsing::type_parser::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;
@@ -1244,7 +1244,22 @@ impl AstParser {
             match vdecl_node {
                 Value::Null => vars.push(None),
                 _ => match self.parse_variable_declaration(vdecl_node) {
-                    Ok(vdecl) => vars.push(Some(vdecl)),
+                    Ok(mut vdecl) => {
+                        // Before Solidity 0.5, a local struct or array
+                        // declared without a location defaults to storage,
+                        // which only the type identifier records
+                        // (`t_struct$_S_$4_storage_ptr`).
+                        let type_identifier = vdecl_node
+                            .get("typeDescriptions")
+                            .and_then(|d| d.get("typeIdentifier"))
+                            .and_then(Value::as_str);
+                        if vdecl.typ.data_loc() == DataLoc::None
+                            && type_identifier.is_some_and(|s| s.ends_with("_storage_ptr"))
+                        {
+                            vdecl.typ.set_data_loc(DataLoc::Storage);
+                        }
+                        vars.push(Some(vdecl))
+                    }
                     Err(err) => fail!(err),
                 },
             }
@@ -1750,17 +1765,35 @@ impl AstParser {
 
             Type::Int(_) => {
                 let value_node = value_node?;
-                let value = match self.parse_int_lit(value_node) {
-                    Ok(num) => IntNum::new(num, typ).into(),
-                    Err(_) => {
-                        let hex = self.parse_string_lit(value_node)?;
-                        HexNum::new(hex, typ).into()
-                    }
-                };
-                let unit = node
+                let mut unit = node
                     .get("subdenomination")
                     .and_then(|v| v.as_str())
                     .map(NumUnit::new);
+                let is_hex = value_node
+                    .as_str()
+                    .is_some_and(|s| s.starts_with("0x") || s.starts_with("0X"));
+                let value = match self.parse_int_lit(value_node) {
+                    Ok(num) => IntNum::new(num, typ).into(),
+                    // A hex literal keeps its notation, which conversions to
+                    // `bytesN` require.
+                    Err(_) if is_hex => {
+                        let hex = self.parse_string_lit(value_node)?;
+                        HexNum::new(hex, typ).into()
+                    }
+                    // A fractional or exponent literal with an integer value
+                    // (`0.1 ether`, `1e18`): solc records the value, with any
+                    // unit applied, in the type string `int_const <value>`.
+                    Err(_) => match self.parse_int_const_type(node) {
+                        Some(num) => {
+                            unit = None;
+                            IntNum::new(num, typ).into()
+                        }
+                        None => {
+                            let hex = self.parse_string_lit(value_node)?;
+                            HexNum::new(hex, typ).into()
+                        }
+                    },
+                };
                 Ok(NumLit::new(value, unit, loc).into())
             }
 
@@ -1840,6 +1873,17 @@ impl AstParser {
             Some(s) => s.parse::<BigInt>().map_err(|err| error!("{}", err)),
             None => fail!("Failed to parse integer literal: {node}"),
         }
+    }
+
+    /// The value of an integer constant literal from its type string,
+    /// `int_const <value>`, which solc prints in full up to 78 digits.
+    fn parse_int_const_type(&self, node: &Value) -> Option<BigInt> {
+        node.get("typeDescriptions")?
+            .get("typeString")?
+            .as_str()?
+            .strip_prefix("int_const ")?
+            .parse()
+            .ok()
     }
 
     /// Parse a rational literal to a fixed-point number.

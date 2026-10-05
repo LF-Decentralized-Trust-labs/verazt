@@ -106,7 +106,8 @@ fn add_member(members: &mut Vec<sir::MemberDecl>, member: &sir::MemberDecl) {
             }
         }
         sir::MemberDecl::UsingFor(_) => {
-            // UsingFor directives are accumulated (elim_using strips them later).
+            // UsingFor directives are accumulated (elim_using strips them
+            // later).
             members.push(member.clone());
         }
         _ => {
@@ -130,8 +131,8 @@ fn linearize(
         return Ok(vec![name.to_string()]);
     }
 
-    // Build the lists required by C3: L(contract) = contract + merge(L(p1), ...,
-    // L(pn), [p1,...,pn])
+    // Build the lists required by C3: L(contract) = contract + merge(L(p1),
+    // ..., L(pn), [p1,...,pn])
     let mut lists: Vec<Vec<String>> = Vec::new();
     for parent in &contract.parents {
         lists.push(linearize(parent, map)?);
@@ -153,7 +154,8 @@ fn c3_merge(mut lists: Vec<Vec<String>>) -> Result<Vec<String>, CirLowerError> {
             return Ok(result);
         }
 
-        // Find a good head: a head that does not appear in the tail of any list.
+        // Find a good head: a head that does not appear in the tail of any
+        // list.
         let mut chosen: Option<String> = None;
         'outer: for candidate_list in &lists {
             let head = candidate_list[0].clone();

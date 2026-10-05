@@ -5,14 +5,14 @@
 //!
 //! ## Responsibility boundaries
 //!
-//! - **`manager`** — owns the pass registry; entry point for callers; delegates
-//!   to scheduler then executor; produces `AnalysisReport`.
-//! - **`scheduler`** — pure function: takes registered passes, returns
+//! - **`manager`**: the single owner of the registered passes; entry point for
+//!   callers; delegates to scheduler then executor; produces `PassRunReport`.
+//! - **`scheduler`**: pure function from the registered passes to an
 //!   `ExecutionSchedule`; must not mutate `AnalysisContext`.
-//! - **`executor`** — takes `ExecutionSchedule` + `AnalysisContext`; drives
-//!   execution and timing; must not mutate the pass registry.
-//! - **`dependency`** — dependency graph + topological sort.
-//! - **`registry`** — constructors of the passes that may be scheduled.
+//! - **`executor`**: borrows the manager's passes, takes `ExecutionSchedule`
+//!   + `AnalysisContext`; drives execution and timing.
+//! - **`dependency`**: dependency graph, topological sort ordered by pass name.
+//! - **`registry`**: constructors of the passes that may be scheduled.
 
 pub mod dependency;
 pub mod executor;
@@ -21,7 +21,7 @@ pub mod registry;
 pub mod scheduler;
 
 pub use dependency::DependencyGraph;
-pub use executor::{ExecutionResult, ExecutorConfig, PassExecutor};
-pub use manager::{AnalysisReport, PassManager, PassManagerConfig};
+pub use executor::{ExecutorConfig, PassExecutor, PassRunReport};
+pub use manager::{PassManager, PassManagerConfig};
 pub use registry::PassRegistry;
-pub use scheduler::{ExecutionLevel, ExecutionSchedule, PassScheduler};
+pub use scheduler::{ExecutionSchedule, compute_schedule};

@@ -7,12 +7,16 @@
 //! 2. **Detection Phase**: Run all enabled detectors fully in parallel
 
 use crate::context::AnalysisContext;
-use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
+use crate::detectors::{BugDetectionPass, DetectorId};
+use crate::pass_manager::executor::run_on_workers;
 use crate::pass_manager::manager::{PassManager, PassManagerConfig};
-use crate::pass_manager::PassRegistry;
+use crate::pass_manager::{PassRegistry, PassRunReport};
+use crate::passes::base::{PassExecutionInfo, PassResult};
 use crate::passes::register_all_passes;
 use bugs::bug::Bug;
+use rayon::prelude::*;
+use std::any::TypeId;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
@@ -60,6 +64,14 @@ pub struct PipelineResult {
     pub bugs: Vec<Bug>,
     /// Per-detector statistics.
     pub detector_stats: Vec<DetectorStats>,
+    /// Why the analysis phase could not run, if it could not. Detectors
+    /// depending on the missing analyses then fail too.
+    pub analysis_error: Option<String>,
+    /// Analysis passes that failed. Detectors depending on them fail too.
+    pub failed_passes: Vec<PassExecutionInfo>,
+    /// Names of the analysis passes skipped because a pass they depend on
+    /// failed.
+    pub skipped_passes: Vec<String>,
     /// Analysis phase duration.
     pub analysis_duration: Duration,
     /// Detection phase duration.
@@ -77,6 +89,37 @@ impl PipelineResult {
     /// Check if any bugs were found.
     pub fn has_bugs(&self) -> bool {
         !self.bugs.is_empty()
+    }
+
+    /// One message per failure of the run: the analysis phase error, each
+    /// failed or skipped analysis pass, then each failed detector. Empty
+    /// when every phase succeeded, so the reported bugs are complete.
+    pub fn failures(&self) -> Vec<String> {
+        let pass_failures = self.failed_passes.iter().map(|info| {
+            format!(
+                "analysis pass '{}' failed: {}",
+                info.name,
+                info.error.as_deref().unwrap_or("unknown error")
+            )
+        });
+        let skipped_passes = self
+            .skipped_passes
+            .iter()
+            .map(|name| format!("analysis pass '{name}' skipped: a pass it depends on failed"));
+        let detector_failures = self.detector_stats.iter().filter(|s| !s.success).map(|s| {
+            format!(
+                "detector '{}' failed: {}",
+                s.name,
+                s.error.as_deref().unwrap_or("unknown error")
+            )
+        });
+        self.analysis_error
+            .iter()
+            .cloned()
+            .chain(pass_failures)
+            .chain(skipped_passes)
+            .chain(detector_failures)
+            .collect()
     }
 }
 
@@ -133,14 +176,23 @@ impl PipelineEngine {
         let start = Instant::now();
 
         // Step 1: Resolve which detectors to run
-        let enabled_detectors: Vec<&dyn BugDetectionPass> =
-            self.resolve_detectors().into_iter().filter(|d| d.is_enabled(context)).collect();
+        let enabled_detectors: Vec<&dyn BugDetectionPass> = self
+            .resolve_detectors(context)
+            .into_iter()
+            .filter(|d| d.is_enabled(context))
+            .collect();
 
         // Step 2: Phase 1 - Analysis passes the detectors depend on
         let analysis_start = Instant::now();
-        if let Err(e) = self.run_analysis_phase(&enabled_detectors, context) {
-            log::error!("Analysis phase failed: {}", e);
-        }
+        let (analysis_error, analysis_report) =
+            match self.run_analysis_phase(&enabled_detectors, context) {
+                Ok(report) => (None, report),
+                Err(e) => {
+                    let error = format!("analysis phase failed: {e}");
+                    log::error!("{error}");
+                    (Some(error), PassRunReport::default())
+                }
+            };
         let analysis_duration = analysis_start.elapsed();
 
         // Step 3: Phase 2 - Detection (parallel)
@@ -148,31 +200,44 @@ impl PipelineEngine {
         let (bugs, detector_stats) = self.run_detection_phase(&enabled_detectors, context);
         let detection_duration = detection_start.elapsed();
 
-        // Deduplicate bugs across tiers
+        // Order bugs deterministically and drop repeated findings
         let bugs = Self::deduplicate_bugs(bugs);
 
         PipelineResult {
             bugs,
             detector_stats,
+            analysis_error,
+            failed_passes: analysis_report.failed().cloned().collect(),
+            skipped_passes: analysis_report.skipped,
             analysis_duration,
             detection_duration,
             total_duration: start.elapsed(),
         }
     }
 
-    /// Resolve which detectors should run based on config. A detector
-    /// superseded by another selected one is dropped unless explicitly
-    /// enabled.
-    fn resolve_detectors(&self) -> Vec<&dyn BugDetectionPass> {
-        let selected: Vec<&dyn BugDetectionPass> =
-            self.registry.all().filter(|d| self.is_detector_enabled(*d)).collect();
-        let superseded: HashSet<DetectorId> =
-            selected.iter().flat_map(|d| d.supersedes()).collect();
+    /// Resolve which detectors should run on `context` based on config. A
+    /// detector superseded by another selected one is dropped unless
+    /// explicitly enabled.
+    ///
+    /// Superseding detectors work on BIR, so superseding only applies when
+    /// every SIR module of `context` was lowered to BIR: otherwise the
+    /// superseded SIR detectors are the only ones covering some modules,
+    /// and all are kept.
+    fn resolve_detectors(&self, context: &AnalysisContext) -> Vec<&dyn BugDetectionPass> {
+        let selected: Vec<&dyn BugDetectionPass> = self
+            .registry
+            .all()
+            .filter(|d| self.is_detector_enabled(*d))
+            .collect();
+        let superseded: HashSet<DetectorId> = if context.bir_covers_sir() {
+            selected.iter().flat_map(|d| d.supersedes()).collect()
+        } else {
+            log::warn!("BIR lowering failed for some modules: keeping superseded SIR detectors");
+            HashSet::new()
+        };
         selected
             .into_iter()
-            .filter(|d| {
-                !superseded.contains(&d.meta().id) || is_listed(&self.config.enabled, *d)
-            })
+            .filter(|d| !superseded.contains(&d.meta().id) || is_listed(&self.config.enabled, *d))
             .collect()
     }
 
@@ -195,20 +260,20 @@ impl PipelineEngine {
     ///
     /// Only passes actually needed by the enabled detectors are scheduled.
     /// Passes are executed in dependency-level order, with passes at the
-    /// same level running in parallel.
+    /// same level running in parallel. A failing pass skips the passes
+    /// depending on it; the others still run.
     fn run_analysis_phase(
         &self,
         enabled_detectors: &[&dyn BugDetectionPass],
         context: &mut AnalysisContext,
-    ) -> Result<(), String> {
+    ) -> PassResult<PassRunReport> {
         let required = self
             .passes
-            .instantiate_closure(enabled_detectors.iter().flat_map(|d| d.dependencies()))
-            .map_err(|e| e.to_string())?;
+            .instantiate_closure(enabled_detectors.iter().flat_map(|d| required_by(*d)))?;
 
         if required.is_empty() {
             log::debug!("No analysis passes required by enabled detectors");
-            return Ok(());
+            return Ok(PassRunReport::default());
         }
 
         log::info!("Analysis phase: {} passes required", required.len());
@@ -217,27 +282,18 @@ impl PipelineEngine {
         let mut pass_manager = PassManager::new(PassManagerConfig {
             enable_parallel: self.config.parallel,
             max_workers: self.config.num_threads,
-            fail_fast: true,
-            verbose: false,
-            timing: true,
+            ..PassManagerConfig::default()
         });
-
-        for pass in required {
-            pass_manager.register_analysis_pass(pass);
-        }
+        pass_manager.register_passes(required);
 
         // The PassManager handles dependency resolution and parallel execution
-        match pass_manager.run(context) {
-            Ok(report) => {
-                log::info!(
-                    "Analysis phase completed: {} passes in {:?}",
-                    report.passes_executed,
-                    report.total_duration
-                );
-                Ok(())
-            }
-            Err(e) => Err(format!("Analysis phase failed: {}", e)),
-        }
+        let report = pass_manager.run(context)?;
+        log::info!(
+            "Analysis phase completed: {} passes in {:?}",
+            report.passes_executed(),
+            report.total_duration
+        );
+        Ok(report)
     }
 
     // ========================================================================
@@ -280,18 +336,18 @@ impl PipelineEngine {
         (all_bugs, all_stats)
     }
 
-    /// Run detectors in parallel using rayon.
+    /// Run detectors in parallel using rayon, on `num_threads` threads.
     fn run_detectors_parallel(
         &self,
         detectors: &[&dyn BugDetectionPass],
         context: &AnalysisContext,
     ) -> (Vec<Bug>, Vec<DetectorStats>) {
-        use rayon::prelude::*;
-
-        let results: Vec<_> = detectors
-            .par_iter()
-            .map(|&d| run_single_detector(d, context))
-            .collect();
+        let results: Vec<_> = run_on_workers(self.config.num_threads, || {
+            detectors
+                .par_iter()
+                .map(|&d| run_single_detector(d, context))
+                .collect()
+        });
 
         let mut all_bugs = Vec::new();
         let mut all_stats = Vec::new();
@@ -304,28 +360,25 @@ impl PipelineEngine {
         (all_bugs, all_stats)
     }
 
-    /// Deduplicate bugs across tiers.
+    /// Sort bugs by file, line, column and detector, then drop repeated
+    /// reports of one detector at one location (e.g. the same function
+    /// reached through several modules).
     ///
-    /// When both a lower-tier (AST) and higher-tier (SIR/BIR) detector
-    /// produce findings at the same source location for the same category,
-    /// keep only the higher-tier finding to avoid noise.
+    /// Findings of different detectors are all kept, and so are findings
+    /// without a known location: they cannot be told apart by location.
     fn deduplicate_bugs(mut bugs: Vec<Bug>) -> Vec<Bug> {
-        if bugs.len() <= 1 {
-            return bugs;
-        }
-
-        // Stable sort by location + category so duplicates are adjacent
-        bugs.sort_by(|a, b| {
-            let loc_cmp = format!("{:?}{:?}", a.loc, a.category)
-                .cmp(&format!("{:?}{:?}", b.loc, b.category));
-            loc_cmp
+        bugs.sort_by_cached_key(|b| {
+            let loc = &b.loc;
+            (
+                loc.file.clone(),
+                loc.start_line,
+                loc.start_col,
+                loc.end_line,
+                loc.end_col,
+                b.detector_id.clone(),
+            )
         });
-
-        bugs.dedup_by(|a, b| {
-            // Same location and category → keep one (b survives in dedup_by)
-            format!("{:?}", a.loc) == format!("{:?}", b.loc) && a.category == b.category
-        });
-
+        bugs.dedup_by(|a, b| a.loc.is_valid() && a.loc == b.loc && a.detector_id == b.detector_id);
         bugs
     }
 }
@@ -334,6 +387,15 @@ impl PipelineEngine {
 fn is_listed(list: &[String], detector: &dyn BugDetectionPass) -> bool {
     let meta = detector.meta();
     list.iter().any(|d| d == meta.name || d == meta.id.as_str())
+}
+
+/// The passes `detector` depends on, each with the detector's name.
+fn required_by(detector: &dyn BugDetectionPass) -> impl Iterator<Item = (TypeId, &'static str)> {
+    let name = detector.name();
+    detector
+        .dependencies()
+        .into_iter()
+        .map(move |id| (id, name))
 }
 
 /// Run a single detector and collect results.
@@ -372,6 +434,7 @@ mod tests {
     use super::*;
     use crate::context::{AnalysisConfig, InputLanguage};
     use crate::passes::bir::FunctionEffectsArtifact;
+    use common::loc::Loc;
 
     #[test]
     fn test_pipeline_config_default() {
@@ -397,7 +460,7 @@ mod tests {
     #[test]
     fn test_resolve_detectors_all() {
         let engine = PipelineEngine::new(PipelineConfig::default());
-        let detectors = engine.resolve_detectors();
+        let detectors = engine.resolve_detectors(&empty_context());
         assert!(!detectors.is_empty());
     }
 
@@ -407,13 +470,35 @@ mod tests {
             enabled: vec!["tx-origin".to_string()],
             ..PipelineConfig::default()
         });
-        let detectors = engine.resolve_detectors();
+        let detectors = engine.resolve_detectors(&empty_context());
         assert_eq!(detectors.len(), 1);
     }
 
-    fn resolved_ids(config: PipelineConfig) -> Vec<DetectorId> {
+    fn empty_context() -> AnalysisContext {
+        AnalysisContext::new(vec![], AnalysisConfig::default())
+    }
+
+    fn resolved_ids_in(config: PipelineConfig, context: &AnalysisContext) -> Vec<DetectorId> {
         let engine = PipelineEngine::new(config);
-        engine.resolve_detectors().iter().map(|d| d.meta().id).collect()
+        engine
+            .resolve_detectors(context)
+            .iter()
+            .map(|d| d.meta().id)
+            .collect()
+    }
+
+    fn resolved_ids(config: PipelineConfig) -> Vec<DetectorId> {
+        resolved_ids_in(config, &empty_context())
+    }
+
+    #[test]
+    fn test_resolve_detectors_keeps_superseded_when_bir_is_partial() {
+        let mut context = empty_context();
+        // A SIR module whose BIR lowering failed: no BIR unit for it.
+        context.sir_units = Some(vec![scirs::sir::Module::new("m", vec![])]);
+        let resolved = resolved_ids_in(PipelineConfig::default(), &context);
+        assert!(resolved.contains(&DetectorId::ReentrancyFlow));
+        assert!(resolved.contains(&DetectorId::Reentrancy));
     }
 
     fn ids(names: &[&str]) -> Vec<String> {
@@ -425,7 +510,6 @@ mod tests {
         let resolved = resolved_ids(PipelineConfig::default());
         assert!(resolved.contains(&DetectorId::ReentrancyFlow));
         assert!(!resolved.contains(&DetectorId::Reentrancy));
-        assert!(!resolved.contains(&DetectorId::CeiViolation));
     }
 
     #[test]
@@ -445,7 +529,6 @@ mod tests {
             PipelineConfig { disabled: ids(&["reentrancy-flow"]), ..PipelineConfig::default() };
         let resolved = resolved_ids(config);
         assert!(resolved.contains(&DetectorId::Reentrancy));
-        assert!(resolved.contains(&DetectorId::CeiViolation));
     }
 
     #[test]
@@ -453,7 +536,10 @@ mod tests {
         let engine = PipelineEngine::new(PipelineConfig::default());
         for detector in engine.registry().all() {
             assert!(
-                engine.passes.instantiate_closure(detector.dependencies()).is_ok(),
+                engine
+                    .passes
+                    .instantiate_closure(required_by(detector))
+                    .is_ok(),
                 "'{}' depends on a pass missing from the pass registry",
                 detector.name()
             );
@@ -477,11 +563,57 @@ mod tests {
     fn test_run_skips_detectors_of_other_platforms() {
         let engine =
             PipelineEngine::new(PipelineConfig { parallel: false, ..PipelineConfig::default() });
-        let config =
-            AnalysisConfig { input_language: InputLanguage::MoveSui, ..AnalysisConfig::default() };
+        let config = AnalysisConfig { input_language: InputLanguage::MoveSui };
         let mut context = AnalysisContext::new(vec![], config);
         let result = engine.run(&mut context);
         assert!(result.detector_stats.is_empty());
+    }
+
+    fn bug_of(id: &str, loc: Loc) -> Bug {
+        let engine = PipelineEngine::new(PipelineConfig::default());
+        engine
+            .registry()
+            .get(id)
+            .expect("built-in detector")
+            .meta()
+            .bug(None, loc)
+    }
+
+    #[test]
+    fn test_deduplicate_bugs_keeps_distinct_detectors_at_same_loc() {
+        let loc = Loc::new(4, 1, 4, 9);
+        let bugs = vec![
+            bug_of("tx-origin", loc.clone()),
+            bug_of("reentrancy", loc.clone()),
+            bug_of("tx-origin", loc),
+        ];
+        let ids: Vec<_> = PipelineEngine::deduplicate_bugs(bugs)
+            .into_iter()
+            .map(|b| b.detector_id)
+            .collect();
+        assert_eq!(ids, ["reentrancy", "tx-origin"]);
+    }
+
+    #[test]
+    fn test_deduplicate_bugs_keeps_findings_without_loc() {
+        let bugs = vec![
+            bug_of("tx-origin", Loc::default()),
+            bug_of("tx-origin", Loc::default()),
+        ];
+        assert_eq!(PipelineEngine::deduplicate_bugs(bugs).len(), 2);
+    }
+
+    #[test]
+    fn test_deduplicate_bugs_orders_by_line() {
+        let bugs = vec![
+            bug_of("tx-origin", Loc::new(9, 1, 9, 2)),
+            bug_of("tx-origin", Loc::new(2, 1, 2, 2)),
+        ];
+        let lines: Vec<_> = PipelineEngine::deduplicate_bugs(bugs)
+            .into_iter()
+            .map(|b| b.loc.start_line)
+            .collect();
+        assert_eq!(lines, [2, 9]);
     }
 
     #[test]
@@ -489,5 +621,39 @@ mod tests {
         let result = PipelineResult::default();
         assert_eq!(result.total_bugs(), 0);
         assert!(!result.has_bugs());
+        assert!(result.failures().is_empty());
+    }
+
+    #[test]
+    fn test_pipeline_result_failures_report_analysis_and_detectors() {
+        let ok = DetectorStats { name: "ok".to_string(), success: true, ..Default::default() };
+        let failed = DetectorStats {
+            name: "broken".to_string(),
+            error: Some("Missing required analysis: x".to_string()),
+            ..Default::default()
+        };
+        let failed_pass = PassExecutionInfo {
+            pass_id: TypeId::of::<u8>(),
+            name: "taint".to_string(),
+            duration: Duration::ZERO,
+            success: false,
+            error: Some("bad".to_string()),
+        };
+        let result = PipelineResult {
+            analysis_error: Some("analysis phase failed: boom".to_string()),
+            failed_passes: vec![failed_pass],
+            skipped_passes: vec!["interval".to_string()],
+            detector_stats: vec![ok, failed],
+            ..Default::default()
+        };
+        assert_eq!(
+            result.failures(),
+            [
+                "analysis phase failed: boom",
+                "analysis pass 'taint' failed: bad",
+                "analysis pass 'interval' skipped: a pass it depends on failed",
+                "detector 'broken' failed: Missing required analysis: x"
+            ]
+        );
     }
 }

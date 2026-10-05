@@ -130,7 +130,8 @@ impl Map<'_> for Renamer {
             return map::default::map_func_def(self, func);
         }
 
-        // Save the current naming index before transforming the function definition.
+        // Save the current naming index before transforming the function
+        // definition.
         let current_naming_index = self.env.current_naming_index_map.clone();
 
         // Rename the function name with a new indexing number.

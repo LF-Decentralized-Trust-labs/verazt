@@ -11,8 +11,10 @@ use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, DialectExpr, FieldAccessExpr, FunctionDecl, Module};
 
 const META: DetectorMeta = DetectorMeta {
-    bug_category: BugCategory::UncheckedLowLevelCalls,
-    bug_kind: BugKind::Vulnerability,
+    // Reports every low-level call, checked or not; `unchecked-call` reports
+    // the ones whose result is ignored.
+    bug_category: BugCategory::CodeQuality,
+    bug_kind: BugKind::Refactoring,
     confidence: ConfidenceLevel::Medium,
     cwe_ids: &[],
     description: "Detects usage of low-level EVM calls on SIR.",
@@ -24,7 +26,7 @@ const META: DetectorMeta = DetectorMeta {
     references: &[
         "https://docs.soliditylang.org/en/latest/units-and-global-variables.html#members-of-address-types",
     ],
-    risk_level: RiskLevel::Medium,
+    risk_level: RiskLevel::Low,
     swc_ids: &[],
     target: Target::Evm,
 };
@@ -83,6 +85,7 @@ impl ScanDetector for LowLevelCallDetector {
                         loc,
                     ));
                 }
+                visit::default::visit_dialect_expr(self, d);
             }
 
             fn visit_field_access_expr(&mut self, fa: &'a FieldAccessExpr) {
@@ -120,6 +123,6 @@ mod tests {
     fn test_low_level_call_detector() {
         let detector = LowLevelCallDetector::new();
         assert_eq!(detector.meta().id, DetectorId::LowLevelCall);
-        assert_eq!(detector.meta().risk_level, RiskLevel::Medium);
+        assert_eq!(detector.meta().risk_level, RiskLevel::Low);
     }
 }

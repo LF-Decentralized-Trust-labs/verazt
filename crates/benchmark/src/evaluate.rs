@@ -1,7 +1,7 @@
 //! Evaluation logic: compile, analyze, and match detected bugs against
 //! ground-truth annotations.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use analyzer::{AnalysisConfig, AnalysisContext, PipelineConfig, PipelineEngine};
@@ -12,6 +12,7 @@ use common::utils::print_subheader;
 /// Represents a bug detected by the analyzer.
 #[derive(Debug, Clone)]
 pub struct DetectedBug {
+    pub detector_id: String,
     pub name: String,
     pub description: Option<String>,
     pub category: BugCategory,
@@ -36,7 +37,6 @@ pub struct DetectorFilter {
 #[derive(Debug)]
 pub struct MatchedBug {
     pub annotation: AnnotatedBug,
-    #[allow(dead_code)]
     pub detection: DetectedBug,
 }
 
@@ -64,7 +64,21 @@ pub struct CategoryStats {
     pub expected: usize,
     pub tp: usize,
     pub fp: usize,
+    /// False positives in files whose annotations include the category.
+    pub fp_annotated: usize,
     pub r#fn: usize,
+}
+
+/// Aggregated statistics for a detector. A detector has no false negatives
+/// of its own: annotations name a category, not a detector.
+#[derive(Debug, Default)]
+pub struct DetectorStats {
+    pub tp: usize,
+    pub fp: usize,
+    /// False positives in files whose annotations include the finding's
+    /// category. Datasets annotate only the bugs of a file's main category,
+    /// so the other false positives may be real bugs.
+    pub fp_annotated: usize,
 }
 
 /// Aggregated statistics for the entire dataset.
@@ -73,9 +87,11 @@ pub struct DatasetResult {
     pub compiled_files: usize,
     pub skipped_files: usize,
     pub per_category: HashMap<BugCategory, CategoryStats>,
+    pub per_detector: BTreeMap<String, DetectorStats>,
     pub total_expected: usize,
     pub total_tp: usize,
     pub total_fp: usize,
+    pub total_fp_annotated: usize,
     pub total_fn: usize,
     pub file_results: Vec<FileResult>,
 }
@@ -235,6 +251,7 @@ pub fn run_analyze_on_file(
         .bugs
         .iter()
         .map(|bug| DetectedBug {
+            detector_id: bug.detector_id.clone(),
             name: bug.name.clone(),
             description: bug.description.clone(),
             category: bug.category,
@@ -289,8 +306,10 @@ pub fn evaluate_dataset(
     let mut compiled_files = 0usize;
     let mut skipped_files = 0usize;
     let mut per_category: HashMap<BugCategory, CategoryStats> = HashMap::new();
+    let mut per_detector: BTreeMap<String, DetectorStats> = BTreeMap::new();
     let mut total_tp = 0usize;
     let mut total_fp = 0usize;
+    let mut total_fp_annotated = 0usize;
     let mut total_fn = 0usize;
     let mut total_expected = 0usize;
 
@@ -350,7 +369,8 @@ pub fn evaluate_dataset(
                     println!("🐛 Issue {}: {} ({})", i + 1, det.name, det.category);
                     println!();
 
-                    // Resolve the file to use for snippet extraction (absolute path)
+                    // Resolve the file to use for snippet extraction (absolute
+                    // path)
                     let snippet_file = det
                         .file
                         .as_deref()
@@ -425,14 +445,26 @@ pub fn evaluate_dataset(
         total_fp += fp;
         total_fn += fn_count;
 
-        // Attribute TP/FP/FN to categories
+        // Attribute TP/FP/FN to categories and detectors
         for matched in &result.match_result.true_positives {
             let stats = per_category.entry(matched.annotation.category).or_default();
             stats.tp += 1;
+            per_detector
+                .entry(matched.detection.detector_id.clone())
+                .or_default()
+                .tp += 1;
         }
         for det in &result.match_result.false_positives {
-            let stats = per_category.entry(det.category).or_default();
-            stats.fp += 1;
+            let annotated = file_categories.contains(&det.category);
+            let cat_stats = per_category.entry(det.category).or_default();
+            let det_stats = per_detector.entry(det.detector_id.clone()).or_default();
+            cat_stats.fp += 1;
+            det_stats.fp += 1;
+            if annotated {
+                cat_stats.fp_annotated += 1;
+                det_stats.fp_annotated += 1;
+                total_fp_annotated += 1;
+            }
         }
         for ann in &result.match_result.false_negatives {
             let stats = per_category.entry(ann.category).or_default();
@@ -447,9 +479,11 @@ pub fn evaluate_dataset(
         compiled_files,
         skipped_files,
         per_category,
+        per_detector,
         total_expected,
         total_tp,
         total_fp,
+        total_fp_annotated,
         total_fn,
         file_results,
     }

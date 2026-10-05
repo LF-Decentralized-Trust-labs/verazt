@@ -149,8 +149,8 @@ impl<'a> Renamer<'a> {
         }
     }
 
-    // /// Rename a name scope, which is a `NamePath` containing source unit alias
-    // and contract or /// library names, such as `A.B.C`.
+    // /// Rename a name scope, which is a `NamePath` containing source unit
+    // alias and contract or /// library names, such as `A.B.C`.
     // fn rename_scope(&mut self, scope: &NamePath) -> NamePath {
     //     let mut new_names = vec![];
     //     for n in scope.names.iter() {
@@ -169,7 +169,8 @@ impl<'a> Renamer<'a> {
     fn find_using_for_contracts(&self, member: &Name) -> Vec<ContractDef> {
         let mut contracts = vec![];
 
-        // Helper closure: search using directives in a list of contract elements.
+        // Helper closure: search using directives in a list of contract
+        // elements.
         let search_using_dirs = |elems: &[ContractElem],
                                  source_unit: Option<&SourceUnit>,
                                  out: &mut Vec<ContractDef>| {
@@ -181,7 +182,8 @@ impl<'a> Renamer<'a> {
                                 if let Some(lib) =
                                     sunit.find_contract_def_by_base_name(&ulib.lib_name)
                                 {
-                                    // Check if the library has a function with the member name.
+                                    // Check if the library has a function with
+                                    // the member name.
                                     let has_func = lib.body.iter().any(|e| match e {
                                         ContractElem::Func(f) => f.name.base == member.base,
                                         _ => false,
@@ -385,7 +387,8 @@ impl<'a> Map<'_> for Renamer<'a> {
             return nexpr;
         }
 
-        // Construct the list of contracts to search for the identifier definition.
+        // Construct the list of contracts to search for the identifier
+        // definition.
         let mut contracts = vec![];
         let base_typ = nexpr.base.typ().clone();
 
@@ -397,7 +400,8 @@ impl<'a> Map<'_> for Renamer<'a> {
             }
         }
 
-        // Case 2: base type is a contract or library type (including meta/magic types).
+        // Case 2: base type is a contract or library type (including meta/magic
+        // types).
         if contracts.is_empty()
             && (base_typ.is_contract_type()
                 || base_typ.is_magic_contract_type()
@@ -426,7 +430,8 @@ impl<'a> Map<'_> for Renamer<'a> {
 
     /// Override `map_ident` to rename calls to overloaded functions.
     fn map_ident(&mut self, ident: &Identifier) -> Identifier {
-        // Construct the list of contracts to search for the identifier definition.
+        // Construct the list of contracts to search for the identifier
+        // definition.
         let mut contracts = vec![];
         if let Some(contract) = self.current_contract.clone() {
             contracts.push(contract);

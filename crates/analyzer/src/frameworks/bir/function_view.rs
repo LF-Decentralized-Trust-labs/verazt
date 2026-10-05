@@ -35,8 +35,18 @@ pub struct OpPos {
 impl<'f> FunctionView<'f> {
     /// Index the blocks and SSA definitions of `func`.
     pub fn new(func: &'f Function) -> Self {
-        let index = func.blocks.iter().enumerate().map(|(i, b)| (b.id, i)).collect();
-        let defs = func.blocks.iter().flat_map(|b| &b.ops).map(|op| (op.id, op)).collect();
+        let index = func
+            .blocks
+            .iter()
+            .enumerate()
+            .map(|(i, b)| (b.id, i))
+            .collect();
+        let defs = func
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .map(|op| (op.id, op))
+            .collect();
         FunctionView { defs, func, index }
     }
 
@@ -64,9 +74,11 @@ impl<'f> FunctionView<'f> {
 
     /// Every op position, block by block in layout order.
     pub fn positions(&self) -> impl Iterator<Item = OpPos> + '_ {
-        self.func.blocks.iter().enumerate().flat_map(|(block, b)| {
-            (0..b.ops.len()).map(move |op| OpPos { block, op })
-        })
+        self.func
+            .blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(block, b)| (0..b.ops.len()).map(move |op| OpPos { block, op }))
     }
 
     //-----------------------------------------------------------
@@ -76,7 +88,10 @@ impl<'f> FunctionView<'f> {
     /// Block indices of the successors of the block at index `block`.
     pub fn successors(&self, block: usize) -> Vec<usize> {
         let targets = self.func.blocks[block].term.successors();
-        targets.iter().filter_map(|id| self.index.get(id).copied()).collect()
+        targets
+            .iter()
+            .filter_map(|id| self.index.get(id).copied())
+            .collect()
     }
 
     /// Returns `true` if every path that reaches `later` executes `earlier`

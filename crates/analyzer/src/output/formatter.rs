@@ -1,5 +1,6 @@
 //! Output formatter trait.
 
+use crate::detectors::{DetectorMeta, DetectorRegistry, register_all_detectors};
 use bugs::bug::Bug;
 use std::time::Duration;
 
@@ -116,6 +117,16 @@ pub trait OutputFormatter {
 
     /// Get the content type for this format.
     fn content_type(&self) -> &'static str;
+}
+
+/// Metadata of every built-in detector, sorted by detector ID so that
+/// output listing detectors is deterministic.
+pub fn builtin_detector_metas() -> Vec<&'static DetectorMeta> {
+    let mut registry = DetectorRegistry::new();
+    register_all_detectors(&mut registry);
+    let mut metas: Vec<_> = registry.all().map(|d| d.meta()).collect();
+    metas.sort_by_key(|m| m.id.as_str());
+    metas
 }
 
 /// Format a location for display.

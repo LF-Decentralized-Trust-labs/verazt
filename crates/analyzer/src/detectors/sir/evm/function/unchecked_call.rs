@@ -6,9 +6,10 @@ use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
 use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
-use scirs::sir::dialect::EvmCallExt;
+use scirs::sir::dialect::EvmExprExt;
+use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::utils::visit::{self, Visit};
-use scirs::sir::{ContractDecl, ExprStmt, FunctionDecl, Module};
+use scirs::sir::{ContractDecl, DialectExpr, Expr, ExprStmt, FunctionDecl, Module};
 
 const META: DetectorMeta = DetectorMeta {
     bug_category: BugCategory::UncheckedLowLevelCalls,
@@ -25,6 +26,20 @@ const META: DetectorMeta = DetectorMeta {
     swc_ids: &[104],
     target: Target::Evm,
 };
+
+/// Returns true if `expr`, evaluated as a statement, discards the success
+/// flag of a low-level call. `transfer` reverts on failure, so discarding
+/// its result is safe.
+fn discards_call_result(expr: &Expr) -> bool {
+    let is_transfer = match expr {
+        Expr::FunctionCall(call) => {
+            matches!(&*call.callee, Expr::FieldAccess(fa) if fa.field == "transfer")
+        }
+        Expr::Dialect(DialectExpr::Evm(EvmExpr::Transfer(_))) => true,
+        _ => false,
+    };
+    expr.is_evm_external_call() && !is_transfer
+}
 
 /// Scan detector for unchecked call return values.
 #[derive(Debug, Default)]
@@ -61,17 +76,15 @@ impl ScanDetector for UncheckedCallDetector {
 
         impl<'a, 'b> Visit<'a> for Visitor<'b> {
             fn visit_expr_stmt(&mut self, stmt: &'a ExprStmt) {
-                if let scirs::sir::Expr::FunctionCall(call) = &stmt.expr {
-                    if call.is_evm_external_call() {
-                        self.bugs.push(META.bug(
-                            Some(&format!(
-                                "Unchecked call return value in '{}.{}'. \
-                                 The return value of a low-level call is not checked.",
-                                self.contract_name, self.func_name,
-                            )),
-                            stmt.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                        ));
-                    }
+                if discards_call_result(&stmt.expr) {
+                    self.bugs.push(META.bug(
+                        Some(&format!(
+                            "Unchecked call return value in '{}.{}'. \
+                             The return value of a low-level call is not checked.",
+                            self.contract_name, self.func_name,
+                        )),
+                        stmt.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
+                    ));
                 }
                 visit::default::visit_expr_stmt(self, stmt);
             }

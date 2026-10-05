@@ -100,7 +100,8 @@ impl OutputFormatter for MarkdownFormatter {
                             ));
                         }
 
-                        output.push_str(&format!("- **Category**: {}\n", bug.kind.as_str()));
+                        output.push_str(&format!("- **Detector**: `{}`\n", bug.detector_id));
+                        output.push_str(&format!("- **Category**: {}\n", bug.category));
                         output.push('\n');
 
                         if let Some(desc) = &bug.description {

@@ -3,9 +3,14 @@
 //! SARIF (Static Analysis Results Interchange Format) is a standard format
 //! for the output of static analysis tools.
 
-use crate::output::formatter::{AnalysisReport, OutputFormatter};
+use crate::detectors::DetectorMeta;
+use crate::output::formatter::{AnalysisReport, OutputFormatter, builtin_detector_metas};
 use bugs::bug::RiskLevel;
+use common::loc::Loc;
 use serde::{Deserialize, Serialize};
+
+/// Project home page, reported as the SARIF tool's `informationUri`.
+const INFORMATION_URI: &str = "https://github.com/taquangtrung/verazt";
 
 /// SARIF output formatter.
 #[derive(Debug, Default)]
@@ -109,6 +114,10 @@ pub struct SarifMessage {
 pub struct SarifResult {
     #[serde(rename = "ruleId")]
     pub rule_id: String,
+    /// Index of the rule in `tool.driver.rules`, absent for detectors that
+    /// are not built in.
+    #[serde(rename = "ruleIndex", skip_serializing_if = "Option::is_none")]
+    pub rule_index: Option<usize>,
     pub level: String,
     pub message: SarifMessage,
     pub locations: Vec<SarifLocation>,
@@ -126,7 +135,8 @@ pub struct SarifLocation {
 pub struct SarifPhysicalLocation {
     #[serde(rename = "artifactLocation")]
     pub artifact_location: SarifArtifactLocation,
-    pub region: SarifRegion,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region: Option<SarifRegion>,
 }
 
 /// An artifact location.
@@ -165,41 +175,19 @@ pub struct SarifInvocation {
 
 impl From<&AnalysisReport> for SarifLog {
     fn from(report: &AnalysisReport) -> Self {
-        // Collect unique rules from bugs
-        let mut rules_map = std::collections::HashMap::new();
-        for bug in &report.bugs {
-            let rule_id = bug.kind.as_str().to_lowercase().replace(' ', "-");
-            if !rules_map.contains_key(&rule_id) {
-                rules_map.insert(
-                    rule_id.clone(),
-                    SarifRule {
-                        id: rule_id.clone(),
-                        name: bug.name.clone(),
-                        short_description: SarifMessage { text: bug.name.clone() },
-                        full_description: bug
-                            .description
-                            .clone()
-                            .map(|d| SarifMessage { text: d }),
-                        help: bug.remediation.clone().map(|r| SarifMessage { text: r }),
-                        help_uri: bug
-                            .swc_ids
-                            .first()
-                            .map(|id| format!("https://swcregistry.io/docs/SWC-{}", id)),
-                        default_configuration: SarifRuleConfiguration {
-                            level: risk_level_to_sarif(&bug.risk_level),
-                        },
-                    },
-                );
-            }
-        }
-
-        let rules: Vec<_> = rules_map.into_values().collect();
+        // One rule per built-in detector, sorted by ID; results point at
+        // their rule by ID and index.
+        let rules: Vec<_> = builtin_detector_metas()
+            .into_iter()
+            .map(SarifRule::from)
+            .collect();
 
         let results: Vec<_> = report
             .bugs
             .iter()
             .map(|bug| SarifResult {
-                rule_id: format!("{:?}", bug.kind).to_lowercase().replace(' ', "-"),
+                rule_id: bug.detector_id.clone(),
+                rule_index: rules.iter().position(|r| r.id == bug.detector_id),
                 level: risk_level_to_sarif(&bug.risk_level),
                 message: SarifMessage {
                     text: bug.description.clone().unwrap_or_else(|| bug.name.clone()),
@@ -213,12 +201,7 @@ impl From<&AnalysisReport> for SarifLog {
                                 .clone()
                                 .unwrap_or_else(|| "unknown".to_string()),
                         },
-                        region: SarifRegion {
-                            start_line: bug.loc.start_line,
-                            start_column: Some(bug.loc.start_col),
-                            end_line: Some(bug.loc.end_line),
-                            end_column: Some(bug.loc.end_col),
-                        },
+                        region: SarifRegion::of(&bug.loc),
                     },
                 }],
             })
@@ -238,7 +221,7 @@ impl From<&AnalysisReport> for SarifLog {
                     driver: SarifToolDriver {
                         name: "Verazt Analyzer".to_string(),
                         version: report.version.clone(),
-                        information_uri: "https://github.com/example/analyze".to_string(),
+                        information_uri: INFORMATION_URI.to_string(),
                         rules,
                     },
                 },
@@ -250,6 +233,39 @@ impl From<&AnalysisReport> for SarifLog {
                 }],
             }],
         }
+    }
+}
+
+impl From<&DetectorMeta> for SarifRule {
+    fn from(meta: &DetectorMeta) -> Self {
+        Self {
+            id: meta.id.as_str().to_string(),
+            name: meta.name.to_string(),
+            short_description: SarifMessage { text: meta.name.to_string() },
+            full_description: Some(SarifMessage { text: meta.description.to_string() }),
+            help: Some(SarifMessage { text: meta.recommendation.to_string() }),
+            help_uri: meta
+                .swc_ids
+                .first()
+                .map(|id| format!("https://swcregistry.io/docs/SWC-{}", id)),
+            default_configuration: SarifRuleConfiguration {
+                level: risk_level_to_sarif(&meta.risk_level),
+            },
+        }
+    }
+}
+
+impl SarifRegion {
+    /// The region of `loc`, or `None` when `loc` carries no line. SARIF
+    /// lines and columns are 1-based, so zero (unknown) values are omitted.
+    fn of(loc: &Loc) -> Option<Self> {
+        let known = |n: usize| (n > 0).then_some(n);
+        loc.is_valid().then(|| Self {
+            start_line: loc.start_line,
+            start_column: known(loc.start_col),
+            end_line: known(loc.end_line),
+            end_column: known(loc.end_col),
+        })
     }
 }
 

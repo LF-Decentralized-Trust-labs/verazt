@@ -52,7 +52,8 @@ pub fn lower_module(cir: &CanonModule) -> Result<Module, LowerError> {
                     let func_id = FunctionId(format!("{}.{}", contract.name, func_decl.name));
 
                     // Step 1: CFG construction in SSA form
-                    let mut blocks = cfg::build_cfg(&func_decl.body, &func_decl.params, &contract.name);
+                    let mut blocks =
+                        cfg::build_cfg(&func_decl.body, &func_decl.params, &contract.name);
 
                     // Step 2: SSA numbering
                     ssa::rename_to_ssa(&mut blocks);

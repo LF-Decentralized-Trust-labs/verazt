@@ -215,7 +215,8 @@ impl Expr {
             Expr::Var(v) => v.ty.clone(),
             Expr::Lit(l) => l.typ(),
             Expr::BinOp(e) => {
-                // For comparison/logical ops, result is bool; otherwise inherit from lhs
+                // For comparison/logical ops, result is bool; otherwise inherit
+                // from lhs
                 match e.op {
                     BinOp::Eq
                     | BinOp::Ne

@@ -84,7 +84,9 @@ impl CirLowerer {
             }
 
             // ── Builtins ───────────────────────────────────
-            EvmExpr::AbiDecode(e) => self.evm_builtin(EvmBuiltin::AbiDecode, vec![&e.data], ty, &e.loc),
+            EvmExpr::AbiDecode(e) => {
+                self.evm_builtin(EvmBuiltin::AbiDecode, vec![&e.data], ty, &e.loc)
+            }
             EvmExpr::AbiEncode(e) => {
                 self.evm_builtin(EvmBuiltin::AbiEncode, e.args.iter().collect(), ty, &e.loc)
             }
@@ -103,20 +105,35 @@ impl CirLowerer {
                 let args = std::iter::once(&*e.signature).chain(&e.args).collect();
                 self.evm_builtin(EvmBuiltin::AbiEncodeWithSignature, args, ty, &e.loc)
             }
-            EvmExpr::Addmod(e) => self.evm_builtin(EvmBuiltin::Addmod, vec![&e.x, &e.y, &e.k], ty, &e.loc),
-            EvmExpr::Blockhash(e) => self.evm_builtin(EvmBuiltin::Blockhash, vec![&e.expr], ty, &e.loc),
+            EvmExpr::Addmod(e) => {
+                self.evm_builtin(EvmBuiltin::Addmod, vec![&e.x, &e.y, &e.k], ty, &e.loc)
+            }
+            EvmExpr::Blockhash(e) => {
+                self.evm_builtin(EvmBuiltin::Blockhash, vec![&e.expr], ty, &e.loc)
+            }
             EvmExpr::Concat(e) => {
                 self.evm_builtin(EvmBuiltin::Concat, e.exprs.iter().collect(), ty, &e.loc)
             }
-            EvmExpr::Convert(e) => self.evm_builtin(EvmBuiltin::Convert, vec![&e.expr], ty, &e.loc),
-            EvmExpr::Ecrecover(e) => {
-                self.evm_builtin(EvmBuiltin::Ecrecover, vec![&e.hash, &e.v, &e.r, &e.s], ty, &e.loc)
+            EvmExpr::Convert(e) => {
+                self.evm_builtin(EvmBuiltin::Convert, vec![&e.expr], ty, &e.loc)
             }
+            EvmExpr::Ecrecover(e) => self.evm_builtin(
+                EvmBuiltin::Ecrecover,
+                vec![&e.hash, &e.v, &e.r, &e.s],
+                ty,
+                &e.loc,
+            ),
             EvmExpr::Empty(e) => self.evm_builtin(EvmBuiltin::Empty, vec![], ty, &e.loc),
-            EvmExpr::Keccak256(e) => self.evm_builtin(EvmBuiltin::Keccak256, vec![&e.expr], ty, &e.loc),
+            EvmExpr::Keccak256(e) => {
+                self.evm_builtin(EvmBuiltin::Keccak256, vec![&e.expr], ty, &e.loc)
+            }
             EvmExpr::Len(e) => self.evm_builtin(EvmBuiltin::Len, vec![&e.expr], ty, &e.loc),
-            EvmExpr::Mulmod(e) => self.evm_builtin(EvmBuiltin::Mulmod, vec![&e.x, &e.y, &e.k], ty, &e.loc),
-            EvmExpr::Ripemd160(e) => self.evm_builtin(EvmBuiltin::Ripemd160, vec![&e.expr], ty, &e.loc),
+            EvmExpr::Mulmod(e) => {
+                self.evm_builtin(EvmBuiltin::Mulmod, vec![&e.x, &e.y, &e.k], ty, &e.loc)
+            }
+            EvmExpr::Ripemd160(e) => {
+                self.evm_builtin(EvmBuiltin::Ripemd160, vec![&e.expr], ty, &e.loc)
+            }
             EvmExpr::Sha256(e) => self.evm_builtin(EvmBuiltin::Sha256, vec![&e.expr], ty, &e.loc),
             EvmExpr::Slice(e) => {
                 self.evm_builtin(EvmBuiltin::Slice, vec![&e.expr, &e.start, &e.length], ty, &e.loc)
@@ -147,13 +164,18 @@ impl CirLowerer {
             }
             // Specification variables are plain symbols.
             MoveExpr::GhostVar(e) => {
-                return Ok(CanonExpr::Var(CanonVarExpr::new(e.name.clone(), ty, Some(e.loc.clone()))));
+                return Ok(CanonExpr::Var(CanonVarExpr::new(
+                    e.name.clone(),
+                    ty,
+                    Some(e.loc.clone()),
+                )));
             }
             // `move_to` in expression position (it is normally a statement,
             // lowered to `Store` by `lower_move_to`): keep it as an
             // unresolved call so its operands are still evaluated.
             MoveExpr::MoveTo(e) => {
-                let callee = CanonExpr::Var(CanonVarExpr::new("move_to".to_string(), Type::None, None));
+                let callee =
+                    CanonExpr::Var(CanonVarExpr::new("move_to".to_string(), Type::None, None));
                 return Ok(CanonExpr::FunctionCall(CanonCallExpr {
                     callee: Box::new(callee),
                     args: vec![self.lower_expr(&e.resource)?, self.lower_expr(&e.signer)?],
@@ -161,11 +183,12 @@ impl CirLowerer {
                     span: Some(e.loc.clone()),
                 }));
             }
-            MoveExpr::BorrowGlobalMut(e) => (
-                CanonMoveExpr::BorrowGlobalMut(self.move_global(&e.addr, &e.ty)?),
-                &e.loc,
-            ),
-            MoveExpr::Exists(e) => (CanonMoveExpr::Exists(self.move_global(&e.addr, &e.ty)?), &e.loc),
+            MoveExpr::BorrowGlobalMut(e) => {
+                (CanonMoveExpr::BorrowGlobalMut(self.move_global(&e.addr, &e.ty)?), &e.loc)
+            }
+            MoveExpr::Exists(e) => {
+                (CanonMoveExpr::Exists(self.move_global(&e.addr, &e.ty)?), &e.loc)
+            }
             MoveExpr::MoveFrom(e) => {
                 (CanonMoveExpr::MoveFrom(self.move_global(&e.addr, &e.ty)?), &e.loc)
             }
@@ -199,14 +222,19 @@ impl CirLowerer {
             }
             AnchorExpr::Cpi(e) => {
                 let args = e.accounts.iter().chain(std::iter::once(&*e.data)).collect();
-                let call =
-                    ExternalCallParts::new(ExternalKind::Cpi, &e.loc).address(&e.program).args(args);
+                let call = ExternalCallParts::new(ExternalKind::Cpi, &e.loc)
+                    .address(&e.program)
+                    .args(args);
                 self.lower_external_call(call, ty)
             }
             AnchorExpr::FindProgramAddress(e) => {
                 let pda = CanonAnchorPdaExpr {
                     program_id: Box::new(self.lower_expr(&e.program_id)?),
-                    seeds: e.seeds.iter().map(|s| self.lower_expr(s)).collect::<Lowered<_>>()?,
+                    seeds: e
+                        .seeds
+                        .iter()
+                        .map(|s| self.lower_expr(s))
+                        .collect::<Lowered<_>>()?,
                 };
                 let kind = CanonDialectKind::Anchor(CanonAnchorExpr::FindProgramAddress(pda));
                 Ok(dialect(kind, ty, &e.loc))
@@ -215,7 +243,11 @@ impl CirLowerer {
             AnchorExpr::Ok(e) => self.lower_expr(&e.expr),
             AnchorExpr::SignerKey(e) => {
                 let account = Box::new(self.lower_expr(&e.expr)?);
-                Ok(dialect(CanonDialectKind::Anchor(CanonAnchorExpr::SignerKey(account)), ty, &e.loc))
+                Ok(dialect(
+                    CanonDialectKind::Anchor(CanonAnchorExpr::SignerKey(account)),
+                    ty,
+                    &e.loc,
+                ))
             }
             AnchorExpr::SystemTransfer(e) => {
                 let call = ExternalCallParts::new(ExternalKind::SystemTransfer, &e.loc)
@@ -224,8 +256,12 @@ impl CirLowerer {
                 self.lower_external_call(call, ty)
             }
             AnchorExpr::TokenTransfer(e) => {
-                let call = ExternalCallParts::new(ExternalKind::TokenTransfer, &e.loc)
-                    .args(vec![&e.from, &e.to, &e.authority, &e.amount]);
+                let call = ExternalCallParts::new(ExternalKind::TokenTransfer, &e.loc).args(vec![
+                    &e.from,
+                    &e.to,
+                    &e.authority,
+                    &e.amount,
+                ]);
                 self.lower_external_call(call, ty)
             }
         }
@@ -237,7 +273,11 @@ impl CirLowerer {
         match stmt {
             DialectStmt::Evm(EvmStmt::EmitEvent(e)) => Ok(CanonStmt::Emit(CanonEmitStmt {
                 event: e.event.clone(),
-                args: e.args.iter().map(|a| self.lower_expr(a)).collect::<Lowered<_>>()?,
+                args: e
+                    .args
+                    .iter()
+                    .map(|a| self.lower_expr(a))
+                    .collect::<Lowered<_>>()?,
                 span: Some(e.loc.clone()),
             })),
             DialectStmt::Evm(EvmStmt::TryCatch(t)) => self.lower_try_catch(t),
@@ -258,14 +298,22 @@ impl CirLowerer {
             }
             DialectStmt::Move(MoveStmt::SpecBlock(s)) => {
                 let stmt = CanonSpecBlockStmt {
-                    assertions: s.assertions.iter().map(|a| self.lower_expr(a)).collect::<Lowered<_>>()?,
+                    assertions: s
+                        .assertions
+                        .iter()
+                        .map(|a| self.lower_expr(a))
+                        .collect::<Lowered<_>>()?,
                     span: Some(s.loc.clone()),
                 };
                 Ok(CanonStmt::Dialect(CanonDialectStmt::Move(CanonMoveStmt::SpecBlock(stmt))))
             }
             DialectStmt::Anchor(AnchorStmt::EmitEvent(e)) => Ok(CanonStmt::Emit(CanonEmitStmt {
                 event: e.event.clone(),
-                args: e.fields.iter().map(|(_, a)| self.lower_expr(a)).collect::<Lowered<_>>()?,
+                args: e
+                    .fields
+                    .iter()
+                    .map(|(_, a)| self.lower_expr(a))
+                    .collect::<Lowered<_>>()?,
                 span: Some(e.loc.clone()),
             })),
         }
@@ -311,7 +359,11 @@ impl CirLowerer {
             Some(address) => Some(Box::new(self.lower_expr(address)?)),
             None => None,
         };
-        let args = call.args.iter().map(|a| self.lower_expr(a)).collect::<Lowered<_>>()?;
+        let args = call
+            .args
+            .iter()
+            .map(|a| self.lower_expr(a))
+            .collect::<Lowered<_>>()?;
         let value = match call.value {
             Some(value) => Some(Box::new(self.lower_expr(value)?)),
             None => None,
@@ -333,8 +385,12 @@ impl CirLowerer {
         ty: Type,
         loc: &Loc,
     ) -> Lowered<CanonExpr> {
-        let args = args.into_iter().map(|a| self.lower_expr(a)).collect::<Lowered<_>>()?;
-        let kind = CanonDialectKind::Evm(CanonEvmExpr::Builtin(CanonEvmBuiltinExpr { builtin, args }));
+        let args = args
+            .into_iter()
+            .map(|a| self.lower_expr(a))
+            .collect::<Lowered<_>>()?;
+        let kind =
+            CanonDialectKind::Evm(CanonEvmExpr::Builtin(CanonEvmBuiltinExpr { builtin, args }));
         Ok(dialect(kind, ty, loc))
     }
 

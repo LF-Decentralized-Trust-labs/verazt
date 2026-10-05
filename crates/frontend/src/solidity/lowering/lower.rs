@@ -16,6 +16,20 @@ fn loc_to_span(loc: &Option<Loc>) -> Option<common::loc::Loc> {
     loc.clone()
 }
 
+/// The input of a hash builtin (`keccak256`, `sha256`, `ripemd160`) called
+/// with `args`. Before Solidity 0.5 these take any number of arguments and
+/// hash them tightly packed, as `abi.encodePacked(args)`.
+fn hash_input(mut args: Vec<Expr>, loc: &common::loc::Loc) -> Expr {
+    if args.len() == 1 {
+        args.remove(0)
+    } else {
+        Expr::Dialect(DialectExpr::Evm(EvmExpr::AbiEncodePacked(EvmAbiEncodePacked {
+            args,
+            loc: loc.clone(),
+        })))
+    }
+}
+
 // Modules moved to mod.rs
 
 /// Supporting function to print output source unit of a normalization step.
@@ -89,7 +103,8 @@ impl Lowerer {
         for elem in &su.elems {
             match elem {
                 ast::SourceUnitElem::Pragma(p) => {
-                    // Capture `pragma solidity <version>` as a module attribute.
+                    // Capture `pragma solidity <version>` as a module
+                    // attribute.
                     if let ast::PragmaKind::Version(ver) = &p.kind {
                         module_attrs.push(
                             Attr::sir(sir_attrs::PRAGMA_SOLIDITY, AttrValue::String(ver.clone()))
@@ -101,7 +116,8 @@ impl Lowerer {
                     fail!("IR: `import` must be eliminated: {}", elem)
                 }
                 ast::SourceUnitElem::Using(u) => {
-                    // Preserve using-for directives — will be eliminated at SIR → CIR level.
+                    // Preserve using-for directives — will be eliminated at SIR
+                    // → CIR level.
                     let target_type = match &u.target_type {
                         Some(t) => Some(self.lower_type(t)?),
                         None => None,
@@ -167,7 +183,8 @@ impl Lowerer {
     fn lower_contract_def(&mut self, c: &ast::ContractDef) -> Result<ContractDecl> {
         trace!("Lower contract: {}", c.name);
 
-        // Populate parents from base_contracts — will be resolved at SIR → CIR level.
+        // Populate parents from base_contracts — will be resolved at SIR → CIR
+        // level.
         let parents: Vec<String> = c
             .base_contracts
             .iter()
@@ -191,7 +208,8 @@ impl Lowerer {
     fn lower_contract_elem(&mut self, elem: &ast::ContractElem) -> Result<Vec<MemberDecl>> {
         match elem {
             ast::ContractElem::Using(u) => {
-                // Preserve using-for directives — will be eliminated at SIR → CIR level.
+                // Preserve using-for directives — will be eliminated at SIR →
+                // CIR level.
                 let target_type = match &u.target_type {
                     Some(t) => Some(self.lower_type(t)?),
                     None => None,
@@ -220,7 +238,8 @@ impl Lowerer {
             ast::ContractElem::Var(v) => Ok(vec![self.lower_state_var(v)?]),
             ast::ContractElem::Func(f) => {
                 if f.kind == ast::FuncKind::Modifier {
-                    // Lower modifier definitions — will be inlined at SIR → CIR level.
+                    // Lower modifier definitions — will be inlined at SIR → CIR
+                    // level.
                     Ok(vec![self.lower_modifier_def(f)?])
                 } else {
                     Ok(vec![MemberDecl::Function(self.lower_func_def(f)?)])
@@ -492,7 +511,10 @@ impl Lowerer {
                 self.lower_require(call, loc_to_span(&s.loc))
             }
             // ── selfdestruct(recipient) → EvmStmt::Selfdestruct ──
-            ast::Expr::Call(call) if call.callee.to_string() == "selfdestruct" => {
+            // `suicide` is the name of `selfdestruct` before Solidity 0.5.
+            ast::Expr::Call(call)
+                if matches!(call.callee.to_string().as_str(), "selfdestruct" | "suicide") =>
+            {
                 let (args, extra) = self.lower_call_args_exprs(&call.args)?;
                 let mut stmts = extra;
                 let mut pos = args.into_positional();
@@ -784,7 +806,11 @@ impl Lowerer {
             match vopt {
                 Some(vd) => {
                     let ty = self.lower_type(&vd.typ)?;
-                    vars.push(Some(LocalVarDecl { name: vd.name.to_string(), ty }));
+                    vars.push(Some(LocalVarDecl {
+                        name: vd.name.to_string(),
+                        ty,
+                        is_storage_ref: vd.typ.data_loc() == ast::DataLoc::Storage,
+                    }));
                 }
                 None => vars.push(None),
             }
@@ -850,13 +876,21 @@ impl Lowerer {
             ast::Expr::Ident(id) => match id.name.base.as_str() {
                 "this" => Ok((
                     Expr::Dialect(DialectExpr::Evm(EvmExpr::This(EvmThis {
-                        loc: Default::default(),
+                        loc: loc_to_span(&id.loc).unwrap_or_default(),
                     }))),
                     vec![],
                 )),
                 "super" => Ok((
                     Expr::Dialect(DialectExpr::Evm(EvmExpr::Super(EvmSuper {
-                        loc: Default::default(),
+                        loc: loc_to_span(&id.loc).unwrap_or_default(),
+                    }))),
+                    vec![],
+                )),
+                // `now` is `block.timestamp` before Solidity 0.7. From 0.7 on,
+                // a variable may be named `now`, which this also lowers so.
+                "now" => Ok((
+                    Expr::Dialect(DialectExpr::Evm(EvmExpr::Timestamp(EvmTimestamp {
+                        loc: loc_to_span(&id.loc).unwrap_or_default(),
                     }))),
                     vec![],
                 )),
@@ -964,7 +998,11 @@ impl Lowerer {
                 let tmp_name = self.fresh_var_name();
                 let tmp_var = Expr::Var(VarExpr::new(tmp_name.clone(), ty.clone(), span.clone()));
                 stmts.push(Stmt::LocalVar(LocalVarStmt {
-                    vars: vec![Some(LocalVarDecl { name: tmp_name, ty })],
+                    vars: vec![Some(LocalVarDecl {
+                        name: tmp_name,
+                        ty,
+                        is_storage_ref: false,
+                    })],
                     init: Some(operand.clone()),
                     span: span.clone(),
                 }));
@@ -1058,57 +1096,55 @@ impl Lowerer {
             // Multi-arg type conversion — fall through to generic call
         }
 
+        // Source location of the EVM dialect expressions built below.
+        let loc = span.clone().unwrap_or_default();
+
         // ── Fix 7: EVM builtin functions ─────────────────────────
         if let ast::Expr::Ident(id) = &*e.callee {
             let name = id.name.base.as_str();
             match name {
-                "keccak256" | "sha256" | "ripemd160" | "ecrecover" | "addmod" | "mulmod"
-                | "gasleft" | "blockhash" => {
+                "keccak256" | "sha3" | "sha256" | "ripemd160" | "ecrecover" | "addmod"
+                | "mulmod" | "gasleft" | "blockhash" => {
                     let (args, extra) = self.lower_call_args_exprs(&e.args)?;
                     stmts.extend(extra);
                     let mut pos = args.into_positional();
                     let evm = match name {
-                        "keccak256" => EvmExpr::Keccak256(EvmKeccak256 {
-                            expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                        // `sha3` is the name of `keccak256` before Solidity 0.5.
+                        "keccak256" | "sha3" => EvmExpr::Keccak256(EvmKeccak256 {
+                            expr: Box::new(hash_input(pos, &loc)),
+                            loc: loc.clone(),
                         }),
                         "sha256" => EvmExpr::Sha256(EvmSha256 {
-                            expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                            expr: Box::new(hash_input(pos, &loc)),
+                            loc: loc.clone(),
                         }),
                         "ripemd160" => EvmExpr::Ripemd160(EvmRipemd160 {
-                            expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                            expr: Box::new(hash_input(pos, &loc)),
+                            loc: loc.clone(),
                         }),
                         "ecrecover" => {
                             let hash = Box::new(pos.remove(0));
                             let v = Box::new(pos.remove(0));
                             let r = Box::new(pos.remove(0));
                             let s = Box::new(pos.remove(0));
-                            EvmExpr::Ecrecover(EvmEcrecover {
-                                hash,
-                                v,
-                                r,
-                                s,
-                                loc: Default::default(),
-                            })
+                            EvmExpr::Ecrecover(EvmEcrecover { hash, v, r, s, loc: loc.clone() })
                         }
                         "addmod" => {
                             let x = Box::new(pos.remove(0));
                             let y = Box::new(pos.remove(0));
                             let k = Box::new(pos.remove(0));
-                            EvmExpr::Addmod(EvmAddmod { x, y, k, loc: Default::default() })
+                            EvmExpr::Addmod(EvmAddmod { x, y, k, loc: loc.clone() })
                         }
                         "mulmod" => {
                             let x = Box::new(pos.remove(0));
                             let y = Box::new(pos.remove(0));
                             let k = Box::new(pos.remove(0));
-                            EvmExpr::Mulmod(EvmMulmod { x, y, k, loc: Default::default() })
+                            EvmExpr::Mulmod(EvmMulmod { x, y, k, loc: loc.clone() })
                         }
-                        "gasleft" => EvmExpr::Gasleft(EvmGasleft { loc: Default::default() }),
+                        "gasleft" => EvmExpr::Gasleft(EvmGasleft { loc: loc.clone() }),
                         "blockhash" => EvmExpr::Blockhash(EvmBlockhash {
                             expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         }),
                         _ => unreachable!(),
                     };
@@ -1120,6 +1156,22 @@ impl Lowerer {
 
         // ── Fix 8: abi.* builtins ────────────────────────────────
         if let ast::Expr::Member(mem) = &*e.callee {
+            // `block.blockhash(n)`, the form of `blockhash(n)` before
+            // Solidity 0.5.
+            if let ast::Expr::Ident(base) = &*mem.base
+                && base.name.base.as_str() == "block"
+                && mem.member.to_string() == "blockhash"
+            {
+                let (args, extra) = self.lower_call_args_exprs(&e.args)?;
+                stmts.extend(extra);
+                let mut pos = args.into_positional();
+                let evm = EvmExpr::Blockhash(EvmBlockhash {
+                    expr: Box::new(pos.remove(0)),
+                    loc: loc.clone(),
+                });
+                return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
+            }
+
             if let ast::Expr::Ident(base) = &*mem.base {
                 if base.name.base.as_str() == "abi" {
                     let method = mem.member.to_string();
@@ -1127,13 +1179,12 @@ impl Lowerer {
                     stmts.extend(extra);
                     let pos = args.into_positional();
                     let evm = match method.as_str() {
-                        "encode" => Some(EvmExpr::AbiEncode(EvmAbiEncode {
-                            args: pos,
-                            loc: Default::default(),
-                        })),
+                        "encode" => {
+                            Some(EvmExpr::AbiEncode(EvmAbiEncode { args: pos, loc: loc.clone() }))
+                        }
                         "encodePacked" => Some(EvmExpr::AbiEncodePacked(EvmAbiEncodePacked {
                             args: pos,
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         })),
                         "decode" => {
                             let mut p = pos;
@@ -1142,8 +1193,9 @@ impl Lowerer {
                             } else {
                                 p.remove(0)
                             };
-                            // The rest of the args represent the types to decode to
-                            // In the AST, `abi.decode(data, (uint, address))` passes types
+                            // The rest of the args represent the types to
+                            // decode to In the AST,
+                            // `abi.decode(data, (uint, address))` passes types
                             // We use the expression's return type from the AST
                             let types = match &ty {
                                 Type::Tuple(ts) => ts.clone(),
@@ -1153,7 +1205,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiDecode(EvmAbiDecode {
                                 data: Box::new(data),
                                 types,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         "encodeWithSelector" => {
@@ -1166,7 +1218,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiEncodeWithSelector(EvmAbiEncodeWithSelector {
                                 selector,
                                 args: p,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         "encodeWithSignature" => {
@@ -1179,7 +1231,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiEncodeWithSignature(EvmAbiEncodeWithSignature {
                                 signature,
                                 args: p,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         "encodeCall" => {
@@ -1192,7 +1244,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiEncodeCall(EvmAbiEncodeCall {
                                 func,
                                 args: p,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         _ => None,
@@ -1206,7 +1258,8 @@ impl Lowerer {
             // ── Fix 9: addr.transfer(amt) / addr.send(amt) ─────────
             let method = mem.member.to_string();
             if method == "transfer" || method == "send" {
-                // Only intercept single-argument calls (address.transfer/send take 1 arg)
+                // Only intercept single-argument calls (address.transfer/send
+                // take 1 arg)
                 if let ast::CallArgs::Unnamed(uargs) = &e.args {
                     if uargs.len() == 1 {
                         let (base_e, extra) = self.lower_expr(&mem.base)?;
@@ -1219,13 +1272,13 @@ impl Lowerer {
                             EvmExpr::Transfer(EvmTransfer {
                                 target: Box::new(base_e),
                                 amount: Box::new(amount),
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             })
                         } else {
                             EvmExpr::Send(EvmSend {
                                 target: Box::new(base_e),
                                 value: Box::new(amount),
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             })
                         };
                         return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
@@ -1253,9 +1306,10 @@ impl Lowerer {
         let span = loc_to_span(&e.loc);
 
         // The callee is typically a CallExpr wrapping a MemberExpr:
-        //   `addr.call{value: x}(data)` → callee=Call(Member(addr, "call"), [data])
-        // Or it could be a direct MemberExpr without further call:
-        //   We need to extract target, method name, and call args.
+        //   `addr.call{value: x}(data)` → callee=Call(Member(addr, "call"),
+        // [data]) Or it could be a direct MemberExpr without further
+        // call:   We need to extract target, method name, and call
+        // args.
 
         // Extract call-options value/gas
         let mut opt_value: Option<Box<Expr>> = None;
@@ -1351,7 +1405,8 @@ impl Lowerer {
                 Ok((CallArgs::Positional(result), stmts))
             }
             ast::CallArgs::Named(named) => {
-                // Preserve named args — will be converted to positional at SIR → CIR level.
+                // Preserve named args — will be converted to positional at SIR
+                // → CIR level.
                 let mut stmts = vec![];
                 let mut result = vec![];
                 for n in named {
@@ -1462,39 +1517,34 @@ impl Lowerer {
 
         // ── EVM global member accesses ──────────────────────────────
         if let ast::Expr::Ident(base_id) = &*e.base {
+            let loc = span.clone().unwrap_or_default();
             let base_name = base_id.name.base.as_str();
             let evm_expr = match (base_name, member.as_str()) {
-                ("msg", "sender") => {
-                    Some(EvmExpr::MsgSender(EvmMsgSender { loc: Default::default() }))
-                }
-                ("msg", "value") => {
-                    Some(EvmExpr::MsgValue(EvmMsgValue { loc: Default::default() }))
-                }
-                ("msg", "data") => Some(EvmExpr::MsgData(EvmMsgData { loc: Default::default() })),
-                ("msg", "sig") => Some(EvmExpr::MsgSig(EvmMsgSig { loc: Default::default() })),
-                ("tx", "origin") => {
-                    Some(EvmExpr::TxOrigin(EvmTxOrigin { loc: Default::default() }))
-                }
+                ("msg", "sender") => Some(EvmExpr::MsgSender(EvmMsgSender { loc: loc.clone() })),
+                ("msg", "value") => Some(EvmExpr::MsgValue(EvmMsgValue { loc: loc.clone() })),
+                ("msg", "data") => Some(EvmExpr::MsgData(EvmMsgData { loc: loc.clone() })),
+                ("msg", "sig") => Some(EvmExpr::MsgSig(EvmMsgSig { loc: loc.clone() })),
+                ("tx", "origin") => Some(EvmExpr::TxOrigin(EvmTxOrigin { loc: loc.clone() })),
                 ("block", "timestamp") => {
-                    Some(EvmExpr::Timestamp(EvmTimestamp { loc: Default::default() }))
+                    Some(EvmExpr::Timestamp(EvmTimestamp { loc: loc.clone() }))
                 }
                 ("block", "number") => {
-                    Some(EvmExpr::BlockNumber(EvmBlockNumber { loc: Default::default() }))
+                    Some(EvmExpr::BlockNumber(EvmBlockNumber { loc: loc.clone() }))
                 }
                 ("block", "difficulty") | ("block", "prevrandao") => {
-                    Some(EvmExpr::BlockDifficulty(EvmBlockDifficulty { loc: Default::default() }))
+                    Some(EvmExpr::BlockDifficulty(EvmBlockDifficulty { loc: loc.clone() }))
                 }
                 ("block", "gaslimit") => {
-                    Some(EvmExpr::BlockGaslimit(EvmBlockGaslimit { loc: Default::default() }))
+                    Some(EvmExpr::BlockGaslimit(EvmBlockGaslimit { loc: loc.clone() }))
                 }
                 ("block", "coinbase") => {
-                    Some(EvmExpr::BlockCoinbase(EvmBlockCoinbase { loc: Default::default() }))
+                    Some(EvmExpr::BlockCoinbase(EvmBlockCoinbase { loc: loc.clone() }))
                 }
                 ("block", "chainid") => {
-                    Some(EvmExpr::BlockChainid(EvmBlockChainid { loc: Default::default() }))
+                    Some(EvmExpr::BlockChainid(EvmBlockChainid { loc: loc.clone() }))
                 }
                 ("block", "basefee") => {
-                    Some(EvmExpr::BlockBasefee(EvmBlockBasefee { loc: Default::default() }))
+                    Some(EvmExpr::BlockBasefee(EvmBlockBasefee { loc: loc.clone() }))
                 }
                 _ => None,
             };

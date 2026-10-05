@@ -1,6 +1,9 @@
 //! Unit tests for detectors.
 
-use analyzer::{DetectorMeta, DetectorRegistry, register_all_detectors};
+use analyzer::{
+    AnalysisConfig, AnalysisContext, DetectorMeta, DetectorRegistry, PipelineConfig,
+    PipelineEngine, register_all_detectors,
+};
 
 fn create_registry() -> DetectorRegistry {
     let mut registry = DetectorRegistry::new();
@@ -117,4 +120,245 @@ fn test_dead_code_detector() {
     let meta = meta_of("dead-code");
     assert_eq!(meta.id.as_str(), "dead-code");
     assert!(meta.cwe_ids.contains(&561));
+}
+
+/// Test that findings on EVM globals (`block.timestamp`, `tx.origin`) point
+/// at the line of the global, not at an unknown location.
+#[test]
+fn test_evm_global_findings_have_source_location() {
+    let source = "pragma solidity ^0.8.0;
+contract Lottery {
+    address owner;
+    function draw() public view returns (bool) {
+        require(tx.origin == owner);
+        return block.timestamp % 7 == 0;
+    }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.8.1").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["timestamp-dependence".to_string(), "tx-origin".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let line_of = |id: &str| {
+        let bug = result
+            .bugs
+            .iter()
+            .find(|bug| bug.detector_id == id)
+            .unwrap_or_else(|| panic!("{id} should report a bug"));
+        bug.loc.start_line
+    };
+    assert_eq!(line_of("tx-origin"), 5);
+    assert_eq!(line_of("timestamp-dependence"), 6);
+}
+
+/// Test that missing-access-control reports only the public function that
+/// lets any caller change an authorization variable.
+#[test]
+fn test_missing_access_control_reports_unguarded_owner_change() {
+    let source = "pragma solidity ^0.4.24;
+contract Wallet {
+    address owner;
+    mapping(address => uint256) balances;
+    mapping(uint256 => address) channelOwners;
+    modifier onlyOwner { if (msg.sender == owner) _; }
+    function Wallet() public { owner = msg.sender; }
+    function deposit() public payable { balances[msg.sender] += msg.value; }
+    function setOwner(address o) public onlyOwner { owner = o; }
+    function resetOwner(address o) public { require(owner == msg.sender); owner = o; }
+    function claim(uint256 id) public { require(channelOwners[id] == msg.sender); channelOwners[id] = 0; }
+    function changeOwner(address o) public { owner = o; }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["missing-access-control".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    assert_eq!(lines, vec![12], "only changeOwner should be reported");
+}
+
+/// Test that bad-randomness sees Solidity 0.4 randomness sources: a
+/// multi-argument `keccak256` hashing `block.timestamp`, and
+/// `block.blockhash`.
+#[test]
+fn test_bad_randomness_detects_solidity_0_4_sources() {
+    let source = "pragma solidity ^0.4.24;
+contract Lottery {
+    function draw() public view returns (bytes32) { return keccak256(msg.sender, block.timestamp); }
+    function pick() public view returns (bytes32) { return block.blockhash(1); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["bad-randomness".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.dedup();
+    assert_eq!(lines, vec![3, 4]);
+}
+
+/// Test that unchecked-call reports discarded results of `call.value(...)`
+/// and `send`, and not checked calls or `transfer`, which reverts.
+#[test]
+fn test_unchecked_call_reports_discarded_call_results() {
+    let source = "pragma solidity ^0.4.24;
+contract Payer {
+    function a(address t) public { t.call.value(1)(\"\"); }
+    function b(address t) public { t.send(1); }
+    function c(address t) public { require(t.call.value(1)(\"\")); }
+    function d(address t) public { t.transfer(1); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["unchecked-call".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![3, 4]);
+}
+
+/// Test that uninitialized-storage reports a local storage struct declared
+/// without an initializer, and not initialized storage references or
+/// memory structs.
+#[test]
+fn test_uninitialized_storage_reports_uninitialized_storage_pointer() {
+    let source = "pragma solidity ^0.4.24;
+contract Registrar {
+    struct Record { uint a; }
+    Record[] records;
+    function bad() public { Record r; r.a = 1; }
+    function good() public { Record storage r = records[0]; r.a = 1; }
+    function mem() public pure { Record memory r; r.a = 1; }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["uninitialized-storage".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    assert_eq!(lines, vec![5]);
+}
+
+/// Test that denial-of-service reports a required payment to another
+/// account and a loop growing a storage array, and not a required payment
+/// to the caller or a loop over a parameter making unchecked calls.
+#[test]
+fn test_denial_of_service_reports_blocking_payments_and_growing_loops() {
+    let source = "pragma solidity ^0.4.24;
+contract Auction {
+    address leader; uint bid; address[] players;
+    function outbid() public payable { require(leader.send(bid)); leader = msg.sender; bid = msg.value; }
+    function refund() public { require(msg.sender.send(1)); }
+    function join(uint n) public { for (uint i = 0; i < n; i++) { players.push(msg.sender); } }
+    function pay(address[] tos) public { for (uint i = 0; i < tos.length; i++) { tos[i].call.value(1)(); } }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["denial-of-service".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![4, 6]);
+}
+
+/// Test that front-running reports an approve that ignores the old
+/// allowance, a payment of a reward another function sets, and a payment
+/// for a hashed secret, and not a withdrawal of the caller's own balance.
+#[test]
+fn test_front_running_reports_order_dependent_patterns() {
+    let source = "pragma solidity ^0.4.24;
+contract Market {
+    mapping(address => mapping(address => uint)) allowed;
+    mapping(address => uint) balances;
+    uint reward; bytes32 hash;
+    function approve(address s, uint v) public returns (bool) { require(s != 0); allowed[msg.sender][s] = v; return true; }
+    function setReward() public payable { reward = msg.value; }
+    function claim() public { msg.sender.transfer(reward); }
+    function withdraw() public { msg.sender.transfer(balances[msg.sender]); balances[msg.sender] = 0; }
+    function deposit() public payable { balances[msg.sender] += msg.value; }
+    function solve(string s) public { require(hash == sha3(s)); msg.sender.transfer(1 ether); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["front-running".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![6, 8, 11]);
+}
+
+/// Test that missing-access-control reports an external function adding an
+/// owner to a mapping that a modifier checks, and an unguarded
+/// selfdestruct, and not the guarded versions.
+#[test]
+fn test_missing_access_control_reports_owner_mappings_and_selfdestruct() {
+    let source = "pragma solidity ^0.4.24;
+contract Owned {
+    mapping(address => address) owners;
+    modifier onlyOwner { require(owners[msg.sender] != 0); _; }
+    function Owned() public { owners[msg.sender] = msg.sender; }
+    function addOwner(address o) external onlyOwner { owners[o] = msg.sender; }
+    function newOwner(address o) external { owners[o] = msg.sender; }
+    function kill() public { selfdestruct(msg.sender); }
+    function close() public onlyOwner { selfdestruct(msg.sender); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["missing-access-control".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![7, 8]);
 }

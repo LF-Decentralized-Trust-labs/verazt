@@ -16,11 +16,11 @@
 //! - Drops `ModifierDef` member declarations (already inlined).
 //! - Converts `sir::Expr` → `cir::CanonExpr`.
 //! - Converts `sir::Stmt` → `cir::CanonStmt`.
-//! - Makes chain semantics explicit: reads and writes of contract state
-//!   become `Load` / `Store` (locals shadow state variables per block
-//!   scope), calls to the contract's own functions become `InternalCall`,
-//!   member calls on values become `ExternalCall`, and dialect constructs
-//!   are mapped by `lower_dialect`.
+//! - Makes chain semantics explicit: reads and writes of contract state become
+//!   `Load` / `Store` (locals shadow state variables per block scope), calls to
+//!   the contract's own functions become `InternalCall`, member calls on values
+//!   become `ExternalCall`, and dialect constructs are mapped by
+//!   `lower_dialect`.
 
 mod elim_modifiers;
 mod elim_named_args;
@@ -35,8 +35,8 @@ use crate::cir::module::*;
 use crate::cir::stmts::*;
 use crate::semantics::ExternalKind;
 use crate::sir;
-use crate::sir::dialect::move_lang::MoveExpr;
 use crate::sir::dialect::DialectExpr;
+use crate::sir::dialect::move_lang::MoveExpr;
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
@@ -144,8 +144,15 @@ impl CirLowerer {
 
     /// Record whether the local `name` declared with type `ty` and
     /// initializer `init` is a storage pointer.
-    fn track_storage_alias(&mut self, name: &str, ty: &crate::sir::Type, init: Option<&sir::Expr>) {
-        let location = init.filter(|_| is_reference_type(ty)).and_then(|e| self.storage_path(e));
+    fn track_storage_alias(
+        &mut self,
+        name: &str,
+        ty: &crate::sir::Type,
+        init: Option<&sir::Expr>,
+    ) {
+        let location = init
+            .filter(|_| is_reference_type(ty))
+            .and_then(|e| self.storage_path(e));
         match location {
             Some(location) => self.storage_aliases.insert(name.to_string(), location),
             None => self.storage_aliases.remove(name),
@@ -354,7 +361,8 @@ impl CirLowerer {
                             .map(|d| CanonLocalVarDecl { name: d.name.clone(), ty: d.ty.clone() })
                     })
                     .collect();
-                // The initializer is evaluated before the variables are in scope.
+                // The initializer is evaluated before the variables are in
+                // scope.
                 let init = match &s.init {
                     Some(e) => Some(self.lower_expr(e)?),
                     None => None,
@@ -502,7 +510,14 @@ impl CirLowerer {
             Some(e) => Some(self.lower_expr(e)?),
             None => None,
         };
-        Ok(CanonStmt::For(CanonForStmt { init, cond, update, body, invariant, span: s.span.clone() }))
+        Ok(CanonStmt::For(CanonForStmt {
+            init,
+            cond,
+            update,
+            body,
+            invariant,
+            span: s.span.clone(),
+        }))
     }
 
     /// Lower `state[keys] op= rhs` to `state[keys] = state[keys] op rhs`.
@@ -525,7 +540,10 @@ impl CirLowerer {
             let name = self.fresh_tmp();
             let ty = key.typ();
             stmts.push(CanonStmt::LocalVar(CanonLocalVarStmt {
-                vars: vec![Some(CanonLocalVarDecl { name: name.clone(), ty: ty.clone() })],
+                vars: vec![Some(CanonLocalVarDecl {
+                    name: name.clone(),
+                    ty: ty.clone(),
+                })],
                 init: Some(key),
                 span: s.span.clone(),
             }));
@@ -547,8 +565,12 @@ impl CirLowerer {
             overflow: crate::sir::OverflowSemantics::Checked,
             span: s.span.clone(),
         });
-        let store =
-            CanonStmt::Store(CanonStoreStmt { resource, keys, value: Some(value), span: s.span.clone() });
+        let store = CanonStmt::Store(CanonStoreStmt {
+            resource,
+            keys,
+            value: Some(value),
+            span: s.span.clone(),
+        });
         if stmts.is_empty() {
             return Ok(store);
         }
@@ -721,7 +743,10 @@ impl CirLowerer {
                 _ => ExternalKind::Call,
             };
             let address = self.lower_expr(&method.base)?;
-            let args = arg_exprs.iter().map(|a| self.lower_expr(a)).collect::<Result<_, _>>()?;
+            let args = arg_exprs
+                .iter()
+                .map(|a| self.lower_expr(a))
+                .collect::<Result<_, _>>()?;
             let value = match value {
                 Some(value) => Some(Box::new(self.lower_expr(value)?)),
                 None => None,
@@ -736,8 +761,13 @@ impl CirLowerer {
             })));
         }
         match &*call.callee {
-            sir::Expr::Var(var) if self.functions.contains(&var.name) && !self.is_local(&var.name) => {
-                let args = arg_exprs.iter().map(|a| self.lower_expr(a)).collect::<Result<_, _>>()?;
+            sir::Expr::Var(var)
+                if self.functions.contains(&var.name) && !self.is_local(&var.name) =>
+            {
+                let args = arg_exprs
+                    .iter()
+                    .map(|a| self.lower_expr(a))
+                    .collect::<Result<_, _>>()?;
                 Ok(Some(CanonExpr::InternalCall(CanonInternalCallExpr {
                     func: var.name.clone(),
                     args,
@@ -761,8 +791,10 @@ impl CirLowerer {
                     return Ok(None);
                 }
                 let address = self.lower_expr(&access.base)?;
-                let mut args: Vec<CanonExpr> =
-                    arg_exprs.iter().map(|a| self.lower_expr(a)).collect::<Result<_, _>>()?;
+                let mut args: Vec<CanonExpr> = arg_exprs
+                    .iter()
+                    .map(|a| self.lower_expr(a))
+                    .collect::<Result<_, _>>()?;
                 let value = match kind {
                     ExternalKind::Transfer | ExternalKind::Send => args.pop(),
                     ExternalKind::Call
@@ -805,12 +837,22 @@ fn is_reference_type(ty: &crate::sir::Type) -> bool {
 fn peel_legacy_call_options(
     callee: &sir::Expr,
 ) -> Option<(&sir::FieldAccessExpr, Option<&sir::Expr>)> {
-    let sir::Expr::FunctionCall(option_call) = callee else { return None };
-    let sir::Expr::FieldAccess(option) = &*option_call.callee else { return None };
-    let sir::CallArgs::Positional(option_args) = &option_call.args else { return None };
-    let [option_arg] = option_args.as_slice() else { return None };
+    let sir::Expr::FunctionCall(option_call) = callee else {
+        return None;
+    };
+    let sir::Expr::FieldAccess(option) = &*option_call.callee else {
+        return None;
+    };
+    let sir::CallArgs::Positional(option_args) = &option_call.args else {
+        return None;
+    };
+    let [option_arg] = option_args.as_slice() else {
+        return None;
+    };
     let (method, value) = match &*option.base {
-        sir::Expr::FieldAccess(method) if matches!(method.field.as_str(), "call" | "delegatecall") => {
+        sir::Expr::FieldAccess(method)
+            if matches!(method.field.as_str(), "call" | "delegatecall") =>
+        {
             (method, None)
         }
         base => peel_legacy_call_options(base)?,
@@ -855,8 +897,8 @@ mod tests {
     use crate::cir::utils::visit::{self, Visit};
     use crate::sir::{
         AssignStmt, AugAssignStmt, BinOp, BoolLit, CallArgs, CallExpr, ContractDecl, Decl, Expr,
-        FunctionDecl, IfStmt, IndexAccessExpr, Lit, LocalVarDecl, LocalVarStmt, MemberDecl,
-        StorageDecl, Stmt, Type, VarExpr,
+        FunctionDecl, IfStmt, IndexAccessExpr, Lit, LocalVarDecl, LocalVarStmt, MemberDecl, Stmt,
+        StorageDecl, Type, VarExpr,
     };
 
     fn var(name: &str) -> Expr {
@@ -876,7 +918,9 @@ mod tests {
         let members = vec![MemberDecl::Storage(storage), MemberDecl::Function(func)];
         let contract = ContractDecl::new("C".to_string(), members, None);
         let module = lower_module(&sir::Module::new("m", vec![Decl::Contract(contract)])).unwrap();
-        let CanonDecl::Contract(contract) = &module.decls[0] else { panic!("expected contract") };
+        let CanonDecl::Contract(contract) = &module.decls[0] else {
+            panic!("expected contract")
+        };
         contract
             .members
             .iter()
@@ -916,7 +960,11 @@ mod tests {
     fn test_local_shadows_state_only_inside_its_block() {
         // if (c) { uint balances = true; balances = true; } balances = true;
         let local = Stmt::LocalVar(LocalVarStmt {
-            vars: vec![Some(LocalVarDecl { name: "balances".to_string(), ty: Type::I256 })],
+            vars: vec![Some(LocalVarDecl {
+                name: "balances".to_string(),
+                ty: Type::I256,
+                is_storage_ref: false,
+            })],
             init: Some(lit()),
             span: None,
         });
@@ -930,7 +978,9 @@ mod tests {
         let body = lower_body(vec![branch, write()]);
 
         // Only the write after the block reaches contract state.
-        let CanonStmt::If(branch) = &body[0] else { panic!("expected if") };
+        let CanonStmt::If(branch) = &body[0] else {
+            panic!("expected if")
+        };
         assert_eq!(count(&branch.then_body).stores, 0);
         assert!(matches!(&body[1], CanonStmt::Store(s)
             if s.resource == CanonResource::StateVar("balances".to_string())));
@@ -988,8 +1038,12 @@ mod tests {
         });
         let body = lower_body(vec![Stmt::Expr(sir::ExprStmt { expr: call, span: None })]);
 
-        let CanonStmt::Expr(stmt) = &body[0] else { panic!("expected expression statement") };
-        let CanonExpr::ExternalCall(call) = &stmt.expr else { panic!("expected external call") };
+        let CanonStmt::Expr(stmt) = &body[0] else {
+            panic!("expected expression statement")
+        };
+        let CanonExpr::ExternalCall(call) = &stmt.expr else {
+            panic!("expected external call")
+        };
         assert_eq!(call.kind, ExternalKind::Call);
         assert!(matches!(call.address.as_deref(), Some(CanonExpr::Var(v)) if v.name == "c"));
         assert!(call.value.is_some());

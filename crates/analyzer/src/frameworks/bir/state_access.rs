@@ -48,7 +48,9 @@ impl StateAccess {
     /// The state written by `op` itself, if any.
     pub fn written_by(view: &FunctionView, op: &Op) -> Option<Self> {
         let access = op.kind.storage_access()?;
-        access.is_write.then(|| Self::resolve(view, &access.resource, &access.keys))
+        access
+            .is_write
+            .then(|| Self::resolve(view, &access.resource, &access.keys))
     }
 
     /// Returns `true` if the two accesses may touch the same state: their
@@ -66,7 +68,9 @@ impl StateAccess {
 /// one is a field path inside the other (`@accounts` and `@accounts.balance`).
 fn overlaps(a: &str, b: &str) -> bool {
     let inside = |inner: &str, outer: &str| {
-        inner.strip_prefix(outer).is_some_and(|rest| rest.starts_with('.'))
+        inner
+            .strip_prefix(outer)
+            .is_some_and(|rest| rest.starts_with('.'))
     };
     a == b || inside(a, b) || inside(b, a)
 }

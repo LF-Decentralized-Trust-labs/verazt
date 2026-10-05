@@ -15,7 +15,7 @@ pub mod evm;
 pub mod move_lang;
 pub mod spec;
 
-pub use evm::{EvmCallExt, EvmFunctionExt, EvmStorageExt};
+pub use evm::{EvmCallExt, EvmExprExt, EvmFunctionExt, EvmStorageExt};
 
 use std::fmt::{self, Display};
 

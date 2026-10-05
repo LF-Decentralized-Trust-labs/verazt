@@ -154,8 +154,8 @@ impl YulMap for Renamer {
 
     /// Override `map_yul_member_expr`.
     fn map_yul_member_expr(&mut self, expr: &YulMemberExpr) -> YulMemberExpr {
-        // Only rename the base of the member access expression, since the member name
-        // are Yul keywords
+        // Only rename the base of the member access expression, since the
+        // member name are Yul keywords
         let nbase = self.map_yul_name(&expr.base);
         YulMemberExpr { base: nbase, ..expr.clone() }
     }

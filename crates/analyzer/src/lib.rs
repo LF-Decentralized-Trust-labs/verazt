@@ -7,12 +7,11 @@
 //!
 //! The analyzer uses a two-phase pipeline architecture:
 //!
-//! - `context`: Central storage for AST, IR, and analysis data
+//! - `context`: Central storage for SIR, BIR, and analysis artifacts
 //!   (`AnalysisContext`, `ContextKey`)
-//! - `pass_manager`: Orchestrates pass registration, scheduling, and execution
-//!   (`PassManager`)
-//! - `passes`: Concrete analysis passes organized by IR layer (`base/`, `sir/`,
-//!   `bir/`, `vir/`)
+//! - `pass_manager`: Orchestrates pass registration, scheduling, and execution,
+//!   running the passes of a dependency level in parallel (`PassManager`)
+//! - `passes`: Concrete analysis passes organized by IR layer (`base/`, `bir/`)
 //! - `frameworks`: Reusable analysis infrastructure (`dfa/`, `cfa/`,
 //!   `datalog/`)
 //! - `pipeline`: Two-phase orchestrator (analysis → detection;
@@ -24,9 +23,8 @@
 //!   - `bir/`: BIR dataflow detectors
 //! - `output`: Report formatting (JSON, SARIF, Markdown)
 
-// CLI entry modules (`verazt analyze` and `verazt scan`)
+// CLI entry module (`verazt analyze`)
 pub mod cli;
-pub mod scan_cli;
 
 // Flattened analysis modules (formerly under analysis/)
 pub mod context;

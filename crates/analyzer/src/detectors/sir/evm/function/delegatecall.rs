@@ -74,6 +74,7 @@ impl ScanDetector for DelegatecallDetector {
                         e.loc.clone(),
                     ));
                 }
+                visit::default::visit_dialect_expr(self, d);
             }
 
             fn visit_field_access_expr(&mut self, fa: &'a FieldAccessExpr) {
@@ -111,6 +112,6 @@ mod tests {
     fn test_delegatecall_detector() {
         let detector = DelegatecallDetector::new();
         assert_eq!(detector.meta().id, DetectorId::Delegatecall);
-        assert_eq!(detector.meta().risk_level,RiskLevel::High);
+        assert_eq!(detector.meta().risk_level, RiskLevel::High);
     }
 }

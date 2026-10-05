@@ -10,7 +10,6 @@ edition.workspace = true
 bugs = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-clap-verbosity-flag = { workspace = true }
 color-eyre = { workspace = true }
 common = { workspace = true }
 env_logger = { workspace = true }

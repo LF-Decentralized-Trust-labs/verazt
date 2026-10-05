@@ -125,7 +125,13 @@ fn inline_modifier_body(
 ) -> Vec<sir::Stmt> {
     let substituted: Vec<sir::Stmt> = modifier_body
         .iter()
-        .map(|stmt| if is_placeholder(stmt) { stmt.clone() } else { subst_stmt(stmt, subst) })
+        .map(|stmt| {
+            if is_placeholder(stmt) {
+                stmt.clone()
+            } else {
+                subst_stmt(stmt, subst)
+            }
+        })
         .collect();
     fill_placeholders(substituted, func_body)
 }

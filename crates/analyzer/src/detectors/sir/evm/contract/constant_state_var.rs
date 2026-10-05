@@ -50,7 +50,8 @@ impl ScanDetector for ConstantStateVarDetector {
     fn check_contract(&self, contract: &ContractDecl, _module: &Module) -> Vec<Bug> {
         let mut bugs = Vec::new();
 
-        // Collect all written storage vars across all functions (structural check)
+        // Collect all written storage vars across all functions (structural
+        // check)
         let storage_vars = contract.storage_names();
         let mut all_written = std::collections::HashSet::new();
         for member in &contract.members {
