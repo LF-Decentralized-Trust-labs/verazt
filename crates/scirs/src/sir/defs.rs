@@ -186,6 +186,17 @@ impl ContractDecl {
         false
     }
 
+    /// The storage variable at the root of `expr` (`owner`, `owners[i]`,
+    /// `config.admin`), if any.
+    pub fn storage_root<'s>(expr: &Expr, storage_vars: &'s [String]) -> Option<&'s String> {
+        match expr {
+            Expr::Var(v) => storage_vars.iter().find(|name| **name == v.name),
+            Expr::IndexAccess(e) => Self::storage_root(&e.base, storage_vars),
+            Expr::FieldAccess(e) => Self::storage_root(&e.base, storage_vars),
+            _ => None,
+        }
+    }
+
     /// Check if an expression references a storage variable.
     pub fn expr_references_storage(expr: &Expr, storage_vars: &[String]) -> bool {
         match expr {

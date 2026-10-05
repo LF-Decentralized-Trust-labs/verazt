@@ -151,17 +151,6 @@ fn written_auth_var(
     writes.written.into_iter().find(|var| auth_vars.contains(var))
 }
 
-/// The storage variable at the root of `expr` (`owner`, `owners[i]`,
-/// `config.admin`), if any.
-fn storage_root<'s>(expr: &Expr, storage_vars: &'s [String]) -> Option<&'s String> {
-    match expr {
-        Expr::Var(v) => storage_vars.iter().find(|name| **name == v.name),
-        Expr::IndexAccess(e) => storage_root(&e.base, storage_vars),
-        Expr::FieldAccess(e) => storage_root(&e.base, storage_vars),
-        _ => None,
-    }
-}
-
 /// Collects the equality comparisons with the caller in the visited code.
 struct CallerChecks<'s> {
     storage_vars: &'s [String],
@@ -204,14 +193,14 @@ struct StorageWrites<'s> {
 
 impl<'a> Visit<'a> for StorageWrites<'_> {
     fn visit_assign_stmt(&mut self, stmt: &'a AssignStmt) {
-        if let Some(var) = storage_root(&stmt.lhs, self.storage_vars) {
+        if let Some(var) = ContractDecl::storage_root(&stmt.lhs, self.storage_vars) {
             self.written.push(var.clone());
         }
         default::visit_assign_stmt(self, stmt)
     }
 
     fn visit_aug_assign_stmt(&mut self, stmt: &'a AugAssignStmt) {
-        if let Some(var) = storage_root(&stmt.lhs, self.storage_vars) {
+        if let Some(var) = ContractDecl::storage_root(&stmt.lhs, self.storage_vars) {
             self.written.push(var.clone());
         }
         default::visit_aug_assign_stmt(self, stmt)
