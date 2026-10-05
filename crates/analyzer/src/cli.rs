@@ -614,8 +614,10 @@ fn try_install_and_compile_vyper(
     vyper_ver: Option<&str>,
     auto: bool,
 ) -> Option<scirs::sir::Module> {
-    // Step 0: Ensure vyper-select itself is present.
-    if !ensure_select_installed("vyper-select", "vyper-select", auto) {
+    // Step 0: Ensure vyper-select itself is present. It is not published on
+    // PyPI, so unlike solc-select it cannot be installed with pip.
+    if !is_tool_installed("vyper-select") {
+        eprintln!("'vyper-select' is not installed. Install it and add it to PATH.");
         return None;
     }
 
