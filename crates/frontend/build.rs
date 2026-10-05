@@ -188,7 +188,8 @@ fn should_exclude_test(path: &Path) -> bool {
         }
     }
 
-    // Exclude tests relying on `using X for *` until eliminate_using is complete.
+    // Exclude tests relying on `using X for *` until eliminate_using is
+    // complete.
     if content.contains("using ") && content.contains("for *") {
         return true;
     }

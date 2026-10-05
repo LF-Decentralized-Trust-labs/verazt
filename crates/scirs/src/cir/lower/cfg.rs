@@ -151,15 +151,25 @@ impl<'c> CfgBuilder<'c> {
 impl CfgBuilder<'_> {
     /// Record `value` as the current definition of `name` in `block`.
     fn write_variable(&mut self, block: BlockId, name: &str, value: OpRef) {
-        self.current_defs.entry(block).or_default().insert(name.to_string(), value);
+        self.current_defs
+            .entry(block)
+            .or_default()
+            .insert(name.to_string(), value);
     }
 
     /// The SSA value of local variable `name` at the current end of `block`.
     fn read_variable(&mut self, block: BlockId, name: &str) -> OpRef {
-        if let Some(value) = self.current_defs.get(&block).and_then(|defs| defs.get(name)) {
+        if let Some(value) = self
+            .current_defs
+            .get(&block)
+            .and_then(|defs| defs.get(name))
+        {
             return *value;
         }
-        let preds = self.preds.as_ref().map(|preds| preds.get(&block).cloned().unwrap_or_default());
+        let preds = self
+            .preds
+            .as_ref()
+            .map(|preds| preds.get(&block).cloned().unwrap_or_default());
         let value = match preds.as_deref() {
             None if block == ENTRY => self.symbol(name),
             None => {
@@ -232,7 +242,10 @@ impl CfgBuilder<'_> {
     }
 
     fn preds_of(&self, block: BlockId) -> Vec<BlockId> {
-        self.preds.as_ref().and_then(|preds| preds.get(&block).cloned()).unwrap_or_default()
+        self.preds
+            .as_ref()
+            .and_then(|preds| preds.get(&block).cloned())
+            .unwrap_or_default()
     }
 
     /// Mark the CFG complete and fill all pending block parameters.
@@ -376,7 +389,8 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &CanonStmt, current: BlockId) ->
             match (decls.as_slice(), &local_var.init) {
                 // `T x = init;`
                 ([Some(decl)], Some(init)) => {
-                    let value = lower_expr_named(builder, current, init, &decl.name, decl.ty.clone());
+                    let value =
+                        lower_expr_named(builder, current, init, &decl.name, decl.ty.clone());
                     builder.write_variable(current, &decl.name, value);
                 }
                 // `(T a, , T c) = init;`
@@ -388,7 +402,8 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &CanonStmt, current: BlockId) ->
                             description: format!("tuple_get {index}"),
                             operands: vec![value],
                         };
-                        let part = builder.emit_value(current, part, &decl.name, decl.ty.clone(), span);
+                        let part =
+                            builder.emit_value(current, part, &decl.name, decl.ty.clone(), span);
                         builder.write_variable(current, &decl.name, part);
                     }
                 }
@@ -396,7 +411,8 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &CanonStmt, current: BlockId) ->
                 (_, None) => {
                     for decl in decls.iter().copied().flatten() {
                         let kind = OpKind::Const(Lit::Bool(BoolLit::new(false, None)));
-                        let value = builder.emit_value(current, kind, &decl.name, decl.ty.clone(), span);
+                        let value =
+                            builder.emit_value(current, kind, &decl.name, decl.ty.clone(), span);
                         builder.write_variable(current, &decl.name, value);
                     }
                 }
@@ -421,7 +437,8 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &CanonStmt, current: BlockId) ->
                 overflow: OverflowSemantics::Checked,
             };
             let span = aug.span.as_ref();
-            let value = builder.emit_value(current, kind, &expr_name(&aug.lhs), aug.lhs.typ(), span);
+            let value =
+                builder.emit_value(current, kind, &expr_name(&aug.lhs), aug.lhs.typ(), span);
             assign_local(builder, current, &aug.lhs, value, span);
             current
         }
@@ -499,8 +516,10 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &CanonStmt, current: BlockId) ->
             match &for_stmt.cond {
                 Some(cond) => {
                     let cond_ref = lower_expr(builder, header, cond);
-                    builder
-                        .set_terminator(header, Terminator::branch(cond_ref, body_block, after_block));
+                    builder.set_terminator(
+                        header,
+                        Terminator::branch(cond_ref, body_block, after_block),
+                    );
                 }
                 None => builder.set_terminator(header, Terminator::jump(body_block)),
             }
@@ -563,7 +582,10 @@ fn flatten_stmt(builder: &mut CfgBuilder, stmt: &CanonStmt, current: BlockId) ->
         CanonStmt::Store(store) => {
             let resource = lower_resource(builder, current, &store.resource);
             let keys = lower_exprs(builder, current, &store.keys);
-            let value = store.value.as_ref().map(|v| lower_expr(builder, current, v));
+            let value = store
+                .value
+                .as_ref()
+                .map(|v| lower_expr(builder, current, v));
             let kind = OpKind::Store(StoreOp { resource, keys, value });
             builder.emit_effect(current, kind, store.span.as_ref());
             current
@@ -596,7 +618,11 @@ fn flatten_loop_body(
 
 /// Jump from `current` to the loop exit or continuation `target`. Outside a
 /// loop (malformed input) the statement has no effect.
-fn flatten_loop_exit(builder: &mut CfgBuilder, current: BlockId, target: Option<BlockId>) -> BlockId {
+fn flatten_loop_exit(
+    builder: &mut CfgBuilder,
+    current: BlockId,
+    target: Option<BlockId>,
+) -> BlockId {
     let Some(target) = target else { return current };
     builder.set_terminator(current, Terminator::jump(target));
     // Statements after the jump are unreachable
@@ -651,10 +677,8 @@ fn flatten_try_catch(
         builder.set_terminator(body_exit, Terminator::jump(after_block));
     }
 
-    let succeeded = OpKind::Opaque {
-        description: "try_succeeded".to_string(),
-        operands: vec![guarded],
-    };
+    let succeeded =
+        OpKind::Opaque { description: "try_succeeded".to_string(), operands: vec![guarded] };
     let cond = builder.emit_value(current, succeeded, TMP_NAME, Type::Bool, span);
     let mut dispatch = builder.new_block();
     builder.set_terminator(current, Terminator::branch(cond, body_block, dispatch));
@@ -783,8 +807,15 @@ fn lower_exprs(builder: &mut CfgBuilder, block: BlockId, exprs: &[CanonExpr]) ->
     lower_expr_refs(builder, block, exprs.iter().collect())
 }
 
-fn lower_expr_refs(builder: &mut CfgBuilder, block: BlockId, exprs: Vec<&CanonExpr>) -> Vec<OpRef> {
-    exprs.into_iter().map(|e| lower_expr(builder, block, e)).collect()
+fn lower_expr_refs(
+    builder: &mut CfgBuilder,
+    block: BlockId,
+    exprs: Vec<&CanonExpr>,
+) -> Vec<OpRef> {
+    exprs
+        .into_iter()
+        .map(|e| lower_expr(builder, block, e))
+        .collect()
 }
 
 /// Lower an expression whose value is bound to the SSA name `name`.
@@ -845,7 +876,10 @@ fn lower_expr_named(
             OpKind::Call(CallOp { target: CallTarget::Internal(func), args, value: None })
         }
         CanonExpr::ExternalCall(call) => {
-            let address = call.address.as_deref().map(|a| lower_expr(builder, block, a));
+            let address = call
+                .address
+                .as_deref()
+                .map(|a| lower_expr(builder, block, a));
             let args = lower_exprs(builder, block, &call.args);
             let value = call.value.as_deref().map(|v| lower_expr(builder, block, v));
             let target = CallTarget::External(ExternalCallee { kind: call.kind, address });
@@ -854,9 +888,10 @@ fn lower_expr_named(
         CanonExpr::Env(env) => OpKind::Env(env.var),
         CanonExpr::Dialect(dialect) => lower_dialect_expr(builder, block, dialect),
         // Specification-only expressions have no executable semantics.
-        CanonExpr::Old(_) | CanonExpr::Result(_) | CanonExpr::Forall { .. } | CanonExpr::Exists { .. } => {
-            opaque(expr, vec![])
-        }
+        CanonExpr::Old(_)
+        | CanonExpr::Result(_)
+        | CanonExpr::Forall { .. }
+        | CanonExpr::Exists { .. } => opaque(expr, vec![]),
     };
     builder.emit_value(block, kind, name, ty, span)
 }
@@ -873,7 +908,11 @@ fn lower_resource(builder: &mut CfgBuilder, block: BlockId, resource: &CanonReso
 }
 
 /// Lower a chain-specific expression to its typed BIR op.
-fn lower_dialect_expr(builder: &mut CfgBuilder, block: BlockId, expr: &CanonDialectExpr) -> OpKind {
+fn lower_dialect_expr(
+    builder: &mut CfgBuilder,
+    block: BlockId,
+    expr: &CanonDialectExpr,
+) -> OpKind {
     let op = match &expr.kind {
         CanonDialectKind::Evm(CanonEvmExpr::Builtin(builtin)) => {
             let args = lower_exprs(builder, block, &builtin.args);
@@ -1003,7 +1042,11 @@ mod tests {
     }
 
     fn find_op(blocks: &[BasicBlock], id: OpRef) -> &Op {
-        blocks.iter().flat_map(|b| &b.ops).find(|op| op.id == id.0).unwrap()
+        blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .find(|op| op.id == id.0)
+            .unwrap()
     }
 
     /// Blocks that take parameters.
@@ -1035,16 +1078,28 @@ mod tests {
         let blocks = lower_function(&["balances"], params(&["recipient", "amount"]), body);
         let ops = &blocks[0].ops;
 
-        let call_pos = ops.iter().position(|op| matches!(op.kind, OpKind::Call(_))).unwrap();
-        let OpKind::Call(call) = &ops[call_pos].kind else { unreachable!() };
-        let CallTarget::External(callee) = &call.target else { panic!("expected external call") };
+        let call_pos = ops
+            .iter()
+            .position(|op| matches!(op.kind, OpKind::Call(_)))
+            .unwrap();
+        let OpKind::Call(call) = &ops[call_pos].kind else {
+            unreachable!()
+        };
+        let CallTarget::External(callee) = &call.target else {
+            panic!("expected external call")
+        };
         assert_eq!(callee.kind, ExternalKind::Call);
         assert!(callee.address.is_some());
         assert_eq!(call.args.len(), 1);
         assert!(call.value.is_some());
 
-        let store_pos = ops.iter().position(|op| matches!(op.kind, OpKind::Store(_))).unwrap();
-        let OpKind::Store(store) = &ops[store_pos].kind else { unreachable!() };
+        let store_pos = ops
+            .iter()
+            .position(|op| matches!(op.kind, OpKind::Store(_)))
+            .unwrap();
+        let OpKind::Store(store) = &ops[store_pos].kind else {
+            unreachable!()
+        };
         assert_eq!(store.resource, Resource::StateVar("balances".to_string()));
         assert_eq!(store.keys.len(), 1);
         assert!(matches!(find_op(&blocks, store.keys[0]).kind, OpKind::Env(EnvVar::Caller)));
@@ -1054,7 +1109,8 @@ mod tests {
     #[test]
     fn test_local_shadowing_state_var_is_not_storage() {
         // A parameter named like a state variable shadows it.
-        let blocks = lower_function(&["balances"], params(&["balances"]), vec![assign_balance_of_sender()]);
+        let blocks =
+            lower_function(&["balances"], params(&["balances"]), vec![assign_balance_of_sender()]);
         let has_storage_op = blocks
             .iter()
             .flat_map(|b| &b.ops)
@@ -1067,22 +1123,29 @@ mod tests {
         let blocks = lower_function(&[], params(&["n"]), counting_loop());
 
         // Only the loop header merges values of `i`.
-        let [header] = param_blocks(&blocks)[..] else { panic!("expected one header") };
+        let [header] = param_blocks(&blocks)[..] else {
+            panic!("expected one header")
+        };
         assert_eq!(header.params.len(), 1);
         let i_param = OpRef(header.params[0].id);
 
         // The loop condition reads the header parameter.
-        let Terminator::Branch { cond, .. } = &header.term else { panic!("expected branch") };
-        let OpKind::BinOp { lhs, .. } = &find_op(&blocks, *cond).kind else { panic!() };
+        let Terminator::Branch { cond, .. } = &header.term else {
+            panic!("expected branch")
+        };
+        let OpKind::BinOp { lhs, .. } = &find_op(&blocks, *cond).kind else {
+            panic!()
+        };
         assert_eq!(*lhs, i_param);
 
         // `i` enters as the initial constant and loops back as `i + 1`.
         let args = incoming(&blocks, header.id, 0);
         assert_eq!(args.len(), 2);
         assert!(args.iter().any(|op| matches!(op.kind, OpKind::Const(_))));
-        assert!(args
-            .iter()
-            .any(|op| matches!(op.kind, OpKind::BinOp { lhs, .. } if lhs == i_param)));
+        assert!(
+            args.iter()
+                .any(|op| matches!(op.kind, OpKind::BinOp { lhs, .. } if lhs == i_param))
+        );
     }
 
     #[test]
@@ -1090,7 +1153,9 @@ mod tests {
         let blocks = lower_function(&[], params(&["a", "b", "c"]), conditional_update());
 
         // `x` differs between the paths; `y` does not, so it gets no param.
-        let [merge] = param_blocks(&blocks)[..] else { panic!("expected one merge block") };
+        let [merge] = param_blocks(&blocks)[..] else {
+            panic!("expected one merge block")
+        };
         assert_eq!(merge.params.len(), 1);
         let x_param = OpRef(merge.params[0].id);
         let indices: HashSet<_> = incoming(&blocks, merge.id, 0)
@@ -1103,10 +1168,13 @@ mod tests {
         assert_eq!(indices, HashSet::from([0, 1]));
 
         // `return x + y` reads the merged `x` and the parameter `a` for `y`.
-        let ret = blocks.iter().flat_map(|b| &b.ops).find_map(|op| match &op.kind {
-            OpKind::Return(vals) => Some(vals[0]),
-            _ => None,
-        });
+        let ret = blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .find_map(|op| match &op.kind {
+                OpKind::Return(vals) => Some(vals[0]),
+                _ => None,
+            });
         let OpKind::BinOp { lhs, rhs, .. } = &find_op(&blocks, ret.unwrap()).kind else {
             panic!("expected x + y")
         };
@@ -1116,9 +1184,15 @@ mod tests {
 
     #[test]
     fn test_break_and_continue_jump_to_loop_exit_and_latch() {
-        // for (i = false; i < n; i = i + true) { if (c) continue; if (d) break; }
+        // for (i = false; i < n; i = i + true) { if (c) continue; if (d) break;
+        // }
         let jump_if = |cond: &str, stmt: Stmt| {
-            Stmt::If(IfStmt { cond: var(cond), then_body: vec![stmt], else_body: None, span: None })
+            Stmt::If(IfStmt {
+                cond: var(cond),
+                then_body: vec![stmt],
+                else_body: None,
+                span: None,
+            })
         };
         let body = vec![Stmt::For(ForStmt {
             init: Some(Box::new(assign(var("i"), lit(false)))),
@@ -1130,23 +1204,35 @@ mod tests {
         })];
         let blocks = lower_function(&[], params(&["n", "c", "d"]), body);
         let transfers_into = |target: BlockId| {
-            blocks.iter().flat_map(|b| b.term.successors()).filter(|s| *s == target).count()
+            blocks
+                .iter()
+                .flat_map(|b| b.term.successors())
+                .filter(|s| *s == target)
+                .count()
         };
 
         // The loop exit is reached when the condition fails and on `break`.
         let header = blocks
             .iter()
-            .find(|b| matches!(&b.term, Terminator::Branch { cond, .. }
-                if matches!(find_op(&blocks, *cond).kind, OpKind::BinOp { op: BinOp::Lt, .. })))
+            .find(|b| {
+                matches!(&b.term, Terminator::Branch { cond, .. }
+                if matches!(find_op(&blocks, *cond).kind, OpKind::BinOp { op: BinOp::Lt, .. }))
+            })
             .unwrap();
-        let Terminator::Branch { else_dest, .. } = &header.term else { unreachable!() };
+        let Terminator::Branch { else_dest, .. } = &header.term else {
+            unreachable!()
+        };
         assert_eq!(transfers_into(else_dest.block), 2);
 
         // The latch runs the update; it is reached on `continue` and at the
         // end of the body, and loops back to the header.
         let latch = blocks
             .iter()
-            .find(|b| b.ops.iter().any(|op| matches!(op.kind, OpKind::BinOp { op: BinOp::Add, .. })))
+            .find(|b| {
+                b.ops
+                    .iter()
+                    .any(|op| matches!(op.kind, OpKind::BinOp { op: BinOp::Add, .. }))
+            })
             .unwrap();
         assert_eq!(transfers_into(latch.id), 2);
         assert_eq!(latch.term.successors(), vec![header.id]);
@@ -1155,7 +1241,12 @@ mod tests {
     #[test]
     fn test_ssa_output_passes_bir_verifier() {
         let functions = vec![
-            TestFunction { name: "f", params: params(&["n"]), body: counting_loop(), public: true },
+            TestFunction {
+                name: "f",
+                params: params(&["n"]),
+                body: counting_loop(),
+                public: true,
+            },
             TestFunction {
                 name: "g",
                 params: params(&["a", "b", "c"]),

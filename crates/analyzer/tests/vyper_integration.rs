@@ -22,7 +22,9 @@ fn run_vyper_pipeline(name: &str) -> Option<analyzer::PipelineResult> {
         return None;
     }
 
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/vyper").join(name);
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/vyper")
+        .join(name);
     let file = path.to_str().expect("UTF-8 path");
     let module = frontend::vyper::compile_file(file, None)
         .unwrap_or_else(|e| panic!("compiling {file} failed: {e}"));

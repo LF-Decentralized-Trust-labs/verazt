@@ -863,7 +863,8 @@ pub mod default {
         mapper: &mut T,
         stmt: &'a VarDeclStmt,
     ) -> VarDeclStmt {
-        // Map the assigned value first because it'll affect variable declarations.
+        // Map the assigned value first because it'll affect variable
+        // declarations.
         let value = stmt.value.as_ref().map(|e| mapper.map_expr(e));
         let var_decls = stmt
             .var_decls

@@ -36,20 +36,27 @@ impl MatchCounts {
 
     fn recall(&self) -> f64 {
         let expected = self.true_positives + self.false_negatives;
-        if expected == 0 { 0.0 } else { self.true_positives as f64 / expected as f64 }
+        if expected == 0 {
+            0.0
+        } else {
+            self.true_positives as f64 / expected as f64
+        }
     }
 }
 
 /// The SmartBugs-curated dataset, or one of its category subfolders.
 fn dataset_dir(category: Option<&str>) -> PathBuf {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../datasets/solidity/smartbugs-curated");
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../datasets/solidity/smartbugs-curated");
     category.map_or(root.clone(), |c| root.join(c))
 }
 
 /// Whether a Solidity compiler is installed, as the dataset tests need one.
 fn solc_available() -> bool {
-    Command::new("solc").arg("--version").output().is_ok_and(|o| o.status.success())
+    Command::new("solc")
+        .arg("--version")
+        .output()
+        .is_ok_and(|o| o.status.success())
 }
 
 /// Matches detected bugs against ground truth annotations.
@@ -99,7 +106,10 @@ fn run_analyze_on_file(file_path: &Path) -> Result<Vec<Bug>, String> {
 fn benchmark(annotations: &[AnnotatedBug]) -> (MatchCounts, Vec<String>) {
     let mut by_file = BTreeMap::<PathBuf, Vec<AnnotatedBug>>::new();
     for ann in annotations {
-        by_file.entry(ann.file_path.clone()).or_default().push(ann.clone());
+        by_file
+            .entry(ann.file_path.clone())
+            .or_default()
+            .push(ann.clone());
     }
 
     let mut counts = MatchCounts::default();

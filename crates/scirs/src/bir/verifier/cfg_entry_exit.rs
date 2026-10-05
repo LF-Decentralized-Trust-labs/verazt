@@ -35,7 +35,8 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
     // TxnExit variant has no target fields, so it always has 0 successors).
     // We still verify that only terminal blocks use TxnExit, by noting
     // there's nothing else to check here structurally.
-    // Additionally, check that there's at least one exit (TxnExit or Unreachable).
+    // Additionally, check that there's at least one exit (TxnExit or
+    // Unreachable).
     let has_exit = func
         .blocks
         .iter()

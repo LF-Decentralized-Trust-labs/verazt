@@ -66,7 +66,8 @@ fn export_source_file(
 fn preprocess_solidity_file(file_path: PathBuf) -> common::error::Result<(String, Vec<String>)> {
     info!("- Preprocess: {}", file_path.display());
 
-    // Split content of the test file into lines to extract embedded source files
+    // Split content of the test file into lines to extract embedded source
+    // files
     let input_file = File::open(&file_path)?;
     let file_content_lines = io::BufReader::new(input_file).lines();
     let test_dir = file_path.parent().unwrap_or_else(|| Path::new(""));
@@ -178,7 +179,8 @@ fn test_compiling_solidity_file_inner(
             exported_files.push(output_file);
         }
 
-        // Now compile all the exported files to test if they are valid Solidity files.
+        // Now compile all the exported files to test if they are valid Solidity
+        // files.
         for file in exported_files.iter() {
             info!("- Test compilation: {}", file);
             if let Err(err) = parse_input_file(file, Some(parsed_dir), &[], Some(solc_ver)) {

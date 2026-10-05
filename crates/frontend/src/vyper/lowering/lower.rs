@@ -187,8 +187,8 @@ impl Lowerer {
     }
 
     fn lower_interface_def(&mut self, _iface: &ast::InterfaceDef) -> Result<MemberDecl> {
-        // Interfaces become type references; we don't lower them as full contracts
-        // for now, just skip or add a placeholder.
+        // Interfaces become type references; we don't lower them as full
+        // contracts for now, just skip or add a placeholder.
         // TODO: more detailed interface lowering
         Ok(MemberDecl::TypeAlias(scirs::sir::TypeAlias {
             name: _iface.name.clone(),

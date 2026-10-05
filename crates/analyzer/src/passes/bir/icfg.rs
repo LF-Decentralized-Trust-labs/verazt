@@ -56,7 +56,11 @@ impl AnalysisPass for ICFGPass {
     type Artifact = ICFGArtifact;
 
     fn run(&self, ctx: &AnalysisContext) -> PassResult<Vec<ICFG>> {
-        Ok(ctx.bir_units().iter().map(|module| module.icfg.clone()).collect())
+        Ok(ctx
+            .bir_units()
+            .iter()
+            .map(|module| module.icfg.clone())
+            .collect())
     }
 }
 

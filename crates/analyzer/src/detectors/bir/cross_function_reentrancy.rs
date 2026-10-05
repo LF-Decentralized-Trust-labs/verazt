@@ -8,14 +8,14 @@
 
 use super::reentrancy;
 use super::reentrant_sites::{
-    has_guard_attr, ModuleFacts, ReentrantSite, REENTRANCY_RECOMMENDATION, REENTRANCY_REFERENCES,
+    ModuleFacts, REENTRANCY_RECOMMENDATION, REENTRANCY_REFERENCES, ReentrantSite, has_guard_attr,
 };
 use crate::context::AnalysisContext;
 use crate::detectors::base::traits::DetectorResult;
 use crate::detectors::{BugDetectionPass, ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use crate::frameworks::bir::{FunctionView, StateAccess};
-use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::Pass;
+use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::bir::{DominancePass, FunctionEffectsPass};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use scirs::bir::cfg::{Function, FunctionId};
@@ -78,7 +78,10 @@ impl Pass for CrossFunctionReentrancyDetector {
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
-        vec![TypeId::of::<DominancePass>(), TypeId::of::<FunctionEffectsPass>()]
+        vec![
+            TypeId::of::<DominancePass>(),
+            TypeId::of::<FunctionEffectsPass>(),
+        ]
     }
 }
 
@@ -154,7 +157,11 @@ fn entry_points<'m>(functions: &'m [Function], facts: &ModuleFacts) -> Vec<Entry
         .filter(|func| func.is_public)
         .filter_map(|func| {
             let effects = facts.effects_of(&func.id)?;
-            let reads = effects.reads.iter().map(|r| StateAccess::unkeyed(r.clone())).collect();
+            let reads = effects
+                .reads
+                .iter()
+                .map(|r| StateAccess::unkeyed(r.clone()))
+                .collect();
             (!effects.writes.is_empty()).then_some(EntryPoint { func, reads })
         })
         .collect()
@@ -168,9 +175,10 @@ fn may_reenter_into(caller: &Function, site: &ReentrantSite, entry: &EntryPoint)
         return false;
     }
     let caller_guarded = has_guard_attr(caller) || site.guard_flag.is_some();
-    let shares_mutex = site.guard_flag.as_ref().is_some_and(|flag| {
-        entry.reads.iter().any(|read| read.location == *flag)
-    });
+    let shares_mutex = site
+        .guard_flag
+        .as_ref()
+        .is_some_and(|flag| entry.reads.iter().any(|read| read.location == *flag));
     !(caller_guarded && (has_guard_attr(callee) || shares_mutex))
 }
 
@@ -271,9 +279,16 @@ mod tests {
         let withdraw = function(
             "withdraw",
             true,
-            vec![check_locked(), set_locked(true), call_out(), write_balance(), set_locked(false)],
+            vec![
+                check_locked(),
+                set_locked(true),
+                call_out(),
+                write_balance(),
+                set_locked(false),
+            ],
         );
-        let transfer = function("transfer", true, vec![check_locked(), read_balance(), write_balance()]);
+        let transfer =
+            function("transfer", true, vec![check_locked(), read_balance(), write_balance()]);
         assert!(detect(vec![withdraw, transfer]).is_empty());
     }
 

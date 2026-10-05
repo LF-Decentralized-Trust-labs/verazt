@@ -93,8 +93,7 @@ mod tests {
         let mut func = Function::new(FunctionId("test".into()), true);
 
         let mut bb0 = BasicBlock::new(BlockId(0));
-        bb0.term =
-            Terminator::branch(OpRef(OpId(0)), BlockId(1), BlockId(2));
+        bb0.term = Terminator::branch(OpRef(OpId(0)), BlockId(1), BlockId(2));
         let mut bb1 = BasicBlock::new(BlockId(1));
         bb1.term = Terminator::jump(BlockId(3));
         let mut bb2 = BasicBlock::new(BlockId(2));

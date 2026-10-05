@@ -209,7 +209,8 @@ mod tests {
     #[test]
     fn test_run_passes_sees_artifacts_of_dependencies() {
         for enable_parallel in [false, true] {
-            let config = PassManagerConfig { enable_parallel, max_workers: 2, ..Default::default() };
+            let config =
+                PassManagerConfig { enable_parallel, max_workers: 2, ..Default::default() };
             let mut manager = PassManager::new(config);
             manager.register_passes(vec![Box::new(MockPassB), Box::new(MockPassA)]);
             let mut context = empty_context();

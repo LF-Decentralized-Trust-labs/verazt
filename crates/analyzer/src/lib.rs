@@ -9,11 +9,9 @@
 //!
 //! - `context`: Central storage for SIR, BIR, and analysis artifacts
 //!   (`AnalysisContext`, `ContextKey`)
-//! - `pass_manager`: Orchestrates pass registration, scheduling, and
-//!   execution, running the passes of a dependency level in parallel
-//!   (`PassManager`)
-//! - `passes`: Concrete analysis passes organized by IR layer (`base/`,
-//!   `bir/`)
+//! - `pass_manager`: Orchestrates pass registration, scheduling, and execution,
+//!   running the passes of a dependency level in parallel (`PassManager`)
+//! - `passes`: Concrete analysis passes organized by IR layer (`base/`, `bir/`)
 //! - `frameworks`: Reusable analysis infrastructure (`dfa/`, `cfa/`,
 //!   `datalog/`)
 //! - `pipeline`: Two-phase orchestrator (analysis → detection;

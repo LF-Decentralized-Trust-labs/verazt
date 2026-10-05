@@ -156,10 +156,9 @@ impl OpKind {
             OpKind::Emit(emit) => emit.args.clone(),
             OpKind::Dialect(op) => dialect_operands(op),
             OpKind::Opaque { operands, .. } => operands.clone(),
-            OpKind::Const(_)
-            | OpKind::Param { .. }
-            | OpKind::Env(_)
-            | OpKind::Symbol { .. } => vec![],
+            OpKind::Const(_) | OpKind::Param { .. } | OpKind::Env(_) | OpKind::Symbol { .. } => {
+                vec![]
+            }
         }
     }
 
@@ -178,15 +177,18 @@ impl OpKind {
                     CallTarget::External(callee) => callee.address.as_mut(),
                     CallTarget::Internal(_) => None,
                 };
-                address.into_iter().chain(call.args.iter_mut()).chain(call.value.as_mut()).collect()
+                address
+                    .into_iter()
+                    .chain(call.args.iter_mut())
+                    .chain(call.value.as_mut())
+                    .collect()
             }
             OpKind::Emit(emit) => emit.args.iter_mut().collect(),
             OpKind::Dialect(op) => dialect_operands_mut(op),
             OpKind::Opaque { operands, .. } => operands.iter_mut().collect(),
-            OpKind::Const(_)
-            | OpKind::Param { .. }
-            | OpKind::Env(_)
-            | OpKind::Symbol { .. } => vec![],
+            OpKind::Const(_) | OpKind::Param { .. } | OpKind::Env(_) | OpKind::Symbol { .. } => {
+                vec![]
+            }
         }
     }
 
@@ -200,13 +202,12 @@ impl OpKind {
                 Some(StorageAccess::write(store.resource.clone(), store.keys.clone()))
             }
             OpKind::Dialect(DialectOp::Move(MoveOp::BorrowGlobalMut(op)))
-            | OpKind::Dialect(DialectOp::Move(MoveOp::MoveFrom(op))) => Some(
-                StorageAccess::write(Resource::MoveGlobal(op.ty.clone()), vec![op.addr]),
-            ),
-            OpKind::Dialect(DialectOp::Move(MoveOp::Exists(op))) => Some(StorageAccess::read(
-                Resource::MoveGlobal(op.ty.clone()),
-                vec![op.addr],
-            )),
+            | OpKind::Dialect(DialectOp::Move(MoveOp::MoveFrom(op))) => {
+                Some(StorageAccess::write(Resource::MoveGlobal(op.ty.clone()), vec![op.addr]))
+            }
+            OpKind::Dialect(DialectOp::Move(MoveOp::Exists(op))) => {
+                Some(StorageAccess::read(Resource::MoveGlobal(op.ty.clone()), vec![op.addr]))
+            }
             OpKind::Dialect(DialectOp::Anchor(AnchorOp::AccountLoadMut(account))) => {
                 Some(StorageAccess::write(Resource::AnchorAccount(*account), vec![]))
             }
@@ -352,7 +353,11 @@ fn call_operands(call: &CallOp) -> Vec<OpRef> {
         CallTarget::External(callee) => callee.address,
         CallTarget::Internal(_) => None,
     };
-    address.into_iter().chain(call.args.iter().copied()).chain(call.value).collect()
+    address
+        .into_iter()
+        .chain(call.args.iter().copied())
+        .chain(call.value)
+        .collect()
 }
 
 fn dialect_operands(op: &DialectOp) -> Vec<OpRef> {
@@ -412,8 +417,9 @@ fn env_taint(var: EnvVar) -> Option<TaintLabel> {
 fn dialect_taint(op: &DialectOp) -> Option<TaintLabel> {
     match op {
         DialectOp::Anchor(AnchorOp::AccountLoadMut(_)) => Some(TaintLabel::AccountData),
-        DialectOp::Anchor(AnchorOp::SignerKey(_))
-        | DialectOp::Move(MoveOp::SignerAddress(_)) => Some(TaintLabel::SignerArg),
+        DialectOp::Anchor(AnchorOp::SignerKey(_)) | DialectOp::Move(MoveOp::SignerAddress(_)) => {
+            Some(TaintLabel::SignerArg)
+        }
         DialectOp::Evm(EvmOp::Builtin(op)) if op.builtin == EvmBuiltin::Blockhash => {
             Some(TaintLabel::BlockContext)
         }

@@ -171,7 +171,10 @@ impl AnalysisContext {
     /// Replace the SIR units, eagerly lowering them to BIR. Artifacts and
     /// pass completions computed from the previous units are discarded.
     pub fn set_sir_units(&mut self, sir_units: Vec<scirs::sir::Module>) {
-        let bir = sir_units.iter().filter_map(lower_to_bir).collect::<Vec<_>>();
+        let bir = sir_units
+            .iter()
+            .filter_map(lower_to_bir)
+            .collect::<Vec<_>>();
         self.bir_units = (!bir.is_empty()).then_some(bir);
         self.sir_units = (!sir_units.is_empty()).then_some(sir_units);
         self.typed_data.clear();
@@ -196,7 +199,9 @@ impl AnalysisContext {
     /// see all the code SIR detectors see. Lowering maps each SIR module to
     /// at most one BIR module, so equal counts mean none failed.
     pub fn bir_covers_sir(&self) -> bool {
-        self.sir_units.as_ref().is_none_or(|sir| sir.len() == self.bir_units().len())
+        self.sir_units
+            .as_ref()
+            .is_none_or(|sir| sir.len() == self.bir_units().len())
     }
 
     /// Set BIR units directly (escape hatch).

@@ -141,7 +141,11 @@ impl<'a> PassExecutor<'a> {
                 let pass = self.passes[&pass_id].as_ref();
                 if context.is_pass_completed(pass_id) {
                     report.already_completed += 1;
-                } else if pass.dependencies().iter().any(|dep| incomplete.contains(dep)) {
+                } else if pass
+                    .dependencies()
+                    .iter()
+                    .any(|dep| incomplete.contains(dep))
+                {
                     log::warn!("Skipping pass '{}': a pass it depends on failed", pass.name());
                     incomplete.insert(pass_id);
                     report.skipped.push(pass.name().to_string());
@@ -180,7 +184,10 @@ impl<'a> PassExecutor<'a> {
         context: &AnalysisContext,
     ) -> Vec<(PassExecutionInfo, PassResult<ErasedArtifact>)> {
         if self.config.parallel {
-            passes.par_iter().map(|&pass| run_pass(pass, context)).collect()
+            passes
+                .par_iter()
+                .map(|&pass| run_pass(pass, context))
+                .collect()
         } else {
             passes.iter().map(|&pass| run_pass(pass, context)).collect()
         }

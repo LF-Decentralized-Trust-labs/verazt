@@ -258,7 +258,8 @@ impl<'a> Map<'_> for InheritanceResolver<'a> {
             Some(contract) => contract.name.clone(),
         };
 
-        // Find if the current function specify an order of overriding base contracts.
+        // Find if the current function specify an order of overriding base
+        // contracts.
         let mut specified_base_contracts = self
             .current_function
             .as_ref()

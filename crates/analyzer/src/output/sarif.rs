@@ -177,7 +177,10 @@ impl From<&AnalysisReport> for SarifLog {
     fn from(report: &AnalysisReport) -> Self {
         // One rule per built-in detector, sorted by ID; results point at
         // their rule by ID and index.
-        let rules: Vec<_> = builtin_detector_metas().into_iter().map(SarifRule::from).collect();
+        let rules: Vec<_> = builtin_detector_metas()
+            .into_iter()
+            .map(SarifRule::from)
+            .collect();
 
         let results: Vec<_> = report
             .bugs

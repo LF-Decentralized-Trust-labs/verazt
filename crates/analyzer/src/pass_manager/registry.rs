@@ -49,7 +49,11 @@ impl PassRegistry {
                 .get(&id)
                 .ok_or_else(|| PassError::UnregisteredDependency(requester.to_string()))?;
             let pass = construct();
-            pending.extend(pass.dependencies().into_iter().map(|dep| (dep, pass.name())));
+            pending.extend(
+                pass.dependencies()
+                    .into_iter()
+                    .map(|dep| (dep, pass.name())),
+            );
             passes.push(pass);
         }
         Ok(passes)
@@ -74,7 +78,9 @@ mod tests {
     fn test_instantiate_closure_includes_transitive_dependencies() {
         let mut registry = PassRegistry::new();
         register_all_passes(&mut registry);
-        let passes = registry.instantiate_closure([(TypeId::of::<TaintPass>(), "d")]).unwrap();
+        let passes = registry
+            .instantiate_closure([(TypeId::of::<TaintPass>(), "d")])
+            .unwrap();
         let ids: HashSet<TypeId> = passes.iter().map(|p| p.id()).collect();
         assert_eq!(ids, HashSet::from([TypeId::of::<TaintPass>(), TypeId::of::<ICFGPass>()]));
     }

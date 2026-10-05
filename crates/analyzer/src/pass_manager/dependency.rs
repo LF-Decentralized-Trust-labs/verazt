@@ -89,7 +89,10 @@ impl DependencyGraph {
             levels[level].push(pass_id);
         }
 
-        Ok(levels.into_iter().map(|level| self.sorted_by_name(level)).collect())
+        Ok(levels
+            .into_iter()
+            .map(|level| self.sorted_by_name(level))
+            .collect())
     }
 
     /// Depth-first visit of `pass_id`, appending it to `result` after its
@@ -107,8 +110,11 @@ impl DependencyGraph {
         }
 
         if let Some(start) = path.iter().position(|&p| p == pass_id) {
-            let cycle: Vec<&str> =
-                path[start..].iter().chain([&pass_id]).map(|&p| self.name(p)).collect();
+            let cycle: Vec<&str> = path[start..]
+                .iter()
+                .chain([&pass_id])
+                .map(|&p| self.name(p))
+                .collect();
             return Err(PassError::CircularDependency(cycle.join(" -> ")));
         }
 

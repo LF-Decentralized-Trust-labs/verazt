@@ -150,7 +150,10 @@ impl Terminator {
             Terminator::Branch { cond, .. } => Some(*cond),
             Terminator::Jump(_) | Terminator::TxnExit { .. } | Terminator::Unreachable => None,
         };
-        let args = self.block_calls().into_iter().flat_map(|call| call.args.iter().copied());
+        let args = self
+            .block_calls()
+            .into_iter()
+            .flat_map(|call| call.args.iter().copied());
         cond.into_iter().chain(args).collect()
     }
 
@@ -172,8 +175,11 @@ impl Display for BasicBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "  {}", self.id)?;
         if !self.params.is_empty() {
-            let params: Vec<_> =
-                self.params.iter().map(|p| format!("{}: {}", p.id, p.ty)).collect();
+            let params: Vec<_> = self
+                .params
+                .iter()
+                .map(|p| format!("{}: {}", p.id, p.ty))
+                .collect();
             write!(f, "({})", params.join(", "))?;
         }
         writeln!(f, ":")?;

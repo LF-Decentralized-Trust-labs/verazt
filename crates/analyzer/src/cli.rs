@@ -361,7 +361,9 @@ fn run_analysis(args: Args) {
 
     let mut result = engine.run(&mut context);
     let failures = result.failures();
-    result.bugs.retain(|bug| config.should_report_severity(&bug.risk_level));
+    result
+        .bugs
+        .retain(|bug| config.should_report_severity(&bug.risk_level));
 
     // Create report
     let lang_str = match input_language {

@@ -7,10 +7,10 @@
 //! 2. **Detection Phase**: Run all enabled detectors fully in parallel
 
 use crate::context::AnalysisContext;
-use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::detectors::base::registry::{DetectorRegistry, register_all_detectors};
-use crate::pass_manager::manager::{PassManager, PassManagerConfig};
+use crate::detectors::{BugDetectionPass, DetectorId};
 use crate::pass_manager::executor::run_on_workers;
+use crate::pass_manager::manager::{PassManager, PassManagerConfig};
 use crate::pass_manager::{PassRegistry, PassRunReport};
 use crate::passes::base::{PassExecutionInfo, PassResult};
 use crate::passes::register_all_passes;
@@ -224,8 +224,11 @@ impl PipelineEngine {
     /// superseded SIR detectors are the only ones covering some modules,
     /// and all are kept.
     fn resolve_detectors(&self, context: &AnalysisContext) -> Vec<&dyn BugDetectionPass> {
-        let selected: Vec<&dyn BugDetectionPass> =
-            self.registry.all().filter(|d| self.is_detector_enabled(*d)).collect();
+        let selected: Vec<&dyn BugDetectionPass> = self
+            .registry
+            .all()
+            .filter(|d| self.is_detector_enabled(*d))
+            .collect();
         let superseded: HashSet<DetectorId> = if context.bir_covers_sir() {
             selected.iter().flat_map(|d| d.supersedes()).collect()
         } else {
@@ -234,9 +237,7 @@ impl PipelineEngine {
         };
         selected
             .into_iter()
-            .filter(|d| {
-                !superseded.contains(&d.meta().id) || is_listed(&self.config.enabled, *d)
-            })
+            .filter(|d| !superseded.contains(&d.meta().id) || is_listed(&self.config.enabled, *d))
             .collect()
     }
 
@@ -342,7 +343,10 @@ impl PipelineEngine {
         context: &AnalysisContext,
     ) -> (Vec<Bug>, Vec<DetectorStats>) {
         let results: Vec<_> = run_on_workers(self.config.num_threads, || {
-            detectors.par_iter().map(|&d| run_single_detector(d, context)).collect()
+            detectors
+                .par_iter()
+                .map(|&d| run_single_detector(d, context))
+                .collect()
         });
 
         let mut all_bugs = Vec::new();
@@ -388,7 +392,10 @@ fn is_listed(list: &[String], detector: &dyn BugDetectionPass) -> bool {
 /// The passes `detector` depends on, each with the detector's name.
 fn required_by(detector: &dyn BugDetectionPass) -> impl Iterator<Item = (TypeId, &'static str)> {
     let name = detector.name();
-    detector.dependencies().into_iter().map(move |id| (id, name))
+    detector
+        .dependencies()
+        .into_iter()
+        .map(move |id| (id, name))
 }
 
 /// Run a single detector and collect results.
@@ -473,7 +480,11 @@ mod tests {
 
     fn resolved_ids_in(config: PipelineConfig, context: &AnalysisContext) -> Vec<DetectorId> {
         let engine = PipelineEngine::new(config);
-        engine.resolve_detectors(context).iter().map(|d| d.meta().id).collect()
+        engine
+            .resolve_detectors(context)
+            .iter()
+            .map(|d| d.meta().id)
+            .collect()
     }
 
     fn resolved_ids(config: PipelineConfig) -> Vec<DetectorId> {
@@ -525,7 +536,10 @@ mod tests {
         let engine = PipelineEngine::new(PipelineConfig::default());
         for detector in engine.registry().all() {
             assert!(
-                engine.passes.instantiate_closure(required_by(detector)).is_ok(),
+                engine
+                    .passes
+                    .instantiate_closure(required_by(detector))
+                    .is_ok(),
                 "'{}' depends on a pass missing from the pass registry",
                 detector.name()
             );
@@ -557,7 +571,12 @@ mod tests {
 
     fn bug_of(id: &str, loc: Loc) -> Bug {
         let engine = PipelineEngine::new(PipelineConfig::default());
-        engine.registry().get(id).expect("built-in detector").meta().bug(None, loc)
+        engine
+            .registry()
+            .get(id)
+            .expect("built-in detector")
+            .meta()
+            .bug(None, loc)
     }
 
     #[test]
@@ -577,7 +596,10 @@ mod tests {
 
     #[test]
     fn test_deduplicate_bugs_keeps_findings_without_loc() {
-        let bugs = vec![bug_of("tx-origin", Loc::default()), bug_of("tx-origin", Loc::default())];
+        let bugs = vec![
+            bug_of("tx-origin", Loc::default()),
+            bug_of("tx-origin", Loc::default()),
+        ];
         assert_eq!(PipelineEngine::deduplicate_bugs(bugs).len(), 2);
     }
 

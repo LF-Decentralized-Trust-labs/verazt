@@ -73,7 +73,9 @@ pub fn build_icfg(module: &mut Module) {
                     }
                     match &call.target {
                         CallTarget::Internal(callee) => {
-                            module.call_graph.add_static_edge(func.id.clone(), callee.clone());
+                            module
+                                .call_graph
+                                .add_static_edge(func.id.clone(), callee.clone());
                         }
                         CallTarget::External(_) => {
                             let dynamic = FunctionId("<dynamic>".to_string());
@@ -100,7 +102,11 @@ fn build_module_icfg(functions: &[Function]) -> ICFG {
             .iter()
             .map(|func| (func.id.clone(), add_function_nodes(&mut icfg, &func.id)))
             .collect(),
-        public: functions.iter().filter(|f| f.is_public).map(|f| f.id.clone()).collect(),
+        public: functions
+            .iter()
+            .filter(|f| f.is_public)
+            .map(|f| f.id.clone())
+            .collect(),
     };
     for func in functions {
         add_function_flow(&mut icfg, func, &nodes);
@@ -146,7 +152,11 @@ fn add_function_flow(icfg: &mut ICFG, func: &Function, nodes: &ModuleNodes) {
 
         match &block.term {
             Terminator::TxnExit { reverted } => {
-                let exit = if *reverted { own.exit_reverted } else { own.exit_ok };
+                let exit = if *reverted {
+                    own.exit_reverted
+                } else {
+                    own.exit_ok
+                };
                 icfg.add_edge(last, exit, EdgeKind::CfgEdge);
             }
             Terminator::Branch { .. } | Terminator::Jump(_) => {
@@ -247,7 +257,9 @@ mod tests {
 
     fn has_edge(icfg: &ICFG, from: &ICFGNode, to: &ICFGNode, kind: EdgeKind) -> bool {
         let (from, to) = (node_id(icfg, from), node_id(icfg, to));
-        icfg.edges.iter().any(|(f, t, k)| *f == from && *t == to && *k == kind)
+        icfg.edges
+            .iter()
+            .any(|(f, t, k)| *f == from && *t == to && *k == kind)
     }
 
     #[test]
@@ -257,11 +269,18 @@ mod tests {
         let f = FunctionId("C.f".to_string());
         let g = FunctionId("C.g".to_string());
         let entry = |func: &FunctionId| ICFGNode::TxnEntry { func: func.clone() };
-        let exit_ok = |func: &FunctionId| ICFGNode::TxnExit { func: func.clone(), reverted: false };
+        let exit_ok =
+            |func: &FunctionId| ICFGNode::TxnExit { func: func.clone(), reverted: false };
 
         // The internal call enters `g`, and `g` returns to the return site.
-        let call_site = icfg.nodes.iter().find(|n| matches!(n, ICFGNode::CallSite(_))).unwrap();
-        let ICFGNode::CallSite(loc) = call_site else { unreachable!() };
+        let call_site = icfg
+            .nodes
+            .iter()
+            .find(|n| matches!(n, ICFGNode::CallSite(_)))
+            .unwrap();
+        let ICFGNode::CallSite(loc) = call_site else {
+            unreachable!()
+        };
         let return_site = ICFGNode::ReturnSite(loc.clone());
         assert!(has_edge(icfg, call_site, &entry(&g), EdgeKind::CallEdge));
         assert!(has_edge(icfg, &exit_ok(&g), &return_site, EdgeKind::ReturnEdge));

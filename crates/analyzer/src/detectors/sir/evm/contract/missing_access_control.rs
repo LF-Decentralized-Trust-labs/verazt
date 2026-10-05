@@ -152,7 +152,11 @@ fn is_constructor(func: &FunctionDecl, contract: &ContractDecl) -> bool {
 /// Returns true if `func` checks the caller, in its body or in one of its
 /// modifiers. A modifier defined outside the contract, as by a parent
 /// contract, counts as a check.
-fn is_guarded(func: &FunctionDecl, modifiers: &[&EvmModifierDef], storage_vars: &[String]) -> bool {
+fn is_guarded(
+    func: &FunctionDecl,
+    modifiers: &[&EvmModifierDef],
+    storage_vars: &[String],
+) -> bool {
     let checks_caller = |stmts: &[Stmt]| {
         let mut checks = CallerChecks::new(storage_vars);
         checks.visit_stmts(stmts);
@@ -175,7 +179,10 @@ fn written_auth_var(
 ) -> Option<String> {
     let mut writes = StorageWrites { storage_vars, written: vec![] };
     writes.visit_stmts(func.body.as_deref()?);
-    writes.written.into_iter().find(|var| auth_vars.contains(var))
+    writes
+        .written
+        .into_iter()
+        .find(|var| auth_vars.contains(var))
 }
 
 /// Collects the checks of the caller in the visited code: equality
@@ -213,7 +220,10 @@ struct CallerKeyedReads<'s> {
 
 impl<'a> Visit<'a> for CallerKeyedReads<'_> {
     fn visit_index_access_expr(&mut self, expr: &'a IndexAccessExpr) {
-        if expr.index.as_deref().is_some_and(|index| index.is_evm_caller())
+        if expr
+            .index
+            .as_deref()
+            .is_some_and(|index| index.is_evm_caller())
             && let Some(root) = ContractDecl::storage_root(&expr.base, self.storage_vars)
         {
             self.roots.insert(root.clone());
@@ -225,7 +235,8 @@ impl<'a> Visit<'a> for CallerKeyedReads<'_> {
 impl<'a> Visit<'a> for CallerChecks<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         if let Some(cond) = stmt.required_condition() {
-            let mut reads = CallerKeyedReads { storage_vars: self.storage_vars, roots: HashSet::new() };
+            let mut reads =
+                CallerKeyedReads { storage_vars: self.storage_vars, roots: HashSet::new() };
             reads.visit_expr(cond);
             if !reads.roots.is_empty() {
                 self.checks_caller = true;
@@ -236,7 +247,8 @@ impl<'a> Visit<'a> for CallerChecks<'_> {
     }
 
     fn visit_binop_expr(&mut self, expr: &'a BinOpExpr) {
-        if matches!(expr.op, BinOp::Eq | BinOp::Ne) && (expr.lhs.is_evm_caller() || expr.rhs.is_evm_caller())
+        if matches!(expr.op, BinOp::Eq | BinOp::Ne)
+            && (expr.lhs.is_evm_caller() || expr.rhs.is_evm_caller())
         {
             self.checks_caller = true;
             for side in [&expr.lhs, &expr.rhs] {

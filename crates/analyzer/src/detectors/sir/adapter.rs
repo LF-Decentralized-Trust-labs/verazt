@@ -83,8 +83,7 @@ impl BugDetectionPass for ScanDetectorAdapter {
                             for member in &contract.members {
                                 if let MemberDecl::Function(func) = member {
                                     bugs.extend(
-                                        self.detector
-                                            .check_function(func, contract, module),
+                                        self.detector.check_function(func, contract, module),
                                     );
                                 }
                             }

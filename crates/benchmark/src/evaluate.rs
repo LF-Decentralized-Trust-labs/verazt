@@ -369,7 +369,8 @@ pub fn evaluate_dataset(
                     println!("🐛 Issue {}: {} ({})", i + 1, det.name, det.category);
                     println!();
 
-                    // Resolve the file to use for snippet extraction (absolute path)
+                    // Resolve the file to use for snippet extraction (absolute
+                    // path)
                     let snippet_file = det
                         .file
                         .as_deref()
@@ -448,7 +449,10 @@ pub fn evaluate_dataset(
         for matched in &result.match_result.true_positives {
             let stats = per_category.entry(matched.annotation.category).or_default();
             stats.tp += 1;
-            per_detector.entry(matched.detection.detector_id.clone()).or_default().tp += 1;
+            per_detector
+                .entry(matched.detection.detector_id.clone())
+                .or_default()
+                .tp += 1;
         }
         for det in &result.match_result.false_positives {
             let annotated = file_categories.contains(&det.category);

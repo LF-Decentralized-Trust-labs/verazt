@@ -124,7 +124,10 @@ mod tests {
             schedule.levels,
             [
                 vec![TypeId::of::<MockCfgPass>()],
-                vec![TypeId::of::<MockIrCallGraphPass>(), TypeId::of::<MockIrCfgPass>()],
+                vec![
+                    TypeId::of::<MockIrCallGraphPass>(),
+                    TypeId::of::<MockIrCfgPass>()
+                ],
             ]
         );
     }

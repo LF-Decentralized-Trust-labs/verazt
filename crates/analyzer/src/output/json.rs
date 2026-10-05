@@ -119,7 +119,11 @@ impl From<&AnalysisReport> for JsonReport {
             },
             findings: {
                 let metas = builtin_detector_metas();
-                report.bugs.iter().map(|bug| JsonFinding::new(bug, &metas)).collect()
+                report
+                    .bugs
+                    .iter()
+                    .map(|bug| JsonFinding::new(bug, &metas))
+                    .collect()
             },
         }
     }

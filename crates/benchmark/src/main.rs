@@ -100,7 +100,8 @@ fn main() {
     // Run evaluation
     let datasets_root = workspace_root.join("datasets");
     let filter = evaluate::DetectorFilter { enabled: args.enable, disabled: args.disable };
-    let result = evaluate::evaluate_dataset(&sol_files, &args.solc_version, &datasets_root, &filter);
+    let result =
+        evaluate::evaluate_dataset(&sol_files, &args.solc_version, &datasets_root, &filter);
 
     // Print report
     report::print_report(&result, args.verbose);

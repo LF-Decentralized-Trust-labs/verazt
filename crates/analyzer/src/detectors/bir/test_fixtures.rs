@@ -15,7 +15,7 @@ use scirs::sir::evm::{EvmExpr, EvmLowLevelCall, EvmMsgSender, EvmTransfer};
 use scirs::sir::{
     AssignStmt, Attr, AttrValue, BoolLit, CallArgs, CallExpr, ContractDecl, Decl, DialectExpr,
     Expr, ExprStmt, FunctionDecl, IfStmt, IndexAccessExpr, IntNum, Lit, MemberDecl, Module, Num,
-    NumLit, Param, RevertStmt, StorageDecl, Stmt, StringLit, Type, VarExpr,
+    NumLit, Param, RevertStmt, Stmt, StorageDecl, StringLit, Type, VarExpr,
 };
 
 pub(crate) fn var(name: &str) -> Expr {
@@ -86,7 +86,11 @@ pub(crate) fn read_balance_at(key: Expr) -> Stmt {
 
 /// The integer literal `0` or `1`.
 pub(crate) fn int(one: bool) -> Expr {
-    let value = if one { IntNum::one() } else { IntNum::new(Zero::zero(), Type::I256) };
+    let value = if one {
+        IntNum::one()
+    } else {
+        IntNum::new(Zero::zero(), Type::I256)
+    };
     Expr::Lit(Lit::Num(NumLit::new(Num::Int(value), None)))
 }
 
@@ -114,14 +118,16 @@ pub(crate) fn function(name: &str, public: bool, body: Vec<Stmt>) -> FunctionDec
     let mut func = FunctionDecl::new(name.to_string(), params, vec![], Some(body), None);
     if public {
         let visibility = AttrValue::String("public".to_string());
-        func.attrs.push(Attr::new("sir", sir_attrs::VISIBILITY, visibility));
+        func.attrs
+            .push(Attr::new("sir", sir_attrs::VISIBILITY, visibility));
     }
     func
 }
 
 /// `func` marked with a reentrancy-guard attribute (e.g. `nonReentrant`).
 pub(crate) fn guarded(mut func: FunctionDecl) -> FunctionDecl {
-    func.attrs.push(Attr::new("sir", sir_attrs::REENTRANCY_GUARD, AttrValue::Bool(true)));
+    func.attrs
+        .push(Attr::new("sir", sir_attrs::REENTRANCY_GUARD, AttrValue::Bool(true)));
     func
 }
 

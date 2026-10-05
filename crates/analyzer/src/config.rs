@@ -160,7 +160,9 @@ impl Config {
 
 /// Number of threads the machine can run in parallel.
 pub fn available_threads() -> usize {
-    std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
 }
 
 #[cfg(test)]

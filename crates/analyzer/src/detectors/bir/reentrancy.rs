@@ -14,15 +14,14 @@
 //! after it).
 
 use super::reentrant_sites::{
-    has_guard_attr, ModuleFacts, ReentrantSite, REENTRANCY_RECOMMENDATION,
-    REENTRANCY_REFERENCES,
+    ModuleFacts, REENTRANCY_RECOMMENDATION, REENTRANCY_REFERENCES, ReentrantSite, has_guard_attr,
 };
 use crate::context::AnalysisContext;
 use crate::detectors::base::traits::DetectorResult;
 use crate::detectors::{BugDetectionPass, ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use crate::frameworks::bir::{FunctionView, StateAccess};
-use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::base::Pass;
+use crate::passes::base::meta::{PassLevel, PassRepresentation};
 use crate::passes::bir::{DominancePass, FunctionEffectsPass};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use scirs::bir::cfg::Function;
@@ -79,7 +78,10 @@ impl Pass for ReentrancyFlowDetector {
     }
 
     fn dependencies(&self) -> Vec<TypeId> {
-        vec![TypeId::of::<DominancePass>(), TypeId::of::<FunctionEffectsPass>()]
+        vec![
+            TypeId::of::<DominancePass>(),
+            TypeId::of::<FunctionEffectsPass>(),
+        ]
     }
 }
 
@@ -145,8 +147,11 @@ pub(super) fn stale_state(
         .iter()
         .flat_map(|pos| facts.state_written_by(view, view.op(*pos)))
         .collect();
-    let read: Vec<StateAccess> =
-        site.before.iter().filter_map(|pos| StateAccess::read_by(view, view.op(*pos))).collect();
+    let read: Vec<StateAccess> = site
+        .before
+        .iter()
+        .filter_map(|pos| StateAccess::read_by(view, view.op(*pos)))
+        .collect();
     written
         .iter()
         .filter(|w| read.iter().any(|r| w.may_alias(r)))
@@ -182,13 +187,23 @@ mod tests {
         let body = vec![read_balance(), call_out(), write_balance()];
         let bugs = detect(vec![function("withdraw", true, body)]);
         assert_eq!(bugs.len(), 1);
-        assert!(bugs[0].description.as_deref().unwrap().contains("@balances"));
+        assert!(
+            bugs[0]
+                .description
+                .as_deref()
+                .unwrap()
+                .contains("@balances")
+        );
     }
 
     #[test]
     fn test_ignores_write_not_read_before_call() {
         // Without a prior read, a re-entrant call observes no stale state.
-        let bugs = detect(vec![function("withdraw", true, vec![call_out(), write_balance()])]);
+        let bugs = detect(vec![function(
+            "withdraw",
+            true,
+            vec![call_out(), write_balance()],
+        )]);
         assert!(bugs.is_empty());
     }
 
@@ -217,7 +232,13 @@ mod tests {
         let settle = function("settle", false, vec![write_balance()]);
         let bugs = detect(vec![withdraw, settle]);
         assert_eq!(bugs.len(), 1);
-        assert!(bugs[0].description.as_deref().unwrap().contains("@balances"));
+        assert!(
+            bugs[0]
+                .description
+                .as_deref()
+                .unwrap()
+                .contains("@balances")
+        );
     }
 
     #[test]
@@ -267,11 +288,9 @@ mod tests {
     #[test]
     fn test_skips_guard_set_to_computed_value() {
         // mark = locked; locked = amount; call(); write; locked = mark;
-        let set_locked_to = |value: &str| Stmt::Assign(AssignStmt {
-            lhs: var("locked"),
-            rhs: var(value),
-            span: None,
-        });
+        let set_locked_to = |value: &str| {
+            Stmt::Assign(AssignStmt { lhs: var("locked"), rhs: var(value), span: None })
+        };
         let body = vec![
             check_locked(),
             set_locked_to("amount"),
@@ -287,14 +306,22 @@ mod tests {
     #[test]
     fn test_ignores_disjoint_constant_keys() {
         // balances[0] is read before the call; only balances[1] is written.
-        let body = vec![read_balance_at(int(false)), call_out(), write_balance_at(int(true))];
+        let body = vec![
+            read_balance_at(int(false)),
+            call_out(),
+            write_balance_at(int(true)),
+        ];
         let bugs = detect(vec![function("withdraw", true, body)]);
         assert!(bugs.is_empty());
     }
 
     #[test]
     fn test_flags_same_constant_key() {
-        let body = vec![read_balance_at(int(true)), call_out(), write_balance_at(int(true))];
+        let body = vec![
+            read_balance_at(int(true)),
+            call_out(),
+            write_balance_at(int(true)),
+        ];
         let bugs = detect(vec![function("withdraw", true, body)]);
         assert_eq!(bugs.len(), 1);
     }

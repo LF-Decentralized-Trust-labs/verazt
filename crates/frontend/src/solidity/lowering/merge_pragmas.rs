@@ -45,8 +45,8 @@ pub fn merge_pragma_elems(source_unit_elems: &[SourceUnitElem]) -> Vec<SourceUni
         nelems.push(npragma.into());
     }
 
-    // Take the newest abicoder pragma, e.g., v2 should have a higher priority than
-    // v1.
+    // Take the newest abicoder pragma, e.g., v2 should have a higher priority
+    // than v1.
     if !abicoder_pragmas.is_empty() {
         let sorted_pragmas: Vec<&PragmaDir> = abicoder_pragmas
             .iter()

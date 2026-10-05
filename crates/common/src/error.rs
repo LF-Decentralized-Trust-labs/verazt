@@ -26,7 +26,8 @@ pub type Report = color_eyre::eyre::Report;
 pub fn create_error(error_msg: impl std::fmt::Display) -> eyre::Report {
     let loc = Location::caller();
     let msg = if cfg!(debug_assertions) {
-        // If build in Debug mode, track source code location raising this error.
+        // If build in Debug mode, track source code location raising this
+        // error.
         format!("{}\nRaised at file: {}:{}.", error_msg, loc.file(), loc.line())
     } else {
         format!("{error_msg}")

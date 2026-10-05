@@ -99,7 +99,11 @@ fn test_sarif_results_reference_detector_rules() {
     assert_eq!(results[0]["ruleId"], "tx-origin");
     assert_eq!(results[0]["locations"][0]["physicalLocation"]["region"]["startLine"], 3);
     assert_eq!(results[1]["ruleId"], "floating-pragma");
-    assert!(results[1]["locations"][0]["physicalLocation"].get("region").is_none());
+    assert!(
+        results[1]["locations"][0]["physicalLocation"]
+            .get("region")
+            .is_none()
+    );
 }
 
 #[test]

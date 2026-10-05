@@ -1,12 +1,12 @@
 //! Front Running / Transaction Order Dependence Detector
 //!
 //! Detects patterns vulnerable to front-running (SWC-114):
-//! 1. ERC-20 `approve` functions that set an allowance without checking its
-//!    old value
+//! 1. ERC-20 `approve` functions that set an allowance without checking its old
+//!    value
 //! 2. Ether payments whose amount reads a state variable that another public
 //!    function writes, so the amount depends on transaction order
-//! 3. Payments to the caller for a value whose hash the function requires:
-//!    the value is visible to others before the transaction is mined
+//! 3. Payments to the caller for a value whose hash the function requires: the
+//!    value is visible to others before the transaction is mined
 
 use std::collections::BTreeSet;
 
@@ -18,8 +18,8 @@ use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::dialect::{EvmExprExt, EvmFunctionExt};
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{
-    AssignStmt, BinOp, ContractDecl, DialectExpr, Expr, FunctionDecl, IndexAccessExpr,
-    MemberDecl, Module, Stmt, VarExpr,
+    AssignStmt, BinOp, ContractDecl, DialectExpr, Expr, FunctionDecl, IndexAccessExpr, MemberDecl,
+    Module, Stmt, VarExpr,
 };
 
 const META: DetectorMeta = DetectorMeta {
@@ -72,11 +72,9 @@ fn payment(expr: &Expr) -> Option<Payment<'_>> {
         Expr::Dialect(DialectExpr::Evm(EvmExpr::Send(e))) => {
             Some(Payment { recipient: &e.target, amount: &e.value, loc: e.loc.clone() })
         }
-        Expr::Dialect(DialectExpr::Evm(EvmExpr::LowLevelCall(e))) => Some(Payment {
-            recipient: &e.target,
-            amount: e.value.as_deref()?,
-            loc: e.loc.clone(),
-        }),
+        Expr::Dialect(DialectExpr::Evm(EvmExpr::LowLevelCall(e))) => {
+            Some(Payment { recipient: &e.target, amount: e.value.as_deref()?, loc: e.loc.clone() })
+        }
         Expr::FunctionCall(call) => {
             let loc = call.span.clone().unwrap_or_default();
             match (&*call.callee, call.args.exprs().as_slice()) {

@@ -16,8 +16,8 @@ use scirs::sir::exprs::Expr;
 use scirs::sir::stmts::Stmt;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{
-    AssignStmt, AugAssignStmt, CallExpr, ContractDecl, DialectExpr, ForStmt, FunctionDecl,
-    Module, WhileStmt,
+    AssignStmt, AugAssignStmt, CallExpr, ContractDecl, DialectExpr, ForStmt, FunctionDecl, Module,
+    WhileStmt,
 };
 
 const META: DetectorMeta = DetectorMeta {
@@ -81,7 +81,10 @@ impl<'a> Visit<'a> for LoopBody<'_> {
     }
 
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        if stmt.required_condition().is_some_and(|cond| cond.is_evm_external_call()) {
+        if stmt
+            .required_condition()
+            .is_some_and(|cond| cond.is_evm_external_call())
+        {
             self.reverting_call = true;
         }
         visit::default::visit_stmt(self, stmt);
@@ -155,9 +158,7 @@ fn loop_risk(
 fn sends_to_another_account(expr: &Expr) -> bool {
     let recipient = match expr {
         Expr::FunctionCall(call) => match &*call.callee {
-            Expr::FieldAccess(fa) if matches!(fa.field.as_str(), "send" | "transfer") => {
-                &*fa.base
-            }
+            Expr::FieldAccess(fa) if matches!(fa.field.as_str(), "send" | "transfer") => &*fa.base,
             _ => return false,
         },
         Expr::Dialect(DialectExpr::Evm(EvmExpr::Send(e))) => &*e.target,
@@ -223,8 +224,13 @@ impl ScanDetector for DenialOfServiceDetector {
             /// Report the loop at `span` if it risks denial of service, then
             /// visit its body.
             fn check_loop(&mut self, cond: Option<&Expr>, body: &[Stmt], span: Option<&Loc>) {
-                let risk =
-                    loop_risk(cond, body, &self.storage_vars, &self.contract_name, &self.func_name);
+                let risk = loop_risk(
+                    cond,
+                    body,
+                    &self.storage_vars,
+                    &self.contract_name,
+                    &self.func_name,
+                );
                 if let Some(message) = risk {
                     let loc = span.cloned().unwrap_or_else(|| Loc::new(0, 0, 0, 0));
                     self.bugs.push(META.bug(Some(&message), loc));

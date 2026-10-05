@@ -5,15 +5,13 @@
 //!
 //! ## Responsibility boundaries
 //!
-//! - **`manager`**: the single owner of the registered passes; entry point
-//!   for callers; delegates to scheduler then executor; produces
-//!   `PassRunReport`.
+//! - **`manager`**: the single owner of the registered passes; entry point for
+//!   callers; delegates to scheduler then executor; produces `PassRunReport`.
 //! - **`scheduler`**: pure function from the registered passes to an
 //!   `ExecutionSchedule`; must not mutate `AnalysisContext`.
 //! - **`executor`**: borrows the manager's passes, takes `ExecutionSchedule`
 //!   + `AnalysisContext`; drives execution and timing.
-//! - **`dependency`**: dependency graph, topological sort ordered by pass
-//!   name.
+//! - **`dependency`**: dependency graph, topological sort ordered by pass name.
 //! - **`registry`**: constructors of the passes that may be scheduled.
 
 pub mod dependency;

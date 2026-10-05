@@ -1,9 +1,9 @@
 //! Parser that parses Solidity AST in JSON format and produces an AST.
 
+use crate::solidity::ast::utils::Visit;
 use crate::solidity::ast::yul as yast;
 use crate::solidity::ast::{DataLoc, Loc, Name};
 use crate::solidity::parsing::yul_parser;
-use crate::solidity::ast::utils::Visit;
 use crate::solidity::{ast::*, parsing::type_parser::type_parser};
 use codespan_reporting::files::{Files, SimpleFiles};
 use color_eyre::eyre::Result;

@@ -164,6 +164,6 @@ mod tests {
     fn test_arithmetic_overflow_detector() {
         let detector = ArithmeticOverflowDetector::new();
         assert_eq!(detector.meta().id, DetectorId::ArithmeticOverflow);
-        assert_eq!(detector.meta().risk_level,RiskLevel::High);
+        assert_eq!(detector.meta().risk_level, RiskLevel::High);
     }
 }

@@ -8,7 +8,8 @@ use crate::frameworks::cfa::domtree::DomTree;
 use crate::frameworks::dfa::{Direction, OpFacts, PowerSetLattice};
 use crate::passes::base::Pass;
 use crate::passes::bir::{
-    DominanceArtifact, DominancePass, FunctionEffects, FunctionEffectsArtifact, FunctionEffectsPass,
+    DominanceArtifact, DominancePass, FunctionEffects, FunctionEffectsArtifact,
+    FunctionEffectsPass,
 };
 use scirs::bir::cfg::{Function, FunctionId};
 use scirs::bir::module::Module;
@@ -21,8 +22,7 @@ use std::collections::HashMap;
 // ═══════════════════════════════════════════════════════════════════
 
 /// How to fix any reentrancy finding.
-pub(crate) const REENTRANCY_RECOMMENDATION: &str =
-    "Follow the Checks-Effects-Interactions pattern: perform all state changes \
+pub(crate) const REENTRANCY_RECOMMENDATION: &str = "Follow the Checks-Effects-Interactions pattern: perform all state changes \
      before making external calls. Consider using a reentrancy guard \
      (e.g., OpenZeppelin's ReentrancyGuard).";
 
@@ -84,8 +84,10 @@ impl<'a> ModuleFacts<'a> {
 
     /// The re-entrant call sites of the function of `view`.
     pub fn reentrant_sites(&self, view: &FunctionView) -> Vec<ReentrantSite> {
-        let calls: Vec<OpPos> =
-            view.positions().filter(|pos| self.is_reentrant_call(view.op(*pos))).collect();
+        let calls: Vec<OpPos> = view
+            .positions()
+            .filter(|pos| self.is_reentrant_call(view.op(*pos)))
+            .collect();
         if calls.is_empty() {
             return vec![];
         }
@@ -102,7 +104,8 @@ impl<'a> ModuleFacts<'a> {
             .map(|pos| {
                 let before = sorted(before.at(pos));
                 let after = sorted(after.at(pos));
-                let guard_flag = dom.and_then(|dom| mutex_guard_flag(view, dom, pos, &before, &after));
+                let guard_flag =
+                    dom.and_then(|dom| mutex_guard_flag(view, dom, pos, &before, &after));
                 ReentrantSite { after, before, guard_flag, pos }
             })
             .collect()
@@ -131,7 +134,9 @@ impl<'a> ModuleFacts<'a> {
     /// Returns `true` if `op` is a re-entrant external call, or an internal
     /// call to a function that makes one.
     fn is_reentrant_call(&self, op: &Op) -> bool {
-        let OpKind::Call(call) = &op.kind else { return false };
+        let OpKind::Call(call) = &op.kind else {
+            return false;
+        };
         match &call.target {
             CallTarget::External(_) => call.may_reenter(),
             CallTarget::Internal(callee) => self.effects_of(callee).is_some_and(|e| e.may_reenter),
@@ -176,14 +181,19 @@ fn mutex_guard_flag(
     after: &[OpPos],
 ) -> Option<String> {
     let flag_stores = |positions: &[OpPos]| -> Vec<(OpPos, String)> {
-        positions.iter().filter_map(|pos| Some((*pos, flag_store(view.op(*pos))?))).collect()
+        positions
+            .iter()
+            .filter_map(|pos| Some((*pos, flag_store(view.op(*pos))?)))
+            .collect()
     };
     let resets = flag_stores(after);
     flag_stores(before)
         .into_iter()
         .filter(|(set, _)| view.always_precedes(dom, *set, site))
         .find(|(set, flag)| {
-            resets.iter().any(|(reset, reset_flag)| reset != set && reset_flag == flag)
+            resets
+                .iter()
+                .any(|(reset, reset_flag)| reset != set && reset_flag == flag)
                 && before.iter().any(|pos| reads_state(view.op(*pos), flag))
         })
         .map(|(_, flag)| flag)
@@ -193,7 +203,9 @@ fn mutex_guard_flag(
 /// (e.g. `@locked`), if any. Mutex flags are scalars; indexed entries such as
 /// `balances[a] = 0` are data, not locks.
 fn flag_store(op: &Op) -> Option<String> {
-    let OpKind::Store(store) = &op.kind else { return None };
+    let OpKind::Store(store) = &op.kind else {
+        return None;
+    };
     let is_scalar = matches!(store.resource, Resource::StateVar(_)) && store.keys.is_empty();
     is_scalar.then(|| store.resource.to_string())
 }

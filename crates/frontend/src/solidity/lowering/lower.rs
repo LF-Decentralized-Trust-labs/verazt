@@ -103,7 +103,8 @@ impl Lowerer {
         for elem in &su.elems {
             match elem {
                 ast::SourceUnitElem::Pragma(p) => {
-                    // Capture `pragma solidity <version>` as a module attribute.
+                    // Capture `pragma solidity <version>` as a module
+                    // attribute.
                     if let ast::PragmaKind::Version(ver) = &p.kind {
                         module_attrs.push(
                             Attr::sir(sir_attrs::PRAGMA_SOLIDITY, AttrValue::String(ver.clone()))
@@ -115,7 +116,8 @@ impl Lowerer {
                     fail!("IR: `import` must be eliminated: {}", elem)
                 }
                 ast::SourceUnitElem::Using(u) => {
-                    // Preserve using-for directives — will be eliminated at SIR → CIR level.
+                    // Preserve using-for directives — will be eliminated at SIR
+                    // → CIR level.
                     let target_type = match &u.target_type {
                         Some(t) => Some(self.lower_type(t)?),
                         None => None,
@@ -181,7 +183,8 @@ impl Lowerer {
     fn lower_contract_def(&mut self, c: &ast::ContractDef) -> Result<ContractDecl> {
         trace!("Lower contract: {}", c.name);
 
-        // Populate parents from base_contracts — will be resolved at SIR → CIR level.
+        // Populate parents from base_contracts — will be resolved at SIR → CIR
+        // level.
         let parents: Vec<String> = c
             .base_contracts
             .iter()
@@ -205,7 +208,8 @@ impl Lowerer {
     fn lower_contract_elem(&mut self, elem: &ast::ContractElem) -> Result<Vec<MemberDecl>> {
         match elem {
             ast::ContractElem::Using(u) => {
-                // Preserve using-for directives — will be eliminated at SIR → CIR level.
+                // Preserve using-for directives — will be eliminated at SIR →
+                // CIR level.
                 let target_type = match &u.target_type {
                     Some(t) => Some(self.lower_type(t)?),
                     None => None,
@@ -234,7 +238,8 @@ impl Lowerer {
             ast::ContractElem::Var(v) => Ok(vec![self.lower_state_var(v)?]),
             ast::ContractElem::Func(f) => {
                 if f.kind == ast::FuncKind::Modifier {
-                    // Lower modifier definitions — will be inlined at SIR → CIR level.
+                    // Lower modifier definitions — will be inlined at SIR → CIR
+                    // level.
                     Ok(vec![self.lower_modifier_def(f)?])
                 } else {
                     Ok(vec![MemberDecl::Function(self.lower_func_def(f)?)])
@@ -993,7 +998,11 @@ impl Lowerer {
                 let tmp_name = self.fresh_var_name();
                 let tmp_var = Expr::Var(VarExpr::new(tmp_name.clone(), ty.clone(), span.clone()));
                 stmts.push(Stmt::LocalVar(LocalVarStmt {
-                    vars: vec![Some(LocalVarDecl { name: tmp_name, ty, is_storage_ref: false })],
+                    vars: vec![Some(LocalVarDecl {
+                        name: tmp_name,
+                        ty,
+                        is_storage_ref: false,
+                    })],
                     init: Some(operand.clone()),
                     span: span.clone(),
                 }));
@@ -1118,13 +1127,7 @@ impl Lowerer {
                             let v = Box::new(pos.remove(0));
                             let r = Box::new(pos.remove(0));
                             let s = Box::new(pos.remove(0));
-                            EvmExpr::Ecrecover(EvmEcrecover {
-                                hash,
-                                v,
-                                r,
-                                s,
-                                loc: loc.clone(),
-                            })
+                            EvmExpr::Ecrecover(EvmEcrecover { hash, v, r, s, loc: loc.clone() })
                         }
                         "addmod" => {
                             let x = Box::new(pos.remove(0));
@@ -1176,10 +1179,9 @@ impl Lowerer {
                     stmts.extend(extra);
                     let pos = args.into_positional();
                     let evm = match method.as_str() {
-                        "encode" => Some(EvmExpr::AbiEncode(EvmAbiEncode {
-                            args: pos,
-                            loc: loc.clone(),
-                        })),
+                        "encode" => {
+                            Some(EvmExpr::AbiEncode(EvmAbiEncode { args: pos, loc: loc.clone() }))
+                        }
                         "encodePacked" => Some(EvmExpr::AbiEncodePacked(EvmAbiEncodePacked {
                             args: pos,
                             loc: loc.clone(),
@@ -1191,8 +1193,9 @@ impl Lowerer {
                             } else {
                                 p.remove(0)
                             };
-                            // The rest of the args represent the types to decode to
-                            // In the AST, `abi.decode(data, (uint, address))` passes types
+                            // The rest of the args represent the types to
+                            // decode to In the AST,
+                            // `abi.decode(data, (uint, address))` passes types
                             // We use the expression's return type from the AST
                             let types = match &ty {
                                 Type::Tuple(ts) => ts.clone(),
@@ -1255,7 +1258,8 @@ impl Lowerer {
             // ── Fix 9: addr.transfer(amt) / addr.send(amt) ─────────
             let method = mem.member.to_string();
             if method == "transfer" || method == "send" {
-                // Only intercept single-argument calls (address.transfer/send take 1 arg)
+                // Only intercept single-argument calls (address.transfer/send
+                // take 1 arg)
                 if let ast::CallArgs::Unnamed(uargs) = &e.args {
                     if uargs.len() == 1 {
                         let (base_e, extra) = self.lower_expr(&mem.base)?;
@@ -1302,9 +1306,10 @@ impl Lowerer {
         let span = loc_to_span(&e.loc);
 
         // The callee is typically a CallExpr wrapping a MemberExpr:
-        //   `addr.call{value: x}(data)` → callee=Call(Member(addr, "call"), [data])
-        // Or it could be a direct MemberExpr without further call:
-        //   We need to extract target, method name, and call args.
+        //   `addr.call{value: x}(data)` → callee=Call(Member(addr, "call"),
+        // [data]) Or it could be a direct MemberExpr without further
+        // call:   We need to extract target, method name, and call
+        // args.
 
         // Extract call-options value/gas
         let mut opt_value: Option<Box<Expr>> = None;
@@ -1400,7 +1405,8 @@ impl Lowerer {
                 Ok((CallArgs::Positional(result), stmts))
             }
             ast::CallArgs::Named(named) => {
-                // Preserve named args — will be converted to positional at SIR → CIR level.
+                // Preserve named args — will be converted to positional at SIR
+                // → CIR level.
                 let mut stmts = vec![];
                 let mut result = vec![];
                 for n in named {
@@ -1514,17 +1520,11 @@ impl Lowerer {
             let loc = span.clone().unwrap_or_default();
             let base_name = base_id.name.base.as_str();
             let evm_expr = match (base_name, member.as_str()) {
-                ("msg", "sender") => {
-                    Some(EvmExpr::MsgSender(EvmMsgSender { loc: loc.clone() }))
-                }
-                ("msg", "value") => {
-                    Some(EvmExpr::MsgValue(EvmMsgValue { loc: loc.clone() }))
-                }
+                ("msg", "sender") => Some(EvmExpr::MsgSender(EvmMsgSender { loc: loc.clone() })),
+                ("msg", "value") => Some(EvmExpr::MsgValue(EvmMsgValue { loc: loc.clone() })),
                 ("msg", "data") => Some(EvmExpr::MsgData(EvmMsgData { loc: loc.clone() })),
                 ("msg", "sig") => Some(EvmExpr::MsgSig(EvmMsgSig { loc: loc.clone() })),
-                ("tx", "origin") => {
-                    Some(EvmExpr::TxOrigin(EvmTxOrigin { loc: loc.clone() }))
-                }
+                ("tx", "origin") => Some(EvmExpr::TxOrigin(EvmTxOrigin { loc: loc.clone() })),
                 ("block", "timestamp") => {
                     Some(EvmExpr::Timestamp(EvmTimestamp { loc: loc.clone() }))
                 }

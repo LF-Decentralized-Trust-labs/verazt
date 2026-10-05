@@ -112,6 +112,6 @@ mod tests {
     fn test_delegatecall_detector() {
         let detector = DelegatecallDetector::new();
         assert_eq!(detector.meta().id, DetectorId::Delegatecall);
-        assert_eq!(detector.meta().risk_level,RiskLevel::High);
+        assert_eq!(detector.meta().risk_level, RiskLevel::High);
     }
 }

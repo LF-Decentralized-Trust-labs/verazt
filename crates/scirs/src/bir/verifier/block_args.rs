@@ -36,7 +36,9 @@ fn check_function(func: &Function, errors: &mut Vec<VerifyError>) {
     for block in &func.blocks {
         for call in block.term.block_calls() {
             // Unknown targets are reported by `cfg_well_formed`.
-            let Some(&expected) = arity.get(&call.block) else { continue };
+            let Some(&expected) = arity.get(&call.block) else {
+                continue;
+            };
             if call.args.len() != expected {
                 errors.push(VerifyError::new(
                     PASS,

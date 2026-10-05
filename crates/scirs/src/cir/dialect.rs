@@ -170,9 +170,11 @@ impl CanonDialectExpr {
         match &self.kind {
             CanonDialectKind::Anchor(CanonAnchorExpr::AccountLoadMut(account))
             | CanonDialectKind::Anchor(CanonAnchorExpr::SignerKey(account)) => vec![account],
-            CanonDialectKind::Anchor(CanonAnchorExpr::FindProgramAddress(pda)) => {
-                pda.seeds.iter().chain(std::iter::once(&*pda.program_id)).collect()
-            }
+            CanonDialectKind::Anchor(CanonAnchorExpr::FindProgramAddress(pda)) => pda
+                .seeds
+                .iter()
+                .chain(std::iter::once(&*pda.program_id))
+                .collect(),
             CanonDialectKind::Evm(CanonEvmExpr::Builtin(builtin)) => builtin.args.iter().collect(),
             CanonDialectKind::Evm(CanonEvmExpr::InlineAsm(_)) => vec![],
             CanonDialectKind::Move(CanonMoveExpr::BorrowGlobalMut(global))
@@ -218,7 +220,9 @@ impl Display for CanonMoveExpr {
             CanonMoveExpr::Exists(e) => write!(f, "move.exists<{}>({})", e.ty, e.addr),
             CanonMoveExpr::MoveFrom(e) => write!(f, "move.move_from<{}>({})", e.ty, e.addr),
             CanonMoveExpr::SignerAddress(e) => write!(f, "move.signer_address({e})"),
-            CanonMoveExpr::WriteRef(e) => write!(f, "move.write_ref({}, {})", e.reference, e.value),
+            CanonMoveExpr::WriteRef(e) => {
+                write!(f, "move.write_ref({}, {})", e.reference, e.value)
+            }
         }
     }
 }
@@ -242,7 +246,9 @@ impl Display for CanonDialectStmt {
                 write!(f, "evm.selfdestruct({});", s.recipient)
             }
             CanonDialectStmt::Evm(CanonEvmStmt::TryCatch(s)) => write!(f, "{s}"),
-            CanonDialectStmt::Move(CanonMoveStmt::Abort(s)) => write!(f, "move.abort({});", s.code),
+            CanonDialectStmt::Move(CanonMoveStmt::Abort(s)) => {
+                write!(f, "move.abort({});", s.code)
+            }
             CanonDialectStmt::Move(CanonMoveStmt::SpecBlock(s)) => {
                 write!(f, "spec {{ {} }}", join(&s.assertions))
             }
@@ -258,7 +264,12 @@ impl Display for CanonTryCatchStmt {
         }
         write_body(f, &self.body)?;
         for clause in &self.catch_clauses {
-            write!(f, " catch {}({})", clause.error.as_deref().unwrap_or(""), join_params(&clause.params))?;
+            write!(
+                f,
+                " catch {}({})",
+                clause.error.as_deref().unwrap_or(""),
+                join_params(&clause.params)
+            )?;
             write_body(f, &clause.body)?;
         }
         Ok(())
@@ -266,11 +277,19 @@ impl Display for CanonTryCatchStmt {
 }
 
 fn join(exprs: &[CanonExpr]) -> String {
-    exprs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
+    exprs
+        .iter()
+        .map(|e| e.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn join_params(params: &[(String, Type)]) -> String {
-    params.iter().map(|(name, ty)| format!("{ty} {name}")).collect::<Vec<_>>().join(", ")
+    params
+        .iter()
+        .map(|(name, ty)| format!("{ty} {name}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn write_body(f: &mut fmt::Formatter<'_>, body: &[CanonStmt]) -> fmt::Result {

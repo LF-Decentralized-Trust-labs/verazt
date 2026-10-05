@@ -181,18 +181,20 @@ fn unfold_imported_source_unit(
     // TODO: rename this variable.
     let mut symbol_aliases: HashMap<String, Name> = HashMap::new();
 
-    // Import only source unit elements having names, since only they are accessible
-    // from the source unit alias.
+    // Import only source unit elements having names, since only they are
+    // accessible from the source unit alias.
     for elem in imported_source_unit.elems.iter() {
         if let Some(elem_name) = elem.get_name() {
-            // Use the base name (without indexing) to construct the alias reference.
+            // Use the base name (without indexing) to construct the alias
+            // reference.
             let elem_aliased_name = format!("{}.{}", source_unit_alias, elem_name.base);
 
             // Create the prefixed name: {alias}_{original_name}
             let prefixed_base = format!("{}_{}", source_unit_alias, elem_name.base);
             let prefixed_name = Name::new(prefixed_base, elem_name.index);
 
-            // Map the member access expression (e.g., S1.foo) to the prefixed name
+            // Map the member access expression (e.g., S1.foo) to the prefixed
+            // name
             symbol_aliases.insert(elem_aliased_name, prefixed_name.clone());
 
             let imported_elem_name = format!("{}:{}", imported_source_unit.path, &elem_name);
@@ -319,8 +321,9 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                             s
                         });
 
-                // Skip if this import path was already resolved for this source unit
-                // (cycle detection: prevents infinite loops from circular imports).
+                // Skip if this import path was already resolved for this source
+                // unit (cycle detection: prevents infinite
+                // loops from circular imports).
                 if sunit_resolved.contains(&imported_full_path) {
                     let nsunit = SourceUnit { elems: other_elems, ..sunit.clone() };
                     nsource_units.push(nsunit);
@@ -362,7 +365,8 @@ pub fn eliminate_import(source_units: &[SourceUnit]) -> Vec<SourceUnit> {
                                     sunit_elem_names.insert(imported_elem_name);
                                 } else if matches!(elem, SourceUnitElem::Import(_)) {
                                     // Skip import directives that reference any
-                                    // already-resolved path to prevent circular imports.
+                                    // already-resolved path to prevent circular
+                                    // imports.
                                     if let SourceUnitElem::Import(import_dir) = elem {
                                         let import_path = import_dir.get_import_path();
                                         let imported_full =
@@ -557,7 +561,8 @@ mod tests {
             }"###},
         );
 
-        // Expected output contract 1: no variable indexes, only function indexes
+        // Expected output contract 1: no variable indexes, only function
+        // indexes
         let expected_1 = (
             "import_as_s1.sol",
             indoc! {r###"
@@ -573,8 +578,8 @@ mod tests {
         );
 
         // Expected output contract 2:
-        //   - Symbol imports ({a as b, fre, fre as foo}): bring names directly, no
-        //     prefix
+        //   - Symbol imports ({a as b, fre, fre as foo}): bring names directly,
+        //     no prefix
         //   - Aliased import (as S1): prefix with S1_
         //   - Variables keep original names (no indexes)
         //   - Only functions get indexes from rename_defs
