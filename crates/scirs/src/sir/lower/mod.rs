@@ -916,7 +916,7 @@ mod tests {
     fn test_local_shadows_state_only_inside_its_block() {
         // if (c) { uint balances = true; balances = true; } balances = true;
         let local = Stmt::LocalVar(LocalVarStmt {
-            vars: vec![Some(LocalVarDecl { name: "balances".to_string(), ty: Type::I256 })],
+            vars: vec![Some(LocalVarDecl { name: "balances".to_string(), ty: Type::I256, is_storage_ref: false })],
             init: Some(lit()),
             span: None,
         });

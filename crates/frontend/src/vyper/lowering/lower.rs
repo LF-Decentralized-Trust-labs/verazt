@@ -311,7 +311,7 @@ impl Lowerer {
                     None => None,
                 };
                 Ok(Some(Stmt::LocalVar(LocalVarStmt {
-                    vars: vec![Some(LocalVarDecl { name, ty })],
+                    vars: vec![Some(LocalVarDecl { name, ty, is_storage_ref: false })],
                     init,
                     span: loc_to_span(s.loc.as_ref()),
                 })))
@@ -416,6 +416,7 @@ impl Lowerer {
                     vars: vec![Some(LocalVarDecl {
                         name: target_name.clone(),
                         ty: Type::I256,
+                        is_storage_ref: false,
                     })],
                     init: Some(start_val),
                     span: None,
@@ -461,6 +462,7 @@ impl Lowerer {
                     vars: vec![Some(LocalVarDecl {
                         name: idx_name.clone(),
                         ty: Type::I256,
+                        is_storage_ref: false,
                     })],
                     init: Some(Expr::Lit(Lit::Num(NumLit {
                         value: Num::Int(IntNum { value: 0.into(), typ: Type::I256 }),

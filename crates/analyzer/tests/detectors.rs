@@ -241,3 +241,31 @@ contract Payer {
     lines.sort();
     assert_eq!(lines, vec![3, 4]);
 }
+
+/// Test that uninitialized-storage reports a local storage struct declared
+/// without an initializer, and not initialized storage references or
+/// memory structs.
+#[test]
+fn test_uninitialized_storage_reports_uninitialized_storage_pointer() {
+    let source = "pragma solidity ^0.4.24;
+contract Registrar {
+    struct Record { uint a; }
+    Record[] records;
+    function bad() public { Record r; r.a = 1; }
+    function good() public { Record storage r = records[0]; r.a = 1; }
+    function mem() public pure { Record memory r; r.a = 1; }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["uninitialized-storage".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    assert_eq!(lines, vec![5]);
+}

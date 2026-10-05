@@ -798,7 +798,11 @@ impl Lowerer {
             match vopt {
                 Some(vd) => {
                     let ty = self.lower_type(&vd.typ)?;
-                    vars.push(Some(LocalVarDecl { name: vd.name.to_string(), ty }));
+                    vars.push(Some(LocalVarDecl {
+                        name: vd.name.to_string(),
+                        ty,
+                        is_storage_ref: vd.typ.data_loc() == ast::DataLoc::Storage,
+                    }));
                 }
                 None => vars.push(None),
             }
@@ -978,7 +982,7 @@ impl Lowerer {
                 let tmp_name = self.fresh_var_name();
                 let tmp_var = Expr::Var(VarExpr::new(tmp_name.clone(), ty.clone(), span.clone()));
                 stmts.push(Stmt::LocalVar(LocalVarStmt {
-                    vars: vec![Some(LocalVarDecl { name: tmp_name, ty })],
+                    vars: vec![Some(LocalVarDecl { name: tmp_name, ty, is_storage_ref: false })],
                     init: Some(operand.clone()),
                     span: span.clone(),
                 }));

@@ -46,6 +46,9 @@ pub struct LocalVarStmt {
 pub struct LocalVarDecl {
     pub name: String,
     pub ty: Type,
+    /// Whether the variable is a reference into contract storage, as a
+    /// Solidity `storage` local is.
+    pub is_storage_ref: bool,
 }
 
 /// Assignment: `lhs = rhs`

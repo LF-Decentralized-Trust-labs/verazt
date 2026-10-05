@@ -1934,13 +1934,25 @@ impl AstParser {
 
     /// Get data type of a JSON AST node.
     fn parse_data_type(&mut self, node: &Value) -> Result<Type> {
-        let data_loc = match node.get("storageLocation") {
+        let mut data_loc = match node.get("storageLocation") {
             Some(v) => v
                 .as_str()
                 .ok_or_else(|| error!("Data location invalid: {node}"))
                 .and_then(DataLoc::new)?,
             None => DataLoc::None,
         };
+        // Before Solidity 0.5, a local struct or array declared without a
+        // location defaults to storage, which only the type identifier
+        // records (`t_struct$_S_$4_storage_ptr`).
+        let type_identifier = node
+            .get("typeDescriptions")
+            .and_then(|d| d.get("typeIdentifier"))
+            .and_then(Value::as_str);
+        if data_loc == DataLoc::None
+            && type_identifier.is_some_and(|s| s.ends_with("_storage_ptr"))
+        {
+            data_loc = DataLoc::Storage;
+        }
         // First, parse data type from the `typeName` information.
         if let Some(type_name_node) = node.get("typeName")
             && let Ok(mut output_typ) = self.parse_type_name(type_name_node)

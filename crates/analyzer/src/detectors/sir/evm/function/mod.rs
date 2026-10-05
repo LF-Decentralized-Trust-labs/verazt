@@ -12,6 +12,7 @@ pub mod short_address;
 pub mod timestamp_dependence;
 pub mod tx_origin;
 pub mod unchecked_call;
+pub mod uninitialized;
 
 pub use arithmetic_overflow::ArithmeticOverflowDetector;
 pub use bad_randomness::BadRandomnessDetector;
@@ -25,3 +26,4 @@ pub use short_address::ShortAddressDetector;
 pub use timestamp_dependence::TimestampDependenceDetector;
 pub use tx_origin::TxOriginDetector;
 pub use unchecked_call::UncheckedCallDetector;
+pub use uninitialized::UninitializedDetector;

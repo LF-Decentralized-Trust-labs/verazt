@@ -355,7 +355,7 @@ fn lift_to_atom(expr: &sir::Expr, pre: &mut Vec<sir::Stmt>, counter: &mut usize)
         let tmp_name = format!("__tmp_{counter}");
         let ty = e.typ();
         let span = e.span().cloned();
-        let decl = sir::LocalVarDecl { name: tmp_name.clone(), ty: ty.clone() };
+        let decl = sir::LocalVarDecl { name: tmp_name.clone(), ty: ty.clone(), is_storage_ref: false };
         pre.push(sir::Stmt::LocalVar(sir::LocalVarStmt {
             vars: vec![Some(decl)],
             init: Some(e),
