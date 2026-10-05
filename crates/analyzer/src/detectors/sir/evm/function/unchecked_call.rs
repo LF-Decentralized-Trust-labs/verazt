@@ -6,7 +6,7 @@ use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
 use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
-use scirs::sir::dialect::EvmCallExt;
+use scirs::sir::dialect::EvmExprExt;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, DialectExpr, Expr, ExprStmt, FunctionDecl, Module};
@@ -31,20 +31,14 @@ const META: DetectorMeta = DetectorMeta {
 /// flag of a low-level call. `transfer` reverts on failure, so discarding
 /// its result is safe.
 fn discards_call_result(expr: &Expr) -> bool {
-    match expr {
+    let is_transfer = match expr {
         Expr::FunctionCall(call) => {
-            let is_transfer =
-                matches!(&*call.callee, Expr::FieldAccess(fa) if fa.field == "transfer");
-            call.is_evm_external_call() && !is_transfer
+            matches!(&*call.callee, Expr::FieldAccess(fa) if fa.field == "transfer")
         }
-        Expr::Dialect(DialectExpr::Evm(
-            EvmExpr::Send(_)
-            | EvmExpr::LowLevelCall(_)
-            | EvmExpr::RawCall(_)
-            | EvmExpr::Delegatecall(_),
-        )) => true,
+        Expr::Dialect(DialectExpr::Evm(EvmExpr::Transfer(_))) => true,
         _ => false,
-    }
+    };
+    expr.is_evm_external_call() && !is_transfer
 }
 
 /// Scan detector for unchecked call return values.

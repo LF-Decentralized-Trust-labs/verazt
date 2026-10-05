@@ -95,6 +95,35 @@ impl EvmCallExt for CallExpr {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// EvmExprExt — queries on Expr
+// ═══════════════════════════════════════════════════════════════════
+
+/// Extension trait for EVM-dialect queries on [`Expr`].
+pub trait EvmExprExt {
+    /// Returns `true` if the expression is an EVM external call, in either
+    /// lowered form: a call that [`EvmCallExt::is_evm_external_call`], or a
+    /// `send`, `transfer`, low-level call or `delegatecall` dialect
+    /// expression.
+    fn is_evm_external_call(&self) -> bool;
+}
+
+impl EvmExprExt for Expr {
+    fn is_evm_external_call(&self) -> bool {
+        match self {
+            Expr::FunctionCall(call) => call.is_evm_external_call(),
+            Expr::Dialect(DialectExpr::Evm(
+                EvmExpr::Send(_)
+                | EvmExpr::Transfer(_)
+                | EvmExpr::LowLevelCall(_)
+                | EvmExpr::RawCall(_)
+                | EvmExpr::Delegatecall(_),
+            )) => true,
+            _ => false,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // EvmStorageExt — queries on StorageDecl
 // ═══════════════════════════════════════════════════════════════════
 
