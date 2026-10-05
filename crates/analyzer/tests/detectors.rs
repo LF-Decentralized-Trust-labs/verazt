@@ -156,3 +156,35 @@ contract Lottery {
     assert_eq!(line_of("tx-origin"), 5);
     assert_eq!(line_of("timestamp-dependence"), 6);
 }
+
+/// Test that missing-access-control reports only the public function that
+/// lets any caller change an authorization variable.
+#[test]
+fn test_missing_access_control_reports_unguarded_owner_change() {
+    let source = "pragma solidity ^0.4.24;
+contract Wallet {
+    address owner;
+    mapping(address => uint256) balances;
+    mapping(uint256 => address) channelOwners;
+    modifier onlyOwner { if (msg.sender == owner) _; }
+    function Wallet() public { owner = msg.sender; }
+    function deposit() public payable { balances[msg.sender] += msg.value; }
+    function setOwner(address o) public onlyOwner { owner = o; }
+    function resetOwner(address o) public { require(owner == msg.sender); owner = o; }
+    function claim(uint256 id) public { require(channelOwners[id] == msg.sender); channelOwners[id] = 0; }
+    function changeOwner(address o) public { owner = o; }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["missing-access-control".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    assert_eq!(lines, vec![12], "only changeOwner should be reported");
+}
