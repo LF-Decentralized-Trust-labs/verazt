@@ -442,6 +442,66 @@ impl Display for EvmExpr {
 }
 
 impl EvmExpr {
+    /// The subexpressions of this EVM dialect expression, in source order.
+    pub fn operands(&self) -> Vec<&Expr> {
+        match self {
+            EvmExpr::Convert(e) => vec![&e.expr],
+            EvmExpr::Slice(e) => vec![&e.expr, &e.start, &e.length],
+            EvmExpr::Len(e) => vec![&e.expr],
+            EvmExpr::RawCall(e) => {
+                let mut operands = vec![&*e.target, &*e.data];
+                operands.extend(e.value.as_deref());
+                operands.extend(e.gas.as_deref());
+                operands
+            }
+            EvmExpr::Send(e) => vec![&e.target, &e.value],
+            EvmExpr::Concat(e) => e.exprs.iter().collect(),
+            EvmExpr::Delegatecall(e) => vec![&e.target, &e.data],
+            EvmExpr::LowLevelCall(e) => {
+                let mut operands = vec![&*e.target, &*e.data];
+                operands.extend(e.value.as_deref());
+                operands.extend(e.gas.as_deref());
+                operands
+            }
+            EvmExpr::Keccak256(e) => vec![&e.expr],
+            EvmExpr::Sha256(e) => vec![&e.expr],
+            EvmExpr::Ripemd160(e) => vec![&e.expr],
+            EvmExpr::Ecrecover(e) => vec![&e.hash, &e.v, &e.r, &e.s],
+            EvmExpr::Addmod(e) => vec![&e.x, &e.y, &e.k],
+            EvmExpr::Mulmod(e) => vec![&e.x, &e.y, &e.k],
+            EvmExpr::Blockhash(e) => vec![&e.expr],
+            EvmExpr::AbiEncode(e) => e.args.iter().collect(),
+            EvmExpr::AbiEncodePacked(e) => e.args.iter().collect(),
+            EvmExpr::AbiDecode(e) => vec![&e.data],
+            EvmExpr::AbiEncodeWithSelector(e) => {
+                std::iter::once(&*e.selector).chain(&e.args).collect()
+            }
+            EvmExpr::AbiEncodeWithSignature(e) => {
+                std::iter::once(&*e.signature).chain(&e.args).collect()
+            }
+            EvmExpr::AbiEncodeCall(e) => std::iter::once(&*e.func).chain(&e.args).collect(),
+            EvmExpr::Transfer(e) => vec![&e.target, &e.amount],
+            EvmExpr::MsgSender(_)
+            | EvmExpr::MsgValue(_)
+            | EvmExpr::Timestamp(_)
+            | EvmExpr::BlockNumber(_)
+            | EvmExpr::TxOrigin(_)
+            | EvmExpr::InlineAsm(_)
+            | EvmExpr::SelfBalance(_)
+            | EvmExpr::Empty(_)
+            | EvmExpr::Gasleft(_)
+            | EvmExpr::This(_)
+            | EvmExpr::Super(_)
+            | EvmExpr::MsgData(_)
+            | EvmExpr::MsgSig(_)
+            | EvmExpr::BlockDifficulty(_)
+            | EvmExpr::BlockGaslimit(_)
+            | EvmExpr::BlockCoinbase(_)
+            | EvmExpr::BlockChainid(_)
+            | EvmExpr::BlockBasefee(_) => vec![],
+        }
+    }
+
     /// Return type of this EVM dialect expression.
     pub fn typ(&self) -> Type {
         use crate::sir::dialect::DialectType;

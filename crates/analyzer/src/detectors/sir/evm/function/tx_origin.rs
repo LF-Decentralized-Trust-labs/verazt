@@ -6,7 +6,7 @@ use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
 use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use scirs::sir::dialect::evm::EvmExpr;
-use scirs::sir::utils::visit::Visit;
+use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{ContractDecl, DialectExpr, FunctionDecl, Module};
 
 const META: DetectorMeta = DetectorMeta {
@@ -74,6 +74,7 @@ impl ScanDetector for TxOriginDetector {
                         e.loc.clone(),
                     ));
                 }
+                visit::default::visit_dialect_expr(self, d);
             }
         }
 

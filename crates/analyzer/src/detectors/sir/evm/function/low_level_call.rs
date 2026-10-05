@@ -83,6 +83,7 @@ impl ScanDetector for LowLevelCallDetector {
                         loc,
                     ));
                 }
+                visit::default::visit_dialect_expr(self, d);
             }
 
             fn visit_field_access_expr(&mut self, fa: &'a FieldAccessExpr) {

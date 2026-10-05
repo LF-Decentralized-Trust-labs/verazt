@@ -74,6 +74,7 @@ impl ScanDetector for DelegatecallDetector {
                         e.loc.clone(),
                     ));
                 }
+                visit::default::visit_dialect_expr(self, d);
             }
 
             fn visit_field_access_expr(&mut self, fa: &'a FieldAccessExpr) {
