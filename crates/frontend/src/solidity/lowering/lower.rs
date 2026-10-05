@@ -16,6 +16,20 @@ fn loc_to_span(loc: &Option<Loc>) -> Option<common::loc::Loc> {
     loc.clone()
 }
 
+/// The input of a hash builtin (`keccak256`, `sha256`, `ripemd160`) called
+/// with `args`. Before Solidity 0.5 these take any number of arguments and
+/// hash them tightly packed, as `abi.encodePacked(args)`.
+fn hash_input(mut args: Vec<Expr>, loc: &common::loc::Loc) -> Expr {
+    if args.len() == 1 {
+        args.remove(0)
+    } else {
+        Expr::Dialect(DialectExpr::Evm(EvmExpr::AbiEncodePacked(EvmAbiEncodePacked {
+            args,
+            loc: loc.clone(),
+        })))
+    }
+}
+
 // Modules moved to mod.rs
 
 /// Supporting function to print output source unit of a normalization step.
@@ -1072,15 +1086,15 @@ impl Lowerer {
                     let mut pos = args.into_positional();
                     let evm = match name {
                         "keccak256" => EvmExpr::Keccak256(EvmKeccak256 {
-                            expr: Box::new(pos.remove(0)),
+                            expr: Box::new(hash_input(pos, &loc)),
                             loc: loc.clone(),
                         }),
                         "sha256" => EvmExpr::Sha256(EvmSha256 {
-                            expr: Box::new(pos.remove(0)),
+                            expr: Box::new(hash_input(pos, &loc)),
                             loc: loc.clone(),
                         }),
                         "ripemd160" => EvmExpr::Ripemd160(EvmRipemd160 {
-                            expr: Box::new(pos.remove(0)),
+                            expr: Box::new(hash_input(pos, &loc)),
                             loc: loc.clone(),
                         }),
                         "ecrecover" => {
@@ -1123,6 +1137,22 @@ impl Lowerer {
 
         // ── Fix 8: abi.* builtins ────────────────────────────────
         if let ast::Expr::Member(mem) = &*e.callee {
+            // `block.blockhash(n)`, the form of `blockhash(n)` before
+            // Solidity 0.5.
+            if let ast::Expr::Ident(base) = &*mem.base
+                && base.name.base.as_str() == "block"
+                && mem.member.to_string() == "blockhash"
+            {
+                let (args, extra) = self.lower_call_args_exprs(&e.args)?;
+                stmts.extend(extra);
+                let mut pos = args.into_positional();
+                let evm = EvmExpr::Blockhash(EvmBlockhash {
+                    expr: Box::new(pos.remove(0)),
+                    loc: loc.clone(),
+                });
+                return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
+            }
+
             if let ast::Expr::Ident(base) = &*mem.base {
                 if base.name.base.as_str() == "abi" {
                     let method = mem.member.to_string();
