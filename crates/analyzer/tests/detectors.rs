@@ -1,6 +1,9 @@
 //! Unit tests for detectors.
 
-use analyzer::{DetectorMeta, DetectorRegistry, register_all_detectors};
+use analyzer::{
+    AnalysisConfig, AnalysisContext, DetectorMeta, DetectorRegistry, PipelineConfig,
+    PipelineEngine, register_all_detectors,
+};
 
 fn create_registry() -> DetectorRegistry {
     let mut registry = DetectorRegistry::new();
@@ -117,4 +120,39 @@ fn test_dead_code_detector() {
     let meta = meta_of("dead-code");
     assert_eq!(meta.id.as_str(), "dead-code");
     assert!(meta.cwe_ids.contains(&561));
+}
+
+/// Test that findings on EVM globals (`block.timestamp`, `tx.origin`) point
+/// at the line of the global, not at an unknown location.
+#[test]
+fn test_evm_global_findings_have_source_location() {
+    let source = "pragma solidity ^0.8.0;
+contract Lottery {
+    address owner;
+    function draw() public view returns (bool) {
+        require(tx.origin == owner);
+        return block.timestamp % 7 == 0;
+    }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.8.1").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["timestamp-dependence".to_string(), "tx-origin".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let line_of = |id: &str| {
+        let bug = result
+            .bugs
+            .iter()
+            .find(|bug| bug.detector_id == id)
+            .unwrap_or_else(|| panic!("{id} should report a bug"));
+        bug.loc.start_line
+    };
+    assert_eq!(line_of("tx-origin"), 5);
+    assert_eq!(line_of("timestamp-dependence"), 6);
 }

@@ -798,6 +798,9 @@ impl Lowerer {
     }
 
     fn lower_attribute(&mut self, attr: &ast::AttributeExpr) -> Result<Expr> {
+        // Source location of the EVM dialect expressions built below.
+        let loc = loc_to_span(attr.loc.as_ref()).unwrap_or_default();
+
         // Detect special built-in attributes
         match attr.value.as_ref() {
             ast::Expr::Ident(id) => {
@@ -806,7 +809,7 @@ impl Lowerer {
                         // self.x → storage access (lower to Var)
                         if attr.attr == "balance" {
                             return Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::SelfBalance(
-                                EvmSelfBalance { loc: Default::default() },
+                                EvmSelfBalance { loc: loc.clone() },
                             ))));
                         }
                         Ok(Expr::Var(VarExpr {
@@ -818,10 +821,10 @@ impl Lowerer {
                     "msg" => {
                         match attr.attr.as_str() {
                             "sender" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender(
-                                EvmMsgSender { loc: Default::default() },
+                                EvmMsgSender { loc: loc.clone() },
                             )))),
                             "value" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgValue(
-                                EvmMsgValue { loc: Default::default() },
+                                EvmMsgValue { loc: loc.clone() },
                             )))),
                             _ => Ok(Expr::FieldAccess(FieldAccessExpr {
                                 base: Box::new(Expr::Var(VarExpr {
@@ -838,10 +841,10 @@ impl Lowerer {
                     "block" => {
                         match attr.attr.as_str() {
                             "timestamp" => Ok(Expr::Dialect(DialectExpr::Evm(
-                                EvmExpr::Timestamp(EvmTimestamp { loc: Default::default() }),
+                                EvmExpr::Timestamp(EvmTimestamp { loc: loc.clone() }),
                             ))),
                             "number" => Ok(Expr::Dialect(DialectExpr::Evm(EvmExpr::BlockNumber(
-                                EvmBlockNumber { loc: Default::default() },
+                                EvmBlockNumber { loc: loc.clone() },
                             )))),
                             _ => Ok(Expr::FieldAccess(FieldAccessExpr {
                                 base: Box::new(Expr::Var(VarExpr {

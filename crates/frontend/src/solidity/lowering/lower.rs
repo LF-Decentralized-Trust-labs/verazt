@@ -1058,6 +1058,9 @@ impl Lowerer {
             // Multi-arg type conversion — fall through to generic call
         }
 
+        // Source location of the EVM dialect expressions built below.
+        let loc = span.clone().unwrap_or_default();
+
         // ── Fix 7: EVM builtin functions ─────────────────────────
         if let ast::Expr::Ident(id) = &*e.callee {
             let name = id.name.base.as_str();
@@ -1070,15 +1073,15 @@ impl Lowerer {
                     let evm = match name {
                         "keccak256" => EvmExpr::Keccak256(EvmKeccak256 {
                             expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         }),
                         "sha256" => EvmExpr::Sha256(EvmSha256 {
                             expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         }),
                         "ripemd160" => EvmExpr::Ripemd160(EvmRipemd160 {
                             expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         }),
                         "ecrecover" => {
                             let hash = Box::new(pos.remove(0));
@@ -1090,25 +1093,25 @@ impl Lowerer {
                                 v,
                                 r,
                                 s,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             })
                         }
                         "addmod" => {
                             let x = Box::new(pos.remove(0));
                             let y = Box::new(pos.remove(0));
                             let k = Box::new(pos.remove(0));
-                            EvmExpr::Addmod(EvmAddmod { x, y, k, loc: Default::default() })
+                            EvmExpr::Addmod(EvmAddmod { x, y, k, loc: loc.clone() })
                         }
                         "mulmod" => {
                             let x = Box::new(pos.remove(0));
                             let y = Box::new(pos.remove(0));
                             let k = Box::new(pos.remove(0));
-                            EvmExpr::Mulmod(EvmMulmod { x, y, k, loc: Default::default() })
+                            EvmExpr::Mulmod(EvmMulmod { x, y, k, loc: loc.clone() })
                         }
-                        "gasleft" => EvmExpr::Gasleft(EvmGasleft { loc: Default::default() }),
+                        "gasleft" => EvmExpr::Gasleft(EvmGasleft { loc: loc.clone() }),
                         "blockhash" => EvmExpr::Blockhash(EvmBlockhash {
                             expr: Box::new(pos.remove(0)),
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         }),
                         _ => unreachable!(),
                     };
@@ -1129,11 +1132,11 @@ impl Lowerer {
                     let evm = match method.as_str() {
                         "encode" => Some(EvmExpr::AbiEncode(EvmAbiEncode {
                             args: pos,
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         })),
                         "encodePacked" => Some(EvmExpr::AbiEncodePacked(EvmAbiEncodePacked {
                             args: pos,
-                            loc: Default::default(),
+                            loc: loc.clone(),
                         })),
                         "decode" => {
                             let mut p = pos;
@@ -1153,7 +1156,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiDecode(EvmAbiDecode {
                                 data: Box::new(data),
                                 types,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         "encodeWithSelector" => {
@@ -1166,7 +1169,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiEncodeWithSelector(EvmAbiEncodeWithSelector {
                                 selector,
                                 args: p,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         "encodeWithSignature" => {
@@ -1179,7 +1182,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiEncodeWithSignature(EvmAbiEncodeWithSignature {
                                 signature,
                                 args: p,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         "encodeCall" => {
@@ -1192,7 +1195,7 @@ impl Lowerer {
                             Some(EvmExpr::AbiEncodeCall(EvmAbiEncodeCall {
                                 func,
                                 args: p,
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             }))
                         }
                         _ => None,
@@ -1219,13 +1222,13 @@ impl Lowerer {
                             EvmExpr::Transfer(EvmTransfer {
                                 target: Box::new(base_e),
                                 amount: Box::new(amount),
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             })
                         } else {
                             EvmExpr::Send(EvmSend {
                                 target: Box::new(base_e),
                                 value: Box::new(amount),
-                                loc: Default::default(),
+                                loc: loc.clone(),
                             })
                         };
                         return Ok((Expr::Dialect(DialectExpr::Evm(evm)), stmts));
@@ -1462,39 +1465,40 @@ impl Lowerer {
 
         // ── EVM global member accesses ──────────────────────────────
         if let ast::Expr::Ident(base_id) = &*e.base {
+            let loc = span.clone().unwrap_or_default();
             let base_name = base_id.name.base.as_str();
             let evm_expr = match (base_name, member.as_str()) {
                 ("msg", "sender") => {
-                    Some(EvmExpr::MsgSender(EvmMsgSender { loc: Default::default() }))
+                    Some(EvmExpr::MsgSender(EvmMsgSender { loc: loc.clone() }))
                 }
                 ("msg", "value") => {
-                    Some(EvmExpr::MsgValue(EvmMsgValue { loc: Default::default() }))
+                    Some(EvmExpr::MsgValue(EvmMsgValue { loc: loc.clone() }))
                 }
-                ("msg", "data") => Some(EvmExpr::MsgData(EvmMsgData { loc: Default::default() })),
-                ("msg", "sig") => Some(EvmExpr::MsgSig(EvmMsgSig { loc: Default::default() })),
+                ("msg", "data") => Some(EvmExpr::MsgData(EvmMsgData { loc: loc.clone() })),
+                ("msg", "sig") => Some(EvmExpr::MsgSig(EvmMsgSig { loc: loc.clone() })),
                 ("tx", "origin") => {
-                    Some(EvmExpr::TxOrigin(EvmTxOrigin { loc: Default::default() }))
+                    Some(EvmExpr::TxOrigin(EvmTxOrigin { loc: loc.clone() }))
                 }
                 ("block", "timestamp") => {
-                    Some(EvmExpr::Timestamp(EvmTimestamp { loc: Default::default() }))
+                    Some(EvmExpr::Timestamp(EvmTimestamp { loc: loc.clone() }))
                 }
                 ("block", "number") => {
-                    Some(EvmExpr::BlockNumber(EvmBlockNumber { loc: Default::default() }))
+                    Some(EvmExpr::BlockNumber(EvmBlockNumber { loc: loc.clone() }))
                 }
                 ("block", "difficulty") | ("block", "prevrandao") => {
-                    Some(EvmExpr::BlockDifficulty(EvmBlockDifficulty { loc: Default::default() }))
+                    Some(EvmExpr::BlockDifficulty(EvmBlockDifficulty { loc: loc.clone() }))
                 }
                 ("block", "gaslimit") => {
-                    Some(EvmExpr::BlockGaslimit(EvmBlockGaslimit { loc: Default::default() }))
+                    Some(EvmExpr::BlockGaslimit(EvmBlockGaslimit { loc: loc.clone() }))
                 }
                 ("block", "coinbase") => {
-                    Some(EvmExpr::BlockCoinbase(EvmBlockCoinbase { loc: Default::default() }))
+                    Some(EvmExpr::BlockCoinbase(EvmBlockCoinbase { loc: loc.clone() }))
                 }
                 ("block", "chainid") => {
-                    Some(EvmExpr::BlockChainid(EvmBlockChainid { loc: Default::default() }))
+                    Some(EvmExpr::BlockChainid(EvmBlockChainid { loc: loc.clone() }))
                 }
                 ("block", "basefee") => {
-                    Some(EvmExpr::BlockBasefee(EvmBlockBasefee { loc: Default::default() }))
+                    Some(EvmExpr::BlockBasefee(EvmBlockBasefee { loc: loc.clone() }))
                 }
                 _ => None,
             };
