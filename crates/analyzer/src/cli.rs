@@ -11,6 +11,8 @@ use common::error;
 use frontend::solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parsing::parse_input_file,
 };
+use std::env::consts::EXE_SUFFIX;
+use std::ffi::OsStr;
 use std::fs;
 
 /// Default output path of `verazt init-config`.
@@ -547,13 +549,19 @@ fn prompt_yes_no(msg: &str) -> bool {
     matches!(input.trim(), "y" | "Y")
 }
 
-/// Returns true if `tool` is found in PATH (tries `tool --version`).
+/// Returns true if `tool` is found in PATH.
+///
+/// Looks the executable up instead of running `tool --version`, which
+/// `solc-select` rejects with a non-zero exit status.
 fn is_tool_installed(tool: &str) -> bool {
-    std::process::Command::new(tool)
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    std::env::var_os("PATH").is_some_and(|path| is_in_path(tool, &path))
+}
+
+/// Returns true if an executable named `tool` exists in a directory of the
+/// PATH-formatted list `path`.
+fn is_in_path(tool: &str, path: &OsStr) -> bool {
+    let exe_name = format!("{tool}{EXE_SUFFIX}");
+    std::env::split_paths(path).any(|dir| dir.join(&exe_name).is_file())
 }
 
 /// Install a pip package via `pip3` or `pip`, whichever is available.
@@ -676,4 +684,21 @@ fn try_install_and_compile_solidity(
     eprintln!("solc {best} installed successfully.");
 
     parse_input_file(file, base_path, include_paths, solc_ver).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_in_path_finds_tool_without_running_it() {
+        // An empty file cannot run, so only a lookup can find it, as it must
+        // find `solc-select`, which fails on `--version`.
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(format!("fake-select{EXE_SUFFIX}")), "").unwrap();
+        let path = std::env::join_paths([dir.path()]).unwrap();
+
+        assert!(is_in_path("fake-select", &path));
+        assert!(!is_in_path("missing-select", &path));
+    }
 }
