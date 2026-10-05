@@ -16,13 +16,12 @@ exclude = [
 [workspace.package]
 version = "0.0.1"
 authors = ["Ta Quang Trung"]
-license = "Apache License 2.0"
+license = "Apache-2.0"
 edition = "2024"
 
 [workspace.dependencies]
 analyzer = { path = "crates/analyzer" }
 bugs = { path = "crates/bugs" }
-cli = { path = "crates/cli" }
 scirs = { path = "crates/scirs" }
 frontend = { path = "crates/frontend" }
 
