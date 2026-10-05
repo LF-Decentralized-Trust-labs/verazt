@@ -16,8 +16,8 @@ use crate::sir::exprs::{CallExpr, Expr};
 
 /// Extension trait for EVM-dialect queries on [`FunctionDecl`].
 pub trait EvmFunctionExt {
-    /// Returns `true` if the function has public visibility
-    /// (`#sir.visibility = "public"`).
+    /// Returns `true` if other accounts can call the function: its
+    /// visibility is `public` or `external` (`#sir.visibility`).
     fn is_public(&self) -> bool;
 
     /// Returns `true` if the function has a reentrancy guard
@@ -30,7 +30,7 @@ impl EvmFunctionExt for FunctionDecl {
         self.attrs.iter().any(|a| {
             a.namespace == "sir"
                 && a.key == sir_attrs::VISIBILITY
-                && matches!(&a.value, AttrValue::String(s) if s == "public")
+                && matches!(&a.value, AttrValue::String(s) if s == "public" || s == "external")
         })
     }
 
