@@ -506,7 +506,10 @@ impl Lowerer {
                 self.lower_require(call, loc_to_span(&s.loc))
             }
             // ── selfdestruct(recipient) → EvmStmt::Selfdestruct ──
-            ast::Expr::Call(call) if call.callee.to_string() == "selfdestruct" => {
+            // `suicide` is the name of `selfdestruct` before Solidity 0.5.
+            ast::Expr::Call(call)
+                if matches!(call.callee.to_string().as_str(), "selfdestruct" | "suicide") =>
+            {
                 let (args, extra) = self.lower_call_args_exprs(&call.args)?;
                 let mut stmts = extra;
                 let mut pos = args.into_positional();

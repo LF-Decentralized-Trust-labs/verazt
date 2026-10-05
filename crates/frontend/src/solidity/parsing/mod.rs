@@ -323,4 +323,18 @@ contract Hasher {
 
         assert!(sir.contains("evm.keccak256(s)"), "{sir}");
     }
+
+    #[test]
+    fn test_suicide_lowers_to_selfdestruct() {
+        let _ = configure_unit_test_env();
+        let source = "pragma solidity ^0.4.24;
+contract Killable {
+    function kill(address to) public { suicide(to); }
+}";
+        let source_units = parse_solidity_source_code(source, "0.4.26").unwrap();
+        let modules = lower_source_units(&source_units).unwrap();
+        let sir = modules.iter().map(|m| m.to_string()).collect::<String>();
+
+        assert!(sir.contains("selfdestruct(to)"), "{sir}");
+    }
 }
