@@ -11,7 +11,7 @@ use common::loc::Loc;
 use scirs::sir::dialect::evm::EvmExpr;
 use scirs::sir::exprs::{BinOp, Expr};
 use scirs::sir::utils::visit::{self, Visit};
-use scirs::sir::{BinOpExpr, ContractDecl, DialectExpr, FunctionDecl, Module};
+use scirs::sir::{BinOpExpr, CallExpr, ContractDecl, DialectExpr, FunctionDecl, Module};
 
 const META: DetectorMeta = DetectorMeta {
     bug_category: BugCategory::BadRandomness,
@@ -55,97 +55,32 @@ fn randomness_source_name(evm: &EvmExpr) -> Option<&'static str> {
     }
 }
 
-fn randomness_source_loc(evm: &EvmExpr) -> Loc {
-    match evm {
-        EvmExpr::Blockhash(e) => e.loc.clone(),
-        EvmExpr::Timestamp(e) => e.loc.clone(),
-        EvmExpr::BlockNumber(e) => e.loc.clone(),
-        EvmExpr::BlockDifficulty(e) => e.loc.clone(),
-        EvmExpr::BlockCoinbase(e) => e.loc.clone(),
-        EvmExpr::BlockGaslimit(e) => e.loc.clone(),
-        _ => Loc::new(0, 0, 0, 0),
+/// Collects the randomness sources in the visited expressions, without
+/// duplicates.
+#[derive(Default)]
+struct SourceCollector {
+    sources: Vec<&'static str>,
+}
+
+impl<'a> Visit<'a> for SourceCollector {
+    fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
+        if let DialectExpr::Evm(evm) = d
+            && let Some(name) = randomness_source_name(evm)
+            && !self.sources.contains(&name)
+        {
+            self.sources.push(name);
+        }
+        visit::default::visit_dialect_expr(self, d);
     }
 }
 
-fn contains_randomness_source(expr: &Expr) -> bool {
-    match expr {
-        Expr::Dialect(DialectExpr::Evm(evm)) => randomness_source_name(evm).is_some(),
-        Expr::BinOp(bin) => {
-            contains_randomness_source(&bin.lhs) || contains_randomness_source(&bin.rhs)
-        }
-        Expr::UnOp(un) => contains_randomness_source(&un.operand),
-        Expr::FunctionCall(call) => {
-            contains_randomness_source(&call.callee)
-                || call
-                    .args
-                    .exprs()
-                    .iter()
-                    .any(|a| contains_randomness_source(a))
-        }
-        Expr::TypeCast(tc) => contains_randomness_source(&tc.expr),
-        Expr::IndexAccess(ia) => {
-            contains_randomness_source(&ia.base)
-                || ia
-                    .index
-                    .as_ref()
-                    .is_some_and(|i| contains_randomness_source(i))
-        }
-        Expr::FieldAccess(fa) => contains_randomness_source(&fa.base),
-        Expr::Ternary(t) => {
-            contains_randomness_source(&t.cond)
-                || contains_randomness_source(&t.then_expr)
-                || contains_randomness_source(&t.else_expr)
-        }
-        Expr::Tuple(t) => t
-            .elems
-            .iter()
-            .any(|e| e.as_ref().is_some_and(contains_randomness_source)),
-        _ => false,
+/// The randomness sources in `exprs`.
+fn randomness_sources<'a>(exprs: impl IntoIterator<Item = &'a Expr>) -> Vec<&'static str> {
+    let mut collector = SourceCollector::default();
+    for expr in exprs {
+        collector.visit_expr(expr);
     }
-}
-
-fn collect_randomness_sources(expr: &Expr, sources: &mut Vec<&'static str>) {
-    match expr {
-        Expr::Dialect(DialectExpr::Evm(evm)) => {
-            if let Some(name) = randomness_source_name(evm) {
-                if !sources.contains(&name) {
-                    sources.push(name);
-                }
-            }
-        }
-        Expr::BinOp(bin) => {
-            collect_randomness_sources(&bin.lhs, sources);
-            collect_randomness_sources(&bin.rhs, sources);
-        }
-        Expr::UnOp(un) => collect_randomness_sources(&un.operand, sources),
-        Expr::FunctionCall(call) => {
-            collect_randomness_sources(&call.callee, sources);
-            for arg in call.args.exprs() {
-                collect_randomness_sources(arg, sources);
-            }
-        }
-        Expr::TypeCast(tc) => collect_randomness_sources(&tc.expr, sources),
-        Expr::IndexAccess(ia) => {
-            collect_randomness_sources(&ia.base, sources);
-            if let Some(idx) = &ia.index {
-                collect_randomness_sources(idx, sources);
-            }
-        }
-        Expr::FieldAccess(fa) => collect_randomness_sources(&fa.base, sources),
-        Expr::Ternary(t) => {
-            collect_randomness_sources(&t.cond, sources);
-            collect_randomness_sources(&t.then_expr, sources);
-            collect_randomness_sources(&t.else_expr, sources);
-        }
-        Expr::Tuple(t) => {
-            for elem in &t.elems {
-                if let Some(e) = elem {
-                    collect_randomness_sources(e, sources);
-                }
-            }
-        }
-        _ => {}
-    }
+    collector.sources
 }
 
 impl ScanDetector for BadRandomnessDetector {
@@ -171,103 +106,83 @@ impl ScanDetector for BadRandomnessDetector {
             func_name: String,
         }
 
-        impl<'a, 'b> Visit<'a> for Visitor<'b> {
-            fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
-                if let DialectExpr::Evm(evm) = d {
-                    if let Some(_source_name) = randomness_source_name(evm) {
-                        if matches!(evm, EvmExpr::Blockhash(_)) {
-                            self.bugs.push(META.bug(
-                                Some(&format!(
-                                    "Weak randomness source: 'blockhash' used in '{}.{}'. \
-                                     blockhash is predictable and should not be used \
-                                     for randomness.",
-                                    self.contract_name, self.func_name
-                                )),
-                                randomness_source_loc(evm),
-                            ));
-                        }
-                    }
+        impl Visitor<'_> {
+            /// Report the randomness sources hashed by `hash_name`, if any.
+            fn check_hash<'a>(
+                &mut self,
+                hash_name: &str,
+                input: impl IntoIterator<Item = &'a Expr>,
+                loc: Loc,
+            ) {
+                let sources = randomness_sources(input);
+                if !sources.is_empty() {
+                    self.bugs.push(META.bug(
+                        Some(&format!(
+                            "Weak randomness: {} used as input to {} in '{}.{}'. \
+                             On-chain data is predictable by miners.",
+                            sources.join(", "),
+                            hash_name,
+                            self.contract_name,
+                            self.func_name
+                        )),
+                        loc,
+                    ));
                 }
             }
+        }
 
-            fn visit_call_expr(&mut self, call: &'a scirs::sir::CallExpr) {
-                if let Expr::Dialect(DialectExpr::Evm(
-                    EvmExpr::Keccak256(_) | EvmExpr::Sha256(_),
-                )) = &*call.callee
-                {
-                    for arg in call.args.exprs() {
-                        if contains_randomness_source(arg) {
-                            let mut sources = Vec::new();
-                            collect_randomness_sources(arg, &mut sources);
-                            let span = call.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0));
-                            self.bugs.push(META.bug(
-                                Some(&format!(
-                                    "Weak randomness: {} used as input to hash \
-                                     function in '{}.{}'. On-chain data is \
-                                     predictable by miners.",
-                                    sources.join(", "),
-                                    self.contract_name,
-                                    self.func_name
-                                )),
-                                span,
-                            ));
-                        }
+        impl<'a> Visit<'a> for Visitor<'_> {
+            fn visit_dialect_expr(&mut self, d: &'a DialectExpr) {
+                match d {
+                    DialectExpr::Evm(EvmExpr::Blockhash(e)) => {
+                        self.bugs.push(META.bug(
+                            Some(&format!(
+                                "Weak randomness source: 'blockhash' used in '{}.{}'. \
+                                 blockhash is predictable and should not be used \
+                                 for randomness.",
+                                self.contract_name, self.func_name
+                            )),
+                            e.loc.clone(),
+                        ));
                     }
-                }
-
-                match &*call.callee {
-                    Expr::Dialect(DialectExpr::Evm(EvmExpr::Keccak256(k))) => {
-                        if contains_randomness_source(&k.expr) {
-                            let mut sources = Vec::new();
-                            collect_randomness_sources(&k.expr, &mut sources);
-                            self.bugs.push(META.bug(
-                                Some(&format!(
-                                    "Weak randomness: {} used as input to keccak256 \
-                                     in '{}.{}'. On-chain data is predictable by miners.",
-                                    sources.join(", "),
-                                    self.contract_name,
-                                    self.func_name
-                                )),
-                                k.loc.clone(),
-                            ));
-                        }
+                    DialectExpr::Evm(EvmExpr::Keccak256(e)) => {
+                        self.check_hash("keccak256", [&*e.expr], e.loc.clone())
                     }
-                    Expr::Dialect(DialectExpr::Evm(EvmExpr::Sha256(s))) => {
-                        if contains_randomness_source(&s.expr) {
-                            let mut sources = Vec::new();
-                            collect_randomness_sources(&s.expr, &mut sources);
-                            self.bugs.push(META.bug(
-                                Some(&format!(
-                                    "Weak randomness: {} used as input to sha256 \
-                                     in '{}.{}'. On-chain data is predictable by miners.",
-                                    sources.join(", "),
-                                    self.contract_name,
-                                    self.func_name
-                                )),
-                                s.loc.clone(),
-                            ));
-                        }
+                    DialectExpr::Evm(EvmExpr::Sha256(e)) => {
+                        self.check_hash("sha256", [&*e.expr], e.loc.clone())
                     }
                     _ => {}
                 }
+                visit::default::visit_dialect_expr(self, d);
+            }
 
+            // Vyper lowers its hash builtins to calls of `keccak256` and
+            // `sha256` rather than to EVM dialect expressions.
+            fn visit_call_expr(&mut self, call: &'a CallExpr) {
+                if let Expr::Var(callee) = &*call.callee
+                    && matches!(callee.name.as_str(), "keccak256" | "sha256")
+                {
+                    let loc = call.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0));
+                    self.check_hash(&callee.name, call.args.exprs(), loc);
+                }
                 visit::default::visit_call_expr(self, call);
             }
 
             fn visit_binop_expr(&mut self, expr: &'a BinOpExpr) {
-                if expr.op == BinOp::Mod && contains_randomness_source(&expr.lhs) {
-                    let mut sources = Vec::new();
-                    collect_randomness_sources(&expr.lhs, &mut sources);
-                    self.bugs.push(META.bug(
-                        Some(&format!(
-                            "Weak randomness: {} used with modulo operator in \
-                             '{}.{}'. On-chain data is predictable by miners.",
-                            sources.join(", "),
-                            self.contract_name,
-                            self.func_name
-                        )),
-                        expr.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
-                    ));
+                if expr.op == BinOp::Mod {
+                    let sources = randomness_sources([&*expr.lhs]);
+                    if !sources.is_empty() {
+                        self.bugs.push(META.bug(
+                            Some(&format!(
+                                "Weak randomness: {} used with modulo operator in \
+                                 '{}.{}'. On-chain data is predictable by miners.",
+                                sources.join(", "),
+                                self.contract_name,
+                                self.func_name
+                            )),
+                            expr.span.clone().unwrap_or_else(|| Loc::new(0, 0, 0, 0)),
+                        ));
+                    }
                 }
                 visit::default::visit_binop_expr(self, expr);
             }
@@ -292,6 +207,6 @@ mod tests {
     fn test_bad_randomness_detector() {
         let detector = BadRandomnessDetector::new();
         assert_eq!(detector.meta().id, DetectorId::BadRandomness);
-        assert_eq!(detector.meta().risk_level,RiskLevel::High);
+        assert_eq!(detector.meta().risk_level, RiskLevel::High);
     }
 }

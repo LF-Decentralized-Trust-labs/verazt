@@ -188,3 +188,29 @@ contract Wallet {
     let lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
     assert_eq!(lines, vec![12], "only changeOwner should be reported");
 }
+
+/// Test that bad-randomness sees Solidity 0.4 randomness sources: a
+/// multi-argument `keccak256` hashing `block.timestamp`, and
+/// `block.blockhash`.
+#[test]
+fn test_bad_randomness_detects_solidity_0_4_sources() {
+    let source = "pragma solidity ^0.4.24;
+contract Lottery {
+    function draw() public view returns (bytes32) { return keccak256(msg.sender, block.timestamp); }
+    function pick() public view returns (bytes32) { return block.blockhash(1); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["bad-randomness".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.dedup();
+    assert_eq!(lines, vec![3, 4]);
+}
