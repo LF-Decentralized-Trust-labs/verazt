@@ -1,7 +1,7 @@
 //! SIR statement forms.
 
 use crate::sir::dialect::DialectStmt;
-use crate::sir::exprs::{BinOp, Expr};
+use crate::sir::exprs::{BinOp, Expr, UnOp};
 use crate::sir::types::Type;
 use common::loc::Loc;
 use common::string::StringExt;
@@ -146,6 +146,22 @@ impl Stmt {
             Stmt::Assert(s) => s.span.as_ref(),
             Stmt::Break | Stmt::Continue | Stmt::Block(_) => None,
             Stmt::Dialect(_) => None,
+        }
+    }
+
+    /// The condition that this statement requires to continue: `cond` of
+    /// `assert(cond)`, or of `require(cond)`, which is lowered to
+    /// `if (!cond) { revert(); }`.
+    pub fn required_condition(&self) -> Option<&Expr> {
+        match self {
+            Stmt::Assert(s) => Some(&s.cond),
+            Stmt::If(s) => match (&s.cond, s.then_body.as_slice(), &s.else_body) {
+                (Expr::UnOp(not), [Stmt::Revert(_)], None) if not.op == UnOp::Not => {
+                    Some(&not.operand)
+                }
+                _ => None,
+            },
+            _ => None,
         }
     }
 }

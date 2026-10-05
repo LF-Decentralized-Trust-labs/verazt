@@ -12,12 +12,12 @@ use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
 use scirs::sir::dialect::EvmExprExt;
 use scirs::sir::dialect::evm::EvmExpr;
-use scirs::sir::exprs::{Expr, UnOp};
+use scirs::sir::exprs::Expr;
 use scirs::sir::stmts::Stmt;
 use scirs::sir::utils::visit::{self, Visit};
 use scirs::sir::{
-    AssertStmt, AssignStmt, AugAssignStmt, CallExpr, ContractDecl, DialectExpr, ForStmt,
-    FunctionDecl, IfStmt, Module, WhileStmt,
+    AssignStmt, AugAssignStmt, CallExpr, ContractDecl, DialectExpr, ForStmt, FunctionDecl,
+    Module, WhileStmt,
 };
 
 const META: DetectorMeta = DetectorMeta {
@@ -80,18 +80,11 @@ impl<'a> Visit<'a> for LoopBody<'_> {
         visit::default::visit_expr(self, expr);
     }
 
-    fn visit_assert_stmt(&mut self, stmt: &'a AssertStmt) {
-        if stmt.cond.is_evm_external_call() {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if stmt.required_condition().is_some_and(|cond| cond.is_evm_external_call()) {
             self.reverting_call = true;
         }
-        visit::default::visit_assert_stmt(self, stmt);
-    }
-
-    fn visit_if_stmt(&mut self, stmt: &'a IfStmt) {
-        if required_condition(stmt).is_some_and(|cond| cond.is_evm_external_call()) {
-            self.reverting_call = true;
-        }
-        visit::default::visit_if_stmt(self, stmt);
+        visit::default::visit_stmt(self, stmt);
     }
 
     // `array.push(x)`
@@ -156,15 +149,6 @@ fn loop_risk(
     }
 }
 
-/// The condition that `stmt` requires to continue: `cond` of
-/// `require(cond)`, which is lowered to `if (!cond) { revert(); }`.
-fn required_condition(stmt: &IfStmt) -> Option<&Expr> {
-    match (&stmt.cond, stmt.then_body.as_slice(), &stmt.else_body) {
-        (Expr::UnOp(not), [Stmt::Revert(_)], None) if not.op == UnOp::Not => Some(&not.operand),
-        _ => None,
-    }
-}
-
 /// Returns true if `expr` sends Ether with `send` or `transfer` to another
 /// account than the caller. A caller whose own payment fails can only block
 /// itself.
@@ -180,7 +164,7 @@ fn sends_to_another_account(expr: &Expr) -> bool {
         Expr::Dialect(DialectExpr::Evm(EvmExpr::Transfer(e))) => &*e.target,
         _ => return false,
     };
-    !is_caller(recipient)
+    !recipient.is_evm_caller()
 }
 
 /// Returns true if `expr` sends Ether with `transfer`, which reverts on
@@ -191,15 +175,6 @@ fn is_transfer(expr: &Expr) -> bool {
             matches!(&*call.callee, Expr::FieldAccess(fa) if fa.field == "transfer")
         }
         Expr::Dialect(DialectExpr::Evm(EvmExpr::Transfer(_))) => true,
-        _ => false,
-    }
-}
-
-/// Returns true if `expr` is the caller: `msg.sender` or `tx.origin`.
-fn is_caller(expr: &Expr) -> bool {
-    match expr {
-        Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender(_) | EvmExpr::TxOrigin(_))) => true,
-        Expr::TypeCast(e) => is_caller(&e.expr),
         _ => false,
     }
 }
@@ -290,16 +265,11 @@ impl ScanDetector for DenialOfServiceDetector {
                 self.in_loop = was_in_loop;
             }
 
-            fn visit_assert_stmt(&mut self, stmt: &'a AssertStmt) {
-                self.check_required(&stmt.cond, stmt.span.as_ref());
-                visit::default::visit_assert_stmt(self, stmt);
-            }
-
-            fn visit_if_stmt(&mut self, stmt: &'a IfStmt) {
-                if let Some(cond) = required_condition(stmt) {
-                    self.check_required(cond, stmt.span.as_ref());
+            fn visit_stmt(&mut self, stmt: &'a Stmt) {
+                if let Some(cond) = stmt.required_condition() {
+                    self.check_required(cond, stmt.span());
                 }
-                visit::default::visit_if_stmt(self, stmt);
+                visit::default::visit_stmt(self, stmt);
             }
         }
 

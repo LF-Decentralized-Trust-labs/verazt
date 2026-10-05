@@ -105,9 +105,21 @@ pub trait EvmExprExt {
     /// `send`, `transfer`, low-level call or `delegatecall` dialect
     /// expression.
     fn is_evm_external_call(&self) -> bool;
+
+    /// Returns `true` if the expression is the caller, `msg.sender` or
+    /// `tx.origin`, possibly cast.
+    fn is_evm_caller(&self) -> bool;
 }
 
 impl EvmExprExt for Expr {
+    fn is_evm_caller(&self) -> bool {
+        match self {
+            Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender(_) | EvmExpr::TxOrigin(_))) => true,
+            Expr::TypeCast(e) => e.expr.is_evm_caller(),
+            _ => false,
+        }
+    }
+
     fn is_evm_external_call(&self) -> bool {
         match self {
             Expr::FunctionCall(call) => call.is_evm_external_call(),

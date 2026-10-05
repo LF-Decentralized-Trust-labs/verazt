@@ -10,12 +10,12 @@ use crate::detectors::sir::detector::{DetectionLevel, ScanDetector};
 use crate::detectors::{ConfidenceLevel, DetectorId, DetectorMeta, Target};
 use bugs::bug::{Bug, BugCategory, BugKind, RiskLevel};
 use common::loc::Loc;
-use scirs::sir::dialect::EvmFunctionExt;
-use scirs::sir::dialect::evm::{EvmExpr, EvmMemberDecl, EvmModifierDef};
+use scirs::sir::dialect::evm::{EvmMemberDecl, EvmModifierDef};
+use scirs::sir::dialect::{EvmExprExt, EvmFunctionExt};
 use scirs::sir::utils::visit::{Visit, default};
 use scirs::sir::{
-    AssignStmt, AugAssignStmt, BinOp, BinOpExpr, ContractDecl, DialectExpr, DialectMemberDecl,
-    Expr, FunctionDecl, MemberDecl, Module, Stmt,
+    AssignStmt, AugAssignStmt, BinOp, BinOpExpr, ContractDecl, DialectMemberDecl, Expr,
+    FunctionDecl, MemberDecl, Module, Stmt,
 };
 
 const META: DetectorMeta = DetectorMeta {
@@ -162,15 +162,6 @@ fn storage_root<'s>(expr: &Expr, storage_vars: &'s [String]) -> Option<&'s Strin
     }
 }
 
-/// Returns true if `expr` is the caller: `msg.sender` or `tx.origin`.
-fn is_caller(expr: &Expr) -> bool {
-    match expr {
-        Expr::Dialect(DialectExpr::Evm(EvmExpr::MsgSender(_) | EvmExpr::TxOrigin(_))) => true,
-        Expr::TypeCast(e) => is_caller(&e.expr),
-        _ => false,
-    }
-}
-
 /// Collects the equality comparisons with the caller in the visited code.
 struct CallerChecks<'s> {
     storage_vars: &'s [String],
@@ -190,7 +181,7 @@ impl<'s> CallerChecks<'s> {
 
 impl<'a> Visit<'a> for CallerChecks<'_> {
     fn visit_binop_expr(&mut self, expr: &'a BinOpExpr) {
-        if matches!(expr.op, BinOp::Eq | BinOp::Ne) && (is_caller(&expr.lhs) || is_caller(&expr.rhs))
+        if matches!(expr.op, BinOp::Eq | BinOp::Ne) && (expr.lhs.is_evm_caller() || expr.rhs.is_evm_caller())
         {
             self.checks_caller = true;
             for side in [&expr.lhs, &expr.rhs] {
