@@ -1244,7 +1244,22 @@ impl AstParser {
             match vdecl_node {
                 Value::Null => vars.push(None),
                 _ => match self.parse_variable_declaration(vdecl_node) {
-                    Ok(vdecl) => vars.push(Some(vdecl)),
+                    Ok(mut vdecl) => {
+                        // Before Solidity 0.5, a local struct or array
+                        // declared without a location defaults to storage,
+                        // which only the type identifier records
+                        // (`t_struct$_S_$4_storage_ptr`).
+                        let type_identifier = vdecl_node
+                            .get("typeDescriptions")
+                            .and_then(|d| d.get("typeIdentifier"))
+                            .and_then(Value::as_str);
+                        if vdecl.typ.data_loc() == DataLoc::None
+                            && type_identifier.is_some_and(|s| s.ends_with("_storage_ptr"))
+                        {
+                            vdecl.typ.set_data_loc(DataLoc::Storage);
+                        }
+                        vars.push(Some(vdecl))
+                    }
                     Err(err) => fail!(err),
                 },
             }
@@ -1754,8 +1769,17 @@ impl AstParser {
                     .get("subdenomination")
                     .and_then(|v| v.as_str())
                     .map(NumUnit::new);
+                let is_hex = value_node
+                    .as_str()
+                    .is_some_and(|s| s.starts_with("0x") || s.starts_with("0X"));
                 let value = match self.parse_int_lit(value_node) {
                     Ok(num) => IntNum::new(num, typ).into(),
+                    // A hex literal keeps its notation, which conversions to
+                    // `bytesN` require.
+                    Err(_) if is_hex => {
+                        let hex = self.parse_string_lit(value_node)?;
+                        HexNum::new(hex, typ).into()
+                    }
                     // A fractional or exponent literal with an integer value
                     // (`0.1 ether`, `1e18`): solc records the value, with any
                     // unit applied, in the type string `int_const <value>`.
@@ -1934,25 +1958,13 @@ impl AstParser {
 
     /// Get data type of a JSON AST node.
     fn parse_data_type(&mut self, node: &Value) -> Result<Type> {
-        let mut data_loc = match node.get("storageLocation") {
+        let data_loc = match node.get("storageLocation") {
             Some(v) => v
                 .as_str()
                 .ok_or_else(|| error!("Data location invalid: {node}"))
                 .and_then(DataLoc::new)?,
             None => DataLoc::None,
         };
-        // Before Solidity 0.5, a local struct or array declared without a
-        // location defaults to storage, which only the type identifier
-        // records (`t_struct$_S_$4_storage_ptr`).
-        let type_identifier = node
-            .get("typeDescriptions")
-            .and_then(|d| d.get("typeIdentifier"))
-            .and_then(Value::as_str);
-        if data_loc == DataLoc::None
-            && type_identifier.is_some_and(|s| s.ends_with("_storage_ptr"))
-        {
-            data_loc = DataLoc::Storage;
-        }
         // First, parse data type from the `typeName` information.
         if let Some(type_name_node) = node.get("typeName")
             && let Ok(mut output_typ) = self.parse_type_name(type_name_node)
