@@ -871,13 +871,21 @@ impl Lowerer {
             ast::Expr::Ident(id) => match id.name.base.as_str() {
                 "this" => Ok((
                     Expr::Dialect(DialectExpr::Evm(EvmExpr::This(EvmThis {
-                        loc: Default::default(),
+                        loc: loc_to_span(&id.loc).unwrap_or_default(),
                     }))),
                     vec![],
                 )),
                 "super" => Ok((
                     Expr::Dialect(DialectExpr::Evm(EvmExpr::Super(EvmSuper {
-                        loc: Default::default(),
+                        loc: loc_to_span(&id.loc).unwrap_or_default(),
+                    }))),
+                    vec![],
+                )),
+                // `now` is `block.timestamp` before Solidity 0.7. From 0.7 on,
+                // a variable may be named `now`, which this also lowers so.
+                "now" => Ok((
+                    Expr::Dialect(DialectExpr::Evm(EvmExpr::Timestamp(EvmTimestamp {
+                        loc: loc_to_span(&id.loc).unwrap_or_default(),
                     }))),
                     vec![],
                 )),

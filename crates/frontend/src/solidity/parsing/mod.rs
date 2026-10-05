@@ -337,4 +337,18 @@ contract Killable {
 
         assert!(sir.contains("selfdestruct(to)"), "{sir}");
     }
+
+    #[test]
+    fn test_now_lowers_to_timestamp() {
+        let _ = configure_unit_test_env();
+        let source = "pragma solidity ^0.4.24;
+contract Clock {
+    function time() public view returns (uint) { return now; }
+}";
+        let source_units = parse_solidity_source_code(source, "0.4.26").unwrap();
+        let modules = lower_source_units(&source_units).unwrap();
+        let sir = modules.iter().map(|m| m.to_string()).collect::<String>();
+
+        assert!(sir.contains("return evm.timestamp();"), "{sir}");
+    }
 }
