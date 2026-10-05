@@ -298,3 +298,36 @@ contract Auction {
     lines.sort();
     assert_eq!(lines, vec![4, 6]);
 }
+
+/// Test that front-running reports an approve that ignores the old
+/// allowance, a payment of a reward another function sets, and a payment
+/// for a hashed secret, and not a withdrawal of the caller's own balance.
+#[test]
+fn test_front_running_reports_order_dependent_patterns() {
+    let source = "pragma solidity ^0.4.24;
+contract Market {
+    mapping(address => mapping(address => uint)) allowed;
+    mapping(address => uint) balances;
+    uint reward; bytes32 hash;
+    function approve(address s, uint v) public returns (bool) { require(s != 0); allowed[msg.sender][s] = v; return true; }
+    function setReward() public payable { reward = msg.value; }
+    function claim() public { msg.sender.transfer(reward); }
+    function withdraw() public { msg.sender.transfer(balances[msg.sender]); balances[msg.sender] = 0; }
+    function deposit() public payable { balances[msg.sender] += msg.value; }
+    function solve(string s) public { require(hash == sha3(s)); msg.sender.transfer(1 ether); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["front-running".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![6, 8, 11]);
+}
