@@ -1,6 +1,5 @@
-//! Analyzer - Smart Contract Security Analyzer CLI
-//!
-//! This is the main entry point for the Analyzer tool.
+//! Analyzer CLI: the analysis options and the detector and configuration
+//! commands exposed by the `verazt` binary.
 
 use crate::config::{DEFAULT_CONFIG_TOML, available_threads};
 use crate::{
@@ -8,26 +7,19 @@ use crate::{
     JsonFormatter, MarkdownFormatter, OutputFormat, OutputFormatter, PipelineConfig,
     PipelineEngine, SarifFormatter, SeverityFilter, register_all_detectors,
 };
-use clap::{Parser, Subcommand, crate_version};
 use common::error;
 use frontend::solidity::{
     ast::SourceUnit, ast::utils::export::export_debugging_source_unit, parsing::parse_input_file,
 };
 use std::fs;
 
-#[derive(Parser, Debug)]
-#[command(
-    author,
-    version = crate_version!(),
-    term_width = 80,
-    about = "Analyzer - Smart Contract Security Analyzer",
-    long_about = None
-)]
-pub struct Arguments {
-    #[command(subcommand)]
-    pub command: Option<Command>,
+/// Default output path of `verazt init-config`.
+pub const DEFAULT_CONFIG_FILE: &str = "verazt.toml";
 
-    /// Input Solidity files to be compiled.
+/// Options of an analysis run.
+#[derive(clap::Args, Debug)]
+pub struct Args {
+    /// Input smart contract files (.sol or .vy).
     pub input_files: Vec<String>,
 
     /// The root directory of the source tree, if specified.
@@ -92,79 +84,22 @@ pub struct Arguments {
     /// Enable parallel analysis
     #[arg(long, default_value_t = false)]
     pub parallel: bool,
-
-    /// Verbosity
-    #[command(flatten)]
-    pub verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::ErrorLevel>,
 }
 
-#[derive(Subcommand, Debug, Clone)]
-pub enum Command {
-    /// Analyze smart contracts for vulnerabilities
-    Analyze {
-        /// Input files to analyze
-        files: Vec<String>,
-    },
-    /// List available detectors
-    ListDetectors,
-    /// Show detector information
-    ShowDetector {
-        /// Detector ID
-        id: String,
-    },
-    /// Generate a default configuration file
-    InitConfig {
-        /// Output file
-        #[arg(default_value = "verazt.toml")]
-        output: String,
-    },
-}
-
-/// Entry point function
-pub fn run<I, T>(args_iter: I)
-where
-    I: IntoIterator<Item = T>,
-    T: Into<std::ffi::OsString> + Clone,
-{
+/// Analyze the input files and report the detected bugs.
+pub fn run(args: Args) {
     env_logger::try_init().ok();
     error::config();
 
-    // Parse command line arguments
-    let mut args = Arguments::parse_from(args_iter);
-
-    // Handle subcommands
-    if let Some(command) = args.command.clone() {
-        match command {
-            Command::ListDetectors => {
-                list_detectors();
-                return;
-            }
-            Command::ShowDetector { id } => {
-                show_detector(&id);
-                return;
-            }
-            Command::InitConfig { output } => {
-                init_config(&output);
-                return;
-            }
-            Command::Analyze { files } => {
-                args.input_files = files;
-                run_analysis(args);
-                return;
-            }
-        }
-    }
-
-    // Default: run analysis on input files
-    if !args.input_files.is_empty() {
-        run_analysis(args);
-    } else {
+    if args.input_files.is_empty() {
         eprintln!("No input files specified. Use --help for usage information.");
         std::process::exit(1);
     }
+    run_analysis(args);
 }
 
-fn list_detectors() {
+/// Print a table of all registered detectors.
+pub fn list_detectors() {
     let mut registry = DetectorRegistry::new();
     register_all_detectors(&mut registry);
     println!("Available Detectors ({}):", registry.len());
@@ -188,10 +123,11 @@ fn list_detectors() {
         );
     }
 
-    println!("\nUse 'verazt analyze show-detector <id>' for detailed information.");
+    println!("\nUse 'verazt show-detector <id>' for detailed information.");
 }
 
-fn show_detector(id: &str) {
+/// Print the metadata of the detector with the given ID.
+pub fn show_detector(id: &str) {
     let mut registry = DetectorRegistry::new();
     register_all_detectors(&mut registry);
 
@@ -245,13 +181,14 @@ fn show_detector(id: &str) {
         }
         None => {
             eprintln!("Detector '{}' not found.", id);
-            eprintln!("Use 'verazt analyze list-detectors' to see available detectors.");
+            eprintln!("Use 'verazt list-detectors' to see available detectors.");
             std::process::exit(1);
         }
     }
 }
 
-fn init_config(output: &str) {
+/// Write the default configuration file to `output`.
+pub fn init_config(output: &str) {
     match fs::write(output, DEFAULT_CONFIG_TOML) {
         Ok(_) => {
             println!("Configuration file created: {}", output);
@@ -263,7 +200,7 @@ fn init_config(output: &str) {
     }
 }
 
-fn run_analysis(args: Arguments) {
+fn run_analysis(args: Args) {
     // Load configuration
     let mut config = if let Some(config_path) = &args.config {
         Config::from_file(std::path::Path::new(config_path)).unwrap_or_else(|e| {

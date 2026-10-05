@@ -1,7 +1,7 @@
 //! Configuration module for Verazt Analyzer CLI
 //!
 //! Provides the CLI configuration and its TOML file format, as written by
-//! `verazt analyze init-config`.
+//! `verazt init-config`.
 
 use bugs::bug::RiskLevel;
 use clap::ValueEnum;
