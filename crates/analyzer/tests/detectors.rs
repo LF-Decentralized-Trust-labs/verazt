@@ -331,3 +331,34 @@ contract Market {
     lines.sort();
     assert_eq!(lines, vec![6, 8, 11]);
 }
+
+/// Test that missing-access-control reports an external function adding an
+/// owner to a mapping that a modifier checks, and an unguarded
+/// selfdestruct, and not the guarded versions.
+#[test]
+fn test_missing_access_control_reports_owner_mappings_and_selfdestruct() {
+    let source = "pragma solidity ^0.4.24;
+contract Owned {
+    mapping(address => address) owners;
+    modifier onlyOwner { require(owners[msg.sender] != 0); _; }
+    function Owned() public { owners[msg.sender] = msg.sender; }
+    function addOwner(address o) external onlyOwner { owners[o] = msg.sender; }
+    function newOwner(address o) external { owners[o] = msg.sender; }
+    function kill() public { selfdestruct(msg.sender); }
+    function close() public onlyOwner { selfdestruct(msg.sender); }
+}";
+    let source_units =
+        frontend::solidity::parsing::parse_solidity_source_code(source, "0.4.26").unwrap();
+    let modules = frontend::solidity::lowering::lower_source_units(&source_units).unwrap();
+    let mut context = AnalysisContext::new(modules, AnalysisConfig::default());
+    let engine = PipelineEngine::new(PipelineConfig {
+        parallel: false,
+        enabled: vec!["missing-access-control".to_string()],
+        ..PipelineConfig::default()
+    });
+    let result = engine.run(&mut context);
+
+    let mut lines: Vec<usize> = result.bugs.iter().map(|bug| bug.loc.start_line).collect();
+    lines.sort();
+    assert_eq!(lines, vec![7, 8]);
+}
