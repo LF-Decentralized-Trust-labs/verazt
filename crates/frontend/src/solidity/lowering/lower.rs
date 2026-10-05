@@ -1083,13 +1083,14 @@ impl Lowerer {
         if let ast::Expr::Ident(id) = &*e.callee {
             let name = id.name.base.as_str();
             match name {
-                "keccak256" | "sha256" | "ripemd160" | "ecrecover" | "addmod" | "mulmod"
-                | "gasleft" | "blockhash" => {
+                "keccak256" | "sha3" | "sha256" | "ripemd160" | "ecrecover" | "addmod"
+                | "mulmod" | "gasleft" | "blockhash" => {
                     let (args, extra) = self.lower_call_args_exprs(&e.args)?;
                     stmts.extend(extra);
                     let mut pos = args.into_positional();
                     let evm = match name {
-                        "keccak256" => EvmExpr::Keccak256(EvmKeccak256 {
+                        // `sha3` is the name of `keccak256` before Solidity 0.5.
+                        "keccak256" | "sha3" => EvmExpr::Keccak256(EvmKeccak256 {
                             expr: Box::new(hash_input(pos, &loc)),
                             loc: loc.clone(),
                         }),

@@ -309,4 +309,18 @@ contract Prices {
         assert!(sir.contains("price = 100000000000000000;"), "{sir}");
         assert!(sir.contains("delay = 150;"), "{sir}");
     }
+
+    #[test]
+    fn test_sha3_lowers_to_keccak256() {
+        let _ = configure_unit_test_env();
+        let source = "pragma solidity ^0.4.24;
+contract Hasher {
+    function h(string s) public pure returns (bytes32) { return sha3(s); }
+}";
+        let source_units = parse_solidity_source_code(source, "0.4.26").unwrap();
+        let modules = lower_source_units(&source_units).unwrap();
+        let sir = modules.iter().map(|m| m.to_string()).collect::<String>();
+
+        assert!(sir.contains("evm.keccak256(s)"), "{sir}");
+    }
 }
